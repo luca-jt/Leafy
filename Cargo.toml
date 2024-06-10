@@ -10,6 +10,8 @@ build = "build.rs"
 stb_image = "*"
 nalgebra-glm = "*"
 russimp = { version = "*", features = ["prebuilt"] }
+gl = "*"
+sdl2 = { version = "*", features = ["bundled", "static-link", "mixer", "image"] }
 
 
 [build-dependencies]
