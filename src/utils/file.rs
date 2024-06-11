@@ -79,3 +79,5 @@ pub fn load_texture(file_name: &str) -> GLuint {
 
     tex_id
 }
+
+// TODO: parser for obj files
