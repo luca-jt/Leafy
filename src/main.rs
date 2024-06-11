@@ -4,9 +4,10 @@ use crate::app::*;
 
 mod app;
 mod audio;
-mod events;
+mod ecs;
 mod rendering;
 mod state;
+mod systems;
 mod utils;
 
 fn main() {
