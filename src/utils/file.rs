@@ -46,7 +46,7 @@ pub fn load_texture(file_name: &str) -> GLuint {
     let mut tex_id = 0;
 
     let texture: Image<u8>;
-    match stb_image::image::load_with_depth(get_texture_path(file_name), 3, false) {
+    match stb_image::image::load_with_depth(get_texture_path(file_name), 4, false) {
         LoadResult::ImageU8(im) => {
             texture = im;
         }
@@ -62,11 +62,11 @@ pub fn load_texture(file_name: &str) -> GLuint {
         gl::TexImage2D(
             gl::TEXTURE_2D,
             0,
-            gl::RGB as GLint,
+            gl::RGBA as GLint,
             texture.width as GLint,
             texture.height as GLint,
             0,
-            gl::RGB,
+            gl::RGBA,
             gl::UNSIGNED_BYTE,
             texture.data.as_ptr() as *const GLvoid,
         );
