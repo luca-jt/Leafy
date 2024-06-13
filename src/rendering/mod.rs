@@ -1,3 +1,6 @@
+pub mod batch_renderer;
 pub mod data;
-mod mesh;
+pub mod font;
+pub mod instance_renderer;
+pub mod mesh;
 pub mod shader;
