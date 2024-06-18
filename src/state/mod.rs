@@ -1,2 +1,2 @@
-mod game_state;
-mod video_state;
+pub mod game_state;
+pub mod video_state;

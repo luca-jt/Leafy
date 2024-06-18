@@ -10,6 +10,13 @@ pub struct RenderingSystem {
 }
 
 impl RenderingSystem {
+    /// creates a new rendering system
+    pub fn new() -> Self {
+        Self {
+            renderers: HashMap::new(),
+        }
+    }
+
     /// add a renderer to the system
     pub fn add_renderer(&mut self, name: String, renderer: impl Renderer) {
         self.renderers.insert(name, Box::new(renderer));
