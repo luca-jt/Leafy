@@ -7,7 +7,7 @@ pub struct Entity {
 }
 
 impl Entity {
-    pub fn add_component(&mut self, component: impl Component) {
+    pub fn add_component(&mut self, component: impl Component + 'static) {
         self.components.push(Box::new(component));
     }
 }

@@ -18,7 +18,7 @@ impl RenderingSystem {
     }
 
     /// add a renderer to the system
-    pub fn add_renderer(&mut self, name: String, renderer: impl Renderer) {
+    pub fn add_renderer(&mut self, name: String, renderer: impl Renderer + 'static) {
         self.renderers.insert(name, Box::new(renderer));
     }
 
