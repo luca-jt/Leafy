@@ -7,3 +7,5 @@ impl AnimationSystem {
         Self {}
     }
 }
+
+pub struct SampledAnimation {}

@@ -2,7 +2,6 @@ use crate::ecs::component::Component;
 
 /// abstract model of any thing in the game
 pub struct Entity {
-    id: u32,
     components: Vec<Box<dyn Component>>,
 }
 
@@ -11,3 +10,5 @@ impl Entity {
         self.components.push(Box::new(component));
     }
 }
+
+// maybe kein Component Trait mit vector sondern einfach alle komponenten mit option hardgecoded
