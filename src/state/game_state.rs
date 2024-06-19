@@ -12,4 +12,9 @@ impl GameState {
             entity_manager: EntityManager::new(),
         }
     }
+
+    /// updates the current game state
+    pub fn update(&mut self) {
+        //...
+    }
 }

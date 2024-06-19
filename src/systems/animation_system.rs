@@ -6,6 +6,11 @@ impl AnimationSystem {
     pub fn new() -> Self {
         Self {}
     }
+
+    /// updates the animations
+    pub fn update(&mut self) {
+        //...
+    }
 }
 
 pub struct SampledAnimation {}

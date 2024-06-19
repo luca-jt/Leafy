@@ -1,6 +1,7 @@
 use crate::ecs::component::{Acceleration, Velocity};
 use crate::ecs::entity::EntityID;
 use crate::utils::threading::RefCountMutex;
+use sdl2::event::Event;
 
 /// system managing the events
 pub struct EventSystem {
@@ -21,11 +22,24 @@ impl EventSystem {
             event_pump,
         }
     }
+
+    /// process all the sdl events in the event pump
+    pub fn parse_sdl_events(&mut self) -> Result<(), ()> {
+        for event in self.event_pump.poll_iter() {
+            match event {
+                Event::Quit { .. } => {
+                    return Err(());
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Events that can be processed by the event system
 #[derive(Clone)]
-pub enum Event {
+pub enum CustomEvent {
     ChangeVelocity {
         entitiy: EntityID,
         velocity: Velocity,
@@ -36,7 +50,7 @@ pub enum Event {
     },
 }
 
-pub type EventQueue = RefCountMutex<Vec<Event>>;
+pub type EventQueue = RefCountMutex<Vec<CustomEvent>>;
 
 impl EventQueue {
     /// creates a new queue
@@ -45,15 +59,15 @@ impl EventQueue {
     }
 
     /// adds an event to the queue
-    pub fn push(&mut self, event: Event) {
+    pub fn push(&mut self, event: CustomEvent) {
         self.alter(|queue| {
             queue.push(event);
         });
     }
 
     /// clears the queue and yields all the stored events
-    pub fn drain(&mut self) -> Vec<Event> {
-        let mut events: Vec<Event> = vec![];
+    pub fn drain(&mut self) -> Vec<CustomEvent> {
+        let mut events: Vec<CustomEvent> = vec![];
         self.alter(|queue| {
             events = queue.drain(..).collect();
         });

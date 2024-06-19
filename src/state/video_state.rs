@@ -8,7 +8,7 @@ use sdl2::video::{GLProfile, SwapInterval};
 pub struct VideoState {
     pub sdl_context: sdl2::Sdl,
     video_subsystem: sdl2::VideoSubsystem,
-    window: sdl2::video::Window,
+    pub window: sdl2::video::Window,
     _gl_ctx: sdl2::video::GLContext,
 }
 
@@ -30,6 +30,7 @@ impl VideoState {
             .opengl()
             .position_centered()
             .allow_highdpi()
+            .resizable()
             .build()
             .unwrap();
 
@@ -39,6 +40,7 @@ impl VideoState {
             .unwrap();
 
         let _gl_ctx = window.gl_create_context().unwrap();
+        gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const _);
         window
             .subsystem()
             .gl_set_swap_interval(SwapInterval::VSync)

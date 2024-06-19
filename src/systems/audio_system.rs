@@ -12,4 +12,9 @@ impl AudioSystem {
             audio_state: AudioState::new(sdl_context),
         }
     }
+
+    /// update audio volume etc
+    pub fn update(&mut self) {
+        //...
+    }
 }

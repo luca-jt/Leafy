@@ -16,6 +16,6 @@ impl SpriteRenderer {
 
 impl Renderer for SpriteRenderer {
     fn render(&mut self) {
-        todo!()
+        //...
     }
 }

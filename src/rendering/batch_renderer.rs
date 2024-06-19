@@ -10,6 +10,6 @@ impl BatchRenderer {
 
 impl Renderer for BatchRenderer {
     fn render(&mut self) {
-        todo!()
+        //...
     }
 }

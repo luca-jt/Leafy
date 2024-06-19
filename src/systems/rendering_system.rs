@@ -30,8 +30,22 @@ impl RenderingSystem {
 
     /// start the rendering for all renderers
     pub fn render(&mut self) {
+        clear_gl_screen();
         for renderer in self.renderers.values_mut() {
             renderer.render();
         }
+    }
+
+    /// call the opengl window swap
+    pub fn swap_window(&self) {
+        self.video_state.window.gl_swap_window();
+    }
+}
+
+/// clears the opengl viewport
+fn clear_gl_screen() {
+    unsafe {
+        gl::ClearColor(1.0, 1.0, 1.0, 1.0);
+        gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
     }
 }

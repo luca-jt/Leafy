@@ -10,6 +10,6 @@ impl InstanceRenderer {
 
 impl Renderer for InstanceRenderer {
     fn render(&mut self) {
-        todo!()
+        //...
     }
 }
