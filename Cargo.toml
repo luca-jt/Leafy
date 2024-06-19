@@ -10,7 +10,7 @@ build = "build.rs"
 stb_image = "*"
 nalgebra-glm = "*"
 gl = "*"
-sdl2 = { version = "*", features = ["bundled", "static-link", "mixer", "image"] }
+sdl2 = { version = "*", features = ["bundled", "mixer", "image"] }
 
 
 [build-dependencies]
