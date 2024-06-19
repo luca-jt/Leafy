@@ -7,9 +7,9 @@ pub struct AudioSystem {
 
 impl AudioSystem {
     /// creates a new audio system
-    pub fn new() -> Self {
+    pub fn new(sdl_context: &sdl2::Sdl) -> Self {
         Self {
-            audio_state: AudioState::new(),
+            audio_state: AudioState::new(sdl_context),
         }
     }
 }

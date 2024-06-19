@@ -1,9 +1,70 @@
+use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
+use crate::utils::file::get_image_path;
+use sdl2::image::LoadSurface;
+use sdl2::surface::Surface;
+use sdl2::video::{GLProfile, SwapInterval};
+
 /// holds the video backend attributes
-pub struct VideoState {}
+pub struct VideoState {
+    pub sdl_context: sdl2::Sdl,
+    video_subsystem: sdl2::VideoSubsystem,
+    window: sdl2::video::Window,
+    _gl_ctx: sdl2::video::GLContext,
+}
 
 impl VideoState {
     /// creates a new video state
     pub fn new() -> Self {
-        Self {}
+        let sdl_context = sdl2::init().unwrap();
+        let video_subsystem = sdl_context.video().unwrap();
+
+        let gl_attr = video_subsystem.gl_attr();
+        gl_attr.set_context_profile(GLProfile::Core);
+        gl_attr.set_double_buffer(true);
+        gl_attr.set_multisample_samples(4);
+        gl_attr.set_framebuffer_srgb_compatible(true);
+        gl_attr.set_context_version(4, 5);
+
+        let mut window = video_subsystem
+            .window(WIN_TITLE, MIN_WIN_WIDTH, MIN_WIN_HEIGHT)
+            .opengl()
+            .position_centered()
+            .allow_highdpi()
+            .build()
+            .unwrap();
+
+        window.set_icon(Surface::from_file(get_image_path("icon.png")).unwrap());
+        window
+            .set_minimum_size(MIN_WIN_WIDTH, MIN_WIN_HEIGHT)
+            .unwrap();
+
+        let _gl_ctx = window.gl_create_context().unwrap();
+        window
+            .subsystem()
+            .gl_set_swap_interval(SwapInterval::VSync)
+            .unwrap();
+
+        Self {
+            sdl_context,
+            video_subsystem,
+            window,
+            _gl_ctx,
+        }
+    }
+
+    /// enables vsync for opengl
+    pub fn enable_vsync(&mut self) {
+        self.window
+            .subsystem()
+            .gl_set_swap_interval(SwapInterval::VSync)
+            .unwrap();
+    }
+
+    /// disables vsync for opengl
+    pub fn disable_vsync(&mut self) {
+        self.window
+            .subsystem()
+            .gl_set_swap_interval(SwapInterval::Immediate)
+            .unwrap();
     }
 }

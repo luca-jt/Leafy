@@ -7,21 +7,28 @@ use crate::systems::rendering_system::RenderingSystem;
 /// main app
 pub struct App {
     game_state: GameState,
-    audio_system: AudioSystem,
-    event_system: EventSystem,
     rendering_system: RenderingSystem,
     animation_system: AnimationSystem,
+    audio_system: AudioSystem,
+    event_system: EventSystem,
 }
 
 impl App {
     /// app setup on startup
     pub fn new() -> Self {
+        let game_state = GameState::new();
+        let rendering_system = RenderingSystem::new();
+        let animation_system = AnimationSystem::new();
+        let sdl_context = &rendering_system.video_state.sdl_context;
+        let audio_system = AudioSystem::new(sdl_context);
+        let event_system = EventSystem::new(sdl_context);
+
         Self {
-            game_state: GameState::new(),
-            audio_system: AudioSystem::new(),
-            event_system: EventSystem::new(),
-            rendering_system: RenderingSystem::new(),
-            animation_system: AnimationSystem::new(),
+            game_state,
+            rendering_system,
+            animation_system,
+            audio_system,
+            event_system,
         }
     }
 

@@ -7,7 +7,7 @@ pub trait Renderer {
 }
 
 pub struct RenderingSystem {
-    video_state: VideoState,
+    pub video_state: VideoState,
     texture_map: TextureMap,
     renderers: HashMap<String, Box<dyn Renderer>>,
     // just do hardcoded renderer lists for every type?
