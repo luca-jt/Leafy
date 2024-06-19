@@ -1,39 +1,7 @@
-pub trait Component {
-    fn update(&mut self);
-}
+use nalgebra_glm as glm;
 
-pub struct Position {
-    x: f32,
-    y: f32,
-    z: f32,
-}
+pub type Position = glm::Vec3;
 
-impl Component for Position {
-    fn update(&mut self) {
-        todo!()
-    }
-}
+pub type Velocity = glm::Vec3;
 
-pub struct Velocity {
-    dx: f32,
-    dy: f32,
-    dz: f32,
-}
-
-impl Component for Velocity {
-    fn update(&mut self) {
-        todo!()
-    }
-}
-
-pub struct Acceleration {
-    ddx: f32,
-    ddy: f32,
-    ddz: f32,
-}
-
-impl Component for Acceleration {
-    fn update(&mut self) {
-        todo!()
-    }
-}
+pub type Acceleration = glm::Vec3;
