@@ -1,10 +1,11 @@
+use std::time::{Duration, Instant};
+
 use crate::state::game_state::GameState;
 use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
 use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
 use crate::utils::constants::FPS_CAP;
-use std::time::{Duration, Instant};
 
 /// main app
 pub struct App {
@@ -20,10 +21,11 @@ impl App {
     pub fn new() -> Self {
         let game_state = GameState::new();
         let rendering_system = RenderingSystem::new();
-        let animation_system = AnimationSystem::new();
         let sdl_context = &rendering_system.video_state.sdl_context;
         let audio_system = AudioSystem::new(sdl_context);
         let event_system = EventSystem::new(sdl_context);
+        let event_queue = event_system.event_queue.clone();
+        let animation_system = AnimationSystem::new(event_queue);
 
         Self {
             game_state,

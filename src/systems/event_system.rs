@@ -5,7 +5,7 @@ use sdl2::event::Event;
 
 /// system managing the events
 pub struct EventSystem {
-    event_queue: EventQueue,
+    pub event_queue: SharedEventQueue,
     event_subsystem: sdl2::EventSubsystem,
     event_pump: sdl2::EventPump,
 }
@@ -17,7 +17,7 @@ impl EventSystem {
         let event_pump = sdl_context.event_pump().unwrap();
 
         Self {
-            event_queue: EventQueue::init(),
+            event_queue: SharedEventQueue::init(),
             event_subsystem,
             event_pump,
         }
@@ -50,9 +50,9 @@ pub enum CustomEvent {
     },
 }
 
-pub type EventQueue = RefCountMutex<Vec<CustomEvent>>;
+pub type SharedEventQueue = RefCountMutex<Vec<CustomEvent>>;
 
-impl EventQueue {
+impl SharedEventQueue {
     /// creates a new queue
     pub fn init() -> Self {
         RefCountMutex::new(Vec::new())
