@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use crate::state::game_state::GameState;
+use crate::state::video_state::VideoState;
 use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
 use crate::systems::event_system::EventSystem;
@@ -10,6 +11,7 @@ use crate::utils::constants::FPS_CAP;
 /// main app
 pub struct App {
     game_state: GameState,
+    video_state: VideoState,
     rendering_system: RenderingSystem,
     animation_system: AnimationSystem,
     audio_system: AudioSystem,
@@ -20,15 +22,16 @@ impl App {
     /// app setup on startup
     pub fn new() -> Self {
         let game_state = GameState::new();
+        let video_state = VideoState::new();
         let rendering_system = RenderingSystem::new();
-        let sdl_context = &rendering_system.video_state.sdl_context;
-        let audio_system = AudioSystem::new(sdl_context);
-        let event_system = EventSystem::new(sdl_context);
+        let audio_system = AudioSystem::new(&video_state.sdl_context);
+        let event_system = EventSystem::new(&video_state.sdl_context);
         let event_queue = event_system.event_queue.clone();
         let animation_system = AnimationSystem::new(event_queue);
 
         Self {
             game_state,
+            video_state,
             rendering_system,
             animation_system,
             audio_system,
@@ -46,10 +49,14 @@ impl App {
             self.game_state.update();
             self.animation_system.update();
             self.rendering_system.render();
-            if self.event_system.parse_sdl_events().is_err() {
+            if self
+                .event_system
+                .parse_sdl_events(&mut self.video_state.window)
+                .is_err()
+            {
                 break 'running;
             }
-            self.rendering_system.swap_window();
+            self.video_state.swap_window();
             Self::cap_fps(&mut frame_start_time, &mut fps);
         }
     }

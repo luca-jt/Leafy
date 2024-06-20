@@ -1,7 +1,10 @@
 use crate::ecs::component::{Acceleration, Velocity};
 use crate::ecs::entity::EntityID;
+use crate::utils::constants::INV_WIN_RATIO;
 use crate::utils::threading::RefCountMutex;
-use sdl2::event::Event;
+use sdl2::event::{Event, WindowEvent};
+use sdl2::keyboard::Keycode;
+use sdl2::video::FullscreenType;
 
 /// system managing the events
 pub struct EventSystem {
@@ -24,12 +27,54 @@ impl EventSystem {
     }
 
     /// process all the sdl events in the event pump
-    pub fn parse_sdl_events(&mut self) -> Result<(), ()> {
+    pub fn parse_sdl_events(&mut self, window: &mut sdl2::video::Window) -> Result<(), ()> {
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => {
                     return Err(());
                 }
+                Event::KeyDown {
+                    timestamp: _,
+                    window_id: _,
+                    keycode,
+                    scancode: _,
+                    keymod: _,
+                    repeat: _,
+                } => {
+                    match keycode.unwrap() {
+                        Keycode::F11 => {
+                            // toggle fullscreen
+                            match window.fullscreen_state() {
+                                FullscreenType::Off => {
+                                    window.set_fullscreen(FullscreenType::Desktop).unwrap();
+                                }
+                                FullscreenType::Desktop => {
+                                    window.set_fullscreen(FullscreenType::Off).unwrap();
+                                }
+                                _ => {
+                                    panic!("wrong fullscreen type detected");
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                Event::Window {
+                    timestamp: _,
+                    window_id: _,
+                    win_event,
+                } => match win_event {
+                    WindowEvent::Resized(width, _) => {
+                        if !window.is_maximized()
+                            && window.fullscreen_state() != FullscreenType::Desktop
+                        {
+                            window
+                                .set_size(width as u32, (width as f32 * INV_WIN_RATIO) as u32)
+                                .unwrap();
+                        }
+                    }
+                    _ => {}
+                },
                 _ => {}
             }
         }

@@ -69,4 +69,9 @@ impl VideoState {
             .gl_set_swap_interval(SwapInterval::Immediate)
             .unwrap();
     }
+
+    /// call the opengl window swap
+    pub fn swap_window(&self) {
+        self.window.gl_swap_window();
+    }
 }
