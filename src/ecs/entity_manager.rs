@@ -16,7 +16,7 @@ impl EntityManager {
     }
 
     /// stores a new entity and returns the id of the new entity
-    pub fn add_entity(&mut self, entity: Entity) -> u64 {
+    pub fn add_entity(&mut self, entity: Entity) -> EntityID {
         self.entities.insert(self.next_id, entity);
         let id = self.next_id;
         self.next_id += 1;
