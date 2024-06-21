@@ -1,14 +1,11 @@
 use crate::rendering::batch_renderer::BatchRenderer;
-use stb_image::image::Image;
 
-pub struct SpriteRenderer {
+pub struct FontRenderer {
     batch_renderer: BatchRenderer,
-    sprite_sheet: Image<u8>,
 }
 
-impl SpriteRenderer {
+impl FontRenderer {
     /*pub fn new() -> Self {
         Self {}
     }*/
-    // TODO: render with sprite index
 }

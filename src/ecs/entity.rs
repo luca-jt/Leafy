@@ -8,14 +8,14 @@ pub enum EntityType {
     Sphere,
     Cube,
     Plane,
-}
+} // TODO: maybe some texture id / color attribute?
 
 /// abstract model of any thing in the game
 pub struct Entity {
     pub entity_type: EntityType,
     pub position: Position,
-    pub velocity: Velocity,
-    pub acceleration: Acceleration,
+    pub velocity: Option<Velocity>,
+    pub acceleration: Option<Acceleration>,
 }
 
 impl Entity {
@@ -24,8 +24,8 @@ impl Entity {
         Self {
             entity_type,
             position: Position::zeros(),
-            velocity: Velocity::zeros(),
-            acceleration: Acceleration::zeros(),
+            velocity: None,
+            acceleration: None,
         }
     }
 }
