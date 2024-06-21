@@ -1,5 +1,6 @@
 use crate::ecs::component::{Acceleration, Color32, Position, Velocity};
 use gl::types::GLuint;
+use MeshType::*;
 
 pub type EntityID = u64;
 
@@ -16,6 +17,21 @@ pub enum EntityType {
 pub enum MeshType {
     Textured(GLuint),
     Colored(Color32),
+}
+
+impl PartialEq for MeshType {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Textured(_) => match other {
+                Textured(_) => true,
+                _ => false,
+            },
+            Colored(_) => match other {
+                Colored(_) => true,
+                _ => false,
+            },
+        }
+    }
 }
 
 /// abstract model of any thing in the game

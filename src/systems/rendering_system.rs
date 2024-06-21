@@ -5,12 +5,13 @@ use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::state::game_state::GameState;
+use MeshType::*;
 use RendererType::*;
 
 pub struct RenderingSystem {
     texture_map: TextureMap,
     renderers: Vec<RendererType>,
-    // TODO: scene files (initialize the right renderers)
+    // TODO: scene files (initialize the right renderers)?
 }
 
 impl RenderingSystem {
@@ -40,9 +41,39 @@ impl RenderingSystem {
         for id in game_state.entities.iter() {
             let entity_ref = game_state.entity_manager.get_entity(*id);
             let mesh = game_state.entity_manager.get_asset(*id);
-            // find correct renderer
+
+            for r_type in self.renderers.iter() {
+                match r_type {
+                    Batch(e_type, renderer) => {
+                        if *e_type == entity_ref.entity_type {
+                            match entity_ref.mesh_type {
+                                Textured(id) => {
+                                    // add entity to renderer
+                                }
+                                Colored(color) => {
+                                    // add entity to renderer
+                                }
+                            }
+                        }
+                    }
+                    Instance(e_type, m_type, renderer) => {
+                        if *e_type == entity_ref.entity_type {
+                            if *m_type == entity_ref.mesh_type {
+                                match entity_ref.mesh_type {
+                                    Textured(id) => {
+                                        // add entity to renderer
+                                    }
+                                    Colored(color) => {
+                                        // add entity to renderer
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
             // add new renderer if needed
-            // add entity to renderer
         }
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
