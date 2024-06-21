@@ -1,4 +1,5 @@
-use crate::ecs::entity::{Entity, EntityID, EntityType};
+use crate::ecs::component::Color32;
+use crate::ecs::entity::{Entity, EntityID, EntityType, MeshType};
 use crate::ecs::entity_manager::EntityManager;
 
 /// state for the game logic
@@ -12,7 +13,7 @@ impl GameState {
     pub fn new() -> Self {
         let mut entity_manager = EntityManager::new();
 
-        let test_entity = Entity::new(EntityType::Sphere);
+        let test_entity = Entity::new(EntityType::Sphere, MeshType::Colored(Color32::RED));
         let test_id = entity_manager.create_entity(test_entity);
 
         Self {
