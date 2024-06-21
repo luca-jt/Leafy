@@ -15,6 +15,13 @@ pub struct RenderingSystem {
 impl RenderingSystem {
     /// creates a new rendering system
     pub fn new() -> Self {
+        unsafe {
+            gl::Enable(gl::DEPTH_TEST);
+            gl::DepthFunc(gl::LESS);
+            gl::Enable(gl::CULL_FACE);
+            gl::Enable(gl::SCISSOR_TEST);
+        }
+
         Self {
             texture_map: TextureMap::new(),
             renderers: HashMap::new(),
