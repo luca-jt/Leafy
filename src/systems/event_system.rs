@@ -41,30 +41,28 @@ impl EventSystem {
                     keymod: _,
                     repeat: _,
                 } => {
-                    match keycode.unwrap() {
-                        Keycode::F11 => {
-                            // toggle fullscreen
-                            match window.fullscreen_state() {
-                                FullscreenType::Off => {
-                                    window.set_fullscreen(FullscreenType::Desktop).unwrap();
-                                }
-                                FullscreenType::Desktop => {
-                                    window.set_fullscreen(FullscreenType::Off).unwrap();
-                                }
-                                _ => {
-                                    panic!("wrong fullscreen type detected");
-                                }
+                    let key = keycode.unwrap();
+                    if key == Keycode::F11 {
+                        // toggle fullscreen
+                        match window.fullscreen_state() {
+                            FullscreenType::Off => {
+                                window.set_fullscreen(FullscreenType::Desktop).unwrap();
+                            }
+                            FullscreenType::Desktop => {
+                                window.set_fullscreen(FullscreenType::Off).unwrap();
+                            }
+                            _ => {
+                                panic!("wrong fullscreen type detected");
                             }
                         }
-                        _ => {}
                     }
                 }
                 Event::Window {
                     timestamp: _,
                     window_id: _,
                     win_event,
-                } => match win_event {
-                    WindowEvent::Resized(width, _) => {
+                } => {
+                    if let WindowEvent::Resized(width, _) = win_event {
                         if !window.is_maximized()
                             && window.fullscreen_state() != FullscreenType::Desktop
                         {
@@ -73,8 +71,7 @@ impl EventSystem {
                                 .unwrap();
                         }
                     }
-                    _ => {}
-                },
+                }
                 _ => {}
             }
         }
