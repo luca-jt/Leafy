@@ -41,6 +41,7 @@ impl App {
 
     /// runs the main loop
     pub fn run(&mut self) {
+        self.audio_system.play_music("bg_music.mp3");
         let mut fps: f64 = 0.0;
         let mut frame_start_time = Instant::now();
 
@@ -70,12 +71,5 @@ impl App {
         }
         *fps = (1.0 / frame_start_time.elapsed().as_secs_f64()).round();
         *frame_start_time = Instant::now();
-    }
-}
-
-impl Drop for App {
-    fn drop(&mut self) {
-        sdl2::mixer::Music::halt();
-        sdl2::mixer::close_audio();
     }
 }

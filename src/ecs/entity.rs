@@ -7,6 +7,7 @@ pub type EntityID = u64;
 pub enum EntityType {
     Sphere,
     Cube,
+    Plane,
 }
 
 /// abstract model of any thing in the game

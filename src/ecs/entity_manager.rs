@@ -26,6 +26,7 @@ impl EntityManager {
             let mesh = match entity.entity_type {
                 EntityType::Sphere => Mesh::new("sphere.obj"),
                 EntityType::Cube => Mesh::new("cube.obj"),
+                EntityType::Plane => Mesh::new("plane.obj"),
             };
             self.asset_register
                 .insert(entity.entity_type, Rc::new(RefCell::new(mesh)));
