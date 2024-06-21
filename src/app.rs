@@ -47,8 +47,8 @@ impl App {
         'running: loop {
             self.audio_system.update();
             self.game_state.update();
-            self.animation_system.update();
-            self.rendering_system.render();
+            self.animation_system.update(&self.game_state);
+            self.rendering_system.render(&self.game_state);
             if self
                 .event_system
                 .parse_sdl_events(&mut self.video_state.window)

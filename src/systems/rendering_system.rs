@@ -1,4 +1,5 @@
 use crate::rendering::data::TextureMap;
+use crate::state::game_state::GameState;
 use std::collections::HashMap;
 
 pub trait Renderer {
@@ -26,8 +27,15 @@ impl RenderingSystem {
     }
 
     /// start the rendering for all renderers
-    pub fn render(&mut self) {
+    pub fn render(&mut self, game_state: &GameState) {
         clear_gl_screen();
+
+        for id in game_state.entities.iter() {
+            let _entity_ref = game_state.entity_manager.get_entity(*id);
+            let _mesh = game_state.entity_manager.get_asset(*id);
+            //...
+        }
+
         for renderer in self.renderers.values_mut() {
             renderer.render();
         }

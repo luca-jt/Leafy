@@ -3,8 +3,8 @@ use crate::ecs::entity_manager::EntityManager;
 
 /// state for the game logic
 pub struct GameState {
-    entity_manager: EntityManager,
-    entities: Vec<EntityID>,
+    pub entity_manager: EntityManager,
+    pub entities: Vec<EntityID>,
 }
 
 impl GameState {

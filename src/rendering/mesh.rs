@@ -1,7 +1,5 @@
 use gl::types::*;
 use nalgebra_glm as glm;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use super::data::Vertex;
 use crate::utils::file::get_model_path;
@@ -100,5 +98,3 @@ impl Mesh {
             .collect()
     }
 }
-
-pub type SharedMesh = Rc<RefCell<Mesh>>;

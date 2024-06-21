@@ -1,13 +1,11 @@
 use crate::ecs::entity::{Entity, EntityID, EntityType};
-use crate::rendering::mesh::{Mesh, SharedMesh};
-use std::cell::RefCell;
+use crate::rendering::mesh::Mesh;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 pub struct EntityManager {
     entity_register: HashMap<EntityID, Entity>,
     next_entity_id: EntityID,
-    asset_register: HashMap<EntityType, SharedMesh>,
+    asset_register: HashMap<EntityType, Mesh>,
 }
 
 impl EntityManager {
@@ -27,8 +25,7 @@ impl EntityManager {
                 EntityType::Sphere => Mesh::new("sphere.obj"),
                 EntityType::Cube => Mesh::new("cube.obj"),
             };
-            self.asset_register
-                .insert(entity.entity_type, Rc::new(RefCell::new(mesh)));
+            self.asset_register.insert(entity.entity_type, mesh);
         }
 
         self.entity_register.insert(self.next_entity_id, entity);
@@ -44,7 +41,7 @@ impl EntityManager {
     }
 
     /// get the reference of a stored entity
-    pub fn get_entity(&mut self, entity_id: EntityID) -> &Entity {
+    pub fn get_entity(&self, entity_id: EntityID) -> &Entity {
         self.entity_register.get(&entity_id).unwrap()
     }
 
@@ -54,11 +51,8 @@ impl EntityManager {
     }
 
     /// makes mesh data available for a given asset id
-    pub fn get_asset(&mut self, entity_id: EntityID) -> SharedMesh {
+    pub fn get_asset(&self, entity_id: EntityID) -> &Mesh {
         let entity = self.entity_register.get(&entity_id).unwrap();
-        self.asset_register
-            .get(&entity.entity_type)
-            .unwrap()
-            .clone()
+        self.asset_register.get(&entity.entity_type).unwrap()
     }
 }
