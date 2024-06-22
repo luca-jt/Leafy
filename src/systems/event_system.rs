@@ -81,18 +81,13 @@ impl EventSystem {
 
 /// Events that can be processed by the event system
 #[derive(Clone)]
-pub enum CustomEvent {
-    ChangeVelocity {
-        entitiy: EntityID,
-        velocity: Velocity,
-    },
-    ChangeAcceleration {
-        entitiy: EntityID,
-        acceleration: Acceleration,
-    },
+pub enum PhysicsEvent {
+    ChangeVelocity { e_id: EntityID, v: Velocity },
+    ChangeAcceleration { e_id: EntityID, a: Acceleration },
 }
 
-pub type SharedEventQueue = RefCountMutex<Vec<CustomEvent>>;
+/// threadsafe event queue
+pub type SharedEventQueue = RefCountMutex<Vec<PhysicsEvent>>;
 
 impl SharedEventQueue {
     /// creates a new queue
@@ -101,15 +96,15 @@ impl SharedEventQueue {
     }
 
     /// adds an event to the queue
-    pub fn push(&mut self, event: CustomEvent) {
+    pub fn push(&mut self, event: PhysicsEvent) {
         self.alter(|queue| {
             queue.push(event);
         });
     }
 
     /// clears the queue and yields all the stored events
-    pub fn drain(&mut self) -> Vec<CustomEvent> {
-        let mut events: Vec<CustomEvent> = vec![];
+    pub fn drain(&mut self) -> Vec<PhysicsEvent> {
+        let mut events: Vec<PhysicsEvent> = vec![];
         self.alter(|queue| {
             events = queue.drain(..).collect();
         });

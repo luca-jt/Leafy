@@ -48,7 +48,7 @@ impl App {
         'running: loop {
             self.audio_system.update();
             self.game_state.update();
-            self.animation_system.update(&self.game_state);
+            self.animation_system.update(&mut self.game_state);
             self.rendering_system.render(&self.game_state);
             if self
                 .event_system
