@@ -35,7 +35,10 @@ impl RenderingSystem {
         clear_gl_screen();
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                _ => {} // TODO
+                Batch(_, renderer) => renderer.init(),
+                Instance(_, _, renderer) => renderer.init(),
+                Font(renderer) => renderer.init(),
+                Sprite(renderer) => renderer.init(),
             }
         }
         for id in game_state.entities.iter() {
@@ -71,7 +74,10 @@ impl RenderingSystem {
         }
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                _ => {} // TODO
+                Batch(_, renderer) => renderer.end(),
+                Instance(_, _, renderer) => renderer.end(),
+                Font(renderer) => renderer.end(),
+                Sprite(renderer) => renderer.end(),
             }
         }
     }

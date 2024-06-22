@@ -72,6 +72,14 @@ impl TextureMap {
         self.textures.insert(name.to_string(), load_texture(file));
     }
 
+    /// deletes a stored texture
+    pub fn delete_texture(&mut self, name: &str) {
+        let deleted = self.textures.remove(name).expect("texture not stored");
+        unsafe {
+            gl::DeleteTextures(1, &deleted);
+        }
+    }
+
     /// yields a texture id for given name
     pub fn get_tex_id(&self, name: &str) -> GLuint {
         *self.textures.get(name).unwrap()

@@ -11,4 +11,7 @@ impl SpriteRenderer {
         Self {}
     }*/
     // TODO: render with sprite index
+
+    pub fn init(&mut self) {}
+    pub fn end(&mut self) {}
 }
