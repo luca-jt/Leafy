@@ -1,6 +1,6 @@
 use gl::types::*;
 use nalgebra_glm as glm;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 
 use super::data::Vertex;
@@ -85,7 +85,7 @@ impl Mesh {
 
     /// generates a vertex array from the struct data
     #[allow(dead_code)]
-    pub fn generate_aos(&self, color: glm::Vec3) -> Vec<Vertex> {
+    pub fn generate_aos(&self, color: glm::Vec4) -> Vec<Vertex> {
         self.positions
             .iter()
             .zip(self.texture_coords.iter())
@@ -101,4 +101,23 @@ impl Mesh {
     }
 }
 
-pub type SharedMesh = Rc<RefCell<Mesh>>;
+/// reference counted mesh
+#[derive(Clone)]
+pub struct SharedMesh(Rc<RefCell<Mesh>>);
+
+impl SharedMesh {
+    /// creates a new shared mesh from file
+    pub fn from_file(file_name: &str) -> Self {
+        Self(Rc::new(RefCell::new(Mesh::new(file_name))))
+    }
+
+    /// creates a new shared mesh from existing mesh
+    pub fn from_mesh(mesh: Mesh) -> Self {
+        Self(Rc::new(RefCell::new(mesh)))
+    }
+
+    /// borrows the stored value immutably
+    pub fn borrow(&self) -> Ref<'_, Mesh> {
+        self.0.borrow()
+    }
+}

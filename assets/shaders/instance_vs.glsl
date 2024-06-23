@@ -5,12 +5,12 @@ in vec2 uv;
 in vec3 normal;
 in vec3 offset;
 
-out vec3 v_color;
+out vec4 v_color;
 out vec2 v_uv;
 out vec3 v_normal;
 out vec3 frag_pos;
 
-uniform vec3 color;
+uniform vec4 color;
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;

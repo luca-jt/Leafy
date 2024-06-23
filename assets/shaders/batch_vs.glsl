@@ -1,12 +1,12 @@
 #version 450 core
 
 in vec3 position;
-in vec3 color;
+in vec4 color;
 in vec2 uv;
 in vec3 normal;
 in float tex_idx;
 
-out vec3 v_color;
+out vec4 v_color;
 out vec2 v_uv;
 out vec3 v_normal;
 out float v_tex_idx;

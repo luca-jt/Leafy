@@ -1,10 +1,11 @@
 use crate::ecs::entity::{EntityType, MeshType};
 use crate::rendering::batch_renderer::BatchRenderer;
-use crate::rendering::data::TextureMap;
+use crate::rendering::data::{PerspectiveCamera, TextureMap};
 use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::state::game_state::GameState;
+use nalgebra_glm as glm;
 use MeshType::*;
 use RendererType::*;
 
@@ -12,6 +13,7 @@ pub struct RenderingSystem {
     texture_map: TextureMap,
     renderers: Vec<RendererType>,
     // TODO: scene files (initialize the right renderers)?
+    perspective_camera: PerspectiveCamera, // ortho cam too
 }
 
 impl RenderingSystem {
@@ -27,6 +29,10 @@ impl RenderingSystem {
         Self {
             texture_map: TextureMap::new(),
             renderers: Vec::new(),
+            perspective_camera: PerspectiveCamera::new(
+                glm::Vec3::new(0.0, 1.0, -1.0),
+                glm::Vec3::zeros(),
+            ),
         }
     }
 
@@ -35,8 +41,8 @@ impl RenderingSystem {
         clear_gl_screen();
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                Batch(_, renderer) => renderer.init(),
-                Instance(_, _, renderer) => renderer.init(),
+                Batch(_, renderer) => renderer.begin_batch(),
+                Instance(..) => {}
                 Font(renderer) => renderer.init(),
                 Sprite(renderer) => renderer.init(),
             }
@@ -45,15 +51,25 @@ impl RenderingSystem {
             let entity_ref = game_state.entity_manager.get_entity(*id);
             let mesh = game_state.entity_manager.get_asset(*id);
 
-            for r_type in self.renderers.iter() {
+            for r_type in self.renderers.iter_mut() {
                 if let Batch(e_type, renderer) = r_type {
                     if *e_type == entity_ref.entity_type {
                         match entity_ref.mesh_type {
                             Textured(id) => {
-                                // add entity to renderer
+                                renderer.draw_tex_mesh(
+                                    entity_ref.position,
+                                    1.0,
+                                    id,
+                                    &self.perspective_camera,
+                                );
                             }
                             Colored(color) => {
-                                // add entity to renderer
+                                renderer.draw_color_mesh(
+                                    entity_ref.position,
+                                    1.0,
+                                    color.to_vec4(),
+                                    &self.perspective_camera,
+                                );
                             }
                         }
                     }
@@ -70,12 +86,15 @@ impl RenderingSystem {
                     }
                 }
             }
-            // add new renderer if needed
+            // TODO: add new renderer if needed
         }
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                Batch(_, renderer) => renderer.end(),
-                Instance(_, _, renderer) => renderer.end(),
+                Batch(_, renderer) => {
+                    renderer.end_batch();
+                    renderer.flush(&self.perspective_camera);
+                }
+                Instance(_, _, renderer) => renderer.draw_all(&self.perspective_camera),
                 Font(renderer) => renderer.end(),
                 Sprite(renderer) => renderer.end(),
             }
@@ -86,7 +105,7 @@ impl RenderingSystem {
 /// stores the renderer type with rendered entity type + renderer
 pub enum RendererType {
     Batch(EntityType, BatchRenderer),
-    Instance(EntityType, MeshType, InstanceRenderer),
+    Instance(EntityType, MeshType, InstanceRenderer<10>), // TODO: instance number
     Font(FontRenderer),
     Sprite(SpriteRenderer),
 }

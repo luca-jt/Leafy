@@ -1,8 +1,6 @@
 use crate::ecs::entity::{Entity, EntityID, EntityType};
 use crate::rendering::mesh::{Mesh, SharedMesh};
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 pub struct EntityManager {
     entity_register: HashMap<EntityID, Entity>,
@@ -29,7 +27,7 @@ impl EntityManager {
                 EntityType::Plane => Mesh::new("plane.obj"),
             };
             self.asset_register
-                .insert(entity.entity_type, Rc::new(RefCell::new(mesh)));
+                .insert(entity.entity_type, SharedMesh::from_mesh(mesh));
         }
 
         self.entity_register.insert(self.next_entity_id, entity);

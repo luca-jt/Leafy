@@ -1,3 +1,4 @@
+use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH};
 use crate::utils::file::get_texture_path;
 use gl::types::*;
 use nalgebra_glm as glm;
@@ -48,7 +49,7 @@ pub fn load_texture(file_name: &str) -> GLuint {
 /// data for a single vertex
 pub struct Vertex {
     pub position: glm::Vec3,
-    pub color: glm::Vec3,
+    pub color: glm::Vec4,
     pub uv_coords: glm::Vec2,
     pub normal: glm::Vec3,
     pub tex_index: GLfloat,
@@ -93,5 +94,46 @@ impl Drop for TextureMap {
                 gl::DeleteTextures(1, texture);
             }
         }
+    }
+}
+
+/// stores the current camera config for 3d rendering
+pub struct PerspectiveCamera {
+    pub projection: glm::Mat4,
+    pub view: glm::Mat4,
+    pub model: glm::Mat4,
+    pub light_src: glm::Vec3,
+}
+
+impl PerspectiveCamera {
+    /// creates new config with default values
+    pub fn new(position: glm::Vec3, focus: glm::Vec3) -> Self {
+        let fov = 45.0_f32.to_radians();
+        let projection = glm::perspective::<f32>(
+            MIN_WIN_WIDTH as f32 / MIN_WIN_HEIGHT as f32,
+            fov,
+            0.1,
+            100.0,
+        );
+        let up = glm::Vec3::y_axis();
+        let view = glm::look_at::<f32>(&position, &focus, &up);
+        let model = glm::Mat4::identity();
+
+        Self {
+            projection,
+            view,
+            model,
+            light_src: glm::Vec3::new(1.0, 1.0, 1.0),
+        }
+    }
+
+    /// update the model matrix for a specific object position `(x, y, z)`
+    pub fn update_model(&mut self, x: f32, y: f32, z: f32) {
+        self.model = glm::translate(&glm::Mat4::identity(), &glm::Vec3::new(x, y, z));
+    }
+
+    /// updates the camera for given camera position and focus
+    pub fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
+        self.view = glm::look_at::<f32>(&position, &focus, &glm::Vec3::y_axis());
     }
 }
