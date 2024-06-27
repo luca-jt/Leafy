@@ -1,4 +1,4 @@
-use super::data::PerspectiveCamera;
+use super::data::{PerspectiveCamera, ShadowMap};
 use super::mesh::SharedMesh;
 use super::shader::ShaderProgram;
 use crate::ecs::component::Color32;
@@ -45,8 +45,10 @@ impl<const NUM_INSTANCES: usize> InstanceRenderer<NUM_INSTANCES> {
             program.add_unif_location("view");
             program.add_unif_location("model");
             program.add_unif_location("tex_sampler");
+            program.add_unif_location("shadow_map");
             program.add_unif_location("light_pos");
             program.add_unif_location("color");
+            program.add_unif_location("light_matrix");
 
             program.add_attr_location("position");
             program.add_attr_location("uv");
@@ -190,8 +192,8 @@ impl<const NUM_INSTANCES: usize> InstanceRenderer<NUM_INSTANCES> {
         self.pos_idx += 1;
     }
 
-    /// draws the mesh at all the positions specified until the call of this and clears the positions
-    pub fn draw_all(&mut self, camera: &PerspectiveCamera) {
+    /// end position input, copy all the added positions to the gpu
+    pub fn confirm_positions(&self) {
         unsafe {
             // dynamically copy the updated postion data
             let positions_size: GLsizeiptr =
@@ -203,10 +205,33 @@ impl<const NUM_INSTANCES: usize> InstanceRenderer<NUM_INSTANCES> {
                 positions_size,
                 self.positions[0].as_ptr() as *const GLvoid,
             );
+        }
+    }
+
+    /// renders to the shadow map
+    pub fn render_shadows(&self) {
+        unsafe {
+            // draw the instanced triangles corresponding to the index buffer
+            gl::BindVertexArray(self.vao);
+            gl::DrawElementsInstanced(
+                gl::TRIANGLES,
+                self.index_count,
+                gl::UNSIGNED_SHORT,
+                ptr::null(),
+                self.pos_idx as GLsizei,
+            );
+            gl::BindVertexArray(0);
+        }
+    }
+
+    /// draws the mesh at all the positions specified until the call of this and clears the positions
+    pub fn draw_all(&mut self, camera: &PerspectiveCamera, shadow_map: &ShadowMap) {
+        unsafe {
             // bind shader, textures, uniforms
             gl::UseProgram(self.program.id);
             // bind texture
-            gl::BindTextureUnit(self.white_texture, 0);
+            gl::BindTextureUnit(0, self.white_texture);
+            shadow_map.bind_reading(1);
             // bind uniforms
             gl::UniformMatrix4fv(
                 self.program.get_unif("projection"),
@@ -221,8 +246,15 @@ impl<const NUM_INSTANCES: usize> InstanceRenderer<NUM_INSTANCES> {
                 gl::FALSE,
                 &camera.model[0],
             );
+            gl::UniformMatrix4fv(
+                self.program.get_unif("light_matrix"),
+                1,
+                gl::FALSE,
+                &shadow_map.light_matrix[0],
+            );
             gl::Uniform3fv(self.program.get_unif("light_pos"), 1, &camera.light_src[0]);
             gl::Uniform1i(self.program.get_unif("tex_sampler"), 0);
+            gl::Uniform1i(self.program.get_unif("shadow_map"), 1);
             gl::Uniform3fv(self.program.get_unif("color"), 1, &self.color[0]);
 
             // draw the instanced triangles corresponding to the index buffer

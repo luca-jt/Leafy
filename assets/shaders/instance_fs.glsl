@@ -4,18 +4,31 @@ in vec4 v_color;
 in vec2 v_uv;
 in vec3 v_normal;
 in vec3 frag_pos;
+in vec4 frag_pos_light;
 
 out vec4 out_color;
 
 uniform sampler2D tex_sampler;
+uniform sampler2D shadow_map;
 uniform vec3 light_pos;
+
+float shadow_calc(vec4 fpl) {
+    vec3 proj_coords = fpl.xyz / fpl.w;
+    proj_coords = proj_coords * 0.5 + 0.5;
+    float closest_depth = texture(shadow_map, proj_coords.xy).x;
+    float current_depth = proj_coords.z;
+    float bias = 0.001;
+    float shadow = current_depth > closest_depth + bias ? 1.0 : 0.0;
+
+    return shadow;
+}
 
 void main() {
     float ambient_light = 0.3;
     vec3 norm = normalize(v_normal);
     vec3 light_dir = normalize(light_pos - frag_pos);
     float diff = max(dot(norm, light_dir), 0.0);
-    float light_strength = min(1.2, ambient_light + diff);
+    float light_strength = min(1.2, ambient_light + diff * (1.0 - shadow_calc(frag_pos_light)));
 
     out_color = texture(tex_sampler, v_uv).rgba * v_color * light_strength;
 }

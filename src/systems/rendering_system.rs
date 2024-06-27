@@ -1,16 +1,19 @@
 use crate::ecs::entity::{EntityType, MeshType};
 use crate::rendering::batch_renderer::BatchRenderer;
-use crate::rendering::data::{PerspectiveCamera, TextureMap};
+use crate::rendering::data::{PerspectiveCamera, ShadowMap, TextureMap};
 use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::state::game_state::GameState;
+use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH};
+use gl::types::GLsizei;
 use nalgebra_glm as glm;
 use MeshType::*;
 use RendererType::*;
 
 pub struct RenderingSystem {
     texture_map: TextureMap,
+    shadow_map: ShadowMap,
     renderers: Vec<RendererType>,
     // TODO: scene files (initialize the right renderers)?
     perspective_camera: PerspectiveCamera, // ortho cam too
@@ -28,6 +31,11 @@ impl RenderingSystem {
 
         Self {
             texture_map: TextureMap::new(),
+            shadow_map: ShadowMap::new(
+                MIN_WIN_WIDTH as GLsizei,
+                MIN_WIN_HEIGHT as GLsizei,
+                glm::Vec3::new(1.0, 1.0, 1.0),
+            ),
             renderers: Vec::new(),
             perspective_camera: PerspectiveCamera::new(
                 glm::Vec3::new(0.0, 1.0, -1.0),
@@ -61,6 +69,7 @@ impl RenderingSystem {
                                     1.0,
                                     id,
                                     &self.perspective_camera,
+                                    &self.shadow_map,
                                 );
                             }
                             Colored(color) => {
@@ -69,6 +78,7 @@ impl RenderingSystem {
                                     1.0,
                                     color.to_vec4(),
                                     &self.perspective_camera,
+                                    &self.shadow_map,
                                 );
                             }
                         }
@@ -88,13 +98,33 @@ impl RenderingSystem {
             }
             // TODO: add new renderer if needed
         }
+
+        // render shadows
+        self.shadow_map.bind_writing(&self.perspective_camera);
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
                 Batch(_, renderer) => {
                     renderer.end_batch();
-                    renderer.flush(&self.perspective_camera);
+                    renderer.render_shadows();
                 }
-                Instance(_, _, renderer) => renderer.draw_all(&self.perspective_camera),
+                Instance(_, _, renderer) => {
+                    renderer.confirm_positions();
+                    renderer.render_shadows();
+                }
+                _ => {}
+            }
+        }
+        self.shadow_map.unbind_writing();
+
+        // render geometry
+        for renderer_type in self.renderers.iter_mut() {
+            match renderer_type {
+                Batch(_, renderer) => {
+                    renderer.flush(&self.perspective_camera, &self.shadow_map);
+                }
+                Instance(_, _, renderer) => {
+                    renderer.draw_all(&self.perspective_camera, &self.shadow_map);
+                }
                 Font(renderer) => renderer.end(),
                 Sprite(renderer) => renderer.end(),
             }

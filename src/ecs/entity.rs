@@ -1,4 +1,4 @@
-use crate::ecs::component::{Acceleration, Color32, Position, Velocity};
+use crate::ecs::component::{Acceleration, Color32, Position, Quaternion, Velocity};
 use gl::types::GLuint;
 use MeshType::*;
 
@@ -39,6 +39,7 @@ pub struct Entity {
     pub entity_type: EntityType,
     pub mesh_type: MeshType,
     pub position: Position,
+    pub orientation: Quaternion,
     pub velocity: Option<Velocity>,
     pub acceleration: Option<Acceleration>,
 }
@@ -50,6 +51,7 @@ impl Entity {
             entity_type,
             mesh_type,
             position: Position::zeros(),
+            orientation: Quaternion::zeros(),
             velocity: None,
             acceleration: None,
         }

@@ -1,9 +1,11 @@
+use crate::rendering::shader::ShaderProgram;
 use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH};
 use crate::utils::file::get_texture_path;
 use gl::types::*;
 use nalgebra_glm as glm;
 use stb_image::image::{Image, LoadResult};
 use std::collections::HashMap;
+use std::ptr;
 
 /// loads an opengl texture
 pub fn load_texture(file_name: &str) -> GLuint {
@@ -97,7 +99,7 @@ impl Drop for TextureMap {
     }
 }
 
-/// stores the current camera config for 3d rendering
+/// stores the current camera config for 3D rendering
 pub struct PerspectiveCamera {
     pub projection: glm::Mat4,
     pub view: glm::Mat4,
@@ -135,5 +137,134 @@ impl PerspectiveCamera {
     /// updates the camera for given camera position and focus
     pub fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
         self.view = glm::look_at::<f32>(&position, &focus, &glm::Vec3::y_axis());
+    }
+}
+
+/// stores the current camera config for 2D rendering
+pub struct OrthoCamera {
+    // TODO
+}
+
+/// shadow map used for rendering
+pub struct ShadowMap {
+    dbo: GLuint,
+    shadow_map: GLuint,
+    width: GLsizei,
+    height: GLsizei,
+    pub light_matrix: glm::Mat4,
+    light_src: glm::Vec3,
+    program: ShaderProgram,
+    tmp_viewport: [GLint; 4],
+}
+
+impl ShadowMap {
+    /// creates a new shadow map with given size
+    pub fn new(width: GLsizei, height: GLsizei, light_src: glm::Vec3) -> Self {
+        let mut dbo = 0;
+        let mut shadow_map = 0;
+        let mut program = ShaderProgram::new("shadow_vs.glsl", "shadow_fs.glsl");
+
+        unsafe {
+            program.add_attr_location("position");
+            program.add_attr_location("offset");
+            program.add_unif_location("light_matrix");
+            program.add_unif_location("model");
+
+            gl::GenFramebuffers(1, &mut dbo);
+            gl::GenTextures(1, &mut shadow_map);
+
+            gl::BindTexture(gl::TEXTURE_2D, shadow_map);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::DEPTH_COMPONENT as GLint,
+                width,
+                height,
+                0,
+                gl::DEPTH_COMPONENT,
+                gl::FLOAT,
+                ptr::null(),
+            );
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+
+            gl::BindFramebuffer(gl::FRAMEBUFFER, dbo);
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl::DEPTH_ATTACHMENT,
+                gl::TEXTURE_2D,
+                shadow_map,
+                0,
+            );
+            gl::DrawBuffer(gl::NONE);
+            gl::ReadBuffer(gl::NONE);
+
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+        }
+
+        Self {
+            dbo,
+            shadow_map,
+            width,
+            height,
+            light_matrix: glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0) // warum auch immer 10 lol
+                * glm::look_at(&light_src, &glm::Vec3::zeros(), &glm::Vec3::y_axis()),
+            light_src,
+            program,
+            tmp_viewport: [0; 4],
+        }
+    }
+
+    /// bind the depth buffer for writing
+    pub fn bind_writing(&mut self, camera: &PerspectiveCamera) {
+        unsafe {
+            gl::GetIntegerv(gl::VIEWPORT, &mut self.tmp_viewport[0]);
+            gl::Viewport(0, 0, self.width, self.height);
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.dbo);
+            gl::UseProgram(self.program.id);
+            gl::Clear(gl::DEPTH_BUFFER_BIT);
+            gl::UniformMatrix4fv(
+                self.program.get_unif("light_matrix"),
+                1,
+                gl::FALSE,
+                &self.light_matrix[0],
+            );
+            gl::UniformMatrix4fv(
+                self.program.get_unif("model"),
+                1,
+                gl::FALSE,
+                &camera.model[0],
+            );
+        }
+    }
+
+    pub fn unbind_writing(&self) {
+        unsafe {
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+            gl::Viewport(
+                self.tmp_viewport[0],
+                self.tmp_viewport[1],
+                self.tmp_viewport[2] as GLsizei,
+                self.tmp_viewport[3] as GLsizei,
+            );
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
+    }
+
+    /// bind the shadow map for reading
+    pub unsafe fn bind_reading(&self, texture_unit: GLuint) {
+        gl::BindTextureUnit(texture_unit, self.shadow_map);
+    }
+}
+
+impl Drop for ShadowMap {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(1, &self.shadow_map);
+            gl::DeleteFramebuffers(1, &self.dbo);
+        }
     }
 }

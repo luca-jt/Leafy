@@ -1,4 +1,4 @@
-use super::data::{PerspectiveCamera, Vertex};
+use super::data::{PerspectiveCamera, ShadowMap, Vertex};
 use super::mesh::SharedMesh;
 use super::shader::ShaderProgram;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
@@ -20,7 +20,7 @@ pub struct BatchRenderer {
     program: ShaderProgram,
     shared_mesh: SharedMesh,
     max_num_meshes: usize,
-    samplers: [i32; MAX_TEXTURE_COUNT],
+    samplers: [i32; MAX_TEXTURE_COUNT - 1],
 }
 
 impl BatchRenderer {
@@ -35,7 +35,7 @@ impl BatchRenderer {
         let mut ibo = 0;
         let mut program = ShaderProgram::new("batch_vs.glsl", "batch_fs.glsl");
         let mut white_texture = 0;
-        let mut tex_slots: Vec<GLuint> = vec![0; MAX_TEXTURE_COUNT];
+        let mut tex_slots: Vec<GLuint> = vec![0; MAX_TEXTURE_COUNT - 1];
 
         unsafe {
             // CREATE SHADER
@@ -43,7 +43,9 @@ impl BatchRenderer {
             program.add_unif_location("view");
             program.add_unif_location("model");
             program.add_unif_location("tex_sampler");
+            program.add_unif_location("shadow_map");
             program.add_unif_location("light_pos");
+            program.add_unif_location("light_matrix");
 
             program.add_attr_location("position");
             program.add_attr_location("color");
@@ -146,7 +148,7 @@ impl BatchRenderer {
             gl::BindVertexArray(0);
         }
         // TEXTURE SAMPLERS
-        let mut samplers: [GLint; MAX_TEXTURE_COUNT] = [0; MAX_TEXTURE_COUNT];
+        let mut samplers: [GLint; MAX_TEXTURE_COUNT - 1] = [0; MAX_TEXTURE_COUNT - 1];
         for (i, sampler) in samplers.iter_mut().enumerate() {
             *sampler = i as GLint;
         }
@@ -189,13 +191,29 @@ impl BatchRenderer {
         }
     }
 
+    /// renders to the shadow map
+    pub fn render_shadows(&self) {
+        unsafe {
+            // draw the triangles corresponding to the index buffer
+            gl::BindVertexArray(self.vao);
+            gl::DrawElements(
+                gl::TRIANGLES,
+                self.index_count,
+                gl::UNSIGNED_SHORT,
+                ptr::null(),
+            );
+            gl::BindVertexArray(0);
+        }
+    }
+
     /// send data to GPU and reset
-    pub fn flush(&mut self, camera: &PerspectiveCamera) {
+    pub fn flush(&mut self, camera: &PerspectiveCamera, shadow_map: &ShadowMap) {
         unsafe {
             // bind shader, textures, uniforms
             gl::UseProgram(self.program.id);
             // bind textures
-            for i in 0..self.tex_slot_index {
+            shadow_map.bind_reading(0);
+            for i in 1..self.tex_slot_index {
                 gl::BindTextureUnit(i, *self.tex_slots.get(i as usize).unwrap());
             }
             // bind uniforms
@@ -212,10 +230,17 @@ impl BatchRenderer {
                 gl::FALSE,
                 &camera.model[0],
             );
+            gl::UniformMatrix4fv(
+                self.program.get_unif("light_matrix"),
+                1,
+                gl::FALSE,
+                &shadow_map.light_matrix[0],
+            );
             gl::Uniform3fv(self.program.get_unif("light_pos"), 1, &camera.light_src[0]);
+            gl::Uniform1i(self.program.get_unif("shadow_map"), 0);
             gl::Uniform1iv(
                 self.program.get_unif("tex_sampler"),
-                MAX_TEXTURE_COUNT as GLsizei,
+                MAX_TEXTURE_COUNT as GLsizei - 1,
                 &self.samplers[0],
             );
 
@@ -240,16 +265,17 @@ impl BatchRenderer {
         scale: f32,
         tex_id: GLuint,
         camera: &PerspectiveCamera,
+        shadow_map: &ShadowMap,
     ) {
         let mesh = self.shared_mesh.clone();
         let mesh = mesh.borrow();
 
         if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes
-            || self.tex_slot_index as usize > MAX_TEXTURE_COUNT
+            || self.tex_slot_index as usize > MAX_TEXTURE_COUNT - 1
         {
             // start a new batch if batch size exceeded or ran out of texture slots
             self.end_batch();
-            self.flush(camera);
+            self.flush(camera, shadow_map);
             self.begin_batch();
         }
 
@@ -291,6 +317,7 @@ impl BatchRenderer {
         scale: f32,
         color: glm::Vec4,
         camera: &PerspectiveCamera,
+        shadow_map: &ShadowMap,
     ) {
         let mesh = self.shared_mesh.clone();
         let mesh = mesh.borrow();
@@ -298,7 +325,7 @@ impl BatchRenderer {
         if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes {
             // start a new batch if batch size exceeded
             self.end_batch();
-            self.flush(camera);
+            self.flush(camera, shadow_map);
             self.begin_batch();
         }
 

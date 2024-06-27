@@ -41,7 +41,7 @@ impl EventSystem {
                     keymod: _,
                     repeat: _,
                 } => {
-                    let key = keycode.unwrap();
+                    let key = keycode.unwrap_or(Keycode::AMPERSAND); // just smth random that nobody uses
                     if key == Keycode::F11 {
                         // toggle fullscreen
                         match window.fullscreen_state() {
