@@ -155,6 +155,7 @@ pub struct ShadowMap {
     light_src: glm::Vec3,
     program: ShaderProgram,
     tmp_viewport: [GLint; 4],
+    pub depth_buffer_cleared: bool,
 }
 
 impl ShadowMap {
@@ -210,11 +211,22 @@ impl ShadowMap {
             shadow_map,
             width,
             height,
-            light_matrix: glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0) // warum auch immer 10 lol
+            light_matrix: glm::ortho(-50.0, 50.0, -50.0, 50.0, 0.1, 100.0)
                 * glm::look_at(&light_src, &glm::Vec3::zeros(), &glm::Vec3::y_axis()),
             light_src,
             program,
             tmp_viewport: [0; 4],
+            depth_buffer_cleared: false,
+        }
+    }
+
+    /// clears the depth buffer bit of the shadow map if not already done
+    pub fn try_clear_depth(&mut self) {
+        if !self.depth_buffer_cleared {
+            unsafe {
+                gl::Clear(gl::DEPTH_BUFFER_BIT);
+            }
+            self.depth_buffer_cleared = true;
         }
     }
 
@@ -225,7 +237,6 @@ impl ShadowMap {
             gl::Viewport(0, 0, self.width, self.height);
             gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.dbo);
             gl::UseProgram(self.program.id);
-            gl::Clear(gl::DEPTH_BUFFER_BIT);
             gl::UniformMatrix4fv(
                 self.program.get_unif("light_matrix"),
                 1,

@@ -5,8 +5,6 @@ use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::state::game_state::GameState;
-use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH};
-use gl::types::GLsizei;
 use nalgebra_glm as glm;
 use MeshType::*;
 use RendererType::*;
@@ -31,11 +29,7 @@ impl RenderingSystem {
 
         Self {
             texture_map: TextureMap::new(),
-            shadow_map: ShadowMap::new(
-                MIN_WIN_WIDTH as GLsizei,
-                MIN_WIN_HEIGHT as GLsizei,
-                glm::Vec3::new(1.0, 1.0, 1.0),
-            ),
+            shadow_map: ShadowMap::new(1024, 1024, glm::Vec3::new(1.0, 1.0, 1.0)),
             renderers: Vec::new(),
             perspective_camera: PerspectiveCamera::new(
                 glm::Vec3::new(0.0, 1.0, -1.0),
@@ -69,7 +63,7 @@ impl RenderingSystem {
                                     1.0,
                                     id,
                                     &self.perspective_camera,
-                                    &self.shadow_map,
+                                    &mut self.shadow_map,
                                 );
                             }
                             Colored(color) => {
@@ -78,7 +72,7 @@ impl RenderingSystem {
                                     1.0,
                                     color.to_vec4(),
                                     &self.perspective_camera,
-                                    &self.shadow_map,
+                                    &mut self.shadow_map,
                                 );
                             }
                         }
@@ -101,6 +95,7 @@ impl RenderingSystem {
 
         // render shadows
         self.shadow_map.bind_writing(&self.perspective_camera);
+        self.shadow_map.try_clear_depth();
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
                 Batch(_, renderer) => {
@@ -115,6 +110,7 @@ impl RenderingSystem {
             }
         }
         self.shadow_map.unbind_writing();
+        self.shadow_map.depth_buffer_cleared = false;
 
         // render geometry
         for renderer_type in self.renderers.iter_mut() {

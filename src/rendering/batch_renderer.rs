@@ -265,7 +265,7 @@ impl BatchRenderer {
         scale: f32,
         tex_id: GLuint,
         camera: &PerspectiveCamera,
-        shadow_map: &ShadowMap,
+        shadow_map: &mut ShadowMap,
     ) {
         let mesh = self.shared_mesh.clone();
         let mesh = mesh.borrow();
@@ -275,6 +275,10 @@ impl BatchRenderer {
         {
             // start a new batch if batch size exceeded or ran out of texture slots
             self.end_batch();
+            shadow_map.bind_writing(camera);
+            shadow_map.try_clear_depth();
+            self.render_shadows();
+            shadow_map.unbind_writing();
             self.flush(camera, shadow_map);
             self.begin_batch();
         }
@@ -317,7 +321,7 @@ impl BatchRenderer {
         scale: f32,
         color: glm::Vec4,
         camera: &PerspectiveCamera,
-        shadow_map: &ShadowMap,
+        shadow_map: &mut ShadowMap,
     ) {
         let mesh = self.shared_mesh.clone();
         let mesh = mesh.borrow();
@@ -325,6 +329,10 @@ impl BatchRenderer {
         if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes {
             // start a new batch if batch size exceeded
             self.end_batch();
+            shadow_map.bind_writing(camera);
+            shadow_map.try_clear_depth();
+            self.render_shadows();
+            shadow_map.unbind_writing();
             self.flush(camera, shadow_map);
             self.begin_batch();
         }
