@@ -10,6 +10,8 @@ build = "build.rs"
 stb_image = "*"
 nalgebra-glm = "*"
 gl = "*"
+obj-rs = "*"
+fontdue = "*"
 
 
 [dependencies.sdl2]

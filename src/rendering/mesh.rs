@@ -1,6 +1,9 @@
 use gl::types::*;
 use nalgebra_glm as glm;
+use obj::{load_obj, Obj, TexturedVertex};
 use std::cell::{Ref, RefCell};
+use std::fs::File;
+use std::io::BufReader;
 use std::rc::Rc;
 
 use super::data::Vertex;
@@ -18,52 +21,32 @@ impl Mesh {
     /// creates a new Mesh from an obj file
     pub fn new(file_name: &str) -> Self {
         // load scene data from file
-        /*let scene = Scene::from_file(
-            get_model_path(file_name).as_str(),
-            vec![PostProcess::FlipUVs],
-        )
-            .expect("failed to load mesh file");*/
-
-        let mut positions: Vec<glm::Vec3> = Vec::new();
-        let mut texture_coords: Vec<glm::Vec2> = Vec::new();
-        let mut normals: Vec<glm::Vec3> = Vec::new();
-        let mut indeces: Vec<GLushort> = Vec::new();
+        let data = BufReader::new(File::open(get_model_path(file_name)).unwrap());
+        let mut model: Obj<TexturedVertex> = load_obj(data).unwrap();
 
         // convert the data into the required format
-        /*for russimp_mesh in scene.meshes {
-            let mut added_positions: Vec<glm::Vec3> = russimp_mesh
-                .vertices
-                .iter()
-                .map(|v| glm::Vec3::new(v.x, v.y, v.z))
-                .collect();
-            positions.append(&mut added_positions);
+        let mut positions: Vec<glm::Vec3> = model
+            .vertices
+            .iter()
+            .map(|vertex| {
+                glm::Vec3::new(vertex.position[0], vertex.position[1], vertex.position[2])
+            })
+            .collect();
 
-            let mut added_tex_coords: Vec<glm::Vec2> = russimp_mesh
-                .texture_coords
-                .first()
-                .unwrap()
-                .clone()
-                .unwrap()
-                .iter()
-                .map(|uv| glm::Vec2::new(uv.x, uv.y))
-                .collect();
-            texture_coords.append(&mut added_tex_coords);
+        // TODO: flip uvs?
+        let mut texture_coords: Vec<glm::Vec2> = model
+            .vertices
+            .iter()
+            .map(|vertex| glm::Vec2::new(vertex.texture[0], vertex.texture[1]))
+            .collect();
 
-            let mut added_normals: Vec<glm::Vec3> = russimp_mesh
-                .normals
-                .iter()
-                .map(|n| glm::Vec3::new(n.x, n.y, n.z))
-                .collect();
-            normals.append(&mut added_normals);
+        let mut normals: Vec<glm::Vec3> = model
+            .vertices
+            .iter()
+            .map(|vertex| glm::Vec3::new(vertex.normal[0], vertex.normal[1], vertex.normal[2]))
+            .collect();
 
-            let mut added_indeces: Vec<GLushort> = russimp_mesh
-                .faces
-                .iter()
-                .map(|face| -> Vec<GLushort> { face.0.iter().map(|i| *i as GLushort).collect() })
-                .flatten()
-                .collect();
-            indeces.append(&mut added_indeces);
-        }*/
+        let indeces: Vec<GLushort> = model.indices;
 
         Self {
             positions,
