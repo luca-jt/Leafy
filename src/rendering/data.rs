@@ -136,13 +136,31 @@ impl PerspectiveCamera {
 
     /// updates the camera for given camera position and focus
     pub fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
-        self.view = glm::look_at::<f32>(&position, &focus, &glm::Vec3::y_axis());
+        self.view = glm::look_at(&position, &focus, &glm::Vec3::y_axis());
     }
 }
 
 /// stores the current camera config for 2D rendering
 pub struct OrthoCamera {
-    // TODO
+    pub projection: glm::Mat4,
+    pub view: glm::Mat4,
+}
+
+impl OrthoCamera {
+    /// creates a new orthographic camera
+    pub fn new(left: f32, right: f32, bottom: f32, top: f32) -> Self {
+        let position = glm::Vec3::new(0.0, 0.0, -1.0);
+
+        Self {
+            projection: glm::ortho(left, right, bottom, top, -1.0, 1.0),
+            view: glm::look_at(&position, &glm::Vec3::zeros(), &glm::Vec3::y_axis()),
+        }
+    }
+
+    /// updates the camera for given camera position and focus
+    pub fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
+        self.view = glm::look_at(&position, &focus, &glm::Vec3::y_axis());
+    }
 }
 
 /// shadow map used for rendering
