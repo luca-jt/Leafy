@@ -1,5 +1,6 @@
 use super::event_system::{PhysicsEvent, SharedEventQueue};
 use crate::state::game_state::GameState;
+use crate::utils::constants::G;
 use PhysicsEvent::*;
 
 /// system managing the animations
@@ -30,9 +31,21 @@ impl AnimationSystem {
             }
         }
         // apply physics
-        for id in game_state.entities.iter() {
-            let _entity_ref = game_state.entity_manager.get_entity(*id);
-            //...
+        // TODO(luca): collision checking
+        // TODO(luca): friction
+        for id in game_state.moving_entities.iter() {
+            let entity_ref = game_state.entity_manager.get_entity_mut(*id);
+
+            let dt = entity_ref.elapsed_time_f32();
+            let a = &mut entity_ref.acceleration.unwrap();
+            let v = &mut entity_ref.velocity.unwrap();
+            let s = &mut entity_ref.position;
+
+            *s += 0.5 * *a * dt.powi(2) + *v * dt;
+            *v += *a * dt;
+            *a = G; // ?
+
+            entity_ref.reset_time();
         }
         //...
     }

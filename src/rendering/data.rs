@@ -157,6 +157,16 @@ impl OrthoCamera {
         }
     }
 
+    /// creates a new orthographic camera from a size: `(-size, size, -size, size)`
+    pub fn from_size(size: f32) -> Self {
+        let position = glm::Vec3::new(0.0, 0.0, -1.0);
+
+        Self {
+            projection: glm::ortho(-size, size, -size, size, -1.0, 1.0),
+            view: glm::look_at(&position, &glm::Vec3::zeros(), &glm::Vec3::y_axis()),
+        }
+    }
+
     /// updates the camera for given camera position and focus
     pub fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
         self.view = glm::look_at(&position, &focus, &glm::Vec3::y_axis());

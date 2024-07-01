@@ -1,6 +1,6 @@
 use crate::ecs::entity::{EntityType, MeshType};
 use crate::rendering::batch_renderer::BatchRenderer;
-use crate::rendering::data::{PerspectiveCamera, ShadowMap, TextureMap};
+use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
 use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::sprite_renderer::SpriteRenderer;
@@ -14,7 +14,8 @@ pub struct RenderingSystem {
     shadow_map: ShadowMap,
     renderers: Vec<RendererType>,
     // TODO: scene files (initialize the right renderers)?
-    perspective_camera: PerspectiveCamera, // ortho cam too
+    perspective_camera: PerspectiveCamera,
+    ortho_camera: OrthoCamera,
 }
 
 impl RenderingSystem {
@@ -35,6 +36,7 @@ impl RenderingSystem {
                 glm::Vec3::new(0.0, 1.0, -1.0),
                 glm::Vec3::zeros(),
             ),
+            ortho_camera: OrthoCamera::from_size(1.0),
         }
     }
 
@@ -49,9 +51,10 @@ impl RenderingSystem {
                 Sprite(renderer) => renderer.init(),
             }
         }
-        for id in game_state.entities.iter() {
-            let entity_ref = game_state.entity_manager.get_entity(*id);
-            let mesh = game_state.entity_manager.get_asset(*id);
+        for entity_ref in game_state.entity_manager.all_entities_iter() {
+            let mesh = game_state
+                .entity_manager
+                .asset_from_type(entity_ref.entity_type);
 
             for r_type in self.renderers.iter_mut() {
                 if let Batch(e_type, renderer) = r_type {

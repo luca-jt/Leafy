@@ -1,5 +1,6 @@
 use crate::ecs::component::{Acceleration, Color32, Position, Quaternion, Velocity};
 use gl::types::GLuint;
+use std::time::Instant;
 use MeshType::*;
 
 pub type EntityID = u64;
@@ -40,20 +41,45 @@ pub struct Entity {
     pub mesh_type: MeshType,
     pub position: Position,
     pub orientation: Quaternion,
+    last_touch_time: Instant,
     pub velocity: Option<Velocity>,
     pub acceleration: Option<Acceleration>,
 }
 
 impl Entity {
-    /// creates a default entity
-    pub fn new(entity_type: EntityType, mesh_type: MeshType) -> Self {
+    /// creates a default fixed entity
+    pub fn new_fixed(entity_type: EntityType, mesh_type: MeshType, position: Position) -> Self {
         Self {
             entity_type,
             mesh_type,
-            position: Position::zeros(),
+            position,
             orientation: Quaternion::zeros(),
+            last_touch_time: Instant::now(),
             velocity: None,
             acceleration: None,
         }
+    }
+
+    /// creates a default moving entity
+    pub fn new_moving(entity_type: EntityType, mesh_type: MeshType, position: Position) -> Self {
+        Self {
+            entity_type,
+            mesh_type,
+            position,
+            orientation: Quaternion::zeros(),
+            last_touch_time: Instant::now(),
+            velocity: Some(Velocity::zeros()),
+            acceleration: Some(Acceleration::zeros()),
+        }
+    }
+
+    /// the time elapsed since the last time the entity was animated
+    pub fn elapsed_time_f32(&self) -> f32 {
+        self.last_touch_time.elapsed().as_secs_f32()
+    }
+
+    /// resets the associated time to the current time
+    pub fn reset_time(&mut self) {
+        self.last_touch_time = Instant::now();
     }
 }
