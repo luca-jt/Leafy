@@ -4,6 +4,7 @@ use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureM
 use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::sprite_renderer::SpriteRenderer;
+use crate::rendering::voxel_renderer::VoxelRenderer;
 use crate::state::game_state::GameState;
 use nalgebra_glm as glm;
 use MeshType::*;
@@ -49,6 +50,7 @@ impl RenderingSystem {
                 Instance(..) => {}
                 Font(renderer) => renderer.init(),
                 Sprite(renderer) => renderer.init(),
+                Voxel(renderer) => renderer.init(),
             }
         }
         for entity_ref in game_state.entity_manager.all_entities_iter() {
@@ -126,6 +128,7 @@ impl RenderingSystem {
                 }
                 Font(renderer) => renderer.end(),
                 Sprite(renderer) => renderer.end(),
+                Voxel(renderer) => renderer.end(),
             }
         }
     }
@@ -137,6 +140,7 @@ pub enum RendererType {
     Instance(EntityType, MeshType, InstanceRenderer<10>), // TODO: instance number
     Font(FontRenderer),
     Sprite(SpriteRenderer),
+    Voxel(VoxelRenderer),
 }
 
 impl RendererType {
