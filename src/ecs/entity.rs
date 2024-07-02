@@ -96,27 +96,23 @@ impl Entity {
         }
     }
 
-    /// set the velocity field if present, panics when the entity is fixed
+    /// set the velocity field if present
     pub fn set_velocity(&mut self, velocity: Velocity) {
         match &mut self.motion_state {
             MotionState::Moving(v, _) => {
                 *v = velocity;
             }
-            MotionState::Fixed => {
-                panic!("entity is fixed")
-            }
+            MotionState::Fixed => {}
         }
     }
 
-    /// set the acceleration field if present, panics when the entity is fixed
+    /// set the acceleration field if present
     pub fn set_acceleration(&mut self, acceleration: Acceleration) {
         match &mut self.motion_state {
             MotionState::Moving(_, a) => {
                 *a = acceleration;
             }
-            MotionState::Fixed => {
-                panic!("entity is fixed")
-            }
+            MotionState::Fixed => {}
         }
     }
 }

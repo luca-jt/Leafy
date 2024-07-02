@@ -19,6 +19,14 @@ impl MotionState {
     pub fn zeros() -> MotionState {
         MotionState::Moving(Velocity::zeros(), Acceleration::zeros())
     }
+
+    /// checks if the state is fixed
+    pub fn is_fixed(&self) -> bool {
+        match self {
+            MotionState::Fixed => true,
+            _ => false,
+        }
+    }
 }
 
 /// efficient 32bit color representation

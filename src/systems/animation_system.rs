@@ -1,5 +1,4 @@
 use super::event_system::{PhysicsEvent, SharedEventQueue};
-use crate::ecs::component::MotionState;
 use crate::state::game_state::GameState;
 use crate::utils::constants::G;
 use PhysicsEvent::*;
@@ -23,22 +22,12 @@ impl AnimationSystem {
             match event {
                 ChangeVelocity { e_id, v } => {
                     let entity = game_state.entity_manager.get_entity_mut(e_id);
-                    match &mut entity.motion_state {
-                        MotionState::Moving(velocity, _) => {
-                            *velocity = v;
-                        }
-                        MotionState::Fixed => {}
-                    }
+                    entity.set_velocity(v);
                 }
                 ChangeAcceleration { e_id, a } => {
                     let entity = game_state.entity_manager.get_entity_mut(e_id);
-                    match &mut entity.motion_state {
-                        MotionState::Moving(_, acceleration) => {
-                            *acceleration = a;
-                        }
-                        MotionState::Fixed => {}
-                    }
-                } // TODO(luca): maybe change motion state on events
+                    entity.set_acceleration(a);
+                }
             }
         }
         // apply physics
@@ -46,6 +35,7 @@ impl AnimationSystem {
         // TODO(luca): friction
         for id in game_state.moving_entities.iter() {
             let entity_ref = game_state.entity_manager.get_entity_mut(*id);
+            assert!(entity_ref.motion_state.is_fixed());
 
             let dt = entity_ref.elapsed_time_f32();
             let a = entity_ref.acceleration();
