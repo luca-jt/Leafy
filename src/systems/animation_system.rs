@@ -1,4 +1,5 @@
 use super::event_system::{PhysicsEvent, SharedEventQueue};
+use crate::ecs::component::MotionState;
 use crate::state::game_state::GameState;
 use crate::utils::constants::G;
 use PhysicsEvent::*;
@@ -22,12 +23,22 @@ impl AnimationSystem {
             match event {
                 ChangeVelocity { e_id, v } => {
                     let entity = game_state.entity_manager.get_entity_mut(e_id);
-                    entity.velocity = Some(v);
+                    match &mut entity.motion_state {
+                        MotionState::Moving(velocity, _) => {
+                            *velocity = v;
+                        }
+                        MotionState::Fixed => {}
+                    }
                 }
                 ChangeAcceleration { e_id, a } => {
                     let entity = game_state.entity_manager.get_entity_mut(e_id);
-                    entity.acceleration = Some(a);
-                }
+                    match &mut entity.motion_state {
+                        MotionState::Moving(_, acceleration) => {
+                            *acceleration = a;
+                        }
+                        MotionState::Fixed => {}
+                    }
+                } // TODO(luca): maybe change motion state on events
             }
         }
         // apply physics
@@ -37,13 +48,12 @@ impl AnimationSystem {
             let entity_ref = game_state.entity_manager.get_entity_mut(*id);
 
             let dt = entity_ref.elapsed_time_f32();
-            let a = &mut entity_ref.acceleration.unwrap();
-            let v = &mut entity_ref.velocity.unwrap();
-            let s = &mut entity_ref.position;
+            let a = entity_ref.acceleration();
+            let v = entity_ref.velocity();
 
-            *s += 0.5 * *a * dt.powi(2) + *v * dt;
-            *v += *a * dt;
-            *a = G; // ?
+            entity_ref.position += 0.5 * a * dt.powi(2) + v * dt;
+            entity_ref.set_velocity(v + a * dt);
+            entity_ref.set_acceleration(G); // ?
 
             entity_ref.reset_time();
         }

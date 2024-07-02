@@ -1,13 +1,13 @@
-use crate::ecs::component::{Acceleration, Color32, Position, Quaternion, Velocity};
+use crate::ecs::component::{Acceleration, Color32, MotionState, Position, Quaternion, Velocity};
 use gl::types::GLuint;
 use std::time::Instant;
-use MeshType::*;
+use MeshAttribute::*;
 
 pub type EntityID = u64;
 
-/// maps entity types to asset IDs
+/// all of the known mesh types
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
-pub enum EntityType {
+pub enum MeshType {
     Sphere,
     Cube,
     Plane,
@@ -15,12 +15,12 @@ pub enum EntityType {
 
 /// wether or not a mesh is colored or textured
 #[derive(Copy, Clone)]
-pub enum MeshType {
+pub enum MeshAttribute {
     Textured(GLuint),
     Colored(Color32),
 }
 
-impl PartialEq for MeshType {
+impl PartialEq for MeshAttribute {
     fn eq(&self, other: &Self) -> bool {
         match self {
             Textured(_) => match other {
@@ -37,39 +37,36 @@ impl PartialEq for MeshType {
 
 /// abstract model of any thing in the game
 pub struct Entity {
-    pub entity_type: EntityType,
     pub mesh_type: MeshType,
+    pub mesh_attribute: MeshAttribute,
     pub position: Position,
     pub orientation: Quaternion,
     last_touch_time: Instant,
-    pub velocity: Option<Velocity>,
-    pub acceleration: Option<Acceleration>,
+    pub motion_state: MotionState,
 }
 
 impl Entity {
     /// creates a default fixed entity
-    pub fn new_fixed(entity_type: EntityType, mesh_type: MeshType, position: Position) -> Self {
+    pub fn new_fixed(mesh_type: MeshType, mesh_attr: MeshAttribute, position: Position) -> Self {
         Self {
-            entity_type,
             mesh_type,
+            mesh_attribute: mesh_attr,
             position,
             orientation: Quaternion::zeros(),
             last_touch_time: Instant::now(),
-            velocity: None,
-            acceleration: None,
+            motion_state: MotionState::Fixed,
         }
     }
 
     /// creates a default moving entity
-    pub fn new_moving(entity_type: EntityType, mesh_type: MeshType, position: Position) -> Self {
+    pub fn new_moving(mesh_type: MeshType, mesh_attr: MeshAttribute, position: Position) -> Self {
         Self {
-            entity_type,
             mesh_type,
+            mesh_attribute: mesh_attr,
             position,
             orientation: Quaternion::zeros(),
             last_touch_time: Instant::now(),
-            velocity: Some(Velocity::zeros()),
-            acceleration: Some(Acceleration::zeros()),
+            motion_state: MotionState::zeros(),
         }
     }
 
@@ -81,5 +78,45 @@ impl Entity {
     /// resets the associated time to the current time
     pub fn reset_time(&mut self) {
         self.last_touch_time = Instant::now();
+    }
+
+    /// `.unwrap()` equivalent for the velocity field
+    pub fn velocity(&self) -> Velocity {
+        match self.motion_state {
+            MotionState::Moving(v, _) => v,
+            MotionState::Fixed => panic!("entity is fixed"),
+        }
+    }
+
+    /// `.unwrap()` equivalent for the acceleration field
+    pub fn acceleration(&self) -> Acceleration {
+        match self.motion_state {
+            MotionState::Moving(_, a) => a,
+            MotionState::Fixed => panic!("entity is fixed"),
+        }
+    }
+
+    /// set the velocity field if present, panics when the entity is fixed
+    pub fn set_velocity(&mut self, velocity: Velocity) {
+        match &mut self.motion_state {
+            MotionState::Moving(v, _) => {
+                *v = velocity;
+            }
+            MotionState::Fixed => {
+                panic!("entity is fixed")
+            }
+        }
+    }
+
+    /// set the acceleration field if present, panics when the entity is fixed
+    pub fn set_acceleration(&mut self, acceleration: Acceleration) {
+        match &mut self.motion_state {
+            MotionState::Moving(_, a) => {
+                *a = acceleration;
+            }
+            MotionState::Fixed => {
+                panic!("entity is fixed")
+            }
+        }
     }
 }

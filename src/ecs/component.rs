@@ -8,6 +8,19 @@ pub type Velocity = glm::Vec3;
 
 pub type Acceleration = glm::Vec3;
 
+/// binds all of the motion-specific data together
+pub enum MotionState {
+    Moving(Velocity, Acceleration),
+    Fixed,
+}
+
+impl MotionState {
+    /// produces a default motion state with all fields being zero
+    pub fn zeros() -> MotionState {
+        MotionState::Moving(Velocity::zeros(), Acceleration::zeros())
+    }
+}
+
 /// efficient 32bit color representation
 #[repr(C)]
 #[derive(Copy, Clone)]

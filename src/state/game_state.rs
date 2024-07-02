@@ -1,5 +1,5 @@
-use crate::ecs::component::{Color32, Position};
-use crate::ecs::entity::{Entity, EntityID, EntityType, MeshType};
+use crate::ecs::component::{Color32, MotionState, Position};
+use crate::ecs::entity::{Entity, EntityID, MeshAttribute, MeshType};
 use crate::ecs::entity_manager::EntityManager;
 use std::collections::HashSet;
 
@@ -24,11 +24,25 @@ impl GameState {
         instance
     }
 
+    /// turns the entity into a fixated one if not already
+    fn fix_entity(&mut self, entity_id: EntityID) {
+        let entity = self.entity_manager.get_entity_mut(entity_id);
+        entity.motion_state = MotionState::Fixed;
+    }
+
+    /// turns the entity into a moving one if not already
+    fn unfix_entity(&mut self, entity_id: EntityID) {
+        let entity = self.entity_manager.get_entity_mut(entity_id);
+        if let MotionState::Fixed = entity.motion_state {
+            entity.motion_state = MotionState::zeros();
+        }
+    }
+
     /// initialize the game state
     fn init(&mut self) {
         let test_entity = Entity::new_moving(
-            EntityType::Sphere,
-            MeshType::Colored(Color32::RED),
+            MeshType::Sphere,
+            MeshAttribute::Colored(Color32::RED),
             Position::zeros(),
         );
         let test_id = self.entity_manager.add_entity(test_entity);

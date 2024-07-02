@@ -1,4 +1,4 @@
-use crate::ecs::entity::{Entity, EntityID, EntityType};
+use crate::ecs::entity::{Entity, EntityID, MeshType};
 use crate::rendering::mesh::{Mesh, SharedMesh};
 use std::collections::hash_map::{Keys, Values, ValuesMut};
 use std::collections::HashMap;
@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub struct EntityManager {
     entity_register: HashMap<EntityID, Entity>,
     next_entity_id: EntityID,
-    asset_register: HashMap<EntityType, SharedMesh>,
+    asset_register: HashMap<MeshType, SharedMesh>,
 }
 
 impl EntityManager {
@@ -21,14 +21,14 @@ impl EntityManager {
 
     /// stores a new entity and returns the id of the new entity
     pub fn add_entity(&mut self, entity: Entity) -> EntityID {
-        if !self.asset_register.keys().any(|t| *t == entity.entity_type) {
-            let mesh = match entity.entity_type {
-                EntityType::Sphere => Mesh::new("sphere.obj"),
-                EntityType::Cube => Mesh::new("cube.obj"),
-                EntityType::Plane => Mesh::new("plane.obj"),
+        if !self.asset_register.keys().any(|t| *t == entity.mesh_type) {
+            let mesh = match entity.mesh_type {
+                MeshType::Sphere => Mesh::new("sphere.obj"),
+                MeshType::Cube => Mesh::new("cube.obj"),
+                MeshType::Plane => Mesh::new("plane.obj"),
             };
             self.asset_register
-                .insert(entity.entity_type, SharedMesh::from_mesh(mesh));
+                .insert(entity.mesh_type, SharedMesh::from_mesh(mesh));
         }
 
         self.entity_register.insert(self.next_entity_id, entity);
@@ -56,15 +56,12 @@ impl EntityManager {
     /// makes mesh data available for a given entity id
     pub fn asset_from_id(&self, entity_id: EntityID) -> SharedMesh {
         let entity = self.entity_register.get(&entity_id).unwrap();
-        self.asset_register
-            .get(&entity.entity_type)
-            .unwrap()
-            .clone()
+        self.asset_register.get(&entity.mesh_type).unwrap().clone()
     }
 
-    /// makes mesh data available for a given entity type
-    pub fn asset_from_type(&self, entity_type: EntityType) -> SharedMesh {
-        self.asset_register.get(&entity_type).unwrap().clone()
+    /// makes mesh data available for a given mesh type
+    pub fn asset_from_type(&self, mesh_type: MeshType) -> SharedMesh {
+        self.asset_register.get(&mesh_type).unwrap().clone()
     }
 
     /// iterate over all of the stored entities

@@ -1,4 +1,4 @@
-use crate::ecs::entity::{EntityType, MeshType};
+use crate::ecs::entity::{MeshAttribute, MeshType};
 use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
 use crate::rendering::font_renderer::FontRenderer;
@@ -7,7 +7,7 @@ use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
 use crate::state::game_state::GameState;
 use nalgebra_glm as glm;
-use MeshType::*;
+use MeshAttribute::*;
 use RendererType::*;
 
 pub struct RenderingSystem {
@@ -56,12 +56,12 @@ impl RenderingSystem {
         for entity_ref in game_state.entity_manager.all_entities_iter() {
             let mesh = game_state
                 .entity_manager
-                .asset_from_type(entity_ref.entity_type);
+                .asset_from_type(entity_ref.mesh_type);
 
             for r_type in self.renderers.iter_mut() {
-                if let Batch(e_type, renderer) = r_type {
-                    if *e_type == entity_ref.entity_type {
-                        match entity_ref.mesh_type {
+                if let Batch(m_type, renderer) = r_type {
+                    if *m_type == entity_ref.mesh_type {
+                        match entity_ref.mesh_attribute {
                             Textured(id) => {
                                 renderer.draw_tex_mesh(
                                     entity_ref.position,
@@ -82,9 +82,9 @@ impl RenderingSystem {
                             }
                         }
                     }
-                } else if let Instance(e_type, m_type, renderer) = r_type {
-                    if *e_type == entity_ref.entity_type && *m_type == entity_ref.mesh_type {
-                        match entity_ref.mesh_type {
+                } else if let Instance(m_type, m_attr, renderer) = r_type {
+                    if *m_type == entity_ref.mesh_type && *m_attr == entity_ref.mesh_attribute {
+                        match entity_ref.mesh_attribute {
                             Textured(id) => {
                                 // add entity to renderer
                             }
@@ -136,16 +136,16 @@ impl RenderingSystem {
 
 /// stores the renderer type with rendered entity type + renderer
 pub enum RendererType {
-    Batch(EntityType, BatchRenderer),
-    Instance(EntityType, MeshType, InstanceRenderer<10>), // TODO: instance number
+    Batch(MeshType, BatchRenderer),
+    Instance(MeshType, MeshAttribute, InstanceRenderer<10>), // TODO: instance number
     Font(FontRenderer),
     Sprite(SpriteRenderer),
     Voxel(VoxelRenderer),
 }
 
 impl RendererType {
-    /// yields the entity type of a renderer type if present
-    pub fn entity_type(&self) -> Option<EntityType> {
+    /// yields the mesh type of a renderer type if present
+    pub fn mesh_type(&self) -> Option<MeshType> {
         match self {
             Batch(ntt_type, _) => Some(*ntt_type),
             Instance(ntt_type, _, _) => Some(*ntt_type),
