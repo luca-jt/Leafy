@@ -7,7 +7,7 @@ use nalgebra_glm as glm;
 use std::{mem, ptr};
 
 /// instance renderer for the 3D rendering option
-pub struct InstanceRenderer<const NUM_INSTANCES: usize> {
+pub struct InstanceRenderer {
     vao: GLuint,
     pbo: GLuint,
     tbo: GLuint,
@@ -18,14 +18,15 @@ pub struct InstanceRenderer<const NUM_INSTANCES: usize> {
     index_count: GLsizei,
     program: ShaderProgram,
     shared_mesh: SharedMesh,
-    positions: [glm::Vec3; NUM_INSTANCES],
+    positions: Vec<glm::Vec3>,
     pos_idx: usize,
     color: glm::Vec4,
+    num_instances: usize,
 }
 
-impl<const NUM_INSTANCES: usize> InstanceRenderer<NUM_INSTANCES> {
+impl InstanceRenderer {
     /// creates a new instance renderer
-    pub fn new(shared_mesh: SharedMesh) -> Self {
+    pub fn new(shared_mesh: SharedMesh, num_instances: usize) -> Self {
         let mesh = shared_mesh.clone();
         let mesh = mesh.borrow();
 
@@ -37,7 +38,7 @@ impl<const NUM_INSTANCES: usize> InstanceRenderer<NUM_INSTANCES> {
         let mut ibo = 0; // indeces
         let mut program = ShaderProgram::new("instance_vs.glsl", "instance_fs.glsl");
         let mut white_texture = 0;
-        let positions = [glm::Vec3::zeros(); NUM_INSTANCES];
+        let positions = vec![glm::Vec3::zeros(); num_instances];
 
         unsafe {
             // CREATE SHADER
@@ -121,7 +122,7 @@ impl<const NUM_INSTANCES: usize> InstanceRenderer<NUM_INSTANCES> {
             gl::BindBuffer(gl::ARRAY_BUFFER, obo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (NUM_INSTANCES * mem::size_of::<glm::Vec3>()) as GLsizeiptr,
+                (num_instances * mem::size_of::<glm::Vec3>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -179,13 +180,15 @@ impl<const NUM_INSTANCES: usize> InstanceRenderer<NUM_INSTANCES> {
             positions,
             pos_idx: 0,
             color: glm::Vec4::new(1.0, 1.0, 1.0, 1.0),
+            num_instances,
         }
     }
 
     /// adds a position where the mesh shall be rendered
     pub fn add_position(&mut self, x: f32, y: f32, z: f32) {
-        if self.pos_idx == NUM_INSTANCES {
+        if self.pos_idx == self.num_instances {
             panic!("Attempt to draw too many Instances");
+            // TODO: resize capacity dynamically?
         }
         self.positions[self.pos_idx] = glm::Vec3::new(x, y, z);
         self.index_count += self.shared_mesh.borrow().num_indeces() as GLsizei;
@@ -279,7 +282,7 @@ impl<const NUM_INSTANCES: usize> InstanceRenderer<NUM_INSTANCES> {
     }
 }
 
-impl<const NUM_INSTANCES: usize> Drop for InstanceRenderer<NUM_INSTANCES> {
+impl Drop for InstanceRenderer {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteBuffers(1, &self.pbo);

@@ -137,7 +137,7 @@ impl RenderingSystem {
 /// stores the renderer type with rendered entity type + renderer
 pub enum RendererType {
     Batch(MeshType, BatchRenderer),
-    Instance(MeshType, MeshAttribute, InstanceRenderer<10>), // TODO: instance number
+    Instance(MeshType, MeshAttribute, InstanceRenderer),
     Font(FontRenderer),
     Sprite(SpriteRenderer),
     Voxel(VoxelRenderer),

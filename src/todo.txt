@@ -1,0 +1,14 @@
+lighting improvement
+cascaded shadow mapping
+shadow anti-aliasing
+collision detection
+physics
+make instance renderer use textures
+shader definition outside of the renderers
+sprite renderer
+font renderer
+voxel renderer
+sampled animations
+scenes -> graphs
+particle system
+ui basics
