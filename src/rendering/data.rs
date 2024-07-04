@@ -85,7 +85,7 @@ impl TextureMap {
 
     /// yields a texture id for given name
     pub fn get_tex_id(&self, name: &str) -> GLuint {
-        *self.textures.get(name).unwrap()
+        *self.textures.get(name).expect("texture not in the map")
     }
 }
 

@@ -40,28 +40,43 @@ impl EntityManager {
 
     /// deletes an entity from the register by id and returns the removed entity
     pub fn rm_entity(&mut self, entity_id: EntityID) -> Entity {
-        self.entity_register.remove(&entity_id).unwrap()
+        self.entity_register
+            .remove(&entity_id)
+            .expect("entity not in the register")
     }
 
     /// get the reference of a stored entity
     pub fn get_entity(&self, entity_id: EntityID) -> &Entity {
-        self.entity_register.get(&entity_id).unwrap()
+        self.entity_register
+            .get(&entity_id)
+            .expect("entity not in the register")
     }
 
     /// get the mutable reference of a stored entity
     pub fn get_entity_mut(&mut self, entity_id: EntityID) -> &mut Entity {
-        self.entity_register.get_mut(&entity_id).unwrap()
+        self.entity_register
+            .get_mut(&entity_id)
+            .expect("entity not in the register")
     }
 
     /// makes mesh data available for a given entity id
     pub fn asset_from_id(&self, entity_id: EntityID) -> SharedMesh {
-        let entity = self.entity_register.get(&entity_id).unwrap();
-        self.asset_register.get(&entity.mesh_type).unwrap().clone()
+        let entity = self
+            .entity_register
+            .get(&entity_id)
+            .expect("entity not in the register");
+        self.asset_register
+            .get(&entity.mesh_type)
+            .expect("asset not in the register")
+            .clone()
     }
 
     /// makes mesh data available for a given mesh type
     pub fn asset_from_type(&self, mesh_type: MeshType) -> SharedMesh {
-        self.asset_register.get(&mesh_type).unwrap().clone()
+        self.asset_register
+            .get(&mesh_type)
+            .expect("asset not in the register")
+            .clone()
     }
 
     /// iterate over all of the stored entities

@@ -9,9 +9,10 @@ pub struct AudioState {
 impl AudioState {
     /// creates a new audio state
     pub fn new(sdl_context: &sdl2::Sdl) -> Self {
-        let _audio_subsystem = sdl_context.audio().unwrap();
-        mixer::open_audio(44100, AUDIO_S16LSB, DEFAULT_CHANNELS, 1024).unwrap();
-        let _mixer_context = mixer::init(InitFlag::MP3 | InitFlag::FLAC | InitFlag::MOD).unwrap();
+        let _audio_subsystem = sdl_context.audio().expect("sdl audio failed");
+        mixer::open_audio(44100, AUDIO_S16LSB, DEFAULT_CHANNELS, 1024).expect("audio open failed");
+        let _mixer_context =
+            mixer::init(InitFlag::MP3 | InitFlag::FLAC | InitFlag::MOD).expect("mixer init failed");
 
         mixer::allocate_channels(5);
 

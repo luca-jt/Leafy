@@ -16,8 +16,10 @@ impl ShaderProgram {
     /// creates new shader program
     pub fn new(vertex_file: &str, fragment_file: &str) -> Self {
         // compile and link shader program
-        let vs_file = read_to_string(get_shader_path(vertex_file)).unwrap();
-        let fs_file = read_to_string(get_shader_path(fragment_file)).unwrap();
+        let vs_file =
+            read_to_string(get_shader_path(vertex_file)).expect("could not find vertex shader");
+        let fs_file =
+            read_to_string(get_shader_path(fragment_file)).expect("could not find fragment shader");
         let vs = compile_shader(vs_file.as_str(), gl::VERTEX_SHADER);
         let fs = compile_shader(fs_file.as_str(), gl::FRAGMENT_SHADER);
         let id = link_program(vs, fs);
@@ -53,12 +55,18 @@ impl ShaderProgram {
 
     /// gets an uniform location
     pub fn get_unif(&self, name: &str) -> GLint {
-        *self.uniform_locations.get(name).unwrap()
+        *self
+            .uniform_locations
+            .get(name)
+            .expect("uniform location not found")
     }
 
     /// gets an attrib location
     pub fn get_attr(&self, name: &str) -> GLint {
-        *self.attrib_locations.get(name).unwrap()
+        *self
+            .attrib_locations
+            .get(name)
+            .expect("attribute location not found")
     }
 }
 

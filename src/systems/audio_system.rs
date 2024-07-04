@@ -71,7 +71,7 @@ impl Drop for AudioSystem {
         mixer::close_audio();
         while self.threads.is_empty() {
             let thread = self.threads.pop_front().unwrap();
-            thread.join().unwrap();
+            thread.join().expect("could not join thread");
         }
     }
 }

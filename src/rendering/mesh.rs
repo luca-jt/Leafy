@@ -21,7 +21,8 @@ impl Mesh {
     /// creates a new Mesh from an obj file
     pub fn new(file_name: &str) -> Self {
         // load scene data from file
-        let data = BufReader::new(File::open(get_model_path(file_name)).unwrap());
+        let data =
+            BufReader::new(File::open(get_model_path(file_name)).expect("model file not found"));
         let mut model: Obj<TexturedVertex> = load_obj(data).unwrap();
 
         // convert the data into the required format
