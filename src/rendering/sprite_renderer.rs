@@ -10,7 +10,7 @@ impl SpriteRenderer {
     /*pub fn new() -> Self {
         Self {}
     }*/
-    // TODO: render with sprite index
+    // TODO: render with sprite index + pixel position + scale
 
     pub fn init(&mut self) {}
     pub fn end(&mut self) {}

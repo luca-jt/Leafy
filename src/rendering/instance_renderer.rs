@@ -20,7 +20,8 @@ pub struct InstanceRenderer {
     shared_mesh: SharedMesh,
     positions: Vec<glm::Vec3>,
     pos_idx: usize,
-    color: glm::Vec4,
+    pub color: Color32,
+    pub tex_id: GLuint, // TODO
     num_instances: usize,
 }
 
@@ -179,18 +180,19 @@ impl InstanceRenderer {
             shared_mesh,
             positions,
             pos_idx: 0,
-            color: glm::Vec4::new(1.0, 1.0, 1.0, 1.0),
+            color: Color32::WHITE,
+            tex_id: 0,
             num_instances,
         }
     }
 
     /// adds a position where the mesh shall be rendered
-    pub fn add_position(&mut self, x: f32, y: f32, z: f32) {
+    pub fn add_position(&mut self, position: glm::Vec3) {
         if self.pos_idx == self.num_instances {
             panic!("Attempt to draw too many Instances");
             // TODO: resize capacity dynamically?
         }
-        self.positions[self.pos_idx] = glm::Vec3::new(x, y, z);
+        self.positions[self.pos_idx] = position;
         self.index_count += self.shared_mesh.borrow().num_indeces() as GLsizei;
         self.pos_idx += 1;
     }
@@ -258,7 +260,7 @@ impl InstanceRenderer {
             gl::Uniform3fv(self.program.get_unif("light_pos"), 1, &camera.light_src[0]);
             gl::Uniform1i(self.program.get_unif("tex_sampler"), 0);
             gl::Uniform1i(self.program.get_unif("shadow_map"), 1);
-            gl::Uniform3fv(self.program.get_unif("color"), 1, &self.color[0]);
+            gl::Uniform3fv(self.program.get_unif("color"), 1, &self.color.to_vec4()[0]);
 
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
@@ -274,11 +276,6 @@ impl InstanceRenderer {
         // reset the positions
         self.index_count = 0;
         self.pos_idx = 0;
-    }
-
-    /// set the base color of the stored mesh
-    pub fn set_color(&mut self, color32: Color32) {
-        self.color = color32.to_vec4();
     }
 }
 

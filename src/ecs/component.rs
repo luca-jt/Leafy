@@ -31,7 +31,7 @@ impl MotionState {
 
 /// efficient 32bit color representation
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Color32([u8; 4]);
 
 impl Color32 {

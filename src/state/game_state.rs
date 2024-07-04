@@ -7,6 +7,7 @@ use std::collections::HashSet;
 pub struct GameState {
     pub entity_manager: EntityManager,
     pub moving_entities: HashSet<EntityID>,
+    // TODO: scene files (initialize the right renderers)?
 }
 
 impl GameState {
@@ -28,6 +29,7 @@ impl GameState {
     fn fix_entity(&mut self, entity_id: EntityID) {
         let entity = self.entity_manager.get_entity_mut(entity_id);
         entity.motion_state = MotionState::Fixed;
+        self.moving_entities.remove(&entity_id);
     }
 
     /// turns the entity into a moving one if not already
@@ -35,6 +37,7 @@ impl GameState {
         let entity = self.entity_manager.get_entity_mut(entity_id);
         if let MotionState::Fixed = entity.motion_state {
             entity.motion_state = MotionState::zeros();
+            self.moving_entities.insert(entity_id);
         }
     }
 

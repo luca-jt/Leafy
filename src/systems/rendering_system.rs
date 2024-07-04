@@ -14,7 +14,6 @@ pub struct RenderingSystem {
     texture_map: TextureMap,
     shadow_map: ShadowMap,
     renderers: Vec<RendererType>,
-    // TODO: scene files (initialize the right renderers)?
     perspective_camera: PerspectiveCamera,
     ortho_camera: OrthoCamera,
 }
@@ -58,6 +57,7 @@ impl RenderingSystem {
                 .entity_manager
                 .asset_from_type(entity_ref.mesh_type);
 
+            let mut found = false;
             for r_type in self.renderers.iter_mut() {
                 if let Batch(m_type, renderer) = r_type {
                     if *m_type == entity_ref.mesh_type {
@@ -70,6 +70,8 @@ impl RenderingSystem {
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
                                 );
+                                found = true;
+                                break;
                             }
                             Colored(color) => {
                                 renderer.draw_color_mesh(
@@ -79,6 +81,8 @@ impl RenderingSystem {
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
                                 );
+                                found = true;
+                                break;
                             }
                         }
                     }
@@ -86,16 +90,40 @@ impl RenderingSystem {
                     if *m_type == entity_ref.mesh_type && *m_attr == entity_ref.mesh_attribute {
                         match entity_ref.mesh_attribute {
                             Textured(id) => {
-                                // add entity to renderer
+                                // TODO: instance renderer has to be for textured meshes
+                                if id == renderer.tex_id {
+                                    renderer.add_position(entity_ref.position);
+                                    found = true;
+                                    break;
+                                }
                             }
                             Colored(color) => {
-                                // add entity to renderer
+                                if color == renderer.color {
+                                    renderer.add_position(entity_ref.position);
+                                    found = true;
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             }
-            // TODO: add new renderer if needed
+            // add new renderer if needed
+            if !found {
+                match entity_ref.mesh_type {
+                    MeshType::Plane | MeshType::Cube => {
+                        self.renderers
+                            .push(Batch(entity_ref.mesh_type, BatchRenderer::new(mesh, 10)));
+                    }
+                    MeshType::Sphere => {
+                        self.renderers.push(Instance(
+                            entity_ref.mesh_type,
+                            entity_ref.mesh_attribute,
+                            InstanceRenderer::new(mesh, 10), // TODO: 10? oben auch
+                        ));
+                    }
+                }
+            }
         }
 
         // render shadows
