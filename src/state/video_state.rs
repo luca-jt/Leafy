@@ -41,9 +41,8 @@ impl VideoState {
 
         let _gl_ctx = window.gl_create_context().unwrap();
         gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const _);
-        window
-            .subsystem()
-            .gl_set_swap_interval(SwapInterval::VSync)
+        video_subsystem
+            .gl_set_swap_interval(SwapInterval::Immediate)
             .unwrap();
 
         Self {
@@ -56,16 +55,14 @@ impl VideoState {
 
     /// enables vsync for opengl
     pub fn enable_vsync(&mut self) {
-        self.window
-            .subsystem()
+        self.video_subsystem
             .gl_set_swap_interval(SwapInterval::VSync)
             .unwrap();
     }
 
     /// disables vsync for opengl
     pub fn disable_vsync(&mut self) {
-        self.window
-            .subsystem()
+        self.video_subsystem
             .gl_set_swap_interval(SwapInterval::Immediate)
             .unwrap();
     }

@@ -27,7 +27,7 @@ pub struct InstanceRenderer {
 
 impl InstanceRenderer {
     /// creates a new instance renderer
-    pub fn new(shared_mesh: SharedMesh, num_instances: usize) -> Self {
+    pub fn new(shared_mesh: SharedMesh, num_instances: usize, tex_id: Option<GLuint>) -> Self {
         let mesh = shared_mesh.clone();
         let mesh = mesh.borrow();
 
@@ -181,7 +181,7 @@ impl InstanceRenderer {
             positions,
             pos_idx: 0,
             color: Color32::WHITE,
-            tex_id: 0,
+            tex_id: tex_id.unwrap_or(white_texture),
             num_instances,
         }
     }
@@ -235,7 +235,7 @@ impl InstanceRenderer {
             // bind shader, textures, uniforms
             gl::UseProgram(self.program.id);
             // bind texture
-            gl::BindTextureUnit(0, self.white_texture);
+            gl::BindTextureUnit(0, self.tex_id);
             shadow_map.bind_reading(1);
             // bind uniforms
             gl::UniformMatrix4fv(

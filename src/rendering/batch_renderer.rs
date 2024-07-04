@@ -1,6 +1,7 @@
 use super::data::{PerspectiveCamera, ShadowMap, Vertex};
 use super::mesh::SharedMesh;
 use super::shader::ShaderProgram;
+use crate::ecs::component::Color32;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
 use gl::types::*;
 use nalgebra_glm as glm;
@@ -319,7 +320,7 @@ impl BatchRenderer {
         &mut self,
         position: glm::Vec3,
         scale: f32,
-        color: glm::Vec4,
+        color: Color32,
         camera: &PerspectiveCamera,
         shadow_map: &mut ShadowMap,
     ) {
@@ -343,7 +344,7 @@ impl BatchRenderer {
         for i in 0..mesh.num_verteces() {
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
                 position: mesh.positions[i] * scale + position,
-                color,
+                color: color.to_vec4(),
                 uv_coords: mesh.texture_coords[i],
                 normal: mesh.normals[i],
                 tex_index,

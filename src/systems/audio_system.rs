@@ -8,7 +8,7 @@ use std::time::Duration;
 
 /// system managing the audio
 pub struct AudioSystem {
-    audio_state: AudioState,
+    _audio_state: AudioState,
     master_volume: f64,
     music_volume: f64,
     sfx_volume: f64,
@@ -19,7 +19,7 @@ impl AudioSystem {
     /// creates a new audio system
     pub fn new(sdl_context: &sdl2::Sdl) -> Self {
         Self {
-            audio_state: AudioState::new(sdl_context),
+            _audio_state: AudioState::new(sdl_context),
             master_volume: 0.0,
             music_volume: 0.0,
             sfx_volume: 0.0,

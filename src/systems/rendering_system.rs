@@ -30,10 +30,10 @@ impl RenderingSystem {
 
         Self {
             texture_map: TextureMap::new(),
-            shadow_map: ShadowMap::new(1024, 1024, glm::Vec3::new(1.0, 1.0, 1.0)),
+            shadow_map: ShadowMap::new(2048, 2048, glm::Vec3::new(1.0, 10.0, 1.0)),
             renderers: Vec::new(),
             perspective_camera: PerspectiveCamera::new(
-                glm::Vec3::new(0.0, 1.0, -1.0),
+                glm::Vec3::new(0.0, 1.0, -2.0),
                 glm::Vec3::zeros(),
             ),
             ortho_camera: OrthoCamera::from_size(1.0),
@@ -65,7 +65,7 @@ impl RenderingSystem {
                             Textured(id) => {
                                 renderer.draw_tex_mesh(
                                     entity_ref.position,
-                                    1.0,
+                                    entity_ref.scale,
                                     id,
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
@@ -76,8 +76,8 @@ impl RenderingSystem {
                             Colored(color) => {
                                 renderer.draw_color_mesh(
                                     entity_ref.position,
-                                    1.0,
-                                    color.to_vec4(),
+                                    entity_ref.scale,
+                                    color,
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
                                 );
@@ -90,7 +90,6 @@ impl RenderingSystem {
                     if *m_type == entity_ref.mesh_type && *m_attr == entity_ref.mesh_attribute {
                         match entity_ref.mesh_attribute {
                             Textured(id) => {
-                                // TODO: instance renderer has to be for textured meshes
                                 if id == renderer.tex_id {
                                     renderer.add_position(entity_ref.position);
                                     found = true;
@@ -119,7 +118,7 @@ impl RenderingSystem {
                         self.renderers.push(Instance(
                             entity_ref.mesh_type,
                             entity_ref.mesh_attribute,
-                            InstanceRenderer::new(mesh, 10), // TODO: 10? oben auch
+                            InstanceRenderer::new(mesh, 10, entity_ref.mesh_attribute.tex_id()), // TODO: 10? oben auch
                         ));
                     }
                 }

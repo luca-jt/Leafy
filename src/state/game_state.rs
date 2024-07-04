@@ -43,13 +43,20 @@ impl GameState {
 
     /// initialize the game state
     fn init(&mut self) {
-        let test_entity = Entity::new_moving(
-            MeshType::Sphere,
-            MeshAttribute::Colored(Color32::RED),
+        let mut floor = Entity::new_fixed(
+            MeshType::Plane,
+            MeshAttribute::Colored(Color32::GREEN),
             Position::zeros(),
         );
-        let test_id = self.entity_manager.add_entity(test_entity);
-        self.moving_entities.insert(test_id);
+        floor.scale = 5.0;
+        let _ = self.entity_manager.add_entity(floor);
+
+        let test_entity = Entity::new_fixed(
+            MeshType::Sphere,
+            MeshAttribute::Colored(Color32::RED),
+            Position::new(0.0, 2.0, 0.0),
+        );
+        let _ = self.entity_manager.add_entity(test_entity);
     }
 
     /// updates the game state

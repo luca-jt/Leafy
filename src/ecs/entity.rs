@@ -20,6 +20,16 @@ pub enum MeshAttribute {
     Colored(Color32),
 }
 
+impl MeshAttribute {
+    /// returns the texture id if present
+    pub fn tex_id(&self) -> Option<GLuint> {
+        match self {
+            Textured(id) => Some(*id),
+            Colored(_) => None,
+        }
+    }
+}
+
 impl PartialEq for MeshAttribute {
     fn eq(&self, other: &Self) -> bool {
         match self {
@@ -43,6 +53,7 @@ pub struct Entity {
     pub orientation: Quaternion,
     last_touch_time: Instant,
     pub motion_state: MotionState,
+    pub scale: f32,
 }
 
 impl Entity {
@@ -55,6 +66,7 @@ impl Entity {
             orientation: Quaternion::zeros(),
             last_touch_time: Instant::now(),
             motion_state: MotionState::Fixed,
+            scale: 1.0,
         }
     }
 
@@ -67,6 +79,7 @@ impl Entity {
             orientation: Quaternion::zeros(),
             last_touch_time: Instant::now(),
             motion_state: MotionState::zeros(),
+            scale: 1.0,
         }
     }
 
