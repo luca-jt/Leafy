@@ -78,7 +78,7 @@ impl Entity {
             position,
             orientation: Quaternion::zeros(),
             last_touch_time: Instant::now(),
-            motion_state: MotionState::zeros(),
+            motion_state: MotionState::default(),
             scale: 1.0,
         }
     }
@@ -126,6 +126,14 @@ impl Entity {
                 *a = acceleration;
             }
             MotionState::Fixed => {}
+        }
+    }
+
+    /// checks if the state is fixed
+    pub fn is_fixed(&self) -> bool {
+        match self.motion_state {
+            MotionState::Fixed => true,
+            _ => false,
         }
     }
 }

@@ -23,10 +23,10 @@ impl Mesh {
         // load scene data from file
         let data =
             BufReader::new(File::open(get_model_path(file_name)).expect("model file not found"));
-        let mut model: Obj<TexturedVertex> = load_obj(data).unwrap();
+        let model: Obj<TexturedVertex> = load_obj(data).unwrap();
 
         // convert the data into the required format
-        let mut positions: Vec<glm::Vec3> = model
+        let positions: Vec<glm::Vec3> = model
             .vertices
             .iter()
             .map(|vertex| {
@@ -35,13 +35,13 @@ impl Mesh {
             .collect();
 
         // TODO: flip uvs?
-        let mut texture_coords: Vec<glm::Vec2> = model
+        let texture_coords: Vec<glm::Vec2> = model
             .vertices
             .iter()
             .map(|vertex| glm::Vec2::new(vertex.texture[0], vertex.texture[1]))
             .collect();
 
-        let mut normals: Vec<glm::Vec3> = model
+        let normals: Vec<glm::Vec3> = model
             .vertices
             .iter()
             .map(|vertex| glm::Vec3::new(vertex.normal[0], vertex.normal[1], vertex.normal[2]))

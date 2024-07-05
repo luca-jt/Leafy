@@ -1,8 +1,10 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use crate::state::game_state::GameState;
 use crate::state::video_state::VideoState;
-use crate::systems::animation_system::AnimationSystem;
+use crate::systems::animation_system::apply_physics;
 use crate::systems::audio_system::AudioSystem;
 use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
@@ -10,10 +12,9 @@ use crate::utils::constants::FPS_CAP;
 
 /// main app
 pub struct App {
-    game_state: GameState,
-    video_state: VideoState,
+    game_state: Rc<RefCell<GameState>>,
+    video_state: Rc<RefCell<VideoState>>,
     rendering_system: RenderingSystem,
-    animation_system: AnimationSystem,
     audio_system: AudioSystem,
     event_system: EventSystem,
 }
@@ -21,19 +22,19 @@ pub struct App {
 impl App {
     /// app setup on startup
     pub fn new() -> Self {
-        let game_state = GameState::new();
-        let video_state = VideoState::new();
+        let game_state = Rc::new(RefCell::new(GameState::new()));
+        let video_state = Rc::new(RefCell::new(VideoState::new()));
         let rendering_system = RenderingSystem::new();
-        let audio_system = AudioSystem::new(&video_state.sdl_context);
-        let event_system = EventSystem::new(&video_state.sdl_context);
-        let event_queue = event_system.physics_event_queue.clone();
-        let animation_system = AnimationSystem::new(event_queue);
+        let audio_system = AudioSystem::new(&video_state.borrow().sdl_context);
+        let mut event_system = EventSystem::new(&video_state.borrow().sdl_context);
+
+        event_system.add_listener(video_state.clone());
+        event_system.add_listener(game_state.clone());
 
         Self {
             game_state,
             video_state,
             rendering_system,
-            animation_system,
             audio_system,
             event_system,
         }
@@ -47,16 +48,12 @@ impl App {
 
         'running: loop {
             self.audio_system.update();
-            self.animation_system.update(&mut self.game_state);
-            self.rendering_system.render(&self.game_state);
-            if self
-                .event_system
-                .parse_sdl_events(&mut self.video_state.window, &mut self.game_state)
-                .is_err()
-            {
+            apply_physics(&mut self.game_state.borrow_mut());
+            self.rendering_system.render(&self.game_state.borrow());
+            if self.event_system.parse_sdl_events().is_err() {
                 break 'running;
             }
-            self.video_state.swap_window();
+            self.video_state.borrow().swap_window();
             Self::cap_fps(&mut frame_start_time, &mut fps);
         }
     }

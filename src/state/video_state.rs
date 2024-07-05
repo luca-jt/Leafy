@@ -1,8 +1,10 @@
-use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
+use crate::systems::event_system::{EventObserver, EventType};
+use crate::utils::constants::{INV_WIN_RATIO, MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
 use crate::utils::file::get_image_path;
 use sdl2::image::LoadSurface;
+use sdl2::keyboard::Keycode;
 use sdl2::surface::Surface;
-use sdl2::video::{GLProfile, SwapInterval};
+use sdl2::video::{FullscreenType, GLProfile, SwapInterval};
 
 /// holds the video backend attributes
 pub struct VideoState {
@@ -70,5 +72,34 @@ impl VideoState {
     /// call the opengl window swap
     pub fn swap_window(&self) {
         self.window.gl_swap_window();
+    }
+}
+
+impl EventObserver for VideoState {
+    fn on_event(&mut self, event: &EventType) {
+        if let EventType::KeyPress(key) = event {
+            if *key == Keycode::F11 {
+                // toggle fullscreen
+                match self.window.fullscreen_state() {
+                    FullscreenType::Off => {
+                        self.window.set_fullscreen(FullscreenType::Desktop).unwrap();
+                    }
+                    FullscreenType::Desktop => {
+                        self.window.set_fullscreen(FullscreenType::Off).unwrap();
+                    }
+                    _ => {
+                        panic!("wrong fullscreen type detected");
+                    }
+                }
+            }
+        } else if let EventType::WindowResize(w, _) = event {
+            if !self.window.is_maximized()
+                && self.window.fullscreen_state() != FullscreenType::Desktop
+            {
+                self.window
+                    .set_size(*w as u32, (*w as f32 * INV_WIN_RATIO) as u32)
+                    .unwrap();
+            }
+        }
     }
 }

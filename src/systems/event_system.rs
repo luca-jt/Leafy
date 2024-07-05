@@ -1,18 +1,13 @@
-use crate::ecs::component::{Acceleration, Velocity};
-use crate::ecs::entity::EntityID;
-use crate::state::game_state::GameState;
-use crate::utils::constants::INV_WIN_RATIO;
-use crate::utils::threading::RefCountMutex;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
-use sdl2::video::FullscreenType;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// system managing the events
 pub struct EventSystem {
-    pub physics_event_queue: SharedEventQueue<PhysicsEvent>,
-    pub key_event_queue: Vec<KeyPressEvent>,
     event_subsystem: sdl2::EventSubsystem,
     event_pump: sdl2::EventPump,
+    listeners: Vec<Rc<RefCell<dyn EventObserver>>>,
 }
 
 impl EventSystem {
@@ -22,25 +17,27 @@ impl EventSystem {
         let event_pump = sdl_context.event_pump().unwrap();
 
         Self {
-            physics_event_queue: SharedEventQueue::init(),
-            key_event_queue: Self::create_key_events(),
             event_subsystem,
             event_pump,
+            listeners: Vec::new(),
         }
     }
 
-    /// adds key press events to the queue
-    fn create_key_events() -> Vec<KeyPressEvent> {
-        // ...
-        vec![]
+    /// subscribe a handler to a specific event type
+    pub fn add_listener(&mut self, handler: Rc<RefCell<dyn EventObserver>>) {
+        self.listeners.push(handler);
+    }
+
+    /// trigger an event
+    pub fn trigger(&self, event: EventType) {
+        for handler in self.listeners.iter() {
+            handler.borrow_mut().on_event(&event);
+        }
     }
 
     /// process all the sdl events in the event pump
-    pub fn parse_sdl_events(
-        &mut self,
-        window: &mut sdl2::video::Window,
-        game_state: &mut GameState,
-    ) -> Result<(), ()> {
+    pub fn parse_sdl_events(&mut self) -> Result<(), ()> {
+        let mut polled_events: Vec<EventType> = vec![];
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => {
@@ -54,26 +51,8 @@ impl EventSystem {
                     keymod: _,
                     repeat: _,
                 } => {
-                    let key = keycode.unwrap_or(Keycode::AMPERSAND); // just smth random that nobody uses
-                    if key == Keycode::F11 {
-                        // toggle fullscreen
-                        match window.fullscreen_state() {
-                            FullscreenType::Off => {
-                                window.set_fullscreen(FullscreenType::Desktop).unwrap();
-                            }
-                            FullscreenType::Desktop => {
-                                window.set_fullscreen(FullscreenType::Off).unwrap();
-                            }
-                            _ => {
-                                panic!("wrong fullscreen type detected");
-                            }
-                        }
-                    }
-                    for key_event in self.key_event_queue.iter_mut() {
-                        if key == key_event.key {
-                            let f = &mut key_event.callback;
-                            f(game_state);
-                        }
+                    if let Some(key) = keycode {
+                        polled_events.push(EventType::KeyPress(key));
                     }
                 }
                 Event::Window {
@@ -81,36 +60,35 @@ impl EventSystem {
                     window_id: _,
                     win_event,
                 } => {
-                    if let WindowEvent::Resized(width, _) = win_event {
-                        if !window.is_maximized()
-                            && window.fullscreen_state() != FullscreenType::Desktop
-                        {
-                            window
-                                .set_size(width as u32, (width as f32 * INV_WIN_RATIO) as u32)
-                                .unwrap();
-                        }
+                    if let WindowEvent::Resized(width, height) = win_event {
+                        polled_events.push(EventType::WindowResize(width, height))
                     }
                 }
                 _ => {}
             }
         }
+        // trigger all of the listeners
+        for pe in polled_events {
+            self.trigger(pe);
+        }
+
         Ok(())
     }
 }
 
-/// phyics events for entities
-#[derive(Clone)]
-pub enum PhysicsEvent {
-    ChangeVelocity { e_id: EntityID, v: Velocity },
-    ChangeAcceleration { e_id: EntityID, a: Acceleration },
+pub trait EventObserver {
+    fn on_event(&mut self, event: &EventType);
 }
 
-/// key press events
-pub struct KeyPressEvent {
-    pub key: Keycode,
-    pub callback: Box<dyn FnMut(&mut GameState)>,
+/// all of the supported event types for callbacks
+pub enum EventType {
+    KeyPress(Keycode),
+    MouseMove(f32, f32),
+    MouseScroll(f32),
+    WindowResize(i32, i32),
 }
 
+/*
 /// threadsafe event queue
 pub type SharedEventQueue<T> = RefCountMutex<Vec<T>>;
 
@@ -136,3 +114,4 @@ impl<T: Clone> SharedEventQueue<T> {
         events
     }
 }
+*/

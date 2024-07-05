@@ -14,18 +14,9 @@ pub enum MotionState {
     Fixed,
 }
 
-impl MotionState {
-    /// produces a default motion state with all fields being zero
-    pub fn zeros() -> MotionState {
+impl Default for MotionState {
+    fn default() -> Self {
         MotionState::Moving(Velocity::zeros(), Acceleration::zeros())
-    }
-
-    /// checks if the state is fixed
-    pub fn is_fixed(&self) -> bool {
-        match self {
-            MotionState::Fixed => true,
-            _ => false,
-        }
     }
 }
 
