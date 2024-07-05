@@ -58,9 +58,4 @@ impl GameState {
         );
         let _ = self.entity_manager.add_entity(test_entity);
     }
-
-    /// updates the game state
-    pub fn update(&mut self) {
-        //...
-    }
 }

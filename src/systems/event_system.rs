@@ -1,5 +1,6 @@
 use crate::ecs::component::{Acceleration, Velocity};
 use crate::ecs::entity::EntityID;
+use crate::state::game_state::GameState;
 use crate::utils::constants::INV_WIN_RATIO;
 use crate::utils::threading::RefCountMutex;
 use sdl2::event::{Event, WindowEvent};
@@ -8,7 +9,8 @@ use sdl2::video::FullscreenType;
 
 /// system managing the events
 pub struct EventSystem {
-    pub event_queue: SharedEventQueue,
+    pub physics_event_queue: SharedEventQueue<PhysicsEvent>,
+    pub key_event_queue: Vec<KeyPressEvent>,
     event_subsystem: sdl2::EventSubsystem,
     event_pump: sdl2::EventPump,
 }
@@ -20,14 +22,25 @@ impl EventSystem {
         let event_pump = sdl_context.event_pump().unwrap();
 
         Self {
-            event_queue: SharedEventQueue::init(),
+            physics_event_queue: SharedEventQueue::init(),
+            key_event_queue: Self::create_key_events(),
             event_subsystem,
             event_pump,
         }
     }
 
+    /// adds key press events to the queue
+    fn create_key_events() -> Vec<KeyPressEvent> {
+        // ...
+        vec![]
+    }
+
     /// process all the sdl events in the event pump
-    pub fn parse_sdl_events(&mut self, window: &mut sdl2::video::Window) -> Result<(), ()> {
+    pub fn parse_sdl_events(
+        &mut self,
+        window: &mut sdl2::video::Window,
+        game_state: &mut GameState,
+    ) -> Result<(), ()> {
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => {
@@ -56,6 +69,12 @@ impl EventSystem {
                             }
                         }
                     }
+                    for key_event in self.key_event_queue.iter_mut() {
+                        if key == key_event.key {
+                            let f = &mut key_event.callback;
+                            f(game_state);
+                        }
+                    }
                 }
                 Event::Window {
                     timestamp: _,
@@ -79,32 +98,38 @@ impl EventSystem {
     }
 }
 
-/// Events that can be processed by the event system
+/// phyics events for entities
 #[derive(Clone)]
 pub enum PhysicsEvent {
     ChangeVelocity { e_id: EntityID, v: Velocity },
     ChangeAcceleration { e_id: EntityID, a: Acceleration },
 }
 
-/// threadsafe event queue
-pub type SharedEventQueue = RefCountMutex<Vec<PhysicsEvent>>;
+/// key press events
+pub struct KeyPressEvent {
+    pub key: Keycode,
+    pub callback: Box<dyn FnMut(&mut GameState)>,
+}
 
-impl SharedEventQueue {
+/// threadsafe event queue
+pub type SharedEventQueue<T> = RefCountMutex<Vec<T>>;
+
+impl<T: Clone> SharedEventQueue<T> {
     /// creates a new queue
     pub fn init() -> Self {
         RefCountMutex::new(Vec::new())
     }
 
     /// adds an event to the queue
-    pub fn push(&mut self, event: PhysicsEvent) {
+    pub fn push(&mut self, event: T) {
         self.alter(|queue| {
             queue.push(event);
         });
     }
 
     /// clears the queue and yields all the stored events
-    pub fn drain(&mut self) -> Vec<PhysicsEvent> {
-        let mut events: Vec<PhysicsEvent> = vec![];
+    pub fn drain(&mut self) -> Vec<T> {
+        let mut events: Vec<T> = vec![];
         self.alter(|queue| {
             events = queue.drain(..).collect();
         });

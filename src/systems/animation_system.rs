@@ -5,19 +5,21 @@ use PhysicsEvent::*;
 
 /// system managing the animations
 pub struct AnimationSystem {
-    event_queue: SharedEventQueue,
+    physics_event_queue: SharedEventQueue<PhysicsEvent>,
 }
 
 impl AnimationSystem {
     /// creates a new animation system
-    pub fn new(event_queue: SharedEventQueue) -> Self {
-        Self { event_queue }
+    pub fn new(event_queue: SharedEventQueue<PhysicsEvent>) -> Self {
+        Self {
+            physics_event_queue: event_queue,
+        }
     }
 
     /// updates the animations
     pub fn update(&mut self, game_state: &mut GameState) {
         // apply queued events
-        let events = self.event_queue.drain();
+        let events = self.physics_event_queue.drain();
         for event in events {
             match event {
                 ChangeVelocity { e_id, v } => {

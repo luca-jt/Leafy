@@ -26,7 +26,7 @@ impl App {
         let rendering_system = RenderingSystem::new();
         let audio_system = AudioSystem::new(&video_state.sdl_context);
         let event_system = EventSystem::new(&video_state.sdl_context);
-        let event_queue = event_system.event_queue.clone();
+        let event_queue = event_system.physics_event_queue.clone();
         let animation_system = AnimationSystem::new(event_queue);
 
         Self {
@@ -47,12 +47,11 @@ impl App {
 
         'running: loop {
             self.audio_system.update();
-            self.game_state.update();
             self.animation_system.update(&mut self.game_state);
             self.rendering_system.render(&self.game_state);
             if self
                 .event_system
-                .parse_sdl_events(&mut self.video_state.window)
+                .parse_sdl_events(&mut self.video_state.window, &mut self.game_state)
                 .is_err()
             {
                 break 'running;
