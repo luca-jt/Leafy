@@ -1,7 +1,7 @@
 use crate::ecs::component::{Color32, MotionState, Position, Velocity};
 use crate::ecs::entity::{Entity, EntityID, MeshAttribute, MeshType};
 use crate::ecs::entity_manager::EntityManager;
-use crate::systems::event_system::{EventObserver, EventType};
+use crate::systems::event_system::{EventObserver, FLEvent};
 use sdl2::keyboard::Keycode;
 use std::collections::HashSet;
 
@@ -59,8 +59,8 @@ impl GameState {
 }
 
 impl EventObserver for GameState {
-    fn on_event(&mut self, event: &EventType) {
-        if let EventType::KeyPress(key) = event {
+    fn on_event(&mut self, event: &FLEvent) {
+        if let FLEvent::KeyPress(key) = event {
             if *key == Keycode::SPACE {
                 let entity = self.entity_manager.get_entity_mut(self.player);
                 entity.set_velocity(Velocity::new(0.0, 3.0, 0.0));

@@ -29,7 +29,7 @@ impl EventSystem {
     }
 
     /// trigger an event
-    pub fn trigger(&self, event: EventType) {
+    pub fn trigger(&self, event: FLEvent) {
         for handler in self.listeners.iter() {
             handler.borrow_mut().on_event(&event);
         }
@@ -37,7 +37,7 @@ impl EventSystem {
 
     /// process all the sdl events in the event pump
     pub fn parse_sdl_events(&mut self) -> Result<(), ()> {
-        let mut polled_events: Vec<EventType> = vec![];
+        let mut polled_events: Vec<FLEvent> = vec![];
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => {
@@ -52,7 +52,7 @@ impl EventSystem {
                     repeat: _,
                 } => {
                     if let Some(key) = keycode {
-                        polled_events.push(EventType::KeyPress(key));
+                        polled_events.push(FLEvent::KeyPress(key));
                     }
                 }
                 Event::Window {
@@ -61,7 +61,7 @@ impl EventSystem {
                     win_event,
                 } => {
                     if let WindowEvent::Resized(width, height) = win_event {
-                        polled_events.push(EventType::WindowResize(width, height))
+                        polled_events.push(FLEvent::WindowResize(width, height))
                     }
                 }
                 _ => {}
@@ -77,15 +77,19 @@ impl EventSystem {
 }
 
 pub trait EventObserver {
-    fn on_event(&mut self, event: &EventType);
+    /// runs on every event trigger
+    fn on_event(&mut self, event: &FLEvent);
 }
 
 /// all of the supported event types for callbacks
-pub enum EventType {
+pub enum FLEvent {
     KeyPress(Keycode),
     MouseMove(f32, f32),
     MouseScroll(f32),
+    MouseClick,
     WindowResize(i32, i32),
+    WindowLooseFocus,
+    WindowGainFocus,
 }
 
 /*
