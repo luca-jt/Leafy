@@ -1,5 +1,5 @@
-use crate::ecs::component::{Color32, MotionState, Position, Velocity};
-use crate::ecs::entity::{Entity, EntityID, MeshAttribute, MeshType};
+use crate::ecs::component::{Color32, MeshAttribute, MeshType, MotionState, Position, Velocity};
+use crate::ecs::entity::{Entity, EntityID};
 use crate::ecs::entity_manager::EntityManager;
 use crate::systems::event_system::{EventObserver, FLEvent};
 use sdl2::keyboard::Keycode;

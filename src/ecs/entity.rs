@@ -1,42 +1,10 @@
-use crate::ecs::component::{Acceleration, Color32, MotionState, Position, Quaternion, Velocity};
-use gl::types::GLuint;
+use crate::ecs::component::MeshAttribute::*;
+use crate::ecs::component::{
+    Acceleration, MeshAttribute, MeshType, MotionState, Position, Quaternion, Scale, Velocity,
+};
 use std::time::Instant;
-use MeshAttribute::*;
 
 pub type EntityID = u64;
-
-/// all of the known mesh types
-#[derive(Copy, Clone, Eq, Hash, PartialEq)]
-pub enum MeshType {
-    Sphere,
-    Cube,
-    Plane,
-}
-
-/// wether or not a mesh is colored or textured
-#[derive(Copy, Clone, PartialEq)]
-pub enum MeshAttribute {
-    Textured(GLuint),
-    Colored(Color32),
-}
-
-impl MeshAttribute {
-    /// returns the texture id if present
-    pub fn tex_id(&self) -> Option<GLuint> {
-        match self {
-            Textured(id) => Some(*id),
-            Colored(_) => None,
-        }
-    }
-
-    /// returns the color if present
-    pub fn color(&self) -> Option<Color32> {
-        match self {
-            Textured(_) => None,
-            Colored(color) => Some(*color),
-        }
-    }
-}
 
 /// abstract model of any thing in the game
 pub struct Entity {
@@ -46,7 +14,7 @@ pub struct Entity {
     pub orientation: Quaternion,
     last_touch_time: Instant,
     pub motion_state: MotionState,
-    pub scale: f32,
+    pub scale: Scale,
 }
 
 impl Entity {

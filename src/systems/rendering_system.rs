@@ -1,4 +1,5 @@
-use crate::ecs::entity::{MeshAttribute, MeshType};
+use crate::ecs::component::MeshAttribute::*;
+use crate::ecs::component::{MeshAttribute, MeshType};
 use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
 use crate::rendering::font_renderer::FontRenderer;
@@ -7,7 +8,6 @@ use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
 use crate::state::game_state::GameState;
 use nalgebra_glm as glm;
-use MeshAttribute::*;
 use RendererType::*;
 
 pub struct RenderingSystem {

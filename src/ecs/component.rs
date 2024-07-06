@@ -1,8 +1,23 @@
+use gl::types::GLuint;
 use nalgebra_glm as glm;
+use std::any::Any;
+use std::time::Instant;
+use MeshAttribute::*;
+
+/// defines what can be a component for an entity
+pub trait Component: Any {}
+
+pub type Scale = f32;
+
+impl Component for Scale {}
 
 pub type Position = glm::Vec3;
 
-pub type Quaternion = glm::Vec4;
+impl Component for Position {}
+
+pub type Quaternion = glm::Vec4; // TODO: nutzung
+
+impl Component for Quaternion {}
 
 pub type Velocity = glm::Vec3;
 
@@ -13,6 +28,8 @@ pub enum MotionState {
     Moving(Velocity, Acceleration),
     Fixed,
 }
+
+impl Component for MotionState {}
 
 impl Default for MotionState {
     fn default() -> Self {
@@ -63,3 +80,42 @@ impl Color32 {
         glm::Vec4::new(r, g, b, a)
     }
 }
+
+/// all of the known mesh types
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+pub enum MeshType {
+    Sphere,
+    Cube,
+    Plane,
+}
+
+impl Component for MeshType {}
+
+/// wether or not a mesh is colored or textured
+#[derive(Copy, Clone, PartialEq)]
+pub enum MeshAttribute {
+    Textured(GLuint),
+    Colored(Color32),
+}
+
+impl Component for MeshAttribute {}
+
+impl MeshAttribute {
+    /// returns the texture id if present
+    pub fn tex_id(&self) -> Option<GLuint> {
+        match self {
+            Textured(id) => Some(*id),
+            Colored(_) => None,
+        }
+    }
+
+    /// returns the color if present
+    pub fn color(&self) -> Option<Color32> {
+        match self {
+            Textured(_) => None,
+            Colored(color) => Some(*color),
+        }
+    }
+}
+
+impl Component for Instant {}

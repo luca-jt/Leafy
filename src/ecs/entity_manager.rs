@@ -1,4 +1,5 @@
-use crate::ecs::entity::{Entity, EntityID, MeshType};
+use crate::ecs::component::MeshType;
+use crate::ecs::entity::{Entity, EntityID};
 use crate::rendering::mesh::{Mesh, SharedMesh};
 use std::collections::hash_map::{Keys, Values, ValuesMut};
 use std::collections::HashMap;
