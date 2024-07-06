@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::state::game_state::GameState;
 use crate::state::video_state::VideoState;
-use crate::systems::animation_system::apply_physics;
+use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
 use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
@@ -17,6 +17,7 @@ pub struct App {
     rendering_system: RenderingSystem,
     audio_system: AudioSystem,
     event_system: EventSystem,
+    animation_system: AnimationSystem,
 }
 
 impl App {
@@ -27,6 +28,7 @@ impl App {
         let rendering_system = RenderingSystem::new();
         let audio_system = AudioSystem::new(&video_state.borrow().sdl_context);
         let mut event_system = EventSystem::new(&video_state.borrow().sdl_context);
+        let animation_system = AnimationSystem::new();
 
         event_system.add_listener(video_state.clone());
         event_system.add_listener(game_state.clone());
@@ -37,6 +39,7 @@ impl App {
             rendering_system,
             audio_system,
             event_system,
+            animation_system,
         }
     }
 
@@ -48,7 +51,8 @@ impl App {
 
         'running: loop {
             self.audio_system.update();
-            apply_physics(&mut self.game_state.borrow_mut());
+            self.animation_system
+                .apply_physics(&mut self.game_state.borrow_mut());
             self.rendering_system.render(&self.game_state.borrow());
             if self.event_system.parse_sdl_events().is_err() {
                 break 'running;
