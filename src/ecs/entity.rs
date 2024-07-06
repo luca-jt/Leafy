@@ -14,7 +14,7 @@ pub enum MeshType {
 }
 
 /// wether or not a mesh is colored or textured
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum MeshAttribute {
     Textured(GLuint),
     Colored(Color32),
@@ -28,19 +28,12 @@ impl MeshAttribute {
             Colored(_) => None,
         }
     }
-}
 
-impl PartialEq for MeshAttribute {
-    fn eq(&self, other: &Self) -> bool {
+    /// returns the color if present
+    pub fn color(&self) -> Option<Color32> {
         match self {
-            Textured(_) => match other {
-                Textured(_) => true,
-                _ => false,
-            },
-            Colored(_) => match other {
-                Colored(_) => true,
-                _ => false,
-            },
+            Textured(_) => None,
+            Colored(color) => Some(*color),
         }
     }
 }

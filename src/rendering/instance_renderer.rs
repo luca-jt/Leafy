@@ -21,13 +21,13 @@ pub struct InstanceRenderer {
     positions: Vec<glm::Vec3>,
     pos_idx: usize,
     pub color: Color32,
-    pub tex_id: GLuint, // TODO
+    pub tex_id: GLuint,
     num_instances: usize,
 }
 
 impl InstanceRenderer {
     /// creates a new instance renderer
-    pub fn new(shared_mesh: SharedMesh, num_instances: usize, tex_id: Option<GLuint>) -> Self {
+    pub fn new(shared_mesh: SharedMesh, num_instances: usize) -> Self {
         let mesh = shared_mesh.clone();
         let mesh = mesh.borrow();
 
@@ -181,7 +181,7 @@ impl InstanceRenderer {
             positions,
             pos_idx: 0,
             color: Color32::WHITE,
-            tex_id: tex_id.unwrap_or(white_texture),
+            tex_id: white_texture,
             num_instances,
         }
     }

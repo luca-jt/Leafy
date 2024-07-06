@@ -115,10 +115,20 @@ impl RenderingSystem {
                             .push(Batch(entity_ref.mesh_type, BatchRenderer::new(mesh, 10)));
                     }
                     MeshType::Sphere => {
+                        // TODO: 10 als grenze? (oben auch)
+                        let mut renderer = InstanceRenderer::new(mesh, 10);
+                        match entity_ref.mesh_attribute {
+                            Textured(tex_id) => {
+                                renderer.tex_id = tex_id;
+                            }
+                            Colored(color) => {
+                                renderer.color = color;
+                            }
+                        }
                         self.renderers.push(Instance(
                             entity_ref.mesh_type,
                             entity_ref.mesh_attribute,
-                            InstanceRenderer::new(mesh, 10, entity_ref.mesh_attribute.tex_id()), // TODO: 10? oben auch
+                            renderer,
                         ));
                     }
                 }
