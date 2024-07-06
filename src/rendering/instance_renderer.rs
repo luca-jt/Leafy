@@ -155,11 +155,11 @@ impl InstanceRenderer {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGB as GLint,
+                gl::RGBA as GLint,
                 1,
                 1,
                 0,
-                gl::RGB,
+                gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 white_color_data.as_ptr() as *const GLvoid,
             );

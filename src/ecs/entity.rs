@@ -93,19 +93,19 @@ impl Entity {
         self.last_touch_time = Instant::now();
     }
 
-    /// `.unwrap()` equivalent for the velocity field
+    /// get the velocity of the entity (0 if fixed)
     pub fn velocity(&self) -> Velocity {
         match self.motion_state {
             MotionState::Moving(v, _) => v,
-            MotionState::Fixed => panic!("entity is fixed"),
+            MotionState::Fixed => Velocity::zeros(),
         }
     }
 
-    /// `.unwrap()` equivalent for the acceleration field
+    /// get the acceleration of the entity (0 if fixed)
     pub fn acceleration(&self) -> Acceleration {
         match self.motion_state {
             MotionState::Moving(_, a) => a,
-            MotionState::Fixed => panic!("entity is fixed"),
+            MotionState::Fixed => Acceleration::zeros(),
         }
     }
 

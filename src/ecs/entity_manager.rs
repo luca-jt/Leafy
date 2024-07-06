@@ -40,6 +40,7 @@ impl EntityManager {
 
     /// deletes an entity from the register by id and returns the removed entity
     pub fn rm_entity(&mut self, entity_id: EntityID) -> Entity {
+        // TODO: clean up the asset register?
         self.entity_register
             .remove(&entity_id)
             .expect("entity not in the register")

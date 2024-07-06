@@ -20,7 +20,7 @@ impl AnimationSystem {
         // TODO(luca): friction
         for id in game_state.moving_entities.iter() {
             let entity_ref = game_state.entity_manager.get_entity_mut(*id);
-            debug_assert!(entity_ref.is_fixed());
+            debug_assert!(!entity_ref.is_fixed());
 
             let dt = entity_ref.elapsed_time_f32() * self.animation_speed;
             let a = entity_ref.acceleration();
