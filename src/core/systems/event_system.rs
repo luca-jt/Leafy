@@ -182,6 +182,9 @@ pub enum FLEvent {
     WindowGainedFocus,
 }
 
+// Hashmap mit type ids?
+// macro für die registry von events
+
 /*
 /// threadsafe event queue
 pub type SharedEventQueue<T> = RefCountMutex<Vec<T>>;

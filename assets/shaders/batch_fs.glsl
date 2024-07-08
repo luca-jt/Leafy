@@ -1,6 +1,6 @@
 #version 450 core
 
-in vec4 v_color;
+in vec3 v_color;
 in vec2 v_uv;
 in vec3 v_normal;
 in float v_tex_idx;
@@ -16,10 +16,20 @@ uniform vec3 light_pos;
 float shadow_calc(vec4 fpl) {
     vec3 proj_coords = fpl.xyz / fpl.w;
     proj_coords = proj_coords * 0.5 + 0.5;
-    float closest_depth = texture(shadow_map, proj_coords.xy).r;
-    float current_depth = proj_coords.z;
+
     float bias = 0.001;
-    float shadow = current_depth > closest_depth + bias ? 1.0 : 0.0;
+    int filter_size = 2;
+
+    float shadow = 0.0;
+
+    for (int y = -filter_size / 2; y < filter_size / 2; ++y) {
+        for (int x = -filter_size / 2; x < filter_size / 2; ++x) {
+            vec2 offset = vec2(x, y) / textureSize(shadow_map, 0);
+            float depth = texture(shadow_map, proj_coords.xy + offset).x;
+            shadow += proj_coords.z > depth + bias ? 1.0 : 0.0;
+        }
+    }
+    shadow /= float(pow(filter_size, 2));
 
     return shadow;
 }

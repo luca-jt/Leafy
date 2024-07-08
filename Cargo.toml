@@ -5,6 +5,13 @@ edition = "2021"
 authors = ["Luca Thomas"]
 build = "build.rs"
 
+[lib]
+name = "fl_core"
+path = "src/core/lib.rs"
+
+[[bin]]
+name = "fl_test"
+path = "src/main.rs"
 
 [dependencies]
 stb_image = "*"

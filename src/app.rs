@@ -2,13 +2,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use crate::state::game_state::GameState;
-use crate::state::video_state::VideoState;
-use crate::systems::animation_system::AnimationSystem;
-use crate::systems::audio_system::AudioSystem;
-use crate::systems::event_system::EventSystem;
-use crate::systems::rendering_system::RenderingSystem;
-use crate::utils::constants::FPS_CAP;
+use fl_core::state::game_state::GameState;
+use fl_core::state::video_state::VideoState;
+use fl_core::systems::animation_system::AnimationSystem;
+use fl_core::systems::audio_system::AudioSystem;
+use fl_core::systems::event_system::EventSystem;
+use fl_core::systems::rendering_system::RenderingSystem;
+use fl_core::utils::constants::FPS_CAP;
 
 /// main app
 pub struct App {

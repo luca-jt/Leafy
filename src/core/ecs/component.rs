@@ -1,11 +1,21 @@
+use crate::ecs::entity::EntityID;
+use crate::ecs::ECS;
 use gl::types::GLuint;
 use nalgebra_glm as glm;
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::time::Instant;
 use MeshAttribute::*;
 
 /// defines what can be a component for an entity
-pub trait Component: Any {}
+pub trait Component: Any + Sized {
+    fn type_id() -> TypeId {
+        TypeId::of::<Self>()
+    }
+
+    fn matches(entity: EntityID, ecs: &ECS) -> bool {
+        ecs.get_component::<Self>(entity).is_some()
+    }
+}
 
 pub type Scale = f32;
 
