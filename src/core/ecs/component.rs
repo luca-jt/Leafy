@@ -1,45 +1,34 @@
-use crate::ecs::entity::EntityID;
-use crate::ecs::ECS;
 use gl::types::GLuint;
 use nalgebra_glm as glm;
-use std::any::{Any, TypeId};
-use std::time::Instant;
+use std::any::Any;
 use MeshAttribute::*;
 
 /// defines what can be a component for an entity
-pub trait Component: Any + Sized {
-    fn type_id() -> TypeId {
-        TypeId::of::<Self>()
-    }
+pub trait Component: Any + 'static {}
 
-    fn matches(entity: EntityID, ecs: &ECS) -> bool {
-        ecs.get_component::<Self>(entity).is_some()
+impl<T> Component for T where T: Any + 'static {}
+
+pub struct Scale(f32);
+
+impl From<f32> for Scale {
+    fn from(value: f32) -> Self {
+        Scale(value)
     }
 }
 
-pub type Scale = f32;
+pub struct Position(glm::Vec3);
 
-impl Component for Scale {}
+pub struct Quaternion(glm::Vec4); // TODO: nutzung
 
-pub type Position = glm::Vec3;
+pub struct Velocity(glm::Vec3);
 
-impl Component for Position {}
-
-pub type Quaternion = glm::Vec4; // TODO: nutzung
-
-impl Component for Quaternion {}
-
-pub type Velocity = glm::Vec3;
-
-pub type Acceleration = glm::Vec3;
+pub struct Acceleration(glm::Vec3);
 
 /// binds all of the motion-specific data together
 pub enum MotionState {
     Moving(Velocity, Acceleration),
     Fixed,
 }
-
-impl Component for MotionState {}
 
 impl Default for MotionState {
     fn default() -> Self {
@@ -99,16 +88,12 @@ pub enum MeshType {
     Plane,
 }
 
-impl Component for MeshType {}
-
 /// wether or not a mesh is colored or textured
 #[derive(Copy, Clone, PartialEq)]
 pub enum MeshAttribute {
     Textured(GLuint),
     Colored(Color32),
 }
-
-impl Component for MeshAttribute {}
 
 impl MeshAttribute {
     /// returns the texture id if present
@@ -127,5 +112,3 @@ impl MeshAttribute {
         }
     }
 }
-
-impl Component for Instant {}

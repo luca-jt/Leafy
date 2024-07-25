@@ -6,7 +6,7 @@ use fl_core::state::game_state::GameState;
 use fl_core::state::video_state::VideoState;
 use fl_core::systems::animation_system::AnimationSystem;
 use fl_core::systems::audio_system::AudioSystem;
-use fl_core::systems::event_system::EventSystem;
+use fl_core::systems::event_system::*;
 use fl_core::systems::rendering_system::RenderingSystem;
 use fl_core::utils::constants::FPS_CAP;
 
@@ -30,8 +30,10 @@ impl App {
         let mut event_system = EventSystem::new(&video_state.borrow().sdl_context);
         let animation_system = AnimationSystem::new();
 
-        event_system.add_listener(video_state.clone());
-        event_system.add_listener(game_state.clone());
+        // maybe do some of them in some constuctor
+        event_system.add_listener::<FLKeyPress>(video_state.clone());
+        event_system.add_listener::<FLWindowResize>(video_state.clone());
+        event_system.add_listener::<FLKeyPress>(game_state.clone());
 
         Self {
             game_state,

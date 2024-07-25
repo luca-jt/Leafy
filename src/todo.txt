@@ -11,3 +11,6 @@ sampled animations
 scenes -> graphs
 particle system
 ui basics
+set model matrix for every entity (rotation, scaling) -> renderer rewrite
+winit
+ambisonic

@@ -1,4 +1,4 @@
-use crate::systems::event_system::{EventObserver, FLEvent};
+use crate::systems::event_system::{EventObserver, FLEventData};
 use crate::utils::constants::{INV_WIN_RATIO, MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
 use crate::utils::file::get_image_path;
 use sdl2::image::LoadSurface;
@@ -76,8 +76,8 @@ impl VideoState {
 }
 
 impl EventObserver for VideoState {
-    fn on_event(&mut self, event: &FLEvent) {
-        if let FLEvent::KeyPress(key) = event {
+    fn on_event(&mut self, event: &FLEventData) {
+        if let FLEventData::KeyPress(key) = event {
             if *key == Keycode::F11 {
                 // toggle fullscreen
                 match self.window.fullscreen_state() {
@@ -92,7 +92,7 @@ impl EventObserver for VideoState {
                     }
                 }
             }
-        } else if let FLEvent::WindowResize(w, _) = event {
+        } else if let FLEventData::WindowResize(w, _) = event {
             if !self.window.is_maximized()
                 && self.window.fullscreen_state() != FullscreenType::Desktop
             {
