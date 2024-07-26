@@ -214,7 +214,12 @@ pub struct FLMouseMove {
 
 impl IFLEvent for FLMouseMove {
     fn event_data(&self) -> FLEventData {
-        todo!()
+        FLEventData::MouseMove {
+            new_x: self.new_x,
+            new_y: self.new_y,
+            rel_x: self.rel_x,
+            rel_y: self.rel_y,
+        }
     }
 }
 
@@ -228,7 +233,13 @@ pub struct FLMouseScroll {
 
 impl IFLEvent for FLMouseScroll {
     fn event_data(&self) -> FLEventData {
-        todo!()
+        FLEventData::MouseScroll {
+            direction: self.direction,
+            scroll_x: self.scroll_x,
+            scroll_y: self.scroll_y,
+            at_x: self.at_x,
+            at_y: self.at_y,
+        }
     }
 }
 
@@ -240,7 +251,11 @@ pub struct FLMouseClick {
 
 impl IFLEvent for FLMouseClick {
     fn event_data(&self) -> FLEventData {
-        todo!()
+        FLEventData::MouseClick {
+            button: self.button,
+            at_x: self.at_x,
+            at_y: self.at_y,
+        }
     }
 }
 
@@ -248,7 +263,7 @@ pub struct FLControllerAxis(Axis, i16);
 
 impl IFLEvent for FLControllerAxis {
     fn event_data(&self) -> FLEventData {
-        todo!()
+        FLEventData::ControllerAxis(self.0, self.1)
     }
 }
 
@@ -256,7 +271,7 @@ pub struct FLControllerButton(Button);
 
 impl IFLEvent for FLControllerButton {
     fn event_data(&self) -> FLEventData {
-        todo!()
+        FLEventData::ControllerButton(self.0)
     }
 }
 
@@ -264,7 +279,7 @@ pub struct FLWindowResize(i32, i32);
 
 impl IFLEvent for FLWindowResize {
     fn event_data(&self) -> FLEventData {
-        todo!()
+        FLEventData::WindowResize(self.0, self.1)
     }
 }
 
@@ -272,7 +287,7 @@ pub struct FLWindowLostFocus;
 
 impl IFLEvent for FLWindowLostFocus {
     fn event_data(&self) -> FLEventData {
-        todo!()
+        FLEventData::WindowLostFocus
     }
 }
 
@@ -280,6 +295,6 @@ pub struct FLWindowGainedFocus;
 
 impl IFLEvent for FLWindowGainedFocus {
     fn event_data(&self) -> FLEventData {
-        todo!()
+        FLEventData::WindowGainedFocus
     }
 }

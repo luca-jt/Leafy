@@ -18,7 +18,7 @@ struct EntityRecord {
 
 struct Archetype {
     id: ArchetypeID,
-    components: HashMap<TypeId, Vec<Box<dyn Component>>>,
+    components: HashMap<TypeId, Vec<Box<dyn Any>>>,
 }
 
 struct ECS {
@@ -27,6 +27,12 @@ struct ECS {
     entity_index: HashMap<EntityID, EntityRecord>,
     archetypes: HashMap<ArchetypeID, Archetype>,
     type_to_archetype: HashMap<EntityType, ArchetypeID>,
+}
+
+macro_rules! components {
+    ($($T:expr),*) => {
+        vec![$(Box::new($T), )*]
+    };
 }
 
 impl ECS {
@@ -155,10 +161,10 @@ impl ECS {
         let old_archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
 
         // Remove the entity's components from the old archetype
-        let mut components: Vec<Box<dyn Component>> = old_archetype
+        let mut components: Vec<Box<dyn Any>> = old_archetype
             .components
-            .iter_mut()
-            .map(|(type_id, vec)| vec.swap_remove(record.row))
+            .values_mut()
+            .map(|vec| vec.swap_remove(record.row))
             .collect();
 
         // Remove the specific component
