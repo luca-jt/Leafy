@@ -1,10 +1,54 @@
 use crate::ecs::component::MeshAttribute::*;
 use crate::ecs::component::{
-    Acceleration, MeshAttribute, MeshType, MotionState, Position, Quaternion, Scale, Velocity,
+    Acceleration, Component, MeshAttribute, MeshType, MotionState, Position, Quaternion, Scale,
+    Velocity,
 };
+use std::any::{Any, TypeId};
+use std::collections::HashMap;
+use std::slice::Iter;
 use std::time::Instant;
 
+/// unique identifier for an entity
 pub type EntityID = u64;
+
+/// defines a type an entity can have
+#[derive(Clone)]
+pub(crate) struct EntityType(Vec<TypeId>);
+
+impl EntityType {
+    /// wrapper for the `iter()` function of the stored Vec
+    pub fn iter(&self) -> Iter<'_, TypeId> {
+        self.0.iter()
+    }
+}
+
+impl From<Vec<Box<dyn Component>>> for EntityType {
+    fn from(value: Vec<Box<dyn Component>>) -> Self {
+        let mut converted: Vec<_> = value.iter().map(|c| c.type_id()).collect();
+        converted.sort();
+        EntityType(converted)
+    }
+}
+
+impl From<Vec<Box<dyn Any>>> for EntityType {
+    fn from(value: Vec<Box<dyn Any>>) -> Self {
+        let mut converted: Vec<_> = value.iter().map(|c| c.type_id()).collect();
+        converted.sort();
+        EntityType(converted)
+    }
+}
+
+pub(crate) type ArchetypeID = u64;
+
+pub(crate) struct EntityRecord {
+    pub(crate) archetype_id: ArchetypeID,
+    pub(crate) row: usize,
+}
+
+pub(crate) struct Archetype {
+    pub(crate) id: ArchetypeID,
+    pub(crate) components: HashMap<TypeId, Vec<Box<dyn Any>>>,
+}
 
 /// abstract model of any thing in the game
 pub struct Entity {
@@ -27,7 +71,7 @@ impl Entity {
             orientation: Quaternion::zeros(),
             last_touch_time: Instant::now(),
             motion_state: MotionState::Fixed,
-            scale: 1.0,
+            scale: Scale::default(),
         }
     }
 
@@ -40,7 +84,7 @@ impl Entity {
             orientation: Quaternion::zeros(),
             last_touch_time: Instant::now(),
             motion_state: MotionState::default(),
-            scale: 1.0,
+            scale: Scale::default(),
         }
     }
 
@@ -55,18 +99,18 @@ impl Entity {
     }
 
     /// get the velocity of the entity (0 if fixed)
-    pub fn velocity(&self) -> Velocity {
-        match self.motion_state {
+    pub fn velocity(&self) -> &Velocity {
+        match &self.motion_state {
             MotionState::Moving(v, _) => v,
-            MotionState::Fixed => Velocity::zeros(),
+            MotionState::Fixed => &Velocity::zeros(),
         }
     }
 
     /// get the acceleration of the entity (0 if fixed)
-    pub fn acceleration(&self) -> Acceleration {
-        match self.motion_state {
+    pub fn acceleration(&self) -> &Acceleration {
+        match &self.motion_state {
             MotionState::Moving(_, a) => a,
-            MotionState::Fixed => Acceleration::zeros(),
+            MotionState::Fixed => &Acceleration::zeros(),
         }
     }
 

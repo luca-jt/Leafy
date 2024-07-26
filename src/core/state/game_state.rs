@@ -1,6 +1,4 @@
-use crate::ecs::component::{
-    Color32, MeshAttribute, MeshType, MotionState, Position, Scale, Velocity,
-};
+use crate::ecs::component::{Color32, MeshAttribute, MeshType, MotionState, Position, Velocity};
 use crate::ecs::entity::{Entity, EntityID};
 use crate::ecs::entity_manager::EntityManager;
 use crate::systems::event_system::{EventObserver, FLEventData};
@@ -26,7 +24,7 @@ impl GameState {
             MeshAttribute::Colored(Color32::GREEN),
             Position::zeros(),
         );
-        floor.scale = Scale::from(5.0);
+        floor.scale = 5f32.into();
         let _ = entity_manager.add_entity(floor);
 
         let test_entity = Entity::new_moving(

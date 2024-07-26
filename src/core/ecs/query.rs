@@ -3,9 +3,11 @@ use crate::ecs::{Archetype, ArchetypeID, ECS};
 use std::any::TypeId;
 use std::marker::PhantomData;
 
+/// a query filter that requires components to be included in an entity
 pub struct IncludeFilter(Vec<TypeId>);
 
 impl IncludeFilter {
+    /// checks wether or not the filter accepts an archetype
     pub fn matches(&self, archetype: &Archetype) -> bool {
         self.0
             .iter()
@@ -13,15 +15,18 @@ impl IncludeFilter {
     }
 }
 
+/// easy creation of an include filter from given component types
 macro_rules! include_filter {
     ($($T:ty),*) => {
         IncludeFilter(vec![$(TypeId::of<$T>(), )*])
     };
 }
 
+/// a query filter that requires components to be excluded from an entity
 pub struct ExcludeFilter(Vec<TypeId>);
 
 impl ExcludeFilter {
+    /// checks wether or not the filter accepts an archetype
     pub fn matches(&self, archetype: &Archetype) -> bool {
         self.0
             .iter()
@@ -29,13 +34,14 @@ impl ExcludeFilter {
     }
 }
 
+/// easy creation of an exclude filter from given component types
 macro_rules! exclude_filter {
     ($($T:ty),*) => {
         ExcludeFilter(vec![$(TypeId::of<$T>(), )*])
     };
 }
 
-struct Query1<'a, T: Component> {
+pub struct Query1<'a, T: Component> {
     archetype_iter: std::collections::hash_map::Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
@@ -70,7 +76,7 @@ impl<'a, T: Component> Iterator for Query1<'a, T> {
     }
 }
 
-struct QueryMut1<'a, T: Component> {
+pub struct QueryMut1<'a, T: Component> {
     archetype_iter: std::collections::hash_map::ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a mut Archetype>,
     component_index: usize,
@@ -106,7 +112,7 @@ impl<'a, T: Component> Iterator for QueryMut1<'a, T> {
     }
 }
 
-struct Query2<'a, A: Component, B: Component> {
+pub struct Query2<'a, A: Component, B: Component> {
     archetype_iter: std::collections::hash_map::Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
@@ -146,7 +152,7 @@ impl<'a, A: Component, B: Component> Iterator for Query2<'a, A, B> {
     }
 }
 
-struct Query2Mut<'a, A: Component, B: Component> {
+pub struct Query2Mut<'a, A: Component, B: Component> {
     archetype_iter: std::collections::hash_map::ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a mut Archetype>,
     component_index: usize,
@@ -188,7 +194,7 @@ impl<'a, A: Component, B: Component> Iterator for Query2Mut<'a, A, B> {
     }
 }
 
-struct Query3<'a, A: Component, B: Component, C: Component> {
+pub struct Query3<'a, A: Component, B: Component, C: Component> {
     archetype_iter: std::collections::hash_map::Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
@@ -231,7 +237,7 @@ impl<'a, A: Component, B: Component, C: Component> Iterator for Query3<'a, A, B,
     }
 }
 
-struct Query3Mut<'a, A: Component, B: Component, C: Component> {
+pub struct Query3Mut<'a, A: Component, B: Component, C: Component> {
     archetype_iter: std::collections::hash_map::ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a mut Archetype>,
     component_index: usize,
@@ -277,7 +283,7 @@ impl<'a, A: Component, B: Component, C: Component> Iterator for Query3Mut<'a, A,
     }
 }
 
-struct Query4<'a, A: Component, B: Component, C: Component, D: Component> {
+pub struct Query4<'a, A: Component, B: Component, C: Component, D: Component> {
     archetype_iter: std::collections::hash_map::Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
@@ -325,7 +331,7 @@ impl<'a, A: Component, B: Component, C: Component, D: Component> Iterator
     }
 }
 
-struct Query4Mut<'a, A: Component, B: Component, C: Component, D: Component> {
+pub struct Query4Mut<'a, A: Component, B: Component, C: Component, D: Component> {
     archetype_iter: std::collections::hash_map::ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a mut Archetype>,
     component_index: usize,
@@ -377,7 +383,7 @@ impl<'a, A: Component, B: Component, C: Component, D: Component> Iterator
     }
 }
 
-struct Query5<'a, A: Component, B: Component, C: Component, D: Component, E: Component> {
+pub struct Query5<'a, A: Component, B: Component, C: Component, D: Component, E: Component> {
     archetype_iter: std::collections::hash_map::Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
@@ -428,7 +434,7 @@ impl<'a, A: Component, B: Component, C: Component, D: Component, E: Component> I
     }
 }
 
-struct Query5Mut<'a, A: Component, B: Component, C: Component, D: Component, E: Component> {
+pub struct Query5Mut<'a, A: Component, B: Component, C: Component, D: Component, E: Component> {
     archetype_iter: std::collections::hash_map::ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a mut Archetype>,
     component_index: usize,

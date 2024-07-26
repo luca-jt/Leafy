@@ -64,8 +64,8 @@ impl RenderingSystem {
                         match entity_ref.mesh_attribute {
                             Textured(id) => {
                                 renderer.draw_tex_mesh(
-                                    entity_ref.position,
-                                    entity_ref.scale,
+                                    entity_ref.position.data(),
+                                    entity_ref.scale.0,
                                     id,
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
@@ -75,8 +75,8 @@ impl RenderingSystem {
                             }
                             Colored(color) => {
                                 renderer.draw_color_mesh(
-                                    entity_ref.position,
-                                    entity_ref.scale,
+                                    entity_ref.position.data(),
+                                    entity_ref.scale.0,
                                     color,
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
@@ -91,14 +91,14 @@ impl RenderingSystem {
                         match entity_ref.mesh_attribute {
                             Textured(id) => {
                                 if id == renderer.tex_id {
-                                    renderer.add_position(entity_ref.position);
+                                    renderer.add_position(entity_ref.position.data());
                                     found = true;
                                     break;
                                 }
                             }
                             Colored(color) => {
                                 if color == renderer.color {
-                                    renderer.add_position(entity_ref.position);
+                                    renderer.add_position(entity_ref.position.data());
                                     found = true;
                                     break;
                                 }

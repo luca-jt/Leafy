@@ -1,6 +1,7 @@
 use gl::types::GLuint;
 use nalgebra_glm as glm;
 use std::any::Any;
+use std::time::Instant;
 use MeshAttribute::*;
 
 /// defines what can be a component for an entity
@@ -8,21 +9,73 @@ pub trait Component: Any + 'static {}
 
 impl<T> Component for T where T: Any + 'static {}
 
-pub struct Scale(f32);
+pub struct Scale(pub f32);
 
-impl From<f32> for Scale {
-    fn from(value: f32) -> Self {
-        Scale(value)
+impl Into<Scale> for f32 {
+    fn into(self) -> Scale {
+        Scale(self)
     }
 }
 
+impl Default for Scale {
+    fn default() -> Self {
+        Scale(1.0)
+    }
+}
+
+/// used for object orientation in 3D space
+pub type Quaternion = glm::Vec4; // TODO: nutzung
+
+/// position in 3D space
 pub struct Position(glm::Vec3);
 
-pub struct Quaternion(glm::Vec4); // TODO: nutzung
+impl Position {
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Position(glm::Vec3::new(x, y, z))
+    }
 
+    pub fn data(&self) -> glm::Vec3 {
+        self.0
+    }
+
+    pub fn zeros() -> Self {
+        Position(glm::Vec3::zeros())
+    }
+}
+
+/// velocity in 3D space
 pub struct Velocity(glm::Vec3);
 
+impl Velocity {
+    pub fn new(dx: f32, dy: f32, dz: f32) -> Self {
+        Velocity(glm::Vec3::new(dx, dy, dz))
+    }
+
+    pub fn data(&self) -> glm::Vec3 {
+        self.0
+    }
+
+    pub fn zeros() -> Self {
+        Velocity(glm::Vec3::zeros())
+    }
+}
+
+/// acceleration in 3D space
 pub struct Acceleration(glm::Vec3);
+
+impl Acceleration {
+    pub fn new(ddx: f32, ddy: f32, ddz: f32) -> Self {
+        Acceleration(glm::Vec3::new(ddx, ddy, ddz))
+    }
+
+    pub fn data(&self) -> glm::Vec3 {
+        self.0
+    }
+
+    pub fn zeros() -> Self {
+        Acceleration(glm::Vec3::zeros())
+    }
+}
 
 /// binds all of the motion-specific data together
 pub enum MotionState {
@@ -110,5 +163,21 @@ impl MeshAttribute {
             Textured(_) => None,
             Colored(color) => Some(*color),
         }
+    }
+}
+
+pub struct TimeStamp(Instant);
+
+impl TimeStamp {
+    pub fn now() -> Self {
+        TimeStamp(Instant::now())
+    }
+
+    pub fn reset(&mut self) {
+        self.0 = Instant::now();
+    }
+
+    pub fn delta_time_f32(&self) -> f32 {
+        self.0.elapsed().as_secs_f32()
     }
 }

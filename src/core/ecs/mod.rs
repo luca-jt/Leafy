@@ -1,5 +1,5 @@
 use component::Component;
-use entity::EntityID;
+use entity::*;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 
@@ -8,20 +8,8 @@ pub mod entity;
 pub mod entity_manager;
 pub mod query;
 
-type EntityType = Vec<TypeId>;
-type ArchetypeID = u64;
-
-struct EntityRecord {
-    archetype_id: ArchetypeID,
-    row: usize,
-}
-
-struct Archetype {
-    id: ArchetypeID,
-    components: HashMap<TypeId, Vec<Box<dyn Any>>>,
-}
-
-struct ECS {
+/// the entity component system that manages all the data associated with an entity
+pub struct ECS {
     next_entity: EntityID,
     next_archetype_id: ArchetypeID,
     entity_index: HashMap<EntityID, EntityRecord>,
@@ -29,6 +17,7 @@ struct ECS {
     type_to_archetype: HashMap<EntityType, ArchetypeID>,
 }
 
+/// create a component list for entity creation
 macro_rules! components {
     ($($T:expr),*) => {
         vec![$(Box::new($T), )*]
@@ -36,6 +25,7 @@ macro_rules! components {
 }
 
 impl ECS {
+    /// creates a new ecs
     pub fn new() -> Self {
         Self {
             next_entity: 0,
@@ -46,12 +36,12 @@ impl ECS {
         }
     }
 
+    /// creates a new entity with given components, stores the given data and returns the id
     pub fn create_entity(&mut self, components: Vec<Box<dyn Component>>) -> EntityID {
         let new_entity = self.next_entity;
         self.next_entity += 1;
 
-        let mut entity_type: EntityType = components.iter().map(|c| (*c).type_id()).collect();
-        entity_type.sort();
+        let entity_type = EntityType::from(components);
 
         let archetype_id = self.get_arch_id(&entity_type);
 
@@ -77,6 +67,7 @@ impl ECS {
         new_entity
     }
 
+    /// yields the component data of an entity if present
     pub fn get_component<T: Component>(&self, entity: EntityID) -> Option<&T> {
         let record = self.entity_index.get(&entity)?;
         let archetype = self.archetypes.get(&record.archetype_id)?;
@@ -85,6 +76,7 @@ impl ECS {
         component.downcast_ref::<T>()
     }
 
+    /// gets the archetype id of an entity type and creates a new archetype if necessary
     fn get_arch_id(&mut self, entity_type: &EntityType) -> ArchetypeID {
         *self
             .type_to_archetype
@@ -106,6 +98,7 @@ impl ECS {
             })
     }
 
+    /// adds a component to an existing entity
     pub fn add_component<T: Component>(&mut self, entity: EntityID, component: T) {
         let row = self.entity_index.get(&entity).unwrap().row;
         let archetype_id = self.entity_index.get(&entity).unwrap().archetype_id;
@@ -122,8 +115,7 @@ impl ECS {
         components.push(Box::new(component));
 
         // Create a new entity type
-        let mut new_entity_type: EntityType = components.iter().map(|c| c.type_id()).collect();
-        new_entity_type.sort();
+        let new_entity_type = EntityType::from(components);
 
         // Find or create the new archetype
         let new_archetype_id = self.get_arch_id(&new_entity_type);
@@ -149,12 +141,14 @@ impl ECS {
         record.row = new_row;
     }
 
+    /// checks wether or not an entity has a component of given type associated with it
     pub fn has_component<T: Component>(&self, entity: EntityID) -> bool {
         let record = self.entity_index.get(&entity).unwrap();
         let archetype = self.archetypes.get(&record.archetype_id).unwrap();
         archetype.components.contains_key(&TypeId::of::<T>())
     }
 
+    /// removes a component from an entity and returns the component data if present
     pub fn remove_component<T: Component>(&mut self, entity: EntityID) -> Option<T> {
         let type_id = TypeId::of::<T>();
         let record = self.entity_index.get_mut(&entity).unwrap();
@@ -172,8 +166,7 @@ impl ECS {
         let component = components.swap_remove(component_index);
 
         // Create a new entity type
-        let mut new_entity_type: EntityType = components.iter().map(|c| c.type_id()).collect();
-        new_entity_type.sort();
+        let new_entity_type = EntityType::from(components);
 
         // Find or create the new archetype
         let new_archetype_id = self.get_arch_id(&new_entity_type);
