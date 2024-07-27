@@ -1,4 +1,3 @@
-use component::Component;
 use entity::*;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
@@ -37,11 +36,11 @@ impl ECS {
     }
 
     /// creates a new entity with given components, stores the given data and returns the id
-    pub fn create_entity(&mut self, components: Vec<Box<dyn Component>>) -> EntityID {
+    pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
         let new_entity = self.next_entity;
         self.next_entity += 1;
 
-        let entity_type = EntityType::from(components);
+        let entity_type = EntityType::from(&components);
 
         let archetype_id = self.get_arch_id(&entity_type);
 
@@ -56,19 +55,14 @@ impl ECS {
                 .push(component);
         }
 
-        self.entity_index.insert(
-            new_entity,
-            EntityRecord {
-                archetype_id: *archetype_id,
-                row,
-            },
-        );
+        self.entity_index
+            .insert(new_entity, EntityRecord { archetype_id, row });
 
         new_entity
     }
 
     /// yields the component data of an entity if present
-    pub fn get_component<T: Component>(&self, entity: EntityID) -> Option<&T> {
+    pub fn get_component<T: Any>(&self, entity: EntityID) -> Option<&T> {
         let record = self.entity_index.get(&entity)?;
         let archetype = self.archetypes.get(&record.archetype_id)?;
         let component_vec = archetype.components.get(&TypeId::of::<T>())?;
@@ -99,13 +93,13 @@ impl ECS {
     }
 
     /// adds a component to an existing entity
-    pub fn add_component<T: Component>(&mut self, entity: EntityID, component: T) {
+    pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) {
         let row = self.entity_index.get(&entity).unwrap().row;
         let archetype_id = self.entity_index.get(&entity).unwrap().archetype_id;
         let old_archetype = self.archetypes.get_mut(&archetype_id).unwrap();
 
         // Remove the entity's components from the old archetype
-        let mut components: Vec<Box<dyn Component>> = old_archetype
+        let mut components: Vec<Box<dyn Any>> = old_archetype
             .components
             .values_mut()
             .map(|vec| vec.swap_remove(row))
@@ -115,7 +109,7 @@ impl ECS {
         components.push(Box::new(component));
 
         // Create a new entity type
-        let new_entity_type = EntityType::from(components);
+        let new_entity_type = EntityType::from(&components);
 
         // Find or create the new archetype
         let new_archetype_id = self.get_arch_id(&new_entity_type);
@@ -142,14 +136,14 @@ impl ECS {
     }
 
     /// checks wether or not an entity has a component of given type associated with it
-    pub fn has_component<T: Component>(&self, entity: EntityID) -> bool {
+    pub fn has_component<T: Any>(&self, entity: EntityID) -> bool {
         let record = self.entity_index.get(&entity).unwrap();
         let archetype = self.archetypes.get(&record.archetype_id).unwrap();
         archetype.components.contains_key(&TypeId::of::<T>())
     }
 
     /// removes a component from an entity and returns the component data if present
-    pub fn remove_component<T: Component>(&mut self, entity: EntityID) -> Option<T> {
+    pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
         let type_id = TypeId::of::<T>();
         let record = self.entity_index.get_mut(&entity).unwrap();
         let old_archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
@@ -166,7 +160,7 @@ impl ECS {
         let component = components.swap_remove(component_index);
 
         // Create a new entity type
-        let new_entity_type = EntityType::from(components);
+        let new_entity_type = EntityType::from(&components);
 
         // Find or create the new archetype
         let new_archetype_id = self.get_arch_id(&new_entity_type);

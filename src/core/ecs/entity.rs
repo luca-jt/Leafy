@@ -1,10 +1,10 @@
 use crate::ecs::component::MeshAttribute::*;
 use crate::ecs::component::{
-    Acceleration, Component, MeshAttribute, MeshType, MotionState, Position, Quaternion, Scale,
-    Velocity,
+    Acceleration, MeshAttribute, MeshType, MotionState, Position, Quaternion, Scale, Velocity,
 };
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
+use std::ops::Index;
 use std::slice::Iter;
 use std::time::Instant;
 
@@ -12,7 +12,7 @@ use std::time::Instant;
 pub type EntityID = u64;
 
 /// defines a type an entity can have
-#[derive(Clone)]
+#[derive(Eq, Hash, PartialEq, Clone)]
 pub(crate) struct EntityType(Vec<TypeId>);
 
 impl EntityType {
@@ -22,19 +22,19 @@ impl EntityType {
     }
 }
 
-impl From<Vec<Box<dyn Component>>> for EntityType {
-    fn from(value: Vec<Box<dyn Component>>) -> Self {
+impl From<&Vec<Box<dyn Any>>> for EntityType {
+    fn from(value: &Vec<Box<dyn Any>>) -> Self {
         let mut converted: Vec<_> = value.iter().map(|c| c.type_id()).collect();
         converted.sort();
         EntityType(converted)
     }
 }
 
-impl From<Vec<Box<dyn Any>>> for EntityType {
-    fn from(value: Vec<Box<dyn Any>>) -> Self {
-        let mut converted: Vec<_> = value.iter().map(|c| c.type_id()).collect();
-        converted.sort();
-        EntityType(converted)
+impl Index<usize> for EntityType {
+    type Output = TypeId;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
     }
 }
 

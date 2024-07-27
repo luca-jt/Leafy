@@ -1,14 +1,9 @@
 use gl::types::GLuint;
 use nalgebra_glm as glm;
-use std::any::Any;
 use std::time::Instant;
 use MeshAttribute::*;
 
-/// defines what can be a component for an entity
-pub trait Component: Any + 'static {}
-
-impl<T> Component for T where T: Any + 'static {}
-
+/// wrapper struct for an object scaling
 pub struct Scale(pub f32);
 
 impl Into<Scale> for f32 {
@@ -30,14 +25,17 @@ pub type Quaternion = glm::Vec4; // TODO: nutzung
 pub struct Position(glm::Vec3);
 
 impl Position {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
+    /// creates a new position
+    pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Position(glm::Vec3::new(x, y, z))
     }
 
-    pub fn data(&self) -> glm::Vec3 {
-        self.0
+    /// grants immutable access to the stored data
+    pub fn data(&self) -> &glm::Vec3 {
+        &self.0
     }
 
+    /// creates a new position filled with zeros (origin)
     pub fn zeros() -> Self {
         Position(glm::Vec3::zeros())
     }
@@ -47,14 +45,17 @@ impl Position {
 pub struct Velocity(glm::Vec3);
 
 impl Velocity {
-    pub fn new(dx: f32, dy: f32, dz: f32) -> Self {
+    /// creates a new velocity
+    pub const fn new(dx: f32, dy: f32, dz: f32) -> Self {
         Velocity(glm::Vec3::new(dx, dy, dz))
     }
 
-    pub fn data(&self) -> glm::Vec3 {
-        self.0
+    /// grants immutable access to the stored data
+    pub fn data(&self) -> &glm::Vec3 {
+        &self.0
     }
 
+    /// creates a new velocity filled with zeros
     pub fn zeros() -> Self {
         Velocity(glm::Vec3::zeros())
     }
@@ -64,14 +65,17 @@ impl Velocity {
 pub struct Acceleration(glm::Vec3);
 
 impl Acceleration {
-    pub fn new(ddx: f32, ddy: f32, ddz: f32) -> Self {
+    /// creates a new acceleration
+    pub const fn new(ddx: f32, ddy: f32, ddz: f32) -> Self {
         Acceleration(glm::Vec3::new(ddx, ddy, ddz))
     }
 
-    pub fn data(&self) -> glm::Vec3 {
-        self.0
+    /// grants immutable access to the stored data
+    pub fn data(&self) -> &glm::Vec3 {
+        &self.0
     }
 
+    /// creates a new acceleration filled with zeros
     pub fn zeros() -> Self {
         Acceleration(glm::Vec3::zeros())
     }
@@ -166,17 +170,21 @@ impl MeshAttribute {
     }
 }
 
-pub struct TimeStamp(Instant);
+/// component wrapper struct for `std::time::Instant` to track physics time
+pub struct TouchTime(Instant);
 
-impl TimeStamp {
+impl TouchTime {
+    /// wrapper for Instant::now()
     pub fn now() -> Self {
-        TimeStamp(Instant::now())
+        TouchTime(Instant::now())
     }
 
+    /// reset the internal time point to Instant::now()
     pub fn reset(&mut self) {
         self.0 = Instant::now();
     }
 
+    /// generate the delta time since the last reset in seconds
     pub fn delta_time_f32(&self) -> f32 {
         self.0.elapsed().as_secs_f32()
     }
