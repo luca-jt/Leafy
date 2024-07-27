@@ -38,13 +38,16 @@ impl Index<usize> for EntityType {
     }
 }
 
+/// unique identifier for an archetype
 pub(crate) type ArchetypeID = u64;
 
+/// entity meta data
 pub(crate) struct EntityRecord {
     pub(crate) archetype_id: ArchetypeID,
     pub(crate) row: usize,
 }
 
+/// archetype meta data
 pub(crate) struct Archetype {
     pub(crate) id: ArchetypeID,
     pub(crate) components: HashMap<TypeId, Vec<Box<dyn Any>>>,

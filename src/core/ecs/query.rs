@@ -1,6 +1,7 @@
 use crate::ecs::{Archetype, ArchetypeID, ECS};
 use crate::utils::tools::SplitMut;
 use std::any::{Any, TypeId};
+use std::collections::hash_map::Values;
 use std::marker::PhantomData;
 
 /// a query filter that requires components to be included in an entity
@@ -43,7 +44,7 @@ macro_rules! exclude_filter {
 
 /// immutable query for 1 component
 pub struct Query1<'a, T: Any> {
-    archetype_iter: std::collections::hash_map::Values<'a, ArchetypeID, Archetype>,
+    archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
     include: IncludeFilter,
@@ -89,10 +90,10 @@ pub struct QueryMut1<'a, T: Any> {
 }
 
 impl<'a, T: Any> Iterator for QueryMut1<'a, T> {
-    type Item = &'a mut T;
+    type Item<'b> = &'b mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = self.current_archetype {
+        while let Some(archetype) = &mut self.current_archetype {
             if self.component_index < archetype.components[&TypeId::of::<T>()].len() {
                 let component = &mut archetype.components.get_mut(&TypeId::of::<T>()).unwrap()
                     [self.component_index];
@@ -118,7 +119,7 @@ impl<'a, T: Any> Iterator for QueryMut1<'a, T> {
 
 /// immutable query for 2 components
 pub struct Query2<'a, A: Any, B: Any> {
-    archetype_iter: std::collections::hash_map::Values<'a, ArchetypeID, Archetype>,
+    archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
     include: IncludeFilter,
@@ -170,10 +171,10 @@ pub struct Query2Mut<'a, A: Any, B: Any> {
 }
 
 impl<'a, A: Any, B: Any> Iterator for Query2Mut<'a, A, B> {
-    type Item = (&'a mut A, &'a mut B);
+    type Item<'b> = (&'b mut A, &'b mut B);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = self.current_archetype {
+        while let Some(archetype) = &mut self.current_archetype {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let (components_a, components_b) = archetype
                     .components
@@ -205,7 +206,7 @@ impl<'a, A: Any, B: Any> Iterator for Query2Mut<'a, A, B> {
 
 /// immutable query for 3 components
 pub struct Query3<'a, A: Any, B: Any, C: Any> {
-    archetype_iter: std::collections::hash_map::Values<'a, ArchetypeID, Archetype>,
+    archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
     include: IncludeFilter,
@@ -261,10 +262,10 @@ pub struct Query3Mut<'a, A: Any, B: Any, C: Any> {
 }
 
 impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Mut<'a, A, B, C> {
-    type Item = (&'a mut A, &'a mut B, &'a mut C);
+    type Item<'b> = (&'b mut A, &'b mut B, &'b mut C);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = self.current_archetype {
+        while let Some(archetype) = &mut self.current_archetype {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let (components_a, components_b, components_c) = archetype.components.get3_mut(
                     &TypeId::of::<A>(),
@@ -300,7 +301,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Mut<'a, A, B, C> {
 
 /// immutable query for 4 components
 pub struct Query4<'a, A: Any, B: Any, C: Any, D: Any> {
-    archetype_iter: std::collections::hash_map::Values<'a, ArchetypeID, Archetype>,
+    archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
     include: IncludeFilter,
@@ -360,10 +361,10 @@ pub struct Query4Mut<'a, A: Any, B: Any, C: Any, D: Any> {
 }
 
 impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Mut<'a, A, B, C, D> {
-    type Item = (&'a mut A, &'a mut B, &'a mut C, &'a mut D);
+    type Item<'b> = (&'b mut A, &'b mut B, &'b mut C, &'b mut D);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = self.current_archetype {
+        while let Some(archetype) = &mut self.current_archetype {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let (components_a, components_b, components_c, components_d) =
                     archetype.components.get4_mut(
@@ -403,7 +404,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Mut<'a, A, B, C, D> 
 
 /// immutable query for 5 components
 pub struct Query5<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
-    archetype_iter: std::collections::hash_map::Values<'a, ArchetypeID, Archetype>,
+    archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
     include: IncludeFilter,
@@ -467,10 +468,10 @@ pub struct Query5Mut<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
 }
 
 impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Mut<'a, A, B, C, D, E> {
-    type Item = (&'a mut A, &'a mut B, &'a mut C, &'a mut D, &'a mut E);
+    type Item<'b> = (&'b mut A, &'b mut B, &'b mut C, &'b mut D, &'b mut E);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = self.current_archetype {
+        while let Some(archetype) = &mut self.current_archetype {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let (components_a, components_b, components_c, components_d, components_e) =
                     archetype.components.get5_mut(

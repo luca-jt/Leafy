@@ -145,14 +145,15 @@ impl ECS {
     /// removes a component from an entity and returns the component data if present
     pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
         let type_id = TypeId::of::<T>();
-        let record = self.entity_index.get_mut(&entity).unwrap();
-        let old_archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
+        let archetype_id = self.entity_index.get(&entity).unwrap().archetype_id;
+        let row = self.entity_index.get(&entity).unwrap().row;
+        let old_archetype = self.archetypes.get_mut(&archetype_id).unwrap();
 
         // Remove the entity's components from the old archetype
         let mut components: Vec<Box<dyn Any>> = old_archetype
             .components
             .values_mut()
-            .map(|vec| vec.swap_remove(record.row))
+            .map(|vec| vec.swap_remove(row))
             .collect();
 
         // Remove the specific component
@@ -181,6 +182,7 @@ impl ECS {
         }
 
         // Update the entity record
+        let record = self.entity_index.get_mut(&entity).unwrap();
         record.archetype_id = new_archetype_id;
         record.row = new_row;
 
