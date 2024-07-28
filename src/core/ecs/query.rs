@@ -56,18 +56,16 @@ impl<'a, T: Any> Iterator for Query1<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = self.current_archetype {
+        if let Some(archetype) = self.current_archetype.take() {
             if self.component_index < archetype.components[&TypeId::of::<T>()].len() {
                 let component = &archetype.components[&TypeId::of::<T>()][self.component_index];
                 self.component_index += 1;
 
                 return component.downcast_ref::<T>();
-            } else {
-                self.current_archetype = None;
             }
         }
 
-        while let Some(archetype) = self.archetype_iter.next() {
+        if let Some(archetype) = self.archetype_iter.next() {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
@@ -80,7 +78,7 @@ impl<'a, T: Any> Iterator for Query1<'a, T> {
 }
 
 /// mutable query for 1 component
-pub struct QueryMut1<'a, T: Any> {
+pub struct Query1Mut<'a, T: Any> {
     archetype_iter: std::collections::hash_map::ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a mut Archetype>,
     component_index: usize,
@@ -89,23 +87,21 @@ pub struct QueryMut1<'a, T: Any> {
     phantom: PhantomData<T>,
 }
 
-impl<'a, T: Any> Iterator for QueryMut1<'a, T> {
-    type Item<'b> = &'b mut T;
+impl<'a, T: Any> Iterator for Query1Mut<'a, T> {
+    type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = &mut self.current_archetype {
+        if let Some(archetype) = self.current_archetype.take() {
             if self.component_index < archetype.components[&TypeId::of::<T>()].len() {
                 let component = &mut archetype.components.get_mut(&TypeId::of::<T>()).unwrap()
                     [self.component_index];
                 self.component_index += 1;
 
                 return component.downcast_mut::<T>();
-            } else {
-                self.current_archetype = None;
             }
         }
 
-        while let Some(archetype) = self.archetype_iter.next() {
+        if let Some(archetype) = self.archetype_iter.next() {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
@@ -132,7 +128,7 @@ impl<'a, A: Any, B: Any> Iterator for Query2<'a, A, B> {
     type Item = (&'a A, &'a B);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = self.current_archetype {
+        if let Some(archetype) = self.current_archetype.take() {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let component_a = &archetype.components[&TypeId::of::<A>()][self.component_index];
                 let component_b = &archetype.components[&TypeId::of::<B>()][self.component_index];
@@ -142,12 +138,10 @@ impl<'a, A: Any, B: Any> Iterator for Query2<'a, A, B> {
                     component_a.downcast_ref::<A>().unwrap(),
                     component_b.downcast_ref::<B>().unwrap(),
                 ));
-            } else {
-                self.current_archetype = None;
             }
         }
 
-        while let Some(archetype) = self.archetype_iter.next() {
+        if let Some(archetype) = self.archetype_iter.next() {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
@@ -171,10 +165,10 @@ pub struct Query2Mut<'a, A: Any, B: Any> {
 }
 
 impl<'a, A: Any, B: Any> Iterator for Query2Mut<'a, A, B> {
-    type Item<'b> = (&'b mut A, &'b mut B);
+    type Item = (&'a mut A, &'a mut B);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = &mut self.current_archetype {
+        if let Some(archetype) = self.current_archetype.take() {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let (components_a, components_b) = archetype
                     .components
@@ -187,12 +181,10 @@ impl<'a, A: Any, B: Any> Iterator for Query2Mut<'a, A, B> {
                     component_a.downcast_mut::<A>().unwrap(),
                     component_b.downcast_mut::<B>().unwrap(),
                 ));
-            } else {
-                self.current_archetype = None;
             }
         }
 
-        while let Some(archetype) = self.archetype_iter.next() {
+        if let Some(archetype) = self.archetype_iter.next() {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
@@ -220,7 +212,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3<'a, A, B, C> {
     type Item = (&'a A, &'a B, &'a C);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = self.current_archetype {
+        if let Some(archetype) = self.current_archetype.take() {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let component_a = &archetype.components[&TypeId::of::<A>()][self.component_index];
                 let component_b = &archetype.components[&TypeId::of::<B>()][self.component_index];
@@ -232,12 +224,10 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3<'a, A, B, C> {
                     component_b.downcast_ref::<B>().unwrap(),
                     component_c.downcast_ref::<C>().unwrap(),
                 ));
-            } else {
-                self.current_archetype = None;
             }
         }
 
-        while let Some(archetype) = self.archetype_iter.next() {
+        if let Some(archetype) = self.archetype_iter.next() {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
@@ -262,10 +252,10 @@ pub struct Query3Mut<'a, A: Any, B: Any, C: Any> {
 }
 
 impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Mut<'a, A, B, C> {
-    type Item<'b> = (&'b mut A, &'b mut B, &'b mut C);
+    type Item = (&'a mut A, &'a mut B, &'a mut C);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = &mut self.current_archetype {
+        if let Some(archetype) = self.current_archetype.take() {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let (components_a, components_b, components_c) = archetype.components.get3_mut(
                     &TypeId::of::<A>(),
@@ -282,12 +272,10 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Mut<'a, A, B, C> {
                     component_b.downcast_mut::<B>().unwrap(),
                     component_c.downcast_mut::<C>().unwrap(),
                 ));
-            } else {
-                self.current_archetype = None;
             }
         }
 
-        while let Some(archetype) = self.archetype_iter.next() {
+        if let Some(archetype) = self.archetype_iter.next() {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
@@ -316,7 +304,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4<'a, A, B, C, D> {
     type Item = (&'a A, &'a B, &'a C, &'a D);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = self.current_archetype {
+        if let Some(archetype) = self.current_archetype.take() {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let component_a = &archetype.components[&TypeId::of::<A>()][self.component_index];
                 let component_b = &archetype.components[&TypeId::of::<B>()][self.component_index];
@@ -330,12 +318,10 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4<'a, A, B, C, D> {
                     component_c.downcast_ref::<C>().unwrap(),
                     component_d.downcast_ref::<D>().unwrap(),
                 ));
-            } else {
-                self.current_archetype = None;
             }
         }
 
-        while let Some(archetype) = self.archetype_iter.next() {
+        if let Some(archetype) = self.archetype_iter.next() {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
@@ -361,10 +347,10 @@ pub struct Query4Mut<'a, A: Any, B: Any, C: Any, D: Any> {
 }
 
 impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Mut<'a, A, B, C, D> {
-    type Item<'b> = (&'b mut A, &'b mut B, &'b mut C, &'b mut D);
+    type Item = (&'a mut A, &'a mut B, &'a mut C, &'a mut D);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = &mut self.current_archetype {
+        if let Some(archetype) = self.current_archetype.take() {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let (components_a, components_b, components_c, components_d) =
                     archetype.components.get4_mut(
@@ -385,12 +371,10 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Mut<'a, A, B, C, D> 
                     component_c.downcast_mut::<C>().unwrap(),
                     component_d.downcast_mut::<D>().unwrap(),
                 ));
-            } else {
-                self.current_archetype = None;
             }
         }
 
-        while let Some(archetype) = self.archetype_iter.next() {
+        if let Some(archetype) = self.archetype_iter.next() {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
@@ -420,7 +404,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5<'a, A, B, C
     type Item = (&'a A, &'a B, &'a C, &'a D, &'a E);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = self.current_archetype {
+        if let Some(archetype) = self.current_archetype.take() {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let component_a = &archetype.components[&TypeId::of::<A>()][self.component_index];
                 let component_b = &archetype.components[&TypeId::of::<B>()][self.component_index];
@@ -436,12 +420,10 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5<'a, A, B, C
                     component_d.downcast_ref::<D>().unwrap(),
                     component_e.downcast_ref::<E>().unwrap(),
                 ));
-            } else {
-                self.current_archetype = None;
             }
         }
 
-        while let Some(archetype) = self.archetype_iter.next() {
+        if let Some(archetype) = self.archetype_iter.next() {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
@@ -468,10 +450,10 @@ pub struct Query5Mut<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
 }
 
 impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Mut<'a, A, B, C, D, E> {
-    type Item<'b> = (&'b mut A, &'b mut B, &'b mut C, &'b mut D, &'b mut E);
+    type Item = (&'a mut A, &'a mut B, &'a mut C, &'a mut D, &'a mut E);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(archetype) = &mut self.current_archetype {
+        if let Some(archetype) = self.current_archetype.take() {
             if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
                 let (components_a, components_b, components_c, components_d, components_e) =
                     archetype.components.get5_mut(
@@ -495,12 +477,10 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Mut<'a, A, B
                     component_d.downcast_mut::<D>().unwrap(),
                     component_e.downcast_mut::<E>().unwrap(),
                 ));
-            } else {
-                self.current_archetype = None;
             }
         }
 
-        while let Some(archetype) = self.archetype_iter.next() {
+        if let Some(archetype) = self.archetype_iter.next() {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
@@ -530,8 +510,8 @@ impl ECS {
         &mut self,
         include: IncludeFilter,
         exclude: ExcludeFilter,
-    ) -> QueryMut1<'_, T> {
-        QueryMut1 {
+    ) -> Query1Mut<'_, T> {
+        Query1Mut {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
