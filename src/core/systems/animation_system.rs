@@ -1,4 +1,6 @@
-use crate::state::game_state::GameState;
+use crate::ecs::component::{MotionState, Position, TouchTime};
+use crate::ecs::entity_manager::ECS;
+use crate::ecs::query::{exclude_filter, include_filter};
 use crate::utils::constants::G;
 
 pub struct AnimationSystem {
@@ -14,26 +16,22 @@ impl AnimationSystem {
     }
 
     /// applys all of the physics to all of the entities
-    pub fn apply_physics(&self, game_state: &mut GameState) {
+    pub fn apply_physics(&self, ecs: &mut ECS) {
         // apply physics
         // TODO(luca): collision checking
         // TODO(luca): friction
-        for id in game_state.moving_entities.iter() {
-            let entity_ref = game_state.entity_manager.get_entity_mut(*id);
-            debug_assert!(!entity_ref.is_fixed());
+        for (p, m, t) in
+            ecs.query3_mut::<Position, MotionState, TouchTime>(include_filter!(), exclude_filter!())
+        {
+            let dt = t.delta_time_f32() * self.animation_speed;
 
-            let dt = entity_ref.elapsed_time_f32() * self.animation_speed;
-            let a = entity_ref.acceleration();
-            let v = entity_ref.velocity();
+            p.add(0.5 * m.acceleration.data() * dt.powi(2) + m.velocity.data() * dt);
+            m.velocity.add(m.acceleration.data() * dt);
+            m.acceleration = G; // ?
 
-            entity_ref.position += 0.5 * a * dt.powi(2) + v * dt;
-            entity_ref.set_velocity(v + a * dt);
-            entity_ref.set_acceleration(G); // ?
-
-            entity_ref.reset_time();
+            t.reset();
         }
     }
-    //...
 }
 
 pub struct SampledAnimation {}

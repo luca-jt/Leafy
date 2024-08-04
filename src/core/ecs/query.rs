@@ -1,4 +1,4 @@
-use crate::ecs::{Archetype, ArchetypeID, ECS};
+use crate::ecs::{Archetype, ArchetypeID};
 use crate::utils::tools::SplitMut;
 use std::any::{Any, TypeId};
 use std::collections::hash_map::Values;
@@ -23,6 +23,8 @@ macro_rules! include_filter {
     };
 }
 
+pub use include_filter;
+
 /// a query filter that requires components to be excluded from an entity
 pub struct ExcludeFilter(Vec<TypeId>);
 
@@ -41,6 +43,9 @@ macro_rules! exclude_filter {
         ExcludeFilter(vec![$(TypeId::of<$T>(), )*])
     };
 }
+
+use crate::ecs::entity_manager::ECS;
+pub use exclude_filter;
 
 /// immutable query for 1 component
 pub struct Query1<'a, T: Any> {

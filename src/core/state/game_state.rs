@@ -25,14 +25,14 @@ impl GameState {
             Position::zeros(),
         );
         floor.scale = 5f32.into();
-        let _ = entity_manager.add_entity(floor);
+        let _ = entity_manager.create_entity(floor);
 
         let test_entity = Entity::new_moving(
             MeshType::Sphere,
             MeshAttribute::Colored(Color32::RED),
             Position::new(0.0, 2.0, 0.0),
         );
-        let player = entity_manager.add_entity(test_entity);
+        let player = entity_manager.create_entity(test_entity);
 
         Self {
             entity_manager,

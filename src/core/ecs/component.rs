@@ -18,6 +18,14 @@ impl Default for Scale {
     }
 }
 
+/// all data needed for the 3D rendering process
+pub struct Renderable {
+    pub position: Position,
+    pub scale: Scale,
+    pub mesh_type: MeshType,
+    pub mesh_attribute: MeshAttribute,
+}
+
 /// used for object orientation in 3D space
 pub type Quaternion = glm::Vec4; // TODO: nutzung
 
@@ -33,6 +41,16 @@ impl Position {
     /// grants immutable access to the stored data
     pub fn data(&self) -> &glm::Vec3 {
         &self.0
+    }
+
+    /// grants mutable access to the stored data
+    pub fn data_mut(&mut self) -> &mut glm::Vec3 {
+        &mut self.0
+    }
+
+    /// adds a data vector
+    pub fn add(&mut self, vec: glm::Vec3) {
+        self.0 += vec;
     }
 
     /// creates a new position filled with zeros (origin)
@@ -55,6 +73,16 @@ impl Velocity {
         &self.0
     }
 
+    /// grants mutable access to the stored data
+    pub fn data_mut(&mut self) -> &mut glm::Vec3 {
+        &mut self.0
+    }
+
+    /// adds a data vector
+    pub fn add(&mut self, vec: glm::Vec3) {
+        self.0 += vec;
+    }
+
     /// creates a new velocity filled with zeros
     pub fn zeros() -> Self {
         Velocity(glm::Vec3::zeros())
@@ -75,6 +103,16 @@ impl Acceleration {
         &self.0
     }
 
+    /// grants mutable access to the stored data
+    pub fn data_mut(&mut self) -> &mut glm::Vec3 {
+        &mut self.0
+    }
+
+    /// adds a data vector
+    pub fn add(&mut self, vec: glm::Vec3) {
+        self.0 += vec;
+    }
+
     /// creates a new acceleration filled with zeros
     pub fn zeros() -> Self {
         Acceleration(glm::Vec3::zeros())
@@ -82,14 +120,17 @@ impl Acceleration {
 }
 
 /// binds all of the motion-specific data together
-pub enum MotionState {
-    Moving(Velocity, Acceleration),
-    Fixed,
+pub struct MotionState {
+    pub velocity: Velocity,
+    pub acceleration: Acceleration,
 }
 
 impl Default for MotionState {
     fn default() -> Self {
-        MotionState::Moving(Velocity::zeros(), Acceleration::zeros())
+        Self {
+            velocity: Velocity::zeros(),
+            acceleration: Acceleration::zeros(),
+        }
     }
 }
 
