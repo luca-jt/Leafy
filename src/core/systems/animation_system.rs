@@ -1,6 +1,6 @@
 use crate::ecs::component::{MotionState, Position, TouchTime};
 use crate::ecs::entity_manager::ECS;
-use crate::ecs::query::{exclude_filter, include_filter};
+use crate::ecs::query::{exclude_filter, include_filter, ExcludeFilter, IncludeFilter};
 use crate::utils::constants::G;
 
 pub struct AnimationSystem {

@@ -1,4 +1,3 @@
-use crate::ecs::component::MeshAttribute::*;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::ops::Index;
@@ -9,7 +8,7 @@ pub type EntityID = u64;
 
 /// defines a type an entity can have
 #[derive(Eq, Hash, PartialEq, Clone)]
-pub(crate) struct EntityType(Vec<TypeId>);
+pub(crate) struct EntityType(pub Vec<TypeId>);
 
 impl EntityType {
     /// wrapper for the `iter()` function of the stored Vec
@@ -54,7 +53,7 @@ pub trait ComponentStorage {
     /// checks if a certain component is stored
     fn contains_component<T: Any>(&self) -> bool;
     /// get a immutable reference to a stored component if present
-    fn component_data<'a, T: Any>(&self) -> &'a T;
+    fn component_data<T: Any>(&self) -> Option<&T>;
 }
 
 impl ComponentStorage for Vec<Box<dyn Any>> {
@@ -62,7 +61,7 @@ impl ComponentStorage for Vec<Box<dyn Any>> {
         self.iter().any(|b| b.type_id() == TypeId::of::<T>())
     }
 
-    fn component_data<'a, T: Any>(&self) -> Option<&'a T> {
+    fn component_data<T: Any>(&self) -> Option<&T> {
         let data = self
             .iter()
             .find(|element| element.type_id() == TypeId::of::<T>())?;

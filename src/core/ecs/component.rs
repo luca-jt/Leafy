@@ -20,7 +20,6 @@ impl Default for Scale {
 
 /// all data needed for the 3D rendering process
 pub struct Renderable {
-    pub position: Position,
     pub scale: Scale,
     pub mesh_type: MeshType,
     pub mesh_attribute: MeshAttribute,
@@ -36,6 +35,11 @@ impl Position {
     /// creates a new position
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Position(glm::Vec3::new(x, y, z))
+    }
+
+    /// yields a copy of the stored data
+    pub fn data_clone(&self) -> glm::Vec3 {
+        self.0.clone()
     }
 
     /// grants immutable access to the stored data
@@ -68,6 +72,11 @@ impl Velocity {
         Velocity(glm::Vec3::new(dx, dy, dz))
     }
 
+    /// yields a copy of the stored data
+    pub fn data_clone(&self) -> glm::Vec3 {
+        self.0.clone()
+    }
+
     /// grants immutable access to the stored data
     pub fn data(&self) -> &glm::Vec3 {
         &self.0
@@ -96,6 +105,11 @@ impl Acceleration {
     /// creates a new acceleration
     pub const fn new(ddx: f32, ddy: f32, ddz: f32) -> Self {
         Acceleration(glm::Vec3::new(ddx, ddy, ddz))
+    }
+
+    /// yields a copy of the stored data
+    pub fn data_clone(&self) -> glm::Vec3 {
+        self.0.clone()
     }
 
     /// grants immutable access to the stored data

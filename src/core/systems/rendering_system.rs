@@ -1,5 +1,6 @@
 use crate::ecs::component::MeshAttribute::*;
-use crate::ecs::component::{MeshAttribute, MeshType};
+use crate::ecs::component::{MeshAttribute, MeshType, Position, Renderable};
+use crate::ecs::query::{exclude_filter, include_filter, ExcludeFilter, IncludeFilter};
 use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
 use crate::rendering::font_renderer::FontRenderer;
@@ -52,20 +53,24 @@ impl RenderingSystem {
                 Voxel(renderer) => renderer.init(),
             }
         }
-        for entity_ref in game_state.entity_manager.all_entities_iter() {
+        for (position, renderable) in game_state
+            .entity_manager
+            .ecs
+            .query2::<Position, Renderable>(include_filter!(), exclude_filter!())
+        {
             let mesh = game_state
                 .entity_manager
-                .asset_from_type(entity_ref.mesh_type);
+                .asset_from_type(renderable.mesh_type);
 
             let mut found = false;
             for r_type in self.renderers.iter_mut() {
                 if let Batch(m_type, renderer) = r_type {
-                    if *m_type == entity_ref.mesh_type {
-                        match entity_ref.mesh_attribute {
+                    if *m_type == renderable.mesh_type {
+                        match renderable.mesh_attribute {
                             Textured(id) => {
                                 renderer.draw_tex_mesh(
-                                    entity_ref.position.data(),
-                                    entity_ref.scale.0,
+                                    position.data_clone(),
+                                    renderable.scale.0,
                                     id,
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
@@ -75,8 +80,8 @@ impl RenderingSystem {
                             }
                             Colored(color) => {
                                 renderer.draw_color_mesh(
-                                    entity_ref.position.data(),
-                                    entity_ref.scale.0,
+                                    position.data_clone(),
+                                    renderable.scale.0,
                                     color,
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
@@ -87,18 +92,18 @@ impl RenderingSystem {
                         }
                     }
                 } else if let Instance(m_type, m_attr, renderer) = r_type {
-                    if *m_type == entity_ref.mesh_type && *m_attr == entity_ref.mesh_attribute {
-                        match entity_ref.mesh_attribute {
+                    if *m_type == renderable.mesh_type && *m_attr == renderable.mesh_attribute {
+                        match renderable.mesh_attribute {
                             Textured(id) => {
                                 if id == renderer.tex_id {
-                                    renderer.add_position(entity_ref.position.data());
+                                    renderer.add_position(position.data_clone());
                                     found = true;
                                     break;
                                 }
                             }
                             Colored(color) => {
                                 if color == renderer.color {
-                                    renderer.add_position(entity_ref.position.data());
+                                    renderer.add_position(position.data_clone());
                                     found = true;
                                     break;
                                 }
@@ -109,15 +114,15 @@ impl RenderingSystem {
             }
             // add new renderer if needed
             if !found {
-                match entity_ref.mesh_type {
+                match renderable.mesh_type {
                     MeshType::Plane | MeshType::Cube => {
                         self.renderers
-                            .push(Batch(entity_ref.mesh_type, BatchRenderer::new(mesh, 10)));
+                            .push(Batch(renderable.mesh_type, BatchRenderer::new(mesh, 10)));
                     }
                     MeshType::Sphere => {
                         // TODO: 10 als grenze? (oben auch)
                         let mut renderer = InstanceRenderer::new(mesh, 10);
-                        match entity_ref.mesh_attribute {
+                        match renderable.mesh_attribute {
                             Textured(tex_id) => {
                                 renderer.tex_id = tex_id;
                             }
@@ -126,8 +131,8 @@ impl RenderingSystem {
                             }
                         }
                         self.renderers.push(Instance(
-                            entity_ref.mesh_type,
-                            entity_ref.mesh_attribute,
+                            renderable.mesh_type,
+                            renderable.mesh_attribute,
                             renderer,
                         ));
                     }

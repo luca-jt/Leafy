@@ -8,7 +8,7 @@ use std::collections::hash_map::Keys;
 use std::collections::HashMap;
 
 pub struct EntityManager {
-    ecs: ECS,
+    pub(crate) ecs: ECS,
     asset_register: HashMap<MeshType, SharedMesh>,
 }
 
@@ -43,9 +43,12 @@ impl EntityManager {
     // todo: create_entity() method variants for commonly used entity types
 
     /// deletes an entity from the register by id and returns the removed entity
-    pub fn delete_entity(&mut self, entity_id: EntityID) {
-        // TODO: clean up the asset register?
-        self.ecs.delete_entity(entity_id);
+    pub fn delete_entity(&mut self, entity: EntityID) {
+        if let Some(_renderable) = self.ecs.get_component::<Renderable>(entity) {
+            // TODO: clean up the asset register
+            unimplemented!();
+        }
+        self.ecs.delete_entity(entity);
     }
 
     /// makes mesh data available for a given entity id
@@ -74,21 +77,22 @@ impl EntityManager {
 }
 
 /// create a component list for entity creation
+#[macro_export]
 macro_rules! components {
     ($($T:expr),*) => {
         vec![$(Box::new($T), )*]
     };
 }
 
-pub use components;
+pub(crate) use components;
 
 /// the entity component system that manages all the data associated with an entity
 pub(crate) struct ECS {
-    next_entity: EntityID,
-    next_archetype_id: ArchetypeID,
-    entity_index: HashMap<EntityID, EntityRecord>,
-    archetypes: HashMap<ArchetypeID, Archetype>,
-    type_to_archetype: HashMap<EntityType, ArchetypeID>,
+    pub(crate) next_entity: EntityID,
+    pub(crate) next_archetype_id: ArchetypeID,
+    pub(crate) entity_index: HashMap<EntityID, EntityRecord>,
+    pub(crate) archetypes: HashMap<ArchetypeID, Archetype>,
+    pub(crate) type_to_archetype: HashMap<EntityType, ArchetypeID>,
 }
 
 impl ECS {
@@ -130,17 +134,34 @@ impl ECS {
     }
 
     /// deletes a stored entity and all the associated component data
-    pub fn delete_entity(&mut self, entity: EntityID) {
-        unimplemented!()
+    pub fn delete_entity(&mut self, _entity: EntityID) {
+        unimplemented!();
     }
 
-    /// yields the component data of an entity if present
+    /// yields the component data reference of an entity if present
     pub fn get_component<T: Any>(&self, entity: EntityID) -> Option<&T> {
         let record = self.entity_index.get(&entity)?;
         let archetype = self.archetypes.get(&record.archetype_id)?;
         let component_vec = archetype.components.get(&TypeId::of::<T>())?;
         let component = component_vec.get(record.row)?;
         component.downcast_ref::<T>()
+    }
+
+    /// yields the mutable component data reference of an entity if present
+    pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
+        let record = self.entity_index.get(&entity)?;
+        let archetype = self.archetypes.get_mut(&record.archetype_id)?;
+        let component_vec = archetype.components.get_mut(&TypeId::of::<T>())?;
+        let component = component_vec.get_mut(record.row)?;
+        component.downcast_mut::<T>()
+    }
+
+    /// gets the vector of all associated component TypeId's
+    pub fn get_entity_type(&self, entity: EntityID) -> EntityType {
+        let record = self.entity_index.get(&entity).expect("entity doesnt exist");
+        let archetype = self.archetypes.get(&record.archetype_id).unwrap();
+
+        EntityType(archetype.components.keys().cloned().collect())
     }
 
     /// gets the archetype id of an entity type and creates a new archetype if necessary

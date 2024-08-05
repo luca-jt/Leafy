@@ -1,11 +1,12 @@
-use crate::ecs::{Archetype, ArchetypeID};
+use crate::ecs::entity::{Archetype, ArchetypeID};
+use crate::ecs::entity_manager::ECS;
 use crate::utils::tools::SplitMut;
 use std::any::{Any, TypeId};
 use std::collections::hash_map::Values;
 use std::marker::PhantomData;
 
 /// a query filter that requires components to be included in an entity
-pub struct IncludeFilter(Vec<TypeId>);
+pub struct IncludeFilter(pub(crate) Vec<TypeId>);
 
 impl IncludeFilter {
     /// checks wether or not the filter accepts an archetype
@@ -17,16 +18,17 @@ impl IncludeFilter {
 }
 
 /// easy creation of an include filter from given component types
+#[macro_export]
 macro_rules! include_filter {
     ($($T:ty),*) => {
         IncludeFilter(vec![$(TypeId::of<$T>(), )*])
     };
 }
 
-pub use include_filter;
+pub(crate) use include_filter;
 
 /// a query filter that requires components to be excluded from an entity
-pub struct ExcludeFilter(Vec<TypeId>);
+pub struct ExcludeFilter(pub(crate) Vec<TypeId>);
 
 impl ExcludeFilter {
     /// checks wether or not the filter accepts an archetype
@@ -38,14 +40,14 @@ impl ExcludeFilter {
 }
 
 /// easy creation of an exclude filter from given component types
+#[macro_export]
 macro_rules! exclude_filter {
     ($($T:ty),*) => {
         ExcludeFilter(vec![$(TypeId::of<$T>(), )*])
     };
 }
 
-use crate::ecs::entity_manager::ECS;
-pub use exclude_filter;
+pub(crate) use exclude_filter;
 
 /// immutable query for 1 component
 pub struct Query1<'a, T: Any> {
