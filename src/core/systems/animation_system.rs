@@ -1,5 +1,5 @@
 use crate::ecs::component::{MotionState, Position, TouchTime};
-use crate::ecs::entity_manager::ECS;
+use crate::ecs::entity_manager::EntityManager;
 use crate::ecs::query::{exclude_filter, include_filter, ExcludeFilter, IncludeFilter};
 use crate::utils::constants::G;
 
@@ -16,12 +16,13 @@ impl AnimationSystem {
     }
 
     /// applys all of the physics to all of the entities
-    pub fn apply_physics(&self, ecs: &mut ECS) {
+    pub fn apply_physics(&self, entity_manager: &mut EntityManager) {
         // apply physics
         // TODO(luca): collision checking
         // TODO(luca): friction
-        for (p, m, t) in
-            ecs.query3_mut::<Position, MotionState, TouchTime>(include_filter!(), exclude_filter!())
+        for (p, m, t) in entity_manager
+            .ecs
+            .query3_mut::<Position, MotionState, TouchTime>(include_filter!(), exclude_filter!())
         {
             let dt = t.delta_time_f32() * self.animation_speed;
 

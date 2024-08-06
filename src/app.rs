@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use fl_core::state::game_state::GameState;
@@ -9,11 +7,12 @@ use fl_core::systems::audio_system::AudioSystem;
 use fl_core::systems::event_system::*;
 use fl_core::systems::rendering_system::RenderingSystem;
 use fl_core::utils::constants::FPS_CAP;
+use fl_core::utils::tools::{shared_ptr, SharedPtr};
 
 /// main app
 pub struct App {
-    game_state: Rc<RefCell<GameState>>,
-    video_state: Rc<RefCell<VideoState>>,
+    game_state: SharedPtr<GameState>,
+    video_state: SharedPtr<VideoState>,
     rendering_system: RenderingSystem,
     audio_system: AudioSystem,
     event_system: EventSystem,
@@ -23,8 +22,8 @@ pub struct App {
 impl App {
     /// app setup on startup
     pub fn new() -> Self {
-        let game_state = Rc::new(RefCell::new(GameState::new()));
-        let video_state = Rc::new(RefCell::new(VideoState::new()));
+        let game_state = shared_ptr(GameState::new());
+        let video_state = shared_ptr(VideoState::new());
         let rendering_system = RenderingSystem::new();
         let audio_system = AudioSystem::new(&video_state.borrow().sdl_context);
         let mut event_system = EventSystem::new(&video_state.borrow().sdl_context);
@@ -54,7 +53,7 @@ impl App {
         'running: loop {
             self.audio_system.update();
             self.animation_system
-                .apply_physics(&mut self.game_state.borrow_mut());
+                .apply_physics(&mut self.game_state.borrow_mut().entity_manager);
             self.rendering_system.render(&self.game_state.borrow());
             if self.event_system.parse_sdl_events().is_err() {
                 break 'running;

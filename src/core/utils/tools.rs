@@ -1,10 +1,20 @@
 use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::hash::{BuildHasher, Hash};
 use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+
+/// alias for a Rc<RefCell>
+pub type SharedPtr<T> = Rc<RefCell<T>>;
+
+/// creates a new SharedPtr<T>
+pub fn shared_ptr<T>(value: T) -> SharedPtr<T> {
+    Rc::new(RefCell::new(value))
+}
 
 /// wrapper for a reference counted mutex for ease of use
 #[derive(Clone)]

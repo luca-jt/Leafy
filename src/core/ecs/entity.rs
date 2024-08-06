@@ -58,13 +58,11 @@ pub trait ComponentStorage {
 
 impl ComponentStorage for Vec<Box<dyn Any>> {
     fn contains_component<T: Any>(&self) -> bool {
-        self.iter().any(|b| b.type_id() == TypeId::of::<T>())
+        self.iter().any(|b| b.is::<T>())
     }
 
     fn component_data<T: Any>(&self) -> Option<&T> {
-        let data = self
-            .iter()
-            .find(|element| element.type_id() == TypeId::of::<T>())?;
-        data.downcast_ref::<T>()
+        let i = self.iter().position(|element| element.is::<T>())?;
+        self.get(i).unwrap().downcast_ref::<T>()
     }
 }
