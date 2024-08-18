@@ -4,6 +4,7 @@ use std::time::Instant;
 use MeshAttribute::*;
 
 /// wrapper struct for an object scaling
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct Scale(pub f32);
 
 impl Into<Scale> for f32 {
@@ -19,6 +20,7 @@ impl Default for Scale {
 }
 
 /// all data needed for the 3D rendering process
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Renderable {
     pub scale: Scale,
     pub mesh_type: MeshType,
@@ -29,6 +31,7 @@ pub struct Renderable {
 pub type Quaternion = glm::Vec4; // TODO: nutzung
 
 /// position in 3D space
+#[derive(Debug, Clone, PartialEq)]
 pub struct Position(glm::Vec3);
 
 impl Position {
@@ -63,7 +66,14 @@ impl Position {
     }
 }
 
+impl Default for Position {
+    fn default() -> Self {
+        Position::zeros()
+    }
+}
+
 /// velocity in 3D space
+#[derive(Debug, Clone, PartialEq)]
 pub struct Velocity(glm::Vec3);
 
 impl Velocity {
@@ -98,7 +108,14 @@ impl Velocity {
     }
 }
 
+impl Default for Velocity {
+    fn default() -> Self {
+        Velocity::zeros()
+    }
+}
+
 /// acceleration in 3D space
+#[derive(Debug, Clone, PartialEq)]
 pub struct Acceleration(glm::Vec3);
 
 impl Acceleration {
@@ -133,24 +150,22 @@ impl Acceleration {
     }
 }
 
+impl Default for Acceleration {
+    fn default() -> Self {
+        Acceleration::zeros()
+    }
+}
+
 /// binds all of the motion-specific data together
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct MotionState {
     pub velocity: Velocity,
     pub acceleration: Acceleration,
 }
 
-impl Default for MotionState {
-    fn default() -> Self {
-        Self {
-            velocity: Velocity::zeros(),
-            acceleration: Acceleration::zeros(),
-        }
-    }
-}
-
 /// efficient 32bit color representation
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Default)]
 pub struct Color32([u8; 4]);
 
 impl Color32 {
@@ -193,18 +208,19 @@ impl Color32 {
 }
 
 /// all of the known mesh types
-#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Default, Hash, Eq)]
 pub enum MeshType {
-    Sphere,
+    #[default]
     Cube,
     Plane,
+    Sphere,
 }
 
 /// wether or not a mesh is colored or textured
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub enum MeshAttribute {
-    Textured(GLuint),
     Colored(Color32),
+    Textured(GLuint),
 }
 
 impl MeshAttribute {
@@ -225,7 +241,14 @@ impl MeshAttribute {
     }
 }
 
+impl Default for MeshAttribute {
+    fn default() -> Self {
+        Colored(Color32::default())
+    }
+}
+
 /// component wrapper struct for `std::time::Instant` to track physics time
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct TouchTime(Instant);
 
 impl TouchTime {

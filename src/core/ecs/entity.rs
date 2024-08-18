@@ -7,7 +7,7 @@ use std::slice::Iter;
 pub type EntityID = u64;
 
 /// defines a type an entity can have
-#[derive(Eq, Hash, PartialEq, Clone)]
+#[derive(Debug, Eq, Hash, PartialEq, Clone)]
 pub(crate) struct EntityType(pub Vec<TypeId>);
 
 impl EntityType {

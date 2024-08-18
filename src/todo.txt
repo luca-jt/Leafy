@@ -14,4 +14,3 @@ ui basics
 set model matrix for every entity (rotation, scaling) -> renderer rewrite
 winit
 ambisonic
-all important derives for components

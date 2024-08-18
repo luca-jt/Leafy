@@ -165,11 +165,13 @@ pub trait EventObserver<T: Any> {
 }
 
 /// key press event data
+#[derive(Debug, Clone, PartialEq)]
 pub struct FLKeyPress {
     pub key: Keycode,
 }
 
 /// mouse move event data
+#[derive(Debug, Clone, PartialEq)]
 pub struct FLMouseMove {
     pub new_x: u32,
     pub new_y: u32,
@@ -178,6 +180,7 @@ pub struct FLMouseMove {
 }
 
 /// mouse scroll event data
+#[derive(Debug, Clone, PartialEq)]
 pub struct FLMouseScroll {
     pub direction: MouseWheelDirection,
     pub scroll_x: f32,
@@ -187,6 +190,7 @@ pub struct FLMouseScroll {
 }
 
 /// mouse click event data
+#[derive(Debug, Clone, PartialEq)]
 pub struct FLMouseClick {
     pub button: MouseButton,
     pub at_x: u32,
@@ -194,24 +198,29 @@ pub struct FLMouseClick {
 }
 
 /// controller axis event data
+#[derive(Debug, Clone, PartialEq)]
 pub struct FLControllerAxis {
     pub axis: Axis,
     pub value: i16,
 }
 
 /// controller button event data
+#[derive(Debug, Clone, PartialEq)]
 pub struct FLControllerButton {
     pub button: Button,
 }
 
 /// window resize event data
+#[derive(Debug, Clone, PartialEq)]
 pub struct FLWindowResize {
     pub width: i32,
     pub height: i32,
 }
 
 /// window focus lost event
+#[derive(Debug, Clone, PartialEq)]
 pub struct FLWindowLostFocus;
 
 /// window focus gained event
+#[derive(Debug, Clone, PartialEq)]
 pub struct FLWindowGainedFocus;

@@ -46,7 +46,7 @@ pub fn load_texture(file_name: &str) -> GLuint {
     tex_id
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 #[repr(C)]
 /// data for a single vertex
 pub struct Vertex {

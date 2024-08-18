@@ -6,6 +6,7 @@ use std::collections::hash_map::Values;
 use std::marker::PhantomData;
 
 /// a query filter that requires components to be included in an entity
+#[derive(Debug, Clone)]
 pub struct IncludeFilter(pub(crate) Vec<TypeId>);
 
 impl IncludeFilter {
@@ -28,6 +29,7 @@ macro_rules! include_filter {
 pub(crate) use include_filter;
 
 /// a query filter that requires components to be excluded from an entity
+#[derive(Debug, Clone)]
 pub struct ExcludeFilter(pub(crate) Vec<TypeId>);
 
 impl ExcludeFilter {

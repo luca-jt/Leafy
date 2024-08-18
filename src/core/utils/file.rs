@@ -39,5 +39,4 @@ pub fn get_shader_path(file_name: &str) -> String {
     get_asset_path("shaders/") + file_name
 }
 
-// TODO: parser for obj files
-// animation file parsing
+// TODO: animation files
