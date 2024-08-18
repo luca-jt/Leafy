@@ -1,4 +1,4 @@
-use crate::systems::event_system::{EventObserver, FLEventData};
+use crate::systems::event_system::{EventObserver, FLKeyPress, FLWindowResize};
 use crate::utils::constants::{INV_WIN_RATIO, MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
 use crate::utils::file::get_image_path;
 use sdl2::image::LoadSurface;
@@ -7,14 +7,14 @@ use sdl2::surface::Surface;
 use sdl2::video::{FullscreenType, GLProfile, SwapInterval};
 
 /// holds the video backend attributes
-pub struct VideoState {
+pub struct VideoSystem {
     pub sdl_context: sdl2::Sdl,
     video_subsystem: sdl2::VideoSubsystem,
     pub window: sdl2::video::Window,
     _gl_ctx: sdl2::video::GLContext,
 }
 
-impl VideoState {
+impl VideoSystem {
     /// creates a new video state
     pub fn new() -> Self {
         let sdl_context = sdl2::init().unwrap();
@@ -75,31 +75,35 @@ impl VideoState {
     }
 }
 
-impl EventObserver for VideoState {
-    fn on_event(&mut self, event: &FLEventData) {
-        if let FLEventData::KeyPress(key) = event {
-            if *key == Keycode::F11 {
-                // toggle fullscreen
-                match self.window.fullscreen_state() {
-                    FullscreenType::Off => {
-                        self.window.set_fullscreen(FullscreenType::Desktop).unwrap();
-                    }
-                    FullscreenType::Desktop => {
-                        self.window.set_fullscreen(FullscreenType::Off).unwrap();
-                    }
-                    _ => {
-                        panic!("wrong fullscreen type detected");
-                    }
+impl EventObserver<FLKeyPress> for VideoSystem {
+    fn on_event(&mut self, event: &FLKeyPress) {
+        if event.key == Keycode::F11 {
+            // toggle fullscreen
+            match self.window.fullscreen_state() {
+                FullscreenType::Off => {
+                    self.window.set_fullscreen(FullscreenType::Desktop).unwrap();
+                }
+                FullscreenType::Desktop => {
+                    self.window.set_fullscreen(FullscreenType::Off).unwrap();
+                }
+                _ => {
+                    panic!("wrong fullscreen type detected");
                 }
             }
-        } else if let FLEventData::WindowResize(w, _) = event {
-            if !self.window.is_maximized()
-                && self.window.fullscreen_state() != FullscreenType::Desktop
-            {
-                self.window
-                    .set_size(*w as u32, (*w as f32 * INV_WIN_RATIO) as u32)
-                    .unwrap();
-            }
+        }
+    }
+}
+
+impl EventObserver<FLWindowResize> for VideoSystem {
+    fn on_event(&mut self, event: &FLWindowResize) {
+        if !self.window.is_maximized() && self.window.fullscreen_state() != FullscreenType::Desktop
+        {
+            self.window
+                .set_size(
+                    event.width as u32,
+                    (event.width as f32 * INV_WIN_RATIO) as u32,
+                )
+                .unwrap();
         }
     }
 }

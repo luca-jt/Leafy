@@ -5,7 +5,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::hash::{BuildHasher, Hash};
 use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::sync::{Arc, Mutex};
 
 /// alias for a Rc<RefCell>
@@ -14,6 +14,14 @@ pub type SharedPtr<T> = Rc<RefCell<T>>;
 /// creates a new SharedPtr<T>
 pub fn shared_ptr<T>(value: T) -> SharedPtr<T> {
     Rc::new(RefCell::new(value))
+}
+
+/// alias for a Weak<RefCell>
+pub type WeakPtr<T> = Weak<RefCell<T>>;
+
+/// creates a new WeakPtr<T> from a SharedPtr<T>
+pub fn weak_ptr<T>(shared_ptr: &SharedPtr<T>) -> WeakPtr<T> {
+    Rc::downgrade(shared_ptr)
 }
 
 /// wrapper for a reference counted mutex for ease of use

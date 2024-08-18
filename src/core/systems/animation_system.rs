@@ -4,7 +4,7 @@ use crate::ecs::query::{exclude_filter, include_filter, ExcludeFilter, IncludeFi
 use crate::utils::constants::G;
 
 pub struct AnimationSystem {
-    animation_speed: f32,
+    pub animation_speed: f32,
 }
 
 impl AnimationSystem {

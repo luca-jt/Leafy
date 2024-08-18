@@ -1,5 +1,6 @@
 use crate::ecs::component::MeshAttribute::*;
 use crate::ecs::component::{MeshAttribute, MeshType, Position, Renderable};
+use crate::ecs::entity_manager::EntityManager;
 use crate::ecs::query::{exclude_filter, include_filter, ExcludeFilter, IncludeFilter};
 use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
@@ -7,7 +8,6 @@ use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
-use crate::state::game_state::GameState;
 use nalgebra_glm as glm;
 use RendererType::*;
 
@@ -42,7 +42,7 @@ impl RenderingSystem {
     }
 
     /// start the rendering for all renderers
-    pub fn render(&mut self, game_state: &GameState) {
+    pub fn render(&mut self, entity_manager: &EntityManager) {
         clear_gl_screen();
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
@@ -53,14 +53,11 @@ impl RenderingSystem {
                 Voxel(renderer) => renderer.init(),
             }
         }
-        for (position, renderable) in game_state
-            .entity_manager
+        for (position, renderable) in entity_manager
             .ecs
             .query2::<Position, Renderable>(include_filter!(), exclude_filter!())
         {
-            let mesh = game_state
-                .entity_manager
-                .asset_from_type(renderable.mesh_type);
+            let mesh = entity_manager.asset_from_type(renderable.mesh_type);
 
             let mut found = false;
             for r_type in self.renderers.iter_mut() {

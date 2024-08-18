@@ -7,8 +7,10 @@ use std::any::{Any, TypeId};
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
 
+// todo: scene files
+
 pub struct EntityManager {
-    pub(crate) ecs: ECS,
+    pub ecs: ECS,
     asset_register: HashMap<MeshType, SharedMesh>,
 }
 
@@ -87,7 +89,7 @@ macro_rules! components {
 pub(crate) use components;
 
 /// the entity component system that manages all the data associated with an entity
-pub(crate) struct ECS {
+pub struct ECS {
     pub(crate) next_entity: EntityID,
     pub(crate) next_archetype_id: ArchetypeID,
     pub(crate) entity_index: HashMap<EntityID, EntityRecord>,
@@ -108,7 +110,7 @@ impl ECS {
     }
 
     /// creates a new entity with given components, stores the given data and returns the id
-    pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
+    pub(crate) fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
         let new_entity = self.next_entity;
         self.next_entity += 1;
 
@@ -134,7 +136,7 @@ impl ECS {
     }
 
     /// deletes a stored entity and all the associated component data
-    pub fn delete_entity(&mut self, _entity: EntityID) {
+    pub(crate) fn delete_entity(&mut self, _entity: EntityID) {
         unimplemented!();
     }
 

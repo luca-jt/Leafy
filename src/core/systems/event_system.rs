@@ -1,17 +1,17 @@
+use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
 use sdl2::controller::{Axis, Button};
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
 use sdl2::mouse::{MouseButton, MouseWheelDirection};
-use std::any::TypeId;
-use std::cell::RefCell;
+use std::any::{Any, TypeId};
+use std::cell::RefMut;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 /// system managing the events
 pub struct EventSystem {
     event_subsystem: sdl2::EventSubsystem,
     event_pump: sdl2::EventPump,
-    listeners: HashMap<TypeId, Vec<Rc<RefCell<dyn EventObserver>>>>,
+    listeners: HashMap<TypeId, Vec<WeakPtr<dyn Any>>>,
 }
 
 impl EventSystem {
@@ -28,29 +28,33 @@ impl EventSystem {
     }
 
     /// subscribe a handler to a specific event type
-    pub fn add_listener<T: IFLEvent>(&mut self, handler: Rc<RefCell<dyn EventObserver>>) {
+    pub fn add_listener<T: Any>(&mut self, handler: &SharedPtr<impl EventObserver<T> + 'static>) {
         let listeners = self
             .listeners
             .entry(TypeId::of::<T>())
             .or_insert(Vec::new());
-        listeners.push(handler);
+        listeners.push(weak_ptr(handler) as WeakPtr<dyn Any>);
     }
 
     /// trigger an event
-    pub fn trigger<T: IFLEvent + ?Sized>(&self, event: Box<T>) {
+    pub fn trigger<T: Any>(&self, event: T) {
         if let Some(handlers) = self.listeners.get(&TypeId::of::<T>()) {
-            let event_data = event.event_data();
             for handler in handlers {
-                handler.borrow_mut().on_event(&event_data);
+                if let Some(handler_rc) = handler.upgrade() {
+                    let mut handler_ref = handler_rc.borrow_mut();
+                    let casted_ref = handler_ref
+                        .downcast_mut::<RefMut<dyn EventObserver<T>>>()
+                        .unwrap();
+                    casted_ref.on_event(&event);
+                }
             }
         }
     }
 
     /// process all the sdl events in the event pump
-    pub fn parse_sdl_events(&mut self) -> Result<(), ()> {
-        let mut polled_events: Vec<Box<dyn IFLEvent>> = vec![];
-
-        for event in self.event_pump.poll_iter() {
+    pub(crate) fn parse_sdl_events(&mut self) -> Result<(), ()> {
+        let events: Vec<Event> = self.event_pump.poll_iter().collect();
+        for event in events {
             match event {
                 Event::Quit { .. } => {
                     return Err(());
@@ -64,7 +68,7 @@ impl EventSystem {
                     repeat: _,
                 } => {
                     if let Some(key) = keycode {
-                        polled_events.push(Box::new(FLKeyPress(key)));
+                        self.trigger(FLKeyPress { key });
                     }
                 }
                 Event::Window {
@@ -73,11 +77,11 @@ impl EventSystem {
                     win_event,
                 } => {
                     if let WindowEvent::Resized(width, height) = win_event {
-                        polled_events.push(Box::new(FLWindowResize(width, height)))
+                        self.trigger(FLWindowResize { width, height });
                     } else if win_event == WindowEvent::FocusGained {
-                        polled_events.push(Box::new(FLWindowGainedFocus));
+                        self.trigger(FLWindowGainedFocus);
                     } else if win_event == WindowEvent::FocusLost {
-                        polled_events.push(Box::new(FLWindowLostFocus));
+                        self.trigger(FLWindowLostFocus);
                     }
                 }
                 Event::ControllerButtonDown {
@@ -85,7 +89,7 @@ impl EventSystem {
                     which: _,
                     button,
                 } => {
-                    polled_events.push(Box::new(FLControllerButton(button)));
+                    self.trigger(FLControllerButton { button });
                 }
                 Event::ControllerAxisMotion {
                     timestamp: _,
@@ -93,7 +97,7 @@ impl EventSystem {
                     axis,
                     value,
                 } => {
-                    polled_events.push(Box::new(FLControllerAxis(axis, value)));
+                    self.trigger(FLControllerAxis { axis, value });
                 }
                 Event::MouseButtonDown {
                     timestamp: _,
@@ -104,11 +108,11 @@ impl EventSystem {
                     x,
                     y,
                 } => {
-                    polled_events.push(Box::new(FLMouseClick {
+                    self.trigger(FLMouseClick {
                         button: mouse_btn,
                         at_x: x as u32,
                         at_y: y as u32,
-                    }));
+                    });
                 }
                 Event::MouseMotion {
                     timestamp: _,
@@ -120,12 +124,12 @@ impl EventSystem {
                     xrel,
                     yrel,
                 } => {
-                    polled_events.push(Box::new(FLMouseMove {
+                    self.trigger(FLMouseMove {
                         new_x: x as u32,
                         new_y: y as u32,
                         rel_x: xrel as u32,
                         rel_y: yrel as u32,
-                    }));
+                    });
                 }
                 Event::MouseWheel {
                     timestamp: _,
@@ -139,162 +143,75 @@ impl EventSystem {
                     mouse_x,
                     mouse_y,
                 } => {
-                    polled_events.push(Box::new(FLMouseScroll {
+                    self.trigger(FLMouseScroll {
                         direction,
                         scroll_x: precise_x,
                         scroll_y: precise_y,
                         at_x: mouse_x as u32,
                         at_y: mouse_y as u32,
-                    }));
+                    });
                 }
                 _ => {}
             }
-        }
-        // trigger all of the listeners
-        for pe in polled_events {
-            self.trigger(pe);
         }
 
         Ok(())
     }
 }
 
-pub trait EventObserver {
+pub trait EventObserver<T: Any> {
     /// runs on every event trigger
-    fn on_event(&mut self, event: &FLEventData);
+    fn on_event(&mut self, event: &T);
 }
 
-pub trait IFLEvent: 'static {
-    /// yields the data of the event
-    fn event_data(&self) -> FLEventData;
+/// key press event data
+pub struct FLKeyPress {
+    pub key: Keycode,
 }
 
-/// all of the supported event types for callbacks
-pub enum FLEventData {
-    KeyPress(Keycode),
-    MouseMove {
-        new_x: u32,
-        new_y: u32,
-        rel_x: u32,
-        rel_y: u32,
-    },
-    MouseScroll {
-        direction: MouseWheelDirection,
-        scroll_x: f32,
-        scroll_y: f32,
-        at_x: u32,
-        at_y: u32,
-    },
-    MouseClick {
-        button: MouseButton,
-        at_x: u32,
-        at_y: u32,
-    },
-    ControllerAxis(Axis, i16),
-    ControllerButton(Button),
-    WindowResize(i32, i32),
-    WindowLostFocus,
-    WindowGainedFocus,
-}
-
-pub struct FLKeyPress(Keycode);
-
-impl IFLEvent for FLKeyPress {
-    fn event_data(&self) -> FLEventData {
-        FLEventData::KeyPress(self.0)
-    }
-}
-
+/// mouse move event data
 pub struct FLMouseMove {
-    new_x: u32,
-    new_y: u32,
-    rel_x: u32,
-    rel_y: u32,
+    pub new_x: u32,
+    pub new_y: u32,
+    pub rel_x: u32,
+    pub rel_y: u32,
 }
 
-impl IFLEvent for FLMouseMove {
-    fn event_data(&self) -> FLEventData {
-        FLEventData::MouseMove {
-            new_x: self.new_x,
-            new_y: self.new_y,
-            rel_x: self.rel_x,
-            rel_y: self.rel_y,
-        }
-    }
-}
-
+/// mouse scroll event data
 pub struct FLMouseScroll {
-    direction: MouseWheelDirection,
-    scroll_x: f32,
-    scroll_y: f32,
-    at_x: u32,
-    at_y: u32,
+    pub direction: MouseWheelDirection,
+    pub scroll_x: f32,
+    pub scroll_y: f32,
+    pub at_x: u32,
+    pub at_y: u32,
 }
 
-impl IFLEvent for FLMouseScroll {
-    fn event_data(&self) -> FLEventData {
-        FLEventData::MouseScroll {
-            direction: self.direction,
-            scroll_x: self.scroll_x,
-            scroll_y: self.scroll_y,
-            at_x: self.at_x,
-            at_y: self.at_y,
-        }
-    }
-}
-
+/// mouse click event data
 pub struct FLMouseClick {
-    button: MouseButton,
-    at_x: u32,
-    at_y: u32,
+    pub button: MouseButton,
+    pub at_x: u32,
+    pub at_y: u32,
 }
 
-impl IFLEvent for FLMouseClick {
-    fn event_data(&self) -> FLEventData {
-        FLEventData::MouseClick {
-            button: self.button,
-            at_x: self.at_x,
-            at_y: self.at_y,
-        }
-    }
+/// controller axis event data
+pub struct FLControllerAxis {
+    pub axis: Axis,
+    pub value: i16,
 }
 
-pub struct FLControllerAxis(Axis, i16);
-
-impl IFLEvent for FLControllerAxis {
-    fn event_data(&self) -> FLEventData {
-        FLEventData::ControllerAxis(self.0, self.1)
-    }
+/// controller button event data
+pub struct FLControllerButton {
+    pub button: Button,
 }
 
-pub struct FLControllerButton(Button);
-
-impl IFLEvent for FLControllerButton {
-    fn event_data(&self) -> FLEventData {
-        FLEventData::ControllerButton(self.0)
-    }
+/// window resize event data
+pub struct FLWindowResize {
+    pub width: i32,
+    pub height: i32,
 }
 
-pub struct FLWindowResize(i32, i32);
-
-impl IFLEvent for FLWindowResize {
-    fn event_data(&self) -> FLEventData {
-        FLEventData::WindowResize(self.0, self.1)
-    }
-}
-
+/// window focus lost event
 pub struct FLWindowLostFocus;
 
-impl IFLEvent for FLWindowLostFocus {
-    fn event_data(&self) -> FLEventData {
-        FLEventData::WindowLostFocus
-    }
-}
-
+/// window focus gained event
 pub struct FLWindowGainedFocus;
-
-impl IFLEvent for FLWindowGainedFocus {
-    fn event_data(&self) -> FLEventData {
-        FLEventData::WindowGainedFocus
-    }
-}
