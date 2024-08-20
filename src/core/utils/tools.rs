@@ -230,3 +230,36 @@ unsafe impl<'a, K: Ord + Borrow<Q>, Q: Ord + ?Sized, V> SplitMut<&'a Q, V> for B
         self.get_mut(k)
     }
 }
+
+/// enables access to multiple immutable references via tuples for collections (e.g. HashMap),
+/// only returns `Some(...)` if all of the individual keys are valid
+pub trait SplitGet<K, V> {
+    fn get2(&self, k1: &K, k2: &K) -> Option<(&V, &V)>;
+    fn get3(&self, k1: &K, k2: &K, k3: &K) -> Option<(&V, &V, &V)>;
+    fn get4(&self, k1: &K, k2: &K, k3: &K, k4: &K) -> Option<(&V, &V, &V, &V)>;
+    fn get5(&self, k1: &K, k2: &K, k3: &K, k4: &K, k5: &K) -> Option<(&V, &V, &V, &V, &V)>;
+}
+
+impl<K: Hash + Eq, V> SplitGet<K, V> for HashMap<K, V> {
+    fn get2(&self, k1: &K, k2: &K) -> Option<(&V, &V)> {
+        Some((self.get(k1)?, self.get(k2)?))
+    }
+
+    fn get3(&self, k1: &K, k2: &K, k3: &K) -> Option<(&V, &V, &V)> {
+        Some((self.get(k1)?, self.get(k2)?, self.get(k3)?))
+    }
+
+    fn get4(&self, k1: &K, k2: &K, k3: &K, k4: &K) -> Option<(&V, &V, &V, &V)> {
+        Some((self.get(k1)?, self.get(k2)?, self.get(k3)?, self.get(k4)?))
+    }
+
+    fn get5(&self, k1: &K, k2: &K, k3: &K, k4: &K, k5: &K) -> Option<(&V, &V, &V, &V, &V)> {
+        Some((
+            self.get(k1)?,
+            self.get(k2)?,
+            self.get(k3)?,
+            self.get(k4)?,
+            self.get(k5)?,
+        ))
+    }
+}

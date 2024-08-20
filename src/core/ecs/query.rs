@@ -1,6 +1,6 @@
 use crate::ecs::entity::{Archetype, ArchetypeID};
 use crate::ecs::entity_manager::ECS;
-use crate::utils::tools::SplitMut;
+use crate::utils::tools::{SplitGet, SplitMut};
 use std::any::{Any, TypeId};
 use std::collections::hash_map::Values;
 use std::marker::PhantomData;
@@ -11,7 +11,7 @@ pub struct IncludeFilter(pub(crate) Vec<TypeId>);
 
 impl IncludeFilter {
     /// checks wether or not the filter accepts an archetype
-    pub fn matches(&self, archetype: &Archetype) -> bool {
+    pub(crate) fn matches(&self, archetype: &Archetype) -> bool {
         self.0
             .iter()
             .all(|&ty| archetype.components.contains_key(&ty))
@@ -34,7 +34,7 @@ pub struct ExcludeFilter(pub(crate) Vec<TypeId>);
 
 impl ExcludeFilter {
     /// checks wether or not the filter accepts an archetype
-    pub fn matches(&self, archetype: &Archetype) -> bool {
+    pub(crate) fn matches(&self, archetype: &Archetype) -> bool {
         self.0
             .iter()
             .all(|&ty| !archetype.components.contains_key(&ty))
@@ -65,12 +65,14 @@ impl<'a, T: Any> Iterator for Query1<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(archetype) = self.current_archetype.take() {
-            if self.component_index < archetype.components[&TypeId::of::<T>()].len() {
-                let component = &archetype.components[&TypeId::of::<T>()][self.component_index];
-                self.component_index += 1;
+        if let Some(archetype) = self.current_archetype {
+            if let Some(components) = archetype.components.get(&TypeId::of::<T>()) {
+                if self.component_index < components.len() {
+                    let component = &components[self.component_index];
+                    self.component_index += 1;
 
-                return component.downcast_ref::<T>();
+                    return component.downcast_ref::<T>();
+                }
             }
         }
 
@@ -101,13 +103,15 @@ impl<'a, T: Any> Iterator for Query1Mut<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype.take() {
-            if self.component_index < archetype.components[&TypeId::of::<T>()].len() {
-                let component = &mut archetype.components.get_mut(&TypeId::of::<T>()).unwrap()
-                    [self.component_index];
-                self.component_index += 1;
+            if let Some(components) = archetype.components.get_mut(&TypeId::of::<T>()) {
+                if self.component_index < components.len() {
+                    let component = &mut components[self.component_index];
+                    self.component_index += 1;
 
-                return component.downcast_mut::<T>();
+                    return component.downcast_mut::<T>();
+                }
             }
+            self.current_archetype = Some(archetype);
         }
 
         if let Some(archetype) = self.archetype_iter.next() {
@@ -137,16 +141,21 @@ impl<'a, A: Any, B: Any> Iterator for Query2<'a, A, B> {
     type Item = (&'a A, &'a B);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(archetype) = self.current_archetype.take() {
-            if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
-                let component_a = &archetype.components[&TypeId::of::<A>()][self.component_index];
-                let component_b = &archetype.components[&TypeId::of::<B>()][self.component_index];
-                self.component_index += 1;
+        if let Some(archetype) = self.current_archetype {
+            if let Some((components_a, components_b)) = archetype
+                .components
+                .get2(&TypeId::of::<A>(), &TypeId::of::<B>())
+            {
+                if self.component_index < components_a.len() {
+                    let component_a = &components_a[self.component_index];
+                    let component_b = &components_b[self.component_index];
+                    self.component_index += 1;
 
-                return Some((
-                    component_a.downcast_ref::<A>().unwrap(),
-                    component_b.downcast_ref::<B>().unwrap(),
-                ));
+                    return Some((
+                        component_a.downcast_ref::<A>().unwrap(),
+                        component_b.downcast_ref::<B>().unwrap(),
+                    ));
+                }
             }
         }
 
@@ -178,19 +187,22 @@ impl<'a, A: Any, B: Any> Iterator for Query2Mut<'a, A, B> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype.take() {
-            if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
-                let (components_a, components_b) = archetype
-                    .components
-                    .get2_mut(&TypeId::of::<A>(), &TypeId::of::<B>());
-                let component_a = &mut components_a.unwrap()[self.component_index];
-                let component_b = &mut components_b.unwrap()[self.component_index];
-                self.component_index += 1;
+            if let (Ok(components_a), Ok(components_b)) = archetype
+                .components
+                .get2_mut(&TypeId::of::<A>(), &TypeId::of::<B>())
+            {
+                if self.component_index < components_a.len() {
+                    let component_a = &mut components_a[self.component_index];
+                    let component_b = &mut components_b[self.component_index];
+                    self.component_index += 1;
 
-                return Some((
-                    component_a.downcast_mut::<A>().unwrap(),
-                    component_b.downcast_mut::<B>().unwrap(),
-                ));
+                    return Some((
+                        component_a.downcast_mut::<A>().unwrap(),
+                        component_b.downcast_mut::<B>().unwrap(),
+                    ));
+                }
             }
+            self.current_archetype = Some(archetype);
         }
 
         if let Some(archetype) = self.archetype_iter.next() {
@@ -221,18 +233,24 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3<'a, A, B, C> {
     type Item = (&'a A, &'a B, &'a C);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(archetype) = self.current_archetype.take() {
-            if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
-                let component_a = &archetype.components[&TypeId::of::<A>()][self.component_index];
-                let component_b = &archetype.components[&TypeId::of::<B>()][self.component_index];
-                let component_c = &archetype.components[&TypeId::of::<C>()][self.component_index];
-                self.component_index += 1;
+        if let Some(archetype) = self.current_archetype {
+            if let Some((components_a, components_b, components_c)) = archetype.components.get3(
+                &TypeId::of::<A>(),
+                &TypeId::of::<B>(),
+                &TypeId::of::<C>(),
+            ) {
+                if self.component_index < components_a.len() {
+                    let component_a = &components_a[self.component_index];
+                    let component_b = &components_b[self.component_index];
+                    let component_c = &components_c[self.component_index];
+                    self.component_index += 1;
 
-                return Some((
-                    component_a.downcast_ref::<A>().unwrap(),
-                    component_b.downcast_ref::<B>().unwrap(),
-                    component_c.downcast_ref::<C>().unwrap(),
-                ));
+                    return Some((
+                        component_a.downcast_ref::<A>().unwrap(),
+                        component_b.downcast_ref::<B>().unwrap(),
+                        component_c.downcast_ref::<C>().unwrap(),
+                    ));
+                }
             }
         }
 
@@ -265,23 +283,24 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Mut<'a, A, B, C> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype.take() {
-            if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
-                let (components_a, components_b, components_c) = archetype.components.get3_mut(
-                    &TypeId::of::<A>(),
-                    &TypeId::of::<B>(),
-                    &TypeId::of::<C>(),
-                );
-                let component_a = &mut components_a.unwrap()[self.component_index];
-                let component_b = &mut components_b.unwrap()[self.component_index];
-                let component_c = &mut components_c.unwrap()[self.component_index];
-                self.component_index += 1;
+            if let (Ok(components_a), Ok(components_b), Ok(components_c)) = archetype
+                .components
+                .get3_mut(&TypeId::of::<A>(), &TypeId::of::<B>(), &TypeId::of::<C>())
+            {
+                if self.component_index < components_a.len() {
+                    let component_a = &mut components_a[self.component_index];
+                    let component_b = &mut components_b[self.component_index];
+                    let component_c = &mut components_c[self.component_index];
+                    self.component_index += 1;
 
-                return Some((
-                    component_a.downcast_mut::<A>().unwrap(),
-                    component_b.downcast_mut::<B>().unwrap(),
-                    component_c.downcast_mut::<C>().unwrap(),
-                ));
+                    return Some((
+                        component_a.downcast_mut::<A>().unwrap(),
+                        component_b.downcast_mut::<B>().unwrap(),
+                        component_c.downcast_mut::<C>().unwrap(),
+                    ));
+                }
             }
+            self.current_archetype = Some(archetype);
         }
 
         if let Some(archetype) = self.archetype_iter.next() {
@@ -313,20 +332,29 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4<'a, A, B, C, D> {
     type Item = (&'a A, &'a B, &'a C, &'a D);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(archetype) = self.current_archetype.take() {
-            if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
-                let component_a = &archetype.components[&TypeId::of::<A>()][self.component_index];
-                let component_b = &archetype.components[&TypeId::of::<B>()][self.component_index];
-                let component_c = &archetype.components[&TypeId::of::<C>()][self.component_index];
-                let component_d = &archetype.components[&TypeId::of::<D>()][self.component_index];
-                self.component_index += 1;
+        if let Some(archetype) = self.current_archetype {
+            if let Some((components_a, components_b, components_c, components_d)) =
+                archetype.components.get4(
+                    &TypeId::of::<A>(),
+                    &TypeId::of::<B>(),
+                    &TypeId::of::<C>(),
+                    &TypeId::of::<D>(),
+                )
+            {
+                if self.component_index < components_a.len() {
+                    let component_a = &components_a[self.component_index];
+                    let component_b = &components_b[self.component_index];
+                    let component_c = &components_c[self.component_index];
+                    let component_d = &components_d[self.component_index];
+                    self.component_index += 1;
 
-                return Some((
-                    component_a.downcast_ref::<A>().unwrap(),
-                    component_b.downcast_ref::<B>().unwrap(),
-                    component_c.downcast_ref::<C>().unwrap(),
-                    component_d.downcast_ref::<D>().unwrap(),
-                ));
+                    return Some((
+                        component_a.downcast_ref::<A>().unwrap(),
+                        component_b.downcast_ref::<B>().unwrap(),
+                        component_c.downcast_ref::<C>().unwrap(),
+                        component_d.downcast_ref::<D>().unwrap(),
+                    ));
+                }
             }
         }
 
@@ -360,27 +388,30 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Mut<'a, A, B, C, D> 
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype.take() {
-            if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
-                let (components_a, components_b, components_c, components_d) =
-                    archetype.components.get4_mut(
-                        &TypeId::of::<A>(),
-                        &TypeId::of::<B>(),
-                        &TypeId::of::<C>(),
-                        &TypeId::of::<D>(),
-                    );
-                let component_a = &mut components_a.unwrap()[self.component_index];
-                let component_b = &mut components_b.unwrap()[self.component_index];
-                let component_c = &mut components_c.unwrap()[self.component_index];
-                let component_d = &mut components_d.unwrap()[self.component_index];
-                self.component_index += 1;
+            if let (Ok(components_a), Ok(components_b), Ok(components_c), Ok(components_d)) =
+                archetype.components.get4_mut(
+                    &TypeId::of::<A>(),
+                    &TypeId::of::<B>(),
+                    &TypeId::of::<C>(),
+                    &TypeId::of::<D>(),
+                )
+            {
+                if self.component_index < components_a.len() {
+                    let component_a = &mut components_a[self.component_index];
+                    let component_b = &mut components_b[self.component_index];
+                    let component_c = &mut components_c[self.component_index];
+                    let component_d = &mut components_d[self.component_index];
+                    self.component_index += 1;
 
-                return Some((
-                    component_a.downcast_mut::<A>().unwrap(),
-                    component_b.downcast_mut::<B>().unwrap(),
-                    component_c.downcast_mut::<C>().unwrap(),
-                    component_d.downcast_mut::<D>().unwrap(),
-                ));
+                    return Some((
+                        component_a.downcast_mut::<A>().unwrap(),
+                        component_b.downcast_mut::<B>().unwrap(),
+                        component_c.downcast_mut::<C>().unwrap(),
+                        component_d.downcast_mut::<D>().unwrap(),
+                    ));
+                }
             }
+            self.current_archetype = Some(archetype);
         }
 
         if let Some(archetype) = self.archetype_iter.next() {
@@ -413,22 +444,32 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5<'a, A, B, C
     type Item = (&'a A, &'a B, &'a C, &'a D, &'a E);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(archetype) = self.current_archetype.take() {
-            if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
-                let component_a = &archetype.components[&TypeId::of::<A>()][self.component_index];
-                let component_b = &archetype.components[&TypeId::of::<B>()][self.component_index];
-                let component_c = &archetype.components[&TypeId::of::<C>()][self.component_index];
-                let component_d = &archetype.components[&TypeId::of::<D>()][self.component_index];
-                let component_e = &archetype.components[&TypeId::of::<E>()][self.component_index];
-                self.component_index += 1;
+        if let Some(archetype) = self.current_archetype {
+            if let Some((components_a, components_b, components_c, components_d, components_e)) =
+                archetype.components.get5(
+                    &TypeId::of::<A>(),
+                    &TypeId::of::<B>(),
+                    &TypeId::of::<C>(),
+                    &TypeId::of::<D>(),
+                    &TypeId::of::<E>(),
+                )
+            {
+                if self.component_index < components_a.len() {
+                    let component_a = &components_a[self.component_index];
+                    let component_b = &components_b[self.component_index];
+                    let component_c = &components_c[self.component_index];
+                    let component_d = &components_d[self.component_index];
+                    let component_e = &components_e[self.component_index];
+                    self.component_index += 1;
 
-                return Some((
-                    component_a.downcast_ref::<A>().unwrap(),
-                    component_b.downcast_ref::<B>().unwrap(),
-                    component_c.downcast_ref::<C>().unwrap(),
-                    component_d.downcast_ref::<D>().unwrap(),
-                    component_e.downcast_ref::<E>().unwrap(),
-                ));
+                    return Some((
+                        component_a.downcast_ref::<A>().unwrap(),
+                        component_b.downcast_ref::<B>().unwrap(),
+                        component_c.downcast_ref::<C>().unwrap(),
+                        component_d.downcast_ref::<D>().unwrap(),
+                        component_e.downcast_ref::<E>().unwrap(),
+                    ));
+                }
             }
         }
 
@@ -463,30 +504,37 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Mut<'a, A, B
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype.take() {
-            if self.component_index < archetype.components[&TypeId::of::<A>()].len() {
-                let (components_a, components_b, components_c, components_d, components_e) =
-                    archetype.components.get5_mut(
-                        &TypeId::of::<A>(),
-                        &TypeId::of::<B>(),
-                        &TypeId::of::<C>(),
-                        &TypeId::of::<D>(),
-                        &TypeId::of::<E>(),
-                    );
-                let component_a = &mut components_a.unwrap()[self.component_index];
-                let component_b = &mut components_b.unwrap()[self.component_index];
-                let component_c = &mut components_c.unwrap()[self.component_index];
-                let component_d = &mut components_d.unwrap()[self.component_index];
-                let component_e = &mut components_e.unwrap()[self.component_index];
-                self.component_index += 1;
+            if let (
+                Ok(components_a),
+                Ok(components_b),
+                Ok(components_c),
+                Ok(components_d),
+                Ok(components_e),
+            ) = archetype.components.get5_mut(
+                &TypeId::of::<A>(),
+                &TypeId::of::<B>(),
+                &TypeId::of::<C>(),
+                &TypeId::of::<D>(),
+                &TypeId::of::<E>(),
+            ) {
+                if self.component_index < components_a.len() {
+                    let component_a = &mut components_a[self.component_index];
+                    let component_b = &mut components_b[self.component_index];
+                    let component_c = &mut components_c[self.component_index];
+                    let component_d = &mut components_d[self.component_index];
+                    let component_e = &mut components_e[self.component_index];
+                    self.component_index += 1;
 
-                return Some((
-                    component_a.downcast_mut::<A>().unwrap(),
-                    component_b.downcast_mut::<B>().unwrap(),
-                    component_c.downcast_mut::<C>().unwrap(),
-                    component_d.downcast_mut::<D>().unwrap(),
-                    component_e.downcast_mut::<E>().unwrap(),
-                ));
+                    return Some((
+                        component_a.downcast_mut::<A>().unwrap(),
+                        component_b.downcast_mut::<B>().unwrap(),
+                        component_c.downcast_mut::<C>().unwrap(),
+                        component_d.downcast_mut::<D>().unwrap(),
+                        component_e.downcast_mut::<E>().unwrap(),
+                    ));
+                }
             }
+            self.current_archetype = Some(archetype);
         }
 
         if let Some(archetype) = self.archetype_iter.next() {
