@@ -5,33 +5,41 @@ use fl_core::ecs::component::{
 };
 use fl_core::ecs::entity::EntityID;
 use fl_core::ecs::entity_manager::EntityManager;
-use fl_core::engine::Engine;
+use fl_core::engine::{Engine, FLApp};
 use fl_core::systems::event_system::{EventObserver, FLKeyPress};
 use fl_core::utils::tools::{shared_ptr, SharedPtr};
 use sdl2::keyboard::Keycode;
+use std::cell::RefMut;
 
 /// example app
 pub struct App {
-    engine: Engine,
     game_state: SharedPtr<GameState>,
 }
 
 impl App {
-    /// creates a new app and initializes it
-    pub fn init() -> Self {
-        let mut engine = Engine::new();
-        let game_state = GameState::init();
+    pub fn new() -> Self {
+        Self {
+            game_state: GameState::init(),
+        }
+    }
+}
 
-        engine.event_system.add_listener::<FLKeyPress>(&game_state);
+impl FLApp for App {
+    fn init(&mut self, engine: &mut Engine) {
+        engine
+            .event_system
+            .add_listener::<FLKeyPress>(&self.game_state);
         engine.audio_system.play_music("bg_music.mp3");
-
-        Self { engine, game_state }
     }
 
-    /// runs the main engine loop
-    pub fn run(&mut self) {
-        self.engine
-            .run(&mut self.game_state.borrow_mut().entity_manager);
+    fn on_frame_update(&mut self, _engine: &mut Engine) {
+        //...
+    }
+
+    fn entity_manager(&mut self) -> RefMut<EntityManager> {
+        RefMut::map(self.game_state.borrow_mut(), |game_state| {
+            &mut game_state.entity_manager
+        })
     }
 }
 

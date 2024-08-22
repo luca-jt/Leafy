@@ -1,4 +1,6 @@
 use crate::ecs::entity_manager::EntityManager;
+use std::cell::RefMut;
+use std::ops::{Deref, DerefMut};
 use std::time::{Duration, Instant};
 
 use crate::systems::animation_system::AnimationSystem;
@@ -40,14 +42,17 @@ impl Engine {
     }
 
     /// runs the main loop
-    pub fn run(&mut self, entity_manager: &mut EntityManager) {
+    pub fn run(&mut self, app: &mut impl FLApp) {
+        app.init(self);
         let mut fps = 0f64;
         let mut frame_start_time = Instant::now();
 
         'running: loop {
             self.audio_system.update();
-            self.animation_system.apply_physics(entity_manager);
-            self.rendering_system.render(entity_manager);
+            self.animation_system
+                .apply_physics(app.entity_manager().deref_mut());
+            self.rendering_system.render(app.entity_manager().deref());
+            app.on_frame_update(self);
             if self.event_system.parse_sdl_events().is_err() {
                 break 'running;
             }
@@ -66,4 +71,14 @@ impl Engine {
         *fps = (1.0 / frame_start_time.elapsed().as_secs_f64()).round();
         *frame_start_time = Instant::now();
     }
+}
+
+/// all necessary app functionality to run the engine with
+pub trait FLApp {
+    /// initialize the app (e.g. add event handling)
+    fn init(&mut self, engine: &mut Engine);
+    /// run this update code every frame
+    fn on_frame_update(&mut self, engine: &mut Engine);
+    /// allows for access to the entity manager to be used for all engine operations
+    fn entity_manager(&mut self) -> RefMut<EntityManager>;
 }
