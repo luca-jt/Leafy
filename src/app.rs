@@ -5,11 +5,12 @@ use fl_core::ecs::component::{
 };
 use fl_core::ecs::entity::EntityID;
 use fl_core::ecs::entity_manager::EntityManager;
-use fl_core::engine::{Engine, FLApp};
-use fl_core::systems::event_system::{EventObserver, FLKeyPress};
+use fl_core::engine::{Engine, FallingLeafApp};
+use fl_core::systems::event_system::events::KeyPress;
+use fl_core::systems::event_system::{EventObserver, EventSystem};
 use fl_core::utils::tools::{shared_ptr, SharedPtr};
-use sdl2::keyboard::Keycode;
 use std::cell::RefMut;
+use winit::keyboard::KeyCode;
 
 /// example app
 pub struct App {
@@ -24,15 +25,15 @@ impl App {
     }
 }
 
-impl FLApp for App {
+impl FallingLeafApp for App {
     fn init(&mut self, engine: &mut Engine) {
         engine
             .event_system
-            .add_listener::<FLKeyPress>(&self.game_state);
+            .add_listener::<KeyPress>(&self.game_state);
         engine.audio_system.play_music("bg_music.mp3");
     }
 
-    fn on_frame_update(&mut self, _engine: &mut Engine) {
+    fn on_frame_update(&mut self, event_system: &mut EventSystem) {
         //...
     }
 
@@ -84,9 +85,9 @@ impl GameState {
     }
 }
 
-impl EventObserver<FLKeyPress> for GameState {
-    fn on_event(&mut self, event: &FLKeyPress) {
-        if event.key == Keycode::SPACE {
+impl EventObserver<KeyPress> for GameState {
+    fn on_event(&mut self, event: &KeyPress) {
+        if event.key == KeyCode::Space {
             let v_ref = &mut self
                 .entity_manager
                 .ecs

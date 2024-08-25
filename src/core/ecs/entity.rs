@@ -8,7 +8,7 @@ pub type EntityID = u64;
 
 /// defines a type an entity can have
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
-pub(crate) struct EntityType(pub Vec<TypeId>);
+pub struct EntityType(pub Vec<TypeId>);
 
 impl EntityType {
     /// wrapper for the `iter()` function of the stored Vec

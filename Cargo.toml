@@ -14,26 +14,16 @@ name = "fl_test"
 path = "src/main.rs"
 
 [dependencies]
+glutin = "*"
+glutin-winit = "*"
+winit = "*"
+raw-window-handle = "*"
 stb_image = "*"
 nalgebra-glm = "*"
 gl = "*"
 obj-rs = "*"
 fontdue = "*"
-
-
-[dependencies.sdl2]
-version = "*"
-default-features = false
-features = ["image", "mixer", "static-link", "use-vcpkg"]
-
-[package.metadata.vcpkg]
-dependencies = ["sdl2", "sdl2-image[libjpeg-turbo,tiff,libwebp]", "sdl2-mixer"]
-git = "https://github.com/microsoft/vcpkg"
-rev = "2024.06.15"
-
-[package.metadata.vcpkg.target]
-x86_64-pc-windows-msvc = { triplet = "x64-windows-static-md" }
-
+ambisonic = "*"
 
 [build-dependencies]
 winresource = "*"

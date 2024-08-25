@@ -1,28 +1,28 @@
-use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
-use sdl2::controller::{Axis, Button};
-use sdl2::event::{Event, WindowEvent};
-use sdl2::keyboard::Keycode;
-use sdl2::mouse::{MouseButton, MouseWheelDirection};
 use std::any::{Any, TypeId};
 use std::cell::RefMut;
 use std::collections::HashMap;
 
+use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::keyboard::PhysicalKey;
+
+use crate::systems::event_system::events::*;
+use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
+
 /// system managing the events
 pub struct EventSystem {
-    event_subsystem: sdl2::EventSubsystem,
-    event_pump: sdl2::EventPump,
+    pub(crate) event_loop: Option<EventLoop<()>>,
     listeners: HashMap<TypeId, Vec<WeakPtr<dyn Any>>>,
 }
 
 impl EventSystem {
     /// creates a new event system
-    pub fn new(sdl_context: &sdl2::Sdl) -> Self {
-        let event_subsystem = sdl_context.event().unwrap();
-        let event_pump = sdl_context.event_pump().unwrap();
+    pub(crate) fn new() -> Self {
+        let event_loop = EventLoop::new().unwrap();
+        event_loop.set_control_flow(ControlFlow::Poll);
 
         Self {
-            event_subsystem,
-            event_pump,
+            event_loop: Some(event_loop),
             listeners: HashMap::new(),
         }
     }
@@ -51,111 +51,106 @@ impl EventSystem {
         }
     }
 
-    /// process all the sdl events in the event pump
-    pub(crate) fn parse_sdl_events(&mut self) -> Result<(), ()> {
-        let events: Vec<Event> = self.event_pump.poll_iter().collect();
-        for event in events {
-            match event {
-                Event::Quit { .. } => {
-                    return Err(());
-                }
-                Event::KeyDown {
-                    timestamp: _,
-                    window_id: _,
-                    keycode,
-                    scancode: _,
-                    keymod: _,
-                    repeat: _,
-                } => {
-                    if let Some(key) = keycode {
-                        self.trigger(FLKeyPress { key });
+    /// process all the winit window events
+    pub(crate) fn parse_winit_window_event(&mut self, event: WindowEvent) {
+        match event {
+            WindowEvent::KeyboardInput {
+                device_id: _,
+                event,
+                is_synthetic,
+            } => match event.state {
+                ElementState::Pressed => {
+                    if let PhysicalKey::Code(key) = event.physical_key {
+                        self.trigger(KeyPress {
+                            key,
+                            is_synthetic,
+                            is_repeat: event.repeat,
+                        });
                     }
                 }
-                Event::Window {
-                    timestamp: _,
-                    window_id: _,
-                    win_event,
-                } => {
-                    if let WindowEvent::Resized(width, height) = win_event {
-                        self.trigger(FLWindowResize { width, height });
-                    } else if win_event == WindowEvent::FocusGained {
-                        self.trigger(FLWindowGainedFocus);
-                    } else if win_event == WindowEvent::FocusLost {
-                        self.trigger(FLWindowLostFocus);
+                ElementState::Released => {
+                    if let PhysicalKey::Code(key) = event.physical_key {
+                        self.trigger(KeyRelease {
+                            key,
+                            is_synthetic,
+                            is_repeat: event.repeat,
+                        });
                     }
                 }
-                Event::ControllerButtonDown {
-                    timestamp: _,
-                    which: _,
-                    button,
-                } => {
-                    self.trigger(FLControllerButton { button });
-                }
-                Event::ControllerAxisMotion {
-                    timestamp: _,
-                    which: _,
-                    axis,
-                    value,
-                } => {
-                    self.trigger(FLControllerAxis { axis, value });
-                }
-                Event::MouseButtonDown {
-                    timestamp: _,
-                    window_id: _,
-                    which: _,
-                    mouse_btn,
-                    clicks: _,
-                    x,
-                    y,
-                } => {
-                    self.trigger(FLMouseClick {
-                        button: mouse_btn,
-                        at_x: x as u32,
-                        at_y: y as u32,
-                    });
-                }
-                Event::MouseMotion {
-                    timestamp: _,
-                    window_id: _,
-                    which: _,
-                    mousestate: _,
-                    x,
-                    y,
-                    xrel,
-                    yrel,
-                } => {
-                    self.trigger(FLMouseMove {
-                        new_x: x as u32,
-                        new_y: y as u32,
-                        rel_x: xrel as u32,
-                        rel_y: yrel as u32,
-                    });
-                }
-                Event::MouseWheel {
-                    timestamp: _,
-                    window_id: _,
-                    which: _,
-                    x: _,
-                    y: _,
-                    direction,
-                    precise_x,
-                    precise_y,
-                    mouse_x,
-                    mouse_y,
-                } => {
-                    self.trigger(FLMouseScroll {
-                        direction,
-                        scroll_x: precise_x,
-                        scroll_y: precise_y,
-                        at_x: mouse_x as u32,
-                        at_y: mouse_y as u32,
-                    });
-                }
-                _ => {}
+            },
+            WindowEvent::Resized(size) => {
+                self.trigger(WindowResize {
+                    width: size.width,
+                    height: size.height,
+                });
             }
+            WindowEvent::Focused(gained) => {
+                if gained {
+                    self.trigger(WindowGainedFocus);
+                } else {
+                    self.trigger(WindowLostFocus);
+                }
+            }
+            WindowEvent::MouseInput {
+                device_id: _,
+                state,
+                button,
+            } => match state {
+                ElementState::Pressed => {
+                    self.trigger(MouseClick { button });
+                }
+                ElementState::Released => {
+                    self.trigger(MouseRelease { button });
+                }
+            },
+            WindowEvent::CursorMoved {
+                device_id: _,
+                position,
+            } => {
+                self.trigger(MouseMove {
+                    to_x: position.x,
+                    to_y: position.y,
+                });
+            }
+            WindowEvent::MouseWheel {
+                device_id: _,
+                delta,
+                phase,
+            } => {
+                if let MouseScrollDelta::LineDelta(hori, vert) = delta {
+                    self.trigger(MouseScroll {
+                        vertical_lines: vert,
+                        horizontal_lines: hori,
+                        phase,
+                    });
+                }
+            }
+            WindowEvent::Moved(position) => {
+                self.trigger(WindowMoved {
+                    to_x: position.x as u32,
+                    to_y: position.y as u32,
+                });
+            }
+            WindowEvent::DroppedFile(path) => {
+                self.trigger(FileDropped { path });
+            }
+            WindowEvent::HoveredFile(path) => {
+                self.trigger(FileHovered { path });
+            }
+            WindowEvent::HoveredFileCancelled => {
+                self.trigger(FileHoverCancelled);
+            }
+            WindowEvent::ScaleFactorChanged {
+                scale_factor,
+                inner_size_writer,
+            } => {
+                self.trigger(DPIScaleFactorChanged {
+                    scale_factor,
+                    size_writer: inner_size_writer,
+                });
+            }
+            _ => (),
         }
-
-        Ok(())
     }
 }
 
@@ -164,63 +159,96 @@ pub trait EventObserver<T: Any> {
     fn on_event(&mut self, event: &T);
 }
 
-/// key press event data
-#[derive(Debug, Clone, PartialEq)]
-pub struct FLKeyPress {
-    pub key: Keycode,
+pub mod events {
+    use std::path::PathBuf;
+    use winit::event::{InnerSizeWriter, MouseButton, TouchPhase};
+    use winit::keyboard::KeyCode;
+
+    /// key press event data
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct KeyPress {
+        pub key: KeyCode,
+        pub is_synthetic: bool,
+        pub is_repeat: bool,
+    }
+
+    /// key release event data
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct KeyRelease {
+        pub key: KeyCode,
+        pub is_synthetic: bool,
+        pub is_repeat: bool,
+    }
+
+    /// mouse move event data (not for 3D camera control)
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct MouseMove {
+        pub to_x: f64,
+        pub to_y: f64,
+    }
+
+    /// mouse scroll event data
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct MouseScroll {
+        pub vertical_lines: f32,
+        pub horizontal_lines: f32,
+        pub phase: TouchPhase,
+    }
+
+    /// mouse click event data
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct MouseClick {
+        pub button: MouseButton,
+    }
+
+    /// mouse click event data
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct MouseRelease {
+        pub button: MouseButton,
+    }
+
+    /// window resize event data
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct WindowResize {
+        pub width: u32,
+        pub height: u32,
+    }
+
+    /// window focus lost event
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct WindowLostFocus;
+
+    /// window focus gained event
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct WindowGainedFocus;
+
+    /// window move event
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct WindowMoved {
+        pub to_x: u32,
+        pub to_y: u32,
+    }
+
+    /// file drop event
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct FileDropped {
+        pub path: PathBuf,
+    }
+
+    /// file hover event
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct FileHovered {
+        pub path: PathBuf,
+    }
+
+    /// file hover cancel event
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct FileHoverCancelled;
+
+    /// DPI scale factor change event
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct DPIScaleFactorChanged {
+        pub scale_factor: f64,
+        pub size_writer: InnerSizeWriter,
+    }
 }
-
-/// mouse move event data
-#[derive(Debug, Clone, PartialEq)]
-pub struct FLMouseMove {
-    pub new_x: u32,
-    pub new_y: u32,
-    pub rel_x: u32,
-    pub rel_y: u32,
-}
-
-/// mouse scroll event data
-#[derive(Debug, Clone, PartialEq)]
-pub struct FLMouseScroll {
-    pub direction: MouseWheelDirection,
-    pub scroll_x: f32,
-    pub scroll_y: f32,
-    pub at_x: u32,
-    pub at_y: u32,
-}
-
-/// mouse click event data
-#[derive(Debug, Clone, PartialEq)]
-pub struct FLMouseClick {
-    pub button: MouseButton,
-    pub at_x: u32,
-    pub at_y: u32,
-}
-
-/// controller axis event data
-#[derive(Debug, Clone, PartialEq)]
-pub struct FLControllerAxis {
-    pub axis: Axis,
-    pub value: i16,
-}
-
-/// controller button event data
-#[derive(Debug, Clone, PartialEq)]
-pub struct FLControllerButton {
-    pub button: Button,
-}
-
-/// window resize event data
-#[derive(Debug, Clone, PartialEq)]
-pub struct FLWindowResize {
-    pub width: i32,
-    pub height: i32,
-}
-
-/// window focus lost event
-#[derive(Debug, Clone, PartialEq)]
-pub struct FLWindowLostFocus;
-
-/// window focus gained event
-#[derive(Debug, Clone, PartialEq)]
-pub struct FLWindowGainedFocus;
