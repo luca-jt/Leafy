@@ -19,7 +19,7 @@ use crate::utils::tools::{shared_ptr, SharedPtr};
 pub struct Engine {
     app: Option<Box<dyn FallingLeafApp>>,
     exit_state: Option<Result<(), Box<dyn Error>>>,
-    pub rendering_system: RenderingSystem,
+    rendering_system: Option<RenderingSystem>,
     pub audio_system: AudioSystem,
     pub event_system: EventSystem,
     pub animation_system: AnimationSystem,
@@ -30,7 +30,6 @@ impl Engine {
     /// engine setup on startup
     pub fn new() -> Self {
         let video_system = shared_ptr(VideoSystem::new());
-        let rendering_system = RenderingSystem::new();
         let audio_system = AudioSystem::new();
         let animation_system = AnimationSystem::new();
         let mut event_system = EventSystem::new();
@@ -41,7 +40,7 @@ impl Engine {
         Self {
             app: None,
             exit_state: Some(Ok(())),
-            rendering_system,
+            rendering_system: None,
             audio_system,
             event_system,
             animation_system,
@@ -65,6 +64,8 @@ impl Engine {
         self.animation_system
             .apply_physics(self.app.as_mut().unwrap().entity_manager().deref_mut());
         self.rendering_system
+            .as_mut()
+            .unwrap()
             .render(self.app.as_mut().unwrap().entity_manager().deref());
         self.app
             .as_mut()
@@ -78,6 +79,7 @@ impl Engine {
 impl ApplicationHandler for Engine {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
+        self.rendering_system = Some(RenderingSystem::new());
     }
 
     fn window_event(
