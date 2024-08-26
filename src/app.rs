@@ -6,11 +6,13 @@ use fl_core::ecs::component::{
 use fl_core::ecs::entity::EntityID;
 use fl_core::ecs::entity_manager::EntityManager;
 use fl_core::engine::{Engine, FallingLeafApp};
+use fl_core::glm;
 use fl_core::systems::event_system::events::KeyPress;
 use fl_core::systems::event_system::{EventObserver, EventSystem};
 use fl_core::utils::tools::{shared_ptr, SharedPtr};
+use fl_core::winit::keyboard::KeyCode;
 use std::cell::RefMut;
-use winit::keyboard::KeyCode;
+use std::f32::consts::PI;
 
 /// example app
 pub struct App {
@@ -30,11 +32,52 @@ impl FallingLeafApp for App {
         engine
             .event_system
             .add_listener::<KeyPress>(&self.game_state);
+
         engine.audio_system.play_background_music("helicopter.wav");
+
+        let sound = engine.audio_system.new_sound_controller();
+        engine.audio_system.enable_hrtf();
+
+        let position = Position::new(0.0, 0.0, 1.0);
+        engine
+            .audio_system
+            .play_sfx_at("drop.wav", true, &sound, &position);
+
+        let cube = self
+            .game_state
+            .borrow_mut()
+            .entity_manager
+            .create_entity(components!(
+                position,
+                Renderable {
+                    scale: 0.5f32.into(),
+                    mesh_type: MeshType::Cube,
+                    mesh_attribute: MeshAttribute::Colored(Color32::BLUE),
+                },
+                sound,
+                TouchTime::now()
+            ));
+
+        self.game_state.borrow_mut().cube = Some(cube);
     }
 
-    fn on_frame_update(&mut self, event_system: &mut EventSystem) {
-        //...
+    fn on_frame_update(&mut self, _event_system: &mut EventSystem) {
+        let mut game_state = self.game_state.borrow_mut();
+        let cube = game_state.cube.unwrap();
+        let tt = game_state
+            .entity_manager
+            .ecs
+            .get_component_mut::<TouchTime>(cube)
+            .unwrap();
+        let secs = tt.delta_time_f32();
+        let pos = game_state
+            .entity_manager
+            .ecs
+            .get_component_mut::<Position>(cube)
+            .unwrap();
+        let av = PI / 2.0;
+        pos.data_mut().x = (av * secs).sin();
+        pos.data_mut().z = (av * secs).cos();
     }
 
     fn entity_manager(&mut self) -> RefMut<EntityManager> {
@@ -42,12 +85,17 @@ impl FallingLeafApp for App {
             &mut game_state.entity_manager
         })
     }
+
+    fn cam_start_data(&self) -> (glm::Vec3, glm::Vec3) {
+        (glm::Vec3::new(0.0, 1.0, -2.0), glm::Vec3::zeros())
+    }
 }
 
 /// example game state that holds all the entity data and other stuff
 struct GameState {
     pub entity_manager: EntityManager,
     player: EntityID,
+    cube: Option<EntityID>,
 }
 
 impl GameState {
@@ -81,6 +129,7 @@ impl GameState {
         shared_ptr(Self {
             entity_manager,
             player,
+            cube: None,
         })
     }
 }

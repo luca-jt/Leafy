@@ -29,7 +29,11 @@ pub struct Renderable {
 }
 
 /// used for object orientation in 3D space
-pub type Quaternion = glm::Vec4; // TODO: nutzung
+pub type Quaternion = glm::Vec4;
+
+/// the orientation of an entity in 3D space
+#[derive(Debug, Clone, PartialEq)]
+pub struct Orientation(Quaternion); // todo: usage
 
 /// position in 3D space
 #[derive(Debug, Clone, PartialEq)]
@@ -176,6 +180,9 @@ impl Color32 {
     pub const RED: Self = Self::from_rgb(255, 0, 0);
     pub const GREEN: Self = Self::from_rgb(0, 255, 0);
     pub const BLUE: Self = Self::from_rgb(0, 0, 255);
+    pub const YELLOW: Self = Self::from_rgb(255, 255, 0);
+    pub const CYAN: Self = Self::from_rgb(0, 255, 255);
+    pub const PURPLE: Self = Self::from_rgb(255, 0, 255);
 
     pub const fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self([r, g, b, 255])

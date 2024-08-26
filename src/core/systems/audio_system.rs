@@ -164,8 +164,25 @@ impl AudioSystem {
 
     /// plays the music from a given file in a loop
     pub fn play_background_music(&mut self, file_name: &str) {
+        let full_path = get_audio_path(file_name);
+        let volume = convert_volume(self.master_volume, self.music_volume);
         self.stop_background_music();
-        let handle = self.play_sfx(file_name, true);
+
+        let buffer = SoundBufferResource::new_generic(
+            block_on(DataSource::from_file(full_path, &FsResourceIo)).unwrap(),
+        )
+        .unwrap();
+
+        let source = SoundSourceBuilder::new()
+            .with_buffer(buffer)
+            .with_looping(true)
+            .with_status(Status::Playing)
+            .with_spatial_blend_factor(0.0)
+            .with_gain(volume)
+            .build()
+            .unwrap();
+
+        let handle = self.sound_context.state().add_source(source);
         self.background_music = Some(handle);
     }
 

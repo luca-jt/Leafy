@@ -96,7 +96,8 @@ impl Engine {
 impl ApplicationHandler for Engine {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
-        self.rendering_system = Some(RenderingSystem::new());
+        let cam_data = self.app.as_ref().unwrap().cam_start_data();
+        self.rendering_system = Some(RenderingSystem::new(cam_data.0, cam_data.1));
     }
 
     fn window_event(
@@ -134,4 +135,6 @@ pub trait FallingLeafApp {
     fn on_frame_update(&mut self, event_system: &mut EventSystem);
     /// allows for access to the entity manager to be used for all engine operations
     fn entity_manager(&mut self) -> RefMut<EntityManager>;
+    /// provides the engine with initial camera position and focus
+    fn cam_start_data(&self) -> (glm::Vec3, glm::Vec3);
 }
