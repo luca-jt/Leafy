@@ -2,7 +2,7 @@ use std::any::{Any, TypeId};
 use std::cell::RefMut;
 use std::collections::HashMap;
 
-use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
+use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::keyboard::PhysicalKey;
 
@@ -152,8 +152,37 @@ impl EventSystem {
             _ => (),
         }
     }
+
+    /// process all the winit raw device events (e.g. for game controlls)
+    pub(crate) fn parse_winit_device_event(&mut self, device_id: DeviceId, event: DeviceEvent) {
+        match event {
+            DeviceEvent::Added => {
+                self.trigger(RawDeviceAdded { device_id });
+            }
+            DeviceEvent::Removed => {
+                self.trigger(RawDeviceRemoved { device_id });
+            }
+            DeviceEvent::MouseMotion { delta } => {
+                self.trigger(RawMouseMotion {
+                    delta_x: delta.0,
+                    delta_y: delta.1,
+                });
+            }
+            DeviceEvent::MouseWheel { delta } => {
+                if let MouseScrollDelta::LineDelta(hori, vert) = delta {
+                    self.trigger(RawMouseScroll {
+                        vertical_delta: vert,
+                        horizontal_delta: hori,
+                    });
+                }
+            }
+            _ => (),
+        }
+    }
 }
 
+/// every struct that is supposed to be added to the event system as a listener has to implement this trait
+/// for the specfic type of event it should listen to
 pub trait EventObserver<T: Any> {
     /// runs on every event trigger
     fn on_event(&mut self, event: &T);
@@ -161,7 +190,7 @@ pub trait EventObserver<T: Any> {
 
 pub mod events {
     use std::path::PathBuf;
-    use winit::event::{InnerSizeWriter, MouseButton, TouchPhase};
+    use winit::event::{DeviceId, InnerSizeWriter, MouseButton, TouchPhase};
     use winit::keyboard::KeyCode;
 
     /// key press event data
@@ -250,5 +279,31 @@ pub mod events {
     pub struct DPIScaleFactorChanged {
         pub scale_factor: f64,
         pub size_writer: InnerSizeWriter,
+    }
+
+    /// triggered if a device (might also be virtual from the OS) is added
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct RawDeviceAdded {
+        pub device_id: DeviceId,
+    }
+
+    /// triggered if a device (might also be virtual from the OS) is removed
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct RawDeviceRemoved {
+        pub device_id: DeviceId,
+    }
+
+    /// raw mouse move data (e.g. useful for game controls)
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct RawMouseMotion {
+        pub delta_x: f64,
+        pub delta_y: f64,
+    }
+
+    /// raw mouse scroll data (e.g. useful for game controls)
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct RawMouseScroll {
+        pub vertical_delta: f32,
+        pub horizontal_delta: f32,
     }
 }

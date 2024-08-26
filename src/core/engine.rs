@@ -3,7 +3,7 @@ use std::cell::RefMut;
 use std::error::Error;
 use std::ops::{Deref, DerefMut};
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{DeviceEvent, DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
@@ -93,6 +93,15 @@ impl ApplicationHandler for Engine {
             WindowEvent::RedrawRequested => self.on_frame_redraw(),
             _ => self.event_system.parse_winit_window_event(event),
         }
+    }
+
+    fn device_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        self.event_system.parse_winit_device_event(device_id, event);
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {

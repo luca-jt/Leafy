@@ -1,4 +1,3 @@
-use crate::systems::audio_system::SoundControllerID;
 use gl::types::GLuint;
 use nalgebra_glm as glm;
 use std::time::Instant;
@@ -271,27 +270,6 @@ impl TouchTime {
 
 /// stores all of the associated sound controller ids for an entity
 #[derive(Debug, Clone, PartialEq)]
-pub struct SoundID {
-    controllers: Vec<SoundControllerID>,
-}
-
-// map entity ids to a vector of sound effect ids so know what sounds are atatched to an entity
-
-impl SoundID {
-    /// creates a new SoundID with an initially stored id
-    pub fn with_id(id: SoundControllerID) -> Self {
-        SoundID {
-            controllers: vec![id],
-        }
-    }
-
-    /// add a new id
-    pub fn add_id(&mut self, id: SoundControllerID) {
-        self.controllers.push(id);
-    }
-
-    /// get an id by index
-    pub fn get_id(&mut self, index: usize) -> Option<SoundControllerID> {
-        self.controllers.get(index).map(|id| *id)
-    }
+pub struct SoundControl {
+    id: u64,
 }

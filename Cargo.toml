@@ -23,7 +23,8 @@ nalgebra-glm = "*"
 gl = "*"
 obj-rs = "*"
 fontdue = "*"
-ambisonic = "*"
+fyrox-sound = "*"
+fyrox-resource = "*"
 
 [build-dependencies]
 winresource = "*"
