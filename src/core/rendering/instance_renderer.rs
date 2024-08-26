@@ -7,7 +7,7 @@ use nalgebra_glm as glm;
 use std::{mem, ptr};
 
 /// instance renderer for the 3D rendering option
-pub struct InstanceRenderer {
+pub(crate) struct InstanceRenderer {
     vao: GLuint,
     pbo: GLuint,
     tbo: GLuint,
@@ -20,14 +20,14 @@ pub struct InstanceRenderer {
     shared_mesh: SharedMesh,
     positions: Vec<glm::Vec3>,
     pos_idx: usize,
-    pub color: Color32,
-    pub tex_id: GLuint,
+    pub(crate) color: Color32,
+    pub(crate) tex_id: GLuint,
     num_instances: usize,
 }
 
 impl InstanceRenderer {
     /// creates a new instance renderer
-    pub fn new(shared_mesh: SharedMesh, num_instances: usize) -> Self {
+    pub(crate) fn new(shared_mesh: SharedMesh, num_instances: usize) -> Self {
         let mesh = shared_mesh.clone();
         let mesh = mesh.borrow();
 
@@ -187,7 +187,7 @@ impl InstanceRenderer {
     }
 
     /// adds a position where the mesh shall be rendered
-    pub fn add_position(&mut self, position: glm::Vec3) {
+    pub(crate) fn add_position(&mut self, position: glm::Vec3) {
         if self.pos_idx == self.num_instances {
             panic!("Attempt to draw too many Instances");
             // TODO: resize capacity dynamically?
@@ -198,7 +198,7 @@ impl InstanceRenderer {
     }
 
     /// end position input, copy all the added positions to the gpu
-    pub fn confirm_positions(&self) {
+    pub(crate) fn confirm_positions(&self) {
         unsafe {
             // dynamically copy the updated postion data
             let positions_size: GLsizeiptr =
@@ -214,7 +214,7 @@ impl InstanceRenderer {
     }
 
     /// renders to the shadow map
-    pub fn render_shadows(&self) {
+    pub(crate) fn render_shadows(&self) {
         unsafe {
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
@@ -230,7 +230,7 @@ impl InstanceRenderer {
     }
 
     /// draws the mesh at all the positions specified until the call of this and clears the positions
-    pub fn draw_all(&mut self, camera: &PerspectiveCamera, shadow_map: &ShadowMap) {
+    pub(crate) fn draw_all(&mut self, camera: &PerspectiveCamera, shadow_map: &ShadowMap) {
         unsafe {
             // bind shader, textures, uniforms
             gl::UseProgram(self.program.id);

@@ -1,7 +1,7 @@
 use crate::rendering::batch_renderer::BatchRenderer;
 use stb_image::image::Image;
 
-pub struct SpriteRenderer {
+pub(crate) struct SpriteRenderer {
     batch_renderer: BatchRenderer,
     sprite_sheet: Image<u8>,
 }
@@ -12,6 +12,6 @@ impl SpriteRenderer {
     }*/
     // TODO: render with sprite index + pixel position + scale
 
-    pub fn init(&mut self) {}
-    pub fn end(&mut self) {}
+    pub(crate) fn init(&mut self) {}
+    pub(crate) fn end(&mut self) {}
 }

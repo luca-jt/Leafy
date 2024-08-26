@@ -8,7 +8,7 @@ use nalgebra_glm as glm;
 use std::{mem, ptr};
 
 /// batch renderer for the 3D rendering option
-pub struct BatchRenderer {
+pub(crate) struct BatchRenderer {
     vao: GLuint,
     vbo: GLuint,
     ibo: GLuint,
@@ -26,7 +26,7 @@ pub struct BatchRenderer {
 
 impl BatchRenderer {
     /// creates a new batch renderer
-    pub fn new(shared_mesh: SharedMesh, max_num_meshes: usize) -> Self {
+    pub(crate) fn new(shared_mesh: SharedMesh, max_num_meshes: usize) -> Self {
         let mesh = shared_mesh.clone();
         let mesh = mesh.borrow();
         // init the data ids
@@ -172,12 +172,12 @@ impl BatchRenderer {
     }
 
     /// begin render batch
-    pub fn begin_batch(&mut self) {
+    pub(crate) fn begin_batch(&mut self) {
         self.obj_buffer_ptr = 0;
     }
 
     /// end render batch
-    pub fn end_batch(&mut self) {
+    pub(crate) fn end_batch(&mut self) {
         // dynamically copy the the drawn mesh vertex data from object buffer into the vertex buffer on the gpu
         unsafe {
             let verteces_size: GLsizeiptr =
@@ -193,7 +193,7 @@ impl BatchRenderer {
     }
 
     /// renders to the shadow map
-    pub fn render_shadows(&self) {
+    pub(crate) fn render_shadows(&self) {
         unsafe {
             // draw the triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
@@ -208,7 +208,7 @@ impl BatchRenderer {
     }
 
     /// send data to GPU and reset
-    pub fn flush(&mut self, camera: &PerspectiveCamera, shadow_map: &ShadowMap) {
+    pub(crate) fn flush(&mut self, camera: &PerspectiveCamera, shadow_map: &ShadowMap) {
         unsafe {
             // bind shader, textures, uniforms
             gl::UseProgram(self.program.id);
@@ -260,7 +260,7 @@ impl BatchRenderer {
     }
 
     /// draws a mesh with a texture
-    pub fn draw_tex_mesh(
+    pub(crate) fn draw_tex_mesh(
         &mut self,
         position: glm::Vec3,
         scale: f32,
@@ -316,7 +316,7 @@ impl BatchRenderer {
     }
 
     /// draws a mesh with a color
-    pub fn draw_color_mesh(
+    pub(crate) fn draw_color_mesh(
         &mut self,
         position: glm::Vec3,
         scale: f32,

@@ -9,14 +9,14 @@ pub struct AnimationSystem {
 
 impl AnimationSystem {
     /// creates a new animation system
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             animation_speed: 1.0,
         }
     }
 
     /// applys all of the physics to all of the entities
-    pub fn apply_physics(&self, entity_manager: &mut EntityManager) {
+    pub(crate) fn apply_physics(&self, entity_manager: &mut EntityManager) {
         // apply physics
         // TODO(luca): collision checking
         // TODO(luca): friction

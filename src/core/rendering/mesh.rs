@@ -11,15 +11,15 @@ use crate::utils::file::get_model_path;
 
 /// a mesh that can be rendered in gl
 pub struct Mesh {
-    pub positions: Vec<glm::Vec3>,
-    pub texture_coords: Vec<glm::Vec2>,
-    pub normals: Vec<glm::Vec3>,
-    pub indeces: Vec<GLushort>,
+    pub(crate) positions: Vec<glm::Vec3>,
+    pub(crate) texture_coords: Vec<glm::Vec2>,
+    pub(crate) normals: Vec<glm::Vec3>,
+    pub(crate) indeces: Vec<GLushort>,
 }
 
 impl Mesh {
     /// creates a new Mesh from an obj file
-    pub fn new(file_name: &str) -> Self {
+    pub(crate) fn new(file_name: &str) -> Self {
         // load scene data from file
         let data =
             BufReader::new(File::open(get_model_path(file_name)).expect("model file not found"));
@@ -91,12 +91,12 @@ pub struct SharedMesh(Rc<RefCell<Mesh>>);
 
 impl SharedMesh {
     /// creates a new shared mesh from file
-    pub fn from_file(file_name: &str) -> Self {
+    pub(crate) fn from_file(file_name: &str) -> Self {
         Self(Rc::new(RefCell::new(Mesh::new(file_name))))
     }
 
     /// creates a new shared mesh from existing mesh
-    pub fn from_mesh(mesh: Mesh) -> Self {
+    pub(crate) fn from_mesh(mesh: Mesh) -> Self {
         Self(Rc::new(RefCell::new(mesh)))
     }
 

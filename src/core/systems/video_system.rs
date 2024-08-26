@@ -211,7 +211,7 @@ impl VideoSystem {
     }
 
     /// call the opengl window swap
-    pub fn swap_window(&self) {
+    pub(crate) fn swap_window(&self) {
         if let (Some(window), Some(gl_surface), Some(gl_context)) = (
             self.window.as_ref(),
             self.gl_surface.as_ref(),
@@ -223,7 +223,7 @@ impl VideoSystem {
     }
 
     /// caps the fps of the event loop if the setting requires it
-    pub fn try_cap_fps(&mut self) {
+    pub(crate) fn try_cap_fps(&mut self) {
         if !self.cap_fps {
             return;
         }

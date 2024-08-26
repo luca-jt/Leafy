@@ -1,3 +1,4 @@
+use crate::systems::audio_system::SoundHandleID;
 use gl::types::GLuint;
 use nalgebra_glm as glm;
 use std::time::Instant;
@@ -270,6 +271,6 @@ impl TouchTime {
 
 /// stores all of the associated sound controller ids for an entity
 #[derive(Debug, Clone, PartialEq)]
-pub struct SoundControl {
-    id: u64,
+pub struct SoundController {
+    pub(crate) id: SoundHandleID,
 }

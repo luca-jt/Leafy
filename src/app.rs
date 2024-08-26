@@ -30,7 +30,7 @@ impl FallingLeafApp for App {
         engine
             .event_system
             .add_listener::<KeyPress>(&self.game_state);
-        engine.audio_system.play_background_music("bg_music.mp3");
+        engine.audio_system.play_background_music("helicopter.wav");
     }
 
     fn on_frame_update(&mut self, event_system: &mut EventSystem) {

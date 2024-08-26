@@ -1,4 +1,5 @@
 use crate::ecs::entity_manager::EntityManager;
+use nalgebra_glm as glm;
 use std::cell::RefMut;
 use std::error::Error;
 use std::ops::{Deref, DerefMut};
@@ -59,20 +60,36 @@ impl Engine {
 
     /// gets called every frame and contains the main app logic
     fn on_frame_redraw(&mut self) {
-        self.audio_system
-            .update(self.app.as_mut().unwrap().entity_manager().deref());
+        let (user_pos, user_look) = self.current_user_data();
+        self.audio_system.update(
+            self.app.as_mut().unwrap().entity_manager().deref(),
+            user_pos,
+            user_look,
+        );
         self.animation_system
             .apply_physics(self.app.as_mut().unwrap().entity_manager().deref_mut());
+
         self.rendering_system
             .as_mut()
             .unwrap()
             .render(self.app.as_mut().unwrap().entity_manager().deref());
+
         self.app
             .as_mut()
             .unwrap()
             .on_frame_update(&mut self.event_system);
+
         self.video_system.borrow().swap_window();
         self.video_system.borrow_mut().try_cap_fps();
+    }
+
+    /// gets the current user position and look vector
+    fn current_user_data(&self) -> (glm::Vec3, glm::Vec3) {
+        self.rendering_system
+            .as_ref()
+            .map_or((*-glm::Vec3::z_axis(), glm::Vec3::zeros()), |system| {
+                system.get_user_pos_look()
+            })
     }
 }
 

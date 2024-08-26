@@ -58,25 +58,25 @@ pub struct Vertex {
 }
 
 /// holds the texture ID's for the App
-pub struct TextureMap {
+pub(crate) struct TextureMap {
     textures: HashMap<String, GLuint>,
 }
 
 impl TextureMap {
     /// creates a new texture map
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             textures: HashMap::new(),
         }
     }
 
     /// adds a texture from file
-    pub fn add_texture(&mut self, name: &str, file: &str) {
+    pub(crate) fn add_texture(&mut self, name: &str, file: &str) {
         self.textures.insert(name.to_string(), load_texture(file));
     }
 
     /// deletes a stored texture
-    pub fn delete_texture(&mut self, name: &str) {
+    pub(crate) fn delete_texture(&mut self, name: &str) {
         let deleted = self.textures.remove(name).expect("texture not stored");
         unsafe {
             gl::DeleteTextures(1, &deleted);
@@ -84,7 +84,7 @@ impl TextureMap {
     }
 
     /// yields a texture id for given name
-    pub fn get_tex_id(&self, name: &str) -> GLuint {
+    pub(crate) fn get_tex_id(&self, name: &str) -> GLuint {
         *self.textures.get(name).expect("texture not in the map")
     }
 }
@@ -100,16 +100,18 @@ impl Drop for TextureMap {
 }
 
 /// stores the current camera config for 3D rendering
-pub struct PerspectiveCamera {
-    pub projection: glm::Mat4,
-    pub view: glm::Mat4,
-    pub model: glm::Mat4,
-    pub light_src: glm::Vec3,
+pub(crate) struct PerspectiveCamera {
+    pub(crate) user_position: glm::Vec3,
+    pub(crate) user_look: glm::Vec3,
+    pub(crate) projection: glm::Mat4,
+    pub(crate) view: glm::Mat4,
+    pub(crate) model: glm::Mat4,
+    pub(crate) light_src: glm::Vec3,
 }
 
 impl PerspectiveCamera {
     /// creates new config with default values
-    pub fn new(position: glm::Vec3, focus: glm::Vec3) -> Self {
+    pub(crate) fn new(position: glm::Vec3, focus: glm::Vec3) -> Self {
         let fov = 45.0_f32.to_radians();
         let projection = glm::perspective::<f32>(
             MIN_WIN_WIDTH as f32 / MIN_WIN_HEIGHT as f32,
@@ -122,6 +124,8 @@ impl PerspectiveCamera {
         let model = glm::Mat4::identity();
 
         Self {
+            user_position: position,
+            user_look: focus - position,
             projection,
             view,
             model,
@@ -130,25 +134,27 @@ impl PerspectiveCamera {
     }
 
     /// update the model matrix for a specific object position `(x, y, z)`
-    pub fn update_model(&mut self, x: f32, y: f32, z: f32) {
+    pub(crate) fn update_model(&mut self, x: f32, y: f32, z: f32) {
         self.model = glm::translate(&glm::Mat4::identity(), &glm::Vec3::new(x, y, z));
     }
 
     /// updates the camera for given camera position and focus
-    pub fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
+    pub(crate) fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
         self.view = glm::look_at(&position, &focus, &glm::Vec3::y_axis());
+        self.user_position = position;
+        self.user_look = focus - position;
     }
 }
 
 /// stores the current camera config for 2D rendering
-pub struct OrthoCamera {
-    pub projection: glm::Mat4,
-    pub view: glm::Mat4,
+pub(crate) struct OrthoCamera {
+    pub(crate) projection: glm::Mat4,
+    pub(crate) view: glm::Mat4,
 }
 
 impl OrthoCamera {
     /// creates a new orthographic camera
-    pub fn new(left: f32, right: f32, bottom: f32, top: f32) -> Self {
+    pub(crate) fn new(left: f32, right: f32, bottom: f32, top: f32) -> Self {
         let position = glm::Vec3::new(0.0, 0.0, -1.0);
 
         Self {
@@ -158,7 +164,7 @@ impl OrthoCamera {
     }
 
     /// creates a new orthographic camera from a size: `(-size, size, -size, size)`
-    pub fn from_size(size: f32) -> Self {
+    pub(crate) fn from_size(size: f32) -> Self {
         let position = glm::Vec3::new(0.0, 0.0, -1.0);
 
         Self {
@@ -168,27 +174,27 @@ impl OrthoCamera {
     }
 
     /// updates the camera for given camera position and focus
-    pub fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
+    pub(crate) fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
         self.view = glm::look_at(&position, &focus, &glm::Vec3::y_axis());
     }
 }
 
 /// shadow map used for rendering
-pub struct ShadowMap {
+pub(crate) struct ShadowMap {
     dbo: GLuint,
     shadow_map: GLuint,
     width: GLsizei,
     height: GLsizei,
-    pub light_matrix: glm::Mat4,
+    pub(crate) light_matrix: glm::Mat4,
     light_src: glm::Vec3,
     program: ShaderProgram,
     tmp_viewport: [GLint; 4],
-    pub depth_buffer_cleared: bool,
+    pub(crate) depth_buffer_cleared: bool,
 }
 
 impl ShadowMap {
     /// creates a new shadow map with given size
-    pub fn new(width: GLsizei, height: GLsizei, light_src: glm::Vec3) -> Self {
+    pub(crate) fn new(width: GLsizei, height: GLsizei, light_src: glm::Vec3) -> Self {
         let mut dbo = 0;
         let mut shadow_map = 0;
         let mut program = ShaderProgram::new("shadow_vs.glsl", "shadow_fs.glsl");
@@ -249,7 +255,7 @@ impl ShadowMap {
     }
 
     /// clears the depth buffer bit of the shadow map if not already done
-    pub fn try_clear_depth(&mut self) {
+    pub(crate) fn try_clear_depth(&mut self) {
         if !self.depth_buffer_cleared {
             unsafe {
                 gl::Clear(gl::DEPTH_BUFFER_BIT);
@@ -259,7 +265,7 @@ impl ShadowMap {
     }
 
     /// bind the depth buffer for writing
-    pub fn bind_writing(&mut self, camera: &PerspectiveCamera) {
+    pub(crate) fn bind_writing(&mut self, camera: &PerspectiveCamera) {
         unsafe {
             gl::GetIntegerv(gl::VIEWPORT, &mut self.tmp_viewport[0]);
             gl::Viewport(0, 0, self.width, self.height);
@@ -280,7 +286,7 @@ impl ShadowMap {
         }
     }
 
-    pub fn unbind_writing(&self) {
+    pub(crate) fn unbind_writing(&self) {
         unsafe {
             gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
             gl::Viewport(
@@ -294,7 +300,7 @@ impl ShadowMap {
     }
 
     /// bind the shadow map for reading
-    pub unsafe fn bind_reading(&self, texture_unit: GLuint) {
+    pub(crate) unsafe fn bind_reading(&self, texture_unit: GLuint) {
         gl::BindTextureUnit(texture_unit, self.shadow_map);
     }
 }

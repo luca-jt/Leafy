@@ -21,7 +21,7 @@ pub struct RenderingSystem {
 
 impl RenderingSystem {
     /// creates a new rendering system
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LESS);
@@ -42,7 +42,7 @@ impl RenderingSystem {
     }
 
     /// start the rendering for all renderers
-    pub fn render(&mut self, entity_manager: &EntityManager) {
+    pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
         clear_gl_screen();
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
@@ -171,6 +171,14 @@ impl RenderingSystem {
             }
         }
     }
+
+    /// gets the user position and the look vector
+    pub(crate) fn get_user_pos_look(&self) -> (glm::Vec3, glm::Vec3) {
+        (
+            self.perspective_camera.user_position,
+            self.perspective_camera.user_look,
+        )
+    }
 }
 
 /// stores the renderer type with rendered entity type + renderer
@@ -186,8 +194,8 @@ impl RendererType {
     /// yields the mesh type of a renderer type if present
     pub fn mesh_type(&self) -> Option<MeshType> {
         match self {
-            Batch(ntt_type, _) => Some(*ntt_type),
-            Instance(ntt_type, _, _) => Some(*ntt_type),
+            Batch(mesh_type, _) => Some(*mesh_type),
+            Instance(mesh_type, _, _) => Some(*mesh_type),
             _ => None,
         }
     }
