@@ -10,7 +10,7 @@ use winit::window::WindowId;
 
 use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
-use crate::systems::event_system::events::{KeyPress, WindowResize};
+use crate::systems::event_system::events::{AudioVolumeChanged, KeyPress, WindowResize};
 use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
 use crate::systems::video_system::VideoSystem;
@@ -21,7 +21,7 @@ pub struct Engine {
     app: Option<Box<dyn FallingLeafApp>>,
     exit_state: Option<Result<(), Box<dyn Error>>>,
     rendering_system: Option<RenderingSystem>,
-    pub audio_system: AudioSystem,
+    pub audio_system: SharedPtr<AudioSystem>,
     pub event_system: EventSystem,
     pub animation_system: AnimationSystem,
     pub video_system: SharedPtr<VideoSystem>,
@@ -31,12 +31,13 @@ impl Engine {
     /// engine setup on startup
     pub fn new() -> Self {
         let video_system = shared_ptr(VideoSystem::new());
-        let audio_system = AudioSystem::new();
+        let audio_system = shared_ptr(AudioSystem::new());
         let animation_system = AnimationSystem::new();
         let mut event_system = EventSystem::new();
 
         event_system.add_listener::<KeyPress>(&video_system);
         event_system.add_listener::<WindowResize>(&video_system);
+        event_system.add_listener::<AudioVolumeChanged>(&audio_system);
 
         Self {
             app: None,
@@ -61,7 +62,7 @@ impl Engine {
     /// gets called every frame and contains the main app logic
     fn on_frame_redraw(&mut self) {
         let (user_pos, user_look) = self.current_user_data();
-        self.audio_system.update(
+        self.audio_system.borrow_mut().update(
             self.app.as_mut().unwrap().entity_manager().deref(),
             user_pos,
             user_look,

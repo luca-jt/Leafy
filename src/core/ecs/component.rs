@@ -29,11 +29,30 @@ pub struct Renderable {
 }
 
 /// used for object orientation in 3D space
-pub type Quaternion = glm::Vec4;
-
-/// the orientation of an entity in 3D space
 #[derive(Debug, Clone, PartialEq)]
-pub struct Orientation(Quaternion); // todo: usage
+pub struct Orientation(glm::Vec4); // todo: quaternion usage and rotation calculation
+
+impl Orientation {
+    /// creates a new orientation
+    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
+        Self(glm::Vec4::new(x, y, z, w))
+    }
+
+    /// yields a copy of the stored data
+    pub fn data_clone(&self) -> glm::Vec4 {
+        self.0.clone()
+    }
+
+    /// grants immutable access to the stored data
+    pub fn data(&self) -> &glm::Vec4 {
+        &self.0
+    }
+
+    /// grants mutable access to the stored data
+    pub fn data_mut(&mut self) -> &mut glm::Vec4 {
+        &mut self.0
+    }
+}
 
 /// position in 3D space
 #[derive(Debug, Clone, PartialEq)]
@@ -42,7 +61,7 @@ pub struct Position(glm::Vec3);
 impl Position {
     /// creates a new position
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
-        Position(glm::Vec3::new(x, y, z))
+        Self(glm::Vec3::new(x, y, z))
     }
 
     /// yields a copy of the stored data
@@ -67,7 +86,7 @@ impl Position {
 
     /// creates a new position filled with zeros (origin)
     pub fn zeros() -> Self {
-        Position(glm::Vec3::zeros())
+        Self(glm::Vec3::zeros())
     }
 }
 
@@ -84,7 +103,7 @@ pub struct Velocity(glm::Vec3);
 impl Velocity {
     /// creates a new velocity
     pub const fn new(dx: f32, dy: f32, dz: f32) -> Self {
-        Velocity(glm::Vec3::new(dx, dy, dz))
+        Self(glm::Vec3::new(dx, dy, dz))
     }
 
     /// yields a copy of the stored data
@@ -109,7 +128,7 @@ impl Velocity {
 
     /// creates a new velocity filled with zeros
     pub fn zeros() -> Self {
-        Velocity(glm::Vec3::zeros())
+        Self(glm::Vec3::zeros())
     }
 }
 
@@ -126,7 +145,7 @@ pub struct Acceleration(glm::Vec3);
 impl Acceleration {
     /// creates a new acceleration
     pub const fn new(ddx: f32, ddy: f32, ddz: f32) -> Self {
-        Acceleration(glm::Vec3::new(ddx, ddy, ddz))
+        Self(glm::Vec3::new(ddx, ddy, ddz))
     }
 
     /// yields a copy of the stored data
@@ -151,7 +170,7 @@ impl Acceleration {
 
     /// creates a new acceleration filled with zeros
     pub fn zeros() -> Self {
-        Acceleration(glm::Vec3::zeros())
+        Self(glm::Vec3::zeros())
     }
 }
 

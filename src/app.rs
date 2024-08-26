@@ -33,14 +33,18 @@ impl FallingLeafApp for App {
             .event_system
             .add_listener::<KeyPress>(&self.game_state);
 
-        engine.audio_system.play_background_music("helicopter.wav");
+        engine
+            .audio_system
+            .borrow_mut()
+            .play_background_music("helicopter.wav");
 
-        let sound = engine.audio_system.new_sound_controller();
-        engine.audio_system.enable_hrtf();
+        let sound = engine.audio_system.borrow_mut().new_sound_controller();
+        engine.audio_system.borrow().enable_hrtf();
 
         let position = Position::new(0.0, 0.0, 1.0);
         engine
             .audio_system
+            .borrow_mut()
             .play_sfx_at("drop.wav", true, &sound, &position);
 
         let cube = self

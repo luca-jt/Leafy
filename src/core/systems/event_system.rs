@@ -189,6 +189,7 @@ pub trait EventObserver<T: Any> {
 }
 
 pub mod events {
+    use crate::systems::audio_system::VolumeKind;
     use std::path::PathBuf;
     use winit::event::{DeviceId, InnerSizeWriter, MouseButton, TouchPhase};
     use winit::keyboard::KeyCode;
@@ -305,5 +306,12 @@ pub mod events {
     pub struct RawMouseScroll {
         pub vertical_delta: f32,
         pub horizontal_delta: f32,
+    }
+
+    /// event that gets triggered when the the sound engines' volume is supposed to change (e.g. when an UI slider is used)
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct AudioVolumeChanged {
+        pub kind: VolumeKind,
+        pub new_volume: f32,
     }
 }
