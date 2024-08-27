@@ -1,12 +1,11 @@
 use crate::ecs::component::{Position, SoundController};
 use crate::ecs::entity_manager::EntityManager;
 use crate::ecs::query::{ExcludeFilter, IncludeFilter};
-use crate::systems::event_system::events::AudioVolumeChanged;
+use crate::systems::event_system::events::{AudioVolumeChanged, CamPositionChange};
 use crate::systems::event_system::EventObserver;
 use crate::utils::file::get_audio_path;
 use crate::{exclude_filter, include_filter};
 
-use nalgebra_glm as glm;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -61,12 +60,7 @@ impl AudioSystem {
     }
 
     /// update audio volume etc (runs every frame)
-    pub(crate) fn update(
-        &mut self,
-        entity_manager: &EntityManager,
-        listener_pos: glm::Vec3,
-        listener_look: glm::Vec3,
-    ) {
+    pub(crate) fn update(&mut self, entity_manager: &EntityManager) {
         // update music volume
         let music_volume = self.calc_absolute_volume(VolumeKind::Music);
         if let Some(music_handle) = self.background_music {
@@ -89,14 +83,6 @@ impl AudioSystem {
                 source.set_position(Vector3::new(pos_data.x, pos_data.y, pos_data.z));
             }
         }
-        // update the listeners position
-        let mut state = self.sound_context.state();
-        let listener = state.listener_mut();
-        listener.set_orientation_lh(
-            Vector3::new(listener_look.x, listener_look.y, listener_look.z),
-            *Vector3::y_axis(),
-        );
-        listener.set_position(Vector3::new(listener_pos.x, listener_pos.y, listener_pos.z));
     }
 
     /// spawns a new sound controller component
@@ -260,8 +246,22 @@ impl EventObserver<AudioVolumeChanged> for AudioSystem {
     }
 }
 
+impl EventObserver<CamPositionChange> for AudioSystem {
+    fn on_event(&mut self, event: &CamPositionChange) {
+        let mut state = self.sound_context.state();
+        let listener = state.listener_mut();
+        let look = event.new_focus - event.new_pos;
+        listener.set_orientation_lh(Vector3::new(look.x, look.y, look.z), *Vector3::y_axis());
+        listener.set_position(Vector3::new(
+            event.new_pos.x,
+            event.new_pos.y,
+            event.new_pos.z,
+        ));
+    }
+}
+
 /// all versions of audio volume
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VolumeKind {
     Master,
     SFX,

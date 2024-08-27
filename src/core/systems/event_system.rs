@@ -1,9 +1,7 @@
 use std::any::{Any, TypeId};
 use std::cell::RefMut;
 use std::collections::HashMap;
-
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
 use winit::keyboard::PhysicalKey;
 
 use crate::systems::event_system::events::*;
@@ -11,18 +9,13 @@ use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
 
 /// system managing the events
 pub struct EventSystem {
-    pub(crate) event_loop: Option<EventLoop<()>>,
     listeners: HashMap<TypeId, Vec<WeakPtr<dyn Any>>>,
 }
 
 impl EventSystem {
     /// creates a new event system
     pub(crate) fn new() -> Self {
-        let event_loop = EventLoop::new().unwrap();
-        event_loop.set_control_flow(ControlFlow::Poll);
-
         Self {
-            event_loop: Some(event_loop),
             listeners: HashMap::new(),
         }
     }
@@ -189,6 +182,8 @@ pub trait EventObserver<T: Any> {
 }
 
 pub mod events {
+    use crate::engine::EngineMode;
+    use crate::glm;
     use crate::systems::audio_system::VolumeKind;
     use std::path::PathBuf;
     use winit::event::{DeviceId, InnerSizeWriter, MouseButton, TouchPhase};
@@ -313,5 +308,18 @@ pub mod events {
     pub struct AudioVolumeChanged {
         pub kind: VolumeKind,
         pub new_volume: f32,
+    }
+
+    /// global change of the engine mode
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct EngineModeChange {
+        pub new_mode: EngineMode,
+    }
+
+    /// change of the users camera position used for rendering and audio processing
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct CamPositionChange {
+        pub new_pos: glm::Vec3,
+        pub new_focus: glm::Vec3,
     }
 }

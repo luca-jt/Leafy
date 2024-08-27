@@ -2,9 +2,9 @@ use super::data::{PerspectiveCamera, ShadowMap, Vertex};
 use super::mesh::SharedMesh;
 use super::shader::ShaderProgram;
 use crate::ecs::component::Color32;
+use crate::glm;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
 use gl::types::*;
-use nalgebra_glm as glm;
 use std::{mem, ptr};
 
 /// batch renderer for the 3D rendering option
@@ -237,7 +237,11 @@ impl BatchRenderer {
                 gl::FALSE,
                 &shadow_map.light_matrix[0],
             );
-            gl::Uniform3fv(self.program.get_unif("light_pos"), 1, &camera.light_src[0]);
+            gl::Uniform3fv(
+                self.program.get_unif("light_pos"),
+                1,
+                &shadow_map.light_src[0],
+            );
             gl::Uniform1i(self.program.get_unif("shadow_map"), 0);
             gl::Uniform1iv(
                 self.program.get_unif("tex_sampler"),

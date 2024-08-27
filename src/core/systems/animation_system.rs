@@ -18,8 +18,6 @@ impl AnimationSystem {
     /// applys all of the physics to all of the entities
     pub(crate) fn apply_physics(&self, entity_manager: &mut EntityManager) {
         // apply physics
-        // TODO(luca): collision checking
-        // TODO(luca): friction
         for (p, m, t) in entity_manager
             .ecs
             .query3_mut::<Position, MotionState, TouchTime>(include_filter!(), exclude_filter!())

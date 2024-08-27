@@ -38,5 +38,3 @@ pub fn get_model_path(file_name: &str) -> String {
 pub fn get_shader_path(file_name: &str) -> String {
     get_asset_path("shaders/") + file_name
 }
-
-// TODO: animation files

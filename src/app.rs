@@ -1,12 +1,12 @@
 use fl_core::components;
 use fl_core::ecs::component::{
-    Acceleration, Color32, MeshAttribute, MeshType, MotionState, Position, Renderable, TouchTime,
-    Velocity,
+    Color32, MeshAttribute, MeshType, MotionState, Position, Renderable, TouchTime, Velocity,
 };
 use fl_core::ecs::entity::EntityID;
 use fl_core::ecs::entity_manager::EntityManager;
 use fl_core::engine::{Engine, FallingLeafApp};
 use fl_core::glm;
+use fl_core::systems::audio_system::AudioSystem;
 use fl_core::systems::event_system::events::KeyPress;
 use fl_core::systems::event_system::{EventObserver, EventSystem};
 use fl_core::utils::tools::{shared_ptr, SharedPtr};
@@ -65,7 +65,11 @@ impl FallingLeafApp for App {
         self.game_state.borrow_mut().cube = Some(cube);
     }
 
-    fn on_frame_update(&mut self, _event_system: &mut EventSystem) {
+    fn on_frame_update(
+        &mut self,
+        _event_system: &mut EventSystem,
+        _audio_system: &SharedPtr<AudioSystem>,
+    ) {
         let mut game_state = self.game_state.borrow_mut();
         let cube = game_state.cube.unwrap();
         let tt = game_state
@@ -116,19 +120,11 @@ impl GameState {
             }
         ));
 
-        let player = entity_manager.create_entity(components!(
+        let player = entity_manager.create_regular_moving(
             Position::new(0.0, 2.0, 0.0),
-            Renderable {
-                scale: 1f32.into(),
-                mesh_type: MeshType::Sphere,
-                mesh_attribute: MeshAttribute::Colored(Color32::RED),
-            },
-            MotionState {
-                velocity: Velocity::zeros(),
-                acceleration: Acceleration::zeros()
-            },
-            TouchTime::now()
-        ));
+            MeshType::Sphere,
+            MeshAttribute::Colored(Color32::RED),
+        );
 
         shared_ptr(Self {
             entity_manager,

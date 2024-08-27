@@ -1,6 +1,6 @@
+use crate::glm;
 use crate::systems::audio_system::SoundHandleID;
 use gl::types::GLuint;
-use nalgebra_glm as glm;
 use std::time::Instant;
 use MeshAttribute::*;
 
@@ -30,7 +30,7 @@ pub struct Renderable {
 
 /// used for object orientation in 3D space
 #[derive(Debug, Clone, PartialEq)]
-pub struct Orientation(glm::Vec4); // todo: quaternion usage and rotation calculation
+pub struct Orientation(glm::Vec4);
 
 impl Orientation {
     /// creates a new orientation

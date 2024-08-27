@@ -2,8 +2,8 @@ use super::data::{PerspectiveCamera, ShadowMap};
 use super::mesh::SharedMesh;
 use super::shader::ShaderProgram;
 use crate::ecs::component::Color32;
+use crate::glm;
 use gl::types::*;
-use nalgebra_glm as glm;
 use std::{mem, ptr};
 
 /// instance renderer for the 3D rendering option
@@ -257,7 +257,11 @@ impl InstanceRenderer {
                 gl::FALSE,
                 &shadow_map.light_matrix[0],
             );
-            gl::Uniform3fv(self.program.get_unif("light_pos"), 1, &camera.light_src[0]);
+            gl::Uniform3fv(
+                self.program.get_unif("light_pos"),
+                1,
+                &shadow_map.light_src[0],
+            );
             gl::Uniform1i(self.program.get_unif("tex_sampler"), 0);
             gl::Uniform1i(self.program.get_unif("shadow_map"), 1);
             gl::Uniform3fv(self.program.get_unif("color"), 1, &self.color.to_vec4()[0]);

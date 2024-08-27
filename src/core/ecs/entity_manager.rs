@@ -1,14 +1,28 @@
-use crate::ecs::component::{MeshType, Renderable};
+use crate::ecs::component::{
+    Acceleration, MeshAttribute, MeshType, MotionState, Position, Renderable, TouchTime, Velocity,
+};
 use crate::ecs::entity::{
     Archetype, ArchetypeID, ComponentStorage, EntityID, EntityRecord, EntityType,
 };
+use crate::ecs::query::{ExcludeFilter, IncludeFilter};
 use crate::rendering::mesh::{Mesh, SharedMesh};
+use crate::{exclude_filter, include_filter};
+use fyrox_resource::core::num_traits::Zero;
 use std::any::{Any, TypeId};
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
 
-// todo: scene files
+/// create a component list for entity creation
+#[macro_export]
+macro_rules! components {
+    ($($T:expr),*) => {
+        vec![$(Box::new($T), )*]
+    };
+}
 
+pub(crate) use components;
+
+/// the main ressource manager holding both the ECS and the asset data
 pub struct EntityManager {
     pub ecs: ECS,
     asset_register: HashMap<MeshType, SharedMesh>,
@@ -42,15 +56,58 @@ impl EntityManager {
         self.ecs.create_entity(components)
     }
 
-    // todo: create_entity() method variants for commonly used entity types
+    /// creates a new entity with all basic data needed for physics and rendering
+    pub fn create_regular_moving(
+        &mut self,
+        at: Position,
+        mesh_type: MeshType,
+        mesh_attribute: MeshAttribute,
+    ) -> EntityID {
+        self.create_entity(components!(
+            at,
+            Renderable {
+                scale: 1f32.into(),
+                mesh_type,
+                mesh_attribute,
+            },
+            MotionState {
+                velocity: Velocity::zeros(),
+                acceleration: Acceleration::zeros()
+            },
+            TouchTime::now()
+        ))
+    }
+
+    /// creates a new fixed entity with all basic data needed for rendering
+    pub fn create_regular_fixed(
+        &mut self,
+        at: Position,
+        mesh_type: MeshType,
+        mesh_attribute: MeshAttribute,
+    ) -> EntityID {
+        self.create_entity(components!(
+            at,
+            Renderable {
+                scale: 1f32.into(),
+                mesh_type,
+                mesh_attribute,
+            },
+            TouchTime::now() // needed?
+        ))
+    }
 
     /// deletes an entity from the register by id and returns the removed entity
-    pub fn delete_entity(&mut self, entity: EntityID) {
-        if let Some(_renderable) = self.ecs.get_component::<Renderable>(entity) {
-            // TODO: clean up the asset register
-            unimplemented!();
+    pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), ()> {
+        if let Some(renderable) = self.ecs.get_component::<Renderable>(entity) {
+            if !self
+                .ecs
+                .query1::<Renderable>(include_filter!(), exclude_filter!())
+                .any(|component| renderable.mesh_type == component.mesh_type)
+            {
+                self.asset_register.remove(&renderable.mesh_type);
+            }
         }
-        self.ecs.delete_entity(entity);
+        self.ecs.delete_entity(entity)
     }
 
     /// makes mesh data available for a given entity id
@@ -77,16 +134,6 @@ impl EntityManager {
         self.ecs.entity_index.keys()
     }
 }
-
-/// create a component list for entity creation
-#[macro_export]
-macro_rules! components {
-    ($($T:expr),*) => {
-        vec![$(Box::new($T), )*]
-    };
-}
-
-pub(crate) use components;
 
 /// the entity component system that manages all the data associated with an entity
 pub struct ECS {
@@ -115,7 +162,6 @@ impl ECS {
         self.next_entity += 1;
 
         let entity_type = EntityType::from(&components);
-
         let archetype_id = self.get_arch_id(&entity_type);
 
         let archetype = self.archetypes.get_mut(&archetype_id).unwrap();
@@ -136,8 +182,25 @@ impl ECS {
     }
 
     /// deletes a stored entity and all the associated component data
-    pub(crate) fn delete_entity(&mut self, _entity: EntityID) {
-        unimplemented!();
+    pub(crate) fn delete_entity(&mut self, entity: EntityID) -> Result<(), ()> {
+        let record = self.entity_index.remove(&entity).ok_or(())?;
+        let archetype = self.archetypes.get_mut(&record.archetype_id).ok_or(())?;
+        for column in archetype.components.values_mut() {
+            column.remove(record.row);
+        }
+        if archetype
+            .components
+            .values()
+            .nth(0)
+            .unwrap()
+            .len()
+            .is_zero()
+        {
+            self.archetypes.remove(&record.archetype_id);
+            self.type_to_archetype
+                .retain(|_, arch_id| *arch_id != record.archetype_id);
+        }
+        Ok(())
     }
 
     /// yields the component data reference of an entity if present
@@ -164,28 +227,6 @@ impl ECS {
         let archetype = self.archetypes.get(&record.archetype_id).unwrap();
 
         EntityType(archetype.components.keys().cloned().collect())
-    }
-
-    /// gets the archetype id of an entity type and creates a new archetype if necessary
-    fn get_arch_id(&mut self, entity_type: &EntityType) -> ArchetypeID {
-        *self
-            .type_to_archetype
-            .entry(entity_type.clone())
-            .or_insert_with(|| {
-                let id = self.next_archetype_id;
-                self.next_archetype_id += 1;
-                self.archetypes.insert(
-                    id,
-                    Archetype {
-                        id,
-                        components: entity_type
-                            .iter()
-                            .map(|&type_id| (type_id, Vec::new()))
-                            .collect(),
-                    },
-                );
-                id
-            })
     }
 
     /// adds a component to an existing entity
@@ -283,5 +324,27 @@ impl ECS {
         record.row = new_row;
 
         component.downcast::<T>().ok().map(|b| *b)
+    }
+
+    /// gets the archetype id of an entity type and creates a new archetype if necessary
+    fn get_arch_id(&mut self, entity_type: &EntityType) -> ArchetypeID {
+        *self
+            .type_to_archetype
+            .entry(entity_type.clone())
+            .or_insert_with(|| {
+                let id = self.next_archetype_id;
+                self.next_archetype_id += 1;
+                self.archetypes.insert(
+                    id,
+                    Archetype {
+                        id,
+                        components: entity_type
+                            .iter()
+                            .map(|&type_id| (type_id, Vec::new()))
+                            .collect(),
+                    },
+                );
+                id
+            })
     }
 }

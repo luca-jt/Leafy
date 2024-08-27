@@ -1,5 +1,5 @@
+use crate::glm;
 use gl::types::*;
-use nalgebra_glm as glm;
 use obj::{load_obj, Obj, TexturedVertex};
 use std::cell::{Ref, RefCell};
 use std::fs::File;
@@ -34,7 +34,6 @@ impl Mesh {
             })
             .collect();
 
-        // TODO: flip uvs?
         let texture_coords: Vec<glm::Vec2> = model
             .vertices
             .iter()

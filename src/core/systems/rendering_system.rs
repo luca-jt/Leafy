@@ -2,16 +2,21 @@ use crate::ecs::component::MeshAttribute::*;
 use crate::ecs::component::{MeshAttribute, MeshType, Position, Renderable};
 use crate::ecs::entity_manager::EntityManager;
 use crate::ecs::query::{exclude_filter, include_filter, ExcludeFilter, IncludeFilter};
+use crate::engine::EngineMode;
+use crate::glm;
 use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
 use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
-use nalgebra_glm as glm;
+use crate::systems::event_system::events::{CamPositionChange, EngineModeChange};
+use crate::systems::event_system::EventObserver;
 use RendererType::*;
 
+/// responsible for the automated rendering of all entities
 pub struct RenderingSystem {
+    current_mode: EngineMode,
     texture_map: TextureMap,
     shadow_map: ShadowMap,
     renderers: Vec<RendererType>,
@@ -30,6 +35,7 @@ impl RenderingSystem {
         }
 
         Self {
+            current_mode: EngineMode::Running,
             texture_map: TextureMap::new(),
             shadow_map: ShadowMap::new(2048, 2048, glm::Vec3::new(1.0, 10.0, 1.0)),
             renderers: Vec::new(),
@@ -168,13 +174,18 @@ impl RenderingSystem {
             }
         }
     }
+}
 
-    /// gets the user position and the look vector
-    pub(crate) fn get_user_pos_look(&self) -> (glm::Vec3, glm::Vec3) {
-        (
-            self.perspective_camera.user_position,
-            self.perspective_camera.user_look,
-        )
+impl EventObserver<EngineModeChange> for RenderingSystem {
+    fn on_event(&mut self, event: &EngineModeChange) {
+        self.current_mode = event.new_mode;
+    }
+}
+
+impl EventObserver<CamPositionChange> for RenderingSystem {
+    fn on_event(&mut self, event: &CamPositionChange) {
+        self.perspective_camera
+            .update_cam(&event.new_pos, &event.new_focus);
     }
 }
 

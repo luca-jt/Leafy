@@ -1,15 +1,17 @@
-lighting improvement
+sampled animations from files
+voxel renderer
 cascaded shadow mapping
 shadow anti-aliasing -> pcss
-collision detection
-physics
-shader definition outside of the renderers
-sprite renderer
-font renderer
-voxel renderer
-sampled animations
-scenes -> graphs
-particle system
+scene files and loading of them in the rendering system
+lighting improvement
 ui basics
-set model matrix for every entity (rotation, scaling) -> renderer rewrite
+font renderer
+particle system
+sprite renderer
+collision detection
+physics (+ friction)
+shader definition outside of the renderers
+multiple light sources for the rendering system
+set model matrix for every entity (rotation, scaling) -> renderer rewrite (also change render behavior based on engine mode)
 controller events
+flip uv coords in mesh loading?

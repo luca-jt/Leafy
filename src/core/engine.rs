@@ -1,16 +1,19 @@
-use crate::ecs::entity_manager::EntityManager;
-use nalgebra_glm as glm;
+use crate::glm;
 use std::cell::RefMut;
 use std::error::Error;
 use std::ops::{Deref, DerefMut};
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowId;
 
+use crate::ecs::entity_manager::EntityManager;
 use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
-use crate::systems::event_system::events::{AudioVolumeChanged, KeyPress, WindowResize};
+use crate::systems::event_system::events::{
+    AudioVolumeChanged, CamPositionChange, EngineModeChange, KeyPress, WindowResize,
+};
 use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
 use crate::systems::video_system::VideoSystem;
@@ -20,7 +23,7 @@ use crate::utils::tools::{shared_ptr, SharedPtr};
 pub struct Engine {
     app: Option<Box<dyn FallingLeafApp>>,
     exit_state: Option<Result<(), Box<dyn Error>>>,
-    rendering_system: Option<RenderingSystem>,
+    rendering_system: Option<SharedPtr<RenderingSystem>>,
     pub audio_system: SharedPtr<AudioSystem>,
     pub event_system: EventSystem,
     pub animation_system: AnimationSystem,
@@ -38,6 +41,7 @@ impl Engine {
         event_system.add_listener::<KeyPress>(&video_system);
         event_system.add_listener::<WindowResize>(&video_system);
         event_system.add_listener::<AudioVolumeChanged>(&audio_system);
+        event_system.add_listener::<CamPositionChange>(&audio_system);
 
         Self {
             app: None,
@@ -54,43 +58,33 @@ impl Engine {
     pub fn run(&mut self, mut app: impl FallingLeafApp + 'static) -> Result<(), Box<dyn Error>> {
         app.init(self);
         self.app = Some(Box::new(app));
-        let event_loop = self.event_system.event_loop.take().unwrap();
+        let event_loop = EventLoop::new().unwrap();
+        event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run_app(self)?;
         self.exit_state.take().unwrap()
     }
 
     /// gets called every frame and contains the main app logic
     fn on_frame_redraw(&mut self) {
-        let (user_pos, user_look) = self.current_user_data();
-        self.audio_system.borrow_mut().update(
-            self.app.as_mut().unwrap().entity_manager().deref(),
-            user_pos,
-            user_look,
-        );
+        self.audio_system
+            .borrow_mut()
+            .update(self.app.as_mut().unwrap().entity_manager().deref());
         self.animation_system
             .apply_physics(self.app.as_mut().unwrap().entity_manager().deref_mut());
 
         self.rendering_system
             .as_mut()
             .unwrap()
+            .borrow_mut()
             .render(self.app.as_mut().unwrap().entity_manager().deref());
 
         self.app
             .as_mut()
             .unwrap()
-            .on_frame_update(&mut self.event_system);
+            .on_frame_update(&mut self.event_system, &self.audio_system);
 
         self.video_system.borrow().swap_window();
         self.video_system.borrow_mut().try_cap_fps();
-    }
-
-    /// gets the current user position and look vector
-    fn current_user_data(&self) -> (glm::Vec3, glm::Vec3) {
-        self.rendering_system
-            .as_ref()
-            .map_or((*-glm::Vec3::z_axis(), glm::Vec3::zeros()), |system| {
-                system.get_user_pos_look()
-            })
     }
 }
 
@@ -98,7 +92,11 @@ impl ApplicationHandler for Engine {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
         let cam_data = self.app.as_ref().unwrap().cam_start_data();
-        self.rendering_system = Some(RenderingSystem::new(cam_data.0, cam_data.1));
+        self.rendering_system = Some(shared_ptr(RenderingSystem::new(cam_data.0, cam_data.1)));
+        self.event_system
+            .add_listener::<EngineModeChange>(self.rendering_system.as_ref().unwrap());
+        self.event_system
+            .add_listener::<CamPositionChange>(self.rendering_system.as_ref().unwrap());
     }
 
     fn window_event(
@@ -133,9 +131,21 @@ pub trait FallingLeafApp {
     /// initialize the app (e.g. add event handling)
     fn init(&mut self, engine: &mut Engine);
     /// run this update code every frame
-    fn on_frame_update(&mut self, event_system: &mut EventSystem);
+    fn on_frame_update(
+        &mut self,
+        event_system: &mut EventSystem,
+        audio_system: &SharedPtr<AudioSystem>,
+    );
     /// allows for access to the entity manager to be used for all engine operations
     fn entity_manager(&mut self) -> RefMut<EntityManager>;
     /// provides the engine with initial camera position and focus
     fn cam_start_data(&self) -> (glm::Vec3, glm::Vec3);
+}
+
+/// all possible states of the engine that influence its behavior
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EngineMode {
+    Running,
+    Paused,
+    Menu,
 }

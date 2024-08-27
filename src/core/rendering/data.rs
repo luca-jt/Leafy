@@ -1,8 +1,8 @@
+use crate::glm;
 use crate::rendering::shader::ShaderProgram;
 use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH};
 use crate::utils::file::get_texture_path;
 use gl::types::*;
-use nalgebra_glm as glm;
 use stb_image::image::{Image, LoadResult};
 use std::collections::HashMap;
 use std::ptr;
@@ -46,9 +46,9 @@ pub fn load_texture(file_name: &str) -> GLuint {
     tex_id
 }
 
+/// data for a single vertex
 #[derive(Default, Clone, Debug)]
 #[repr(C)]
-/// data for a single vertex
 pub struct Vertex {
     pub position: glm::Vec3,
     pub color: glm::Vec4,
@@ -84,8 +84,8 @@ impl TextureMap {
     }
 
     /// yields a texture id for given name
-    pub(crate) fn get_tex_id(&self, name: &str) -> GLuint {
-        *self.textures.get(name).expect("texture not in the map")
+    pub(crate) fn get_tex_id(&self, name: &str) -> Option<GLuint> {
+        self.textures.get(name).map(|id| *id)
     }
 }
 
@@ -101,12 +101,9 @@ impl Drop for TextureMap {
 
 /// stores the current camera config for 3D rendering
 pub(crate) struct PerspectiveCamera {
-    pub(crate) user_position: glm::Vec3,
-    pub(crate) user_look: glm::Vec3,
     pub(crate) projection: glm::Mat4,
     pub(crate) view: glm::Mat4,
     pub(crate) model: glm::Mat4,
-    pub(crate) light_src: glm::Vec3,
 }
 
 impl PerspectiveCamera {
@@ -124,12 +121,9 @@ impl PerspectiveCamera {
         let model = glm::Mat4::identity();
 
         Self {
-            user_position: position,
-            user_look: focus - position,
             projection,
             view,
             model,
-            light_src: glm::Vec3::new(1.0, 1.0, 1.0),
         }
     }
 
@@ -139,10 +133,8 @@ impl PerspectiveCamera {
     }
 
     /// updates the camera for given camera position and focus
-    pub(crate) fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
-        self.view = glm::look_at(&position, &focus, &glm::Vec3::y_axis());
-        self.user_position = position;
-        self.user_look = focus - position;
+    pub(crate) fn update_cam(&mut self, position: &glm::Vec3, focus: &glm::Vec3) {
+        self.view = glm::look_at(position, focus, &glm::Vec3::y_axis());
     }
 }
 
@@ -186,7 +178,7 @@ pub(crate) struct ShadowMap {
     width: GLsizei,
     height: GLsizei,
     pub(crate) light_matrix: glm::Mat4,
-    light_src: glm::Vec3,
+    pub(crate) light_src: glm::Vec3,
     program: ShaderProgram,
     tmp_viewport: [GLint; 4],
     pub(crate) depth_buffer_cleared: bool,
