@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+//#![windows_subsystem = "windows"]
 
 use crate::app::*;
 use fl_core::engine::Engine;

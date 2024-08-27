@@ -67,7 +67,10 @@ pub enum SplitMutError {
 
 impl Display for SplitMutError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&*self.to_string())
+        match self {
+            SplitMutError::NoValue => f.write_str("NoValue"),
+            SplitMutError::SameValue => f.write_str("SameValue"),
+        }
     }
 }
 
@@ -82,13 +85,10 @@ fn to_r<V>(s: Option<&mut V>) -> R<V> {
 
 #[inline]
 fn check_r<V>(a: &R<V>, b: R<V>) -> R<V> {
-    match (a, &b) {
-        (&Ok(ref aa), &Ok(ref bb)) => {
-            if aa == bb {
-                return Err(SplitMutError::SameValue);
-            }
+    if let (Ok(aa), Ok(bb)) = (a, &b) {
+        if aa == bb {
+            return Err(SplitMutError::SameValue);
         }
-        _ => {}
     }
     b
 }

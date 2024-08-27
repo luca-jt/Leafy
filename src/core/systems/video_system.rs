@@ -5,10 +5,8 @@ use std::num::NonZeroU32;
 use std::time::{Duration, Instant};
 
 use raw_window_handle::HasWindowHandle;
-use winit::application::ApplicationHandler;
-use winit::event::{KeyEvent, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::keyboard::{Key, KeyCode, NamedKey};
+use winit::event_loop::ActiveEventLoop;
+use winit::keyboard::KeyCode;
 use winit::window::{Fullscreen, Icon, Window};
 
 use glutin::config::{Config, ConfigTemplateBuilder};
@@ -23,7 +21,7 @@ use glutin_winit::{DisplayBuilder, GlWindow};
 use winit::dpi::{LogicalPosition, PhysicalSize};
 use winit::platform::windows::IconExtWindows;
 
-use crate::systems::event_system::events::{KeyPress, WindowResize};
+use crate::systems::event_system::events::{FPSCapToggle, KeyPress, WindowResize};
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{FPS_CAP, INV_WIN_RATIO, MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
 use crate::utils::file::get_image_path;
@@ -38,7 +36,7 @@ pub struct VideoSystem {
     pub(crate) window: Option<Window>,
     current_fps: f64,
     frame_start_time: Instant,
-    pub cap_fps: bool,
+    cap_fps: bool,
 }
 
 impl VideoSystem {
@@ -276,19 +274,40 @@ impl EventObserver<WindowResize> for VideoSystem {
         // Some platforms like EGL require resizing GL surface to update the size.
         // Notable platforms here are Wayland and macOS, others don't require it.
         // It's wise to resize it for portability reasons.
-        if let (Some(gl_surface), Some(gl_context)) =
-            (self.gl_surface.as_ref(), self.gl_context.as_ref())
-        {
+        if let (Some(gl_surface), Some(gl_context), Some(window)) = (
+            self.gl_surface.as_ref(),
+            self.gl_context.as_ref(),
+            self.window.as_ref(),
+        ) {
             let corrected_height = (event.width as f32 * INV_WIN_RATIO) as u32;
+            let final_size: (u32, u32);
+
+            if corrected_height != event.height {
+                let returned_size =
+                    window.request_inner_size(PhysicalSize::new(event.width, corrected_height));
+                if let Some(rs) = returned_size {
+                    final_size = (rs.width, rs.height);
+                } else {
+                    return;
+                }
+            } else {
+                final_size = (event.width, event.height);
+            }
             gl_surface.resize(
                 gl_context,
-                NonZeroU32::new(event.width).unwrap(),
-                NonZeroU32::new(corrected_height).unwrap(),
+                NonZeroU32::new(final_size.0).unwrap(),
+                NonZeroU32::new(final_size.1).unwrap(),
             );
             unsafe {
-                gl::Viewport(0, 0, event.width as GLsizei, corrected_height as GLsizei);
+                gl::Viewport(0, 0, final_size.0 as GLsizei, final_size.1 as GLsizei);
             }
         }
+    }
+}
+
+impl EventObserver<FPSCapToggle> for VideoSystem {
+    fn on_event(&mut self, _event: &FPSCapToggle) {
+        self.cap_fps = !self.cap_fps;
     }
 }
 

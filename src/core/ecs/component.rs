@@ -8,9 +8,9 @@ use MeshAttribute::*;
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct Scale(pub f32);
 
-impl Into<Scale> for f32 {
-    fn into(self) -> Scale {
-        Scale(self)
+impl From<f32> for Scale {
+    fn from(value: f32) -> Self {
+        Scale(value)
     }
 }
 
@@ -40,7 +40,7 @@ impl Orientation {
 
     /// yields a copy of the stored data
     pub fn data_clone(&self) -> glm::Vec4 {
-        self.0.clone()
+        self.0
     }
 
     /// grants immutable access to the stored data
@@ -66,7 +66,7 @@ impl Position {
 
     /// yields a copy of the stored data
     pub fn data_clone(&self) -> glm::Vec3 {
-        self.0.clone()
+        self.0
     }
 
     /// grants immutable access to the stored data
@@ -108,7 +108,7 @@ impl Velocity {
 
     /// yields a copy of the stored data
     pub fn data_clone(&self) -> glm::Vec3 {
-        self.0.clone()
+        self.0
     }
 
     /// grants immutable access to the stored data
@@ -150,7 +150,7 @@ impl Acceleration {
 
     /// yields a copy of the stored data
     pub fn data_clone(&self) -> glm::Vec3 {
-        self.0.clone()
+        self.0
     }
 
     /// grants immutable access to the stored data

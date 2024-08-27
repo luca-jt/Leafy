@@ -85,7 +85,7 @@ impl TextureMap {
 
     /// yields a texture id for given name
     pub(crate) fn get_tex_id(&self, name: &str) -> Option<GLuint> {
-        self.textures.get(name).map(|id| *id)
+        self.textures.get(name).copied()
     }
 }
 
@@ -157,12 +157,7 @@ impl OrthoCamera {
 
     /// creates a new orthographic camera from a size: `(-size, size, -size, size)`
     pub(crate) fn from_size(size: f32) -> Self {
-        let position = glm::Vec3::new(0.0, 0.0, -1.0);
-
-        Self {
-            projection: glm::ortho(-size, size, -size, size, -1.0, 1.0),
-            view: glm::look_at(&position, &glm::Vec3::zeros(), &glm::Vec3::y_axis()),
-        }
+        Self::new(-size, size, -size, size)
     }
 
     /// updates the camera for given camera position and focus

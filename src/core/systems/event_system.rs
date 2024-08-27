@@ -22,10 +22,7 @@ impl EventSystem {
 
     /// subscribe a handler to a specific event type
     pub fn add_listener<T: Any>(&mut self, handler: &SharedPtr<impl EventObserver<T> + 'static>) {
-        let listeners = self
-            .listeners
-            .entry(TypeId::of::<T>())
-            .or_insert(Vec::new());
+        let listeners = self.listeners.entry(TypeId::of::<T>()).or_default();
         listeners.push(weak_ptr(handler) as WeakPtr<dyn Any>);
     }
 
@@ -107,16 +104,14 @@ impl EventSystem {
             }
             WindowEvent::MouseWheel {
                 device_id: _,
-                delta,
+                delta: MouseScrollDelta::LineDelta(hori, vert),
                 phase,
             } => {
-                if let MouseScrollDelta::LineDelta(hori, vert) = delta {
-                    self.trigger(MouseScroll {
-                        vertical_lines: vert,
-                        horizontal_lines: hori,
-                        phase,
-                    });
-                }
+                self.trigger(MouseScroll {
+                    vertical_lines: vert,
+                    horizontal_lines: hori,
+                    phase,
+                });
             }
             WindowEvent::Moved(position) => {
                 self.trigger(WindowMoved {
@@ -161,13 +156,13 @@ impl EventSystem {
                     delta_y: delta.1,
                 });
             }
-            DeviceEvent::MouseWheel { delta } => {
-                if let MouseScrollDelta::LineDelta(hori, vert) = delta {
-                    self.trigger(RawMouseScroll {
-                        vertical_delta: vert,
-                        horizontal_delta: hori,
-                    });
-                }
+            DeviceEvent::MouseWheel {
+                delta: MouseScrollDelta::LineDelta(hori, vert),
+            } => {
+                self.trigger(RawMouseScroll {
+                    vertical_delta: vert,
+                    horizontal_delta: hori,
+                });
             }
             _ => (),
         }
@@ -322,4 +317,8 @@ pub mod events {
         pub new_pos: glm::Vec3,
         pub new_focus: glm::Vec3,
     }
+
+    /// toggles the fps cap functionality
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct FPSCapToggle;
 }

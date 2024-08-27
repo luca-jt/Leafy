@@ -19,7 +19,7 @@ impl EntityType {
 
 impl From<&Vec<Box<dyn Any>>> for EntityType {
     fn from(value: &Vec<Box<dyn Any>>) -> Self {
-        let mut converted: Vec<_> = value.iter().map(|c| c.type_id()).collect();
+        let mut converted: Vec<_> = value.iter().map(|c| (**c).type_id()).collect();
         converted.sort();
         EntityType(converted)
     }
@@ -37,7 +37,7 @@ impl Index<usize> for EntityType {
 pub(crate) type ArchetypeID = u64;
 
 /// entity meta data
-pub(crate) struct EntityRecord {
+pub struct EntityRecord {
     pub(crate) archetype_id: ArchetypeID,
     pub(crate) row: usize,
 }

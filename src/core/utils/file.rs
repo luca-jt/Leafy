@@ -11,7 +11,7 @@ pub fn get_asset_path(dir_path: &str) -> String {
         + "/assets/"
         + dir_path;
 
-    return full_path;
+    full_path
 }
 
 /// yields audio file path

@@ -170,7 +170,7 @@ impl ECS {
         for component in components {
             archetype
                 .components
-                .get_mut(&component.type_id())
+                .get_mut(&(*component).type_id())
                 .unwrap()
                 .push(component);
         }
@@ -261,7 +261,7 @@ impl ECS {
         for component in components {
             new_archetype
                 .components
-                .get_mut(&component.type_id())
+                .get_mut(&(*component).type_id())
                 .unwrap()
                 .push(component);
         }
@@ -294,7 +294,7 @@ impl ECS {
             .collect();
 
         // Remove the specific component
-        let component_index = components.iter().position(|c| c.type_id() == type_id)?;
+        let component_index = components.iter().position(|c| (**c).type_id() == type_id)?;
         let component = components.swap_remove(component_index);
 
         // Create a new entity type
@@ -313,7 +313,7 @@ impl ECS {
         for component in components {
             new_archetype
                 .components
-                .get_mut(&component.type_id())
+                .get_mut(&(*component).type_id())
                 .unwrap()
                 .push(component);
         }

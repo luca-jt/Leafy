@@ -12,7 +12,7 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
 use crate::systems::event_system::events::{
-    AudioVolumeChanged, CamPositionChange, EngineModeChange, KeyPress, WindowResize,
+    AudioVolumeChanged, CamPositionChange, EngineModeChange, FPSCapToggle, KeyPress, WindowResize,
 };
 use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
@@ -40,6 +40,7 @@ impl Engine {
 
         event_system.add_listener::<KeyPress>(&video_system);
         event_system.add_listener::<WindowResize>(&video_system);
+        event_system.add_listener::<FPSCapToggle>(&video_system);
         event_system.add_listener::<AudioVolumeChanged>(&audio_system);
         event_system.add_listener::<CamPositionChange>(&audio_system);
 
@@ -123,6 +124,12 @@ impl ApplicationHandler for Engine {
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
         self.video_system.borrow_mut().on_suspended();
+    }
+}
+
+impl Default for Engine {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

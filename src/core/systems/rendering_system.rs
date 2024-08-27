@@ -189,7 +189,7 @@ impl EventObserver<CamPositionChange> for RenderingSystem {
 }
 
 /// stores the renderer type with rendered entity type + renderer
-pub enum RendererType {
+pub(crate) enum RendererType {
     Batch(MeshType, BatchRenderer),
     Instance(MeshType, MeshAttribute, InstanceRenderer),
     Font(FontRenderer),
@@ -199,7 +199,7 @@ pub enum RendererType {
 
 impl RendererType {
     /// yields the mesh type of a renderer type if present
-    pub fn mesh_type(&self) -> Option<MeshType> {
+    pub(crate) fn mesh_type(&self) -> Option<MeshType> {
         match self {
             Batch(mesh_type, _) => Some(*mesh_type),
             Instance(mesh_type, _, _) => Some(*mesh_type),
