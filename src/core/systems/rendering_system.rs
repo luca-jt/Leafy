@@ -120,7 +120,6 @@ impl RenderingSystem {
                             .push(Batch(renderable.mesh_type, BatchRenderer::new(mesh, 10)));
                     }
                     MeshType::Sphere => {
-                        // TODO: 10 als grenze? (oben auch)
                         let mut renderer = InstanceRenderer::new(mesh, 10);
                         match renderable.mesh_attribute {
                             Textured(tex_id) => {

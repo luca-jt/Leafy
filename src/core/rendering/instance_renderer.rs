@@ -186,11 +186,25 @@ impl InstanceRenderer {
         }
     }
 
+    /// resizes the internal offset buffer to the specified number of elements (erases all positions added prior to this call)
+    pub(crate) fn resize_buffer(&mut self, size: usize) {
+        self.num_instances += size;
+        self.positions.reserve_exact(size);
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.obo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (self.num_instances * mem::size_of::<glm::Vec3>()) as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
+        }
+    }
+
     /// adds a position where the mesh shall be rendered
     pub(crate) fn add_position(&mut self, position: glm::Vec3) {
         if self.pos_idx == self.num_instances {
             panic!("Attempt to draw too many Instances");
-            // TODO: resize capacity dynamically?
         }
         self.positions[self.pos_idx] = position;
         self.index_count += self.shared_mesh.borrow().num_indeces() as GLsizei;

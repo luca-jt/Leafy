@@ -279,14 +279,14 @@ impl EventObserver<WindowResize> for VideoSystem {
         if let (Some(gl_surface), Some(gl_context)) =
             (self.gl_surface.as_ref(), self.gl_context.as_ref())
         {
-            // todo: correct for 16:9 ratio
+            let corrected_height = (event.width as f32 * INV_WIN_RATIO) as u32;
             gl_surface.resize(
                 gl_context,
                 NonZeroU32::new(event.width).unwrap(),
-                NonZeroU32::new(event.height).unwrap(),
+                NonZeroU32::new(corrected_height).unwrap(),
             );
             unsafe {
-                gl::Viewport(0, 0, event.width as GLsizei, event.height as GLsizei);
+                gl::Viewport(0, 0, event.width as GLsizei, corrected_height as GLsizei);
             }
         }
     }
