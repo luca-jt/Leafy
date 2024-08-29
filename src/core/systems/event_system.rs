@@ -1,5 +1,4 @@
 use std::any::{Any, TypeId};
-use std::cell::RefMut;
 use std::collections::HashMap;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
@@ -9,7 +8,7 @@ use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
 
 /// system managing the events
 pub struct EventSystem {
-    listeners: HashMap<TypeId, Vec<WeakPtr<dyn Any>>>,
+    listeners: HashMap<TypeId, Vec<Box<dyn Any>>>,
 }
 
 impl EventSystem {
@@ -23,19 +22,19 @@ impl EventSystem {
     /// subscribe a handler to a specific event type
     pub fn add_listener<T: Any>(&mut self, handler: &SharedPtr<impl EventObserver<T> + 'static>) {
         let listeners = self.listeners.entry(TypeId::of::<T>()).or_default();
-        listeners.push(weak_ptr(handler) as WeakPtr<dyn Any>);
+        listeners.push(Box::new(weak_ptr(handler) as WeakPtr<dyn EventObserver<T>>));
     }
 
     /// trigger an event
     pub fn trigger<T: Any>(&self, event: T) {
         if let Some(handlers) = self.listeners.get(&TypeId::of::<T>()) {
             for handler in handlers {
-                if let Some(handler_rc) = handler.upgrade() {
+                let casted_handler = handler
+                    .downcast_ref::<WeakPtr<dyn EventObserver<T>>>()
+                    .unwrap();
+                if let Some(handler_rc) = casted_handler.upgrade() {
                     let mut handler_ref = handler_rc.borrow_mut();
-                    let casted_ref = handler_ref
-                        .downcast_mut::<RefMut<dyn EventObserver<T>>>()
-                        .unwrap();
-                    casted_ref.on_event(&event);
+                    handler_ref.on_event(&event);
                 }
             }
         }
