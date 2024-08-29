@@ -1,10 +1,8 @@
 use crate::ecs::component::{Position, SoundController};
 use crate::ecs::entity_manager::EntityManager;
-use crate::ecs::query::{ExcludeFilter, IncludeFilter};
 use crate::systems::event_system::events::{AudioVolumeChanged, CamPositionChange};
 use crate::systems::event_system::EventObserver;
 use crate::utils::file::get_audio_path;
-use crate::{exclude_filter, include_filter};
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -70,10 +68,7 @@ impl AudioSystem {
         }
         // update entity sound positions
         let sfx_volume = self.calc_absolute_volume(VolumeKind::SFX);
-        for (pos, sound) in entity_manager
-            .ecs
-            .query2::<Position, SoundController>(include_filter!(), exclude_filter!())
-        {
+        for (pos, sound) in entity_manager.query2::<Position, SoundController>() {
             let handles = self.sound_register.get(&sound.id).unwrap();
             for handle in handles {
                 let mut state = self.sound_context.state();

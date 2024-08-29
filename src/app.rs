@@ -74,13 +74,11 @@ impl FallingLeafApp for App {
         let cube = game_state.cube.unwrap();
         let tt = game_state
             .entity_manager
-            .ecs
             .get_component_mut::<TouchTime>(cube)
             .unwrap();
         let secs = tt.delta_time_f32();
         let pos = game_state
             .entity_manager
-            .ecs
             .get_component_mut::<Position>(cube)
             .unwrap();
         let av = PI / 2.0;
@@ -139,7 +137,6 @@ impl EventObserver<KeyPress> for GameState {
         if event.key == KeyCode::Space {
             let v_ref = &mut self
                 .entity_manager
-                .ecs
                 .get_component_mut::<MotionState>(self.player)
                 .unwrap()
                 .velocity;

@@ -558,7 +558,11 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Mut<'a, A, B
 
 impl ECS {
     /// create immutable query for 1 component with given filters, iterable
-    pub fn query1<T: Any>(&self, include: IncludeFilter, exclude: ExcludeFilter) -> Query1<'_, T> {
+    pub(crate) fn query1<T: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query1<'_, T> {
         Query1 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
@@ -570,7 +574,7 @@ impl ECS {
     }
 
     /// create mutable query for 1 component with given filters, iterable
-    pub fn query1_mut<T: Any>(
+    pub(crate) fn query1_mut<T: Any>(
         &mut self,
         include: IncludeFilter,
         exclude: ExcludeFilter,
@@ -586,7 +590,7 @@ impl ECS {
     }
 
     /// create immutable query for 2 components with given filters, iterable
-    pub fn query2<A: Any, B: Any>(
+    pub(crate) fn query2<A: Any, B: Any>(
         &self,
         include: IncludeFilter,
         exclude: ExcludeFilter,
@@ -603,7 +607,7 @@ impl ECS {
     }
 
     /// create mutable query for 2 components with given filters, iterable
-    pub fn query2_mut<A: Any, B: Any>(
+    pub(crate) fn query2_mut<A: Any, B: Any>(
         &mut self,
         include: IncludeFilter,
         exclude: ExcludeFilter,
@@ -620,7 +624,7 @@ impl ECS {
     }
 
     /// create immutable query for 3 components with given filters, iterable
-    pub fn query3<A: Any, B: Any, C: Any>(
+    pub(crate) fn query3<A: Any, B: Any, C: Any>(
         &self,
         include: IncludeFilter,
         exclude: ExcludeFilter,
@@ -638,7 +642,7 @@ impl ECS {
     }
 
     /// create mutable query for 3 components with given filters, iterable
-    pub fn query3_mut<A: Any, B: Any, C: Any>(
+    pub(crate) fn query3_mut<A: Any, B: Any, C: Any>(
         &mut self,
         include: IncludeFilter,
         exclude: ExcludeFilter,
@@ -656,7 +660,7 @@ impl ECS {
     }
 
     /// create immutable query for 4 components with given filters, iterable
-    pub fn query4<A: Any, B: Any, C: Any, D: Any>(
+    pub(crate) fn query4<A: Any, B: Any, C: Any, D: Any>(
         &self,
         include: IncludeFilter,
         exclude: ExcludeFilter,
@@ -675,7 +679,7 @@ impl ECS {
     }
 
     /// create mutable query for 4 components with given filters, iterable
-    pub fn query4_mut<A: Any, B: Any, C: Any, D: Any>(
+    pub(crate) fn query4_mut<A: Any, B: Any, C: Any, D: Any>(
         &mut self,
         include: IncludeFilter,
         exclude: ExcludeFilter,
@@ -694,7 +698,7 @@ impl ECS {
     }
 
     /// create immutable query for 5 components with given filters, iterable
-    pub fn query5<A: Any, B: Any, C: Any, D: Any, E: Any>(
+    pub(crate) fn query5<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &self,
         include: IncludeFilter,
         exclude: ExcludeFilter,
@@ -714,7 +718,7 @@ impl ECS {
     }
 
     /// create mutable query for 5 components with given filters, iterable
-    pub fn query5_mut<A: Any, B: Any, C: Any, D: Any, E: Any>(
+    pub(crate) fn query5_mut<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &mut self,
         include: IncludeFilter,
         exclude: ExcludeFilter,

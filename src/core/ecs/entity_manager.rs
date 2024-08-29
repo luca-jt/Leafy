@@ -4,7 +4,10 @@ use crate::ecs::component::{
 use crate::ecs::entity::{
     Archetype, ArchetypeID, ComponentStorage, EntityID, EntityRecord, EntityType,
 };
-use crate::ecs::query::{ExcludeFilter, IncludeFilter};
+use crate::ecs::query::{
+    ExcludeFilter, IncludeFilter, Query1, Query1Mut, Query2, Query2Mut, Query3, Query3Mut, Query4,
+    Query4Mut, Query5, Query5Mut,
+};
 use crate::rendering::mesh::{Mesh, SharedMesh};
 use crate::{exclude_filter, include_filter};
 use fyrox_resource::core::num_traits::Zero;
@@ -24,7 +27,7 @@ pub(crate) use components;
 
 /// the main ressource manager holding both the ECS and the asset data
 pub struct EntityManager {
-    pub ecs: ECS,
+    ecs: ECS,
     asset_register: HashMap<MeshType, SharedMesh>,
 }
 
@@ -42,15 +45,7 @@ impl EntityManager {
         if components.contains_component::<Renderable>() {
             // following unwrap is safe because of contains check
             let mesh_type = components.component_data::<Renderable>().unwrap().mesh_type;
-            if !self.asset_register.keys().any(|t| *t == mesh_type) {
-                let mesh = match mesh_type {
-                    MeshType::Sphere => Mesh::new("sphere.obj"),
-                    MeshType::Cube => Mesh::new("cube.obj"),
-                    MeshType::Plane => Mesh::new("plane.obj"),
-                };
-                self.asset_register
-                    .insert(mesh_type, SharedMesh::from_mesh(mesh));
-            }
+            self.try_add_mesh(mesh_type);
         }
 
         self.ecs.create_entity(components)
@@ -100,14 +95,208 @@ impl EntityManager {
     pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), ()> {
         if let Some(renderable) = self.ecs.get_component::<Renderable>(entity) {
             if !self
-                .ecs
-                .query1::<Renderable>(include_filter!(), exclude_filter!())
+                .query1::<Renderable>()
                 .any(|component| renderable.mesh_type == component.mesh_type)
             {
                 self.asset_register.remove(&renderable.mesh_type);
             }
         }
         self.ecs.delete_entity(entity)
+    }
+
+    /// yields the component data reference of an entity if present
+    pub fn get_component<T: Any>(&self, entity: EntityID) -> Option<&T> {
+        self.ecs.get_component::<T>(entity)
+    }
+
+    /// yields the mutable component data reference of an entity if present
+    pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
+        self.ecs.get_component_mut::<T>(entity)
+    }
+
+    /// gets the vector of all associated component TypeId's
+    pub fn get_entity_type(&self, entity: EntityID) -> EntityType {
+        self.ecs.get_entity_type(entity)
+    }
+
+    /// adds a component to an existing entity
+    pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) {
+        if let Some(c) = (&component as &dyn Any).downcast_ref::<Renderable>() {
+            self.try_add_mesh(c.mesh_type);
+        }
+        self.ecs.add_component::<T>(entity, component)
+    }
+
+    /// checks wether or not an entity has a component of given type associated with it
+    pub fn has_component<T: Any>(&self, entity: EntityID) -> bool {
+        self.ecs.has_component::<T>(entity)
+    }
+
+    /// removes a component from an entity and returns the component data if present
+    pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
+        let removed = self.ecs.remove_component::<T>(entity);
+        if let Some(component) = removed.as_ref() {
+            if let Some(renderable) = (component as &dyn Any).downcast_ref::<Renderable>() {
+                if !self
+                    .query1::<Renderable>()
+                    .any(|component| renderable.mesh_type == component.mesh_type)
+                {
+                    self.asset_register.remove(&renderable.mesh_type);
+                }
+            }
+        }
+        removed
+    }
+
+    /// create immutable query for 1 component, iterable
+    pub fn query1<T: Any>(&self) -> Query1<'_, T> {
+        self.ecs.query1::<T>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 1 component with given filters, iterable
+    pub fn query1_mut<T: Any>(&mut self) -> Query1Mut<'_, T> {
+        self.ecs
+            .query1_mut::<T>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 1 component with given filters, iterable
+    pub fn query1_filtered<T: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query1<'_, T> {
+        self.ecs.query1::<T>(include, exclude)
+    }
+
+    /// create mutable query for 1 component with given filters, iterable
+    pub fn query1_mut_filtered<T: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query1Mut<'_, T> {
+        self.ecs.query1_mut::<T>(include, exclude)
+    }
+
+    /// create immutable query for 2 components, iterable
+    pub fn query2<A: Any, B: Any>(&self) -> Query2<'_, A, B> {
+        self.ecs
+            .query2::<A, B>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 2 components, iterable
+    pub fn query2_mut<A: Any, B: Any>(&mut self) -> Query2Mut<'_, A, B> {
+        self.ecs
+            .query2_mut::<A, B>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 2 components with given filters, iterable
+    pub fn query2_filtered<A: Any, B: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query2<'_, A, B> {
+        self.ecs.query2::<A, B>(include, exclude)
+    }
+
+    /// create mutable query for 2 components with given filters, iterable
+    pub fn query2_mut_filtered<A: Any, B: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query2Mut<'_, A, B> {
+        self.ecs.query2_mut::<A, B>(include, exclude)
+    }
+
+    /// create immutable query for 3 components, iterable
+    pub fn query3<A: Any, B: Any, C: Any>(&self) -> Query3<'_, A, B, C> {
+        self.ecs
+            .query3::<A, B, C>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 3 components, iterable
+    pub fn query3_mut<A: Any, B: Any, C: Any>(&mut self) -> Query3Mut<'_, A, B, C> {
+        self.ecs
+            .query3_mut::<A, B, C>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 3 components with given filters, iterable
+    pub fn query3_filtered<A: Any, B: Any, C: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query3<'_, A, B, C> {
+        self.ecs.query3::<A, B, C>(include, exclude)
+    }
+
+    /// create mutable query for 3 components with given filters, iterable
+    pub fn query3_mut_filtered<A: Any, B: Any, C: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query3Mut<'_, A, B, C> {
+        self.ecs.query3_mut::<A, B, C>(include, exclude)
+    }
+
+    /// create immutable query for 4 components, iterable
+    pub fn query4<A: Any, B: Any, C: Any, D: Any>(&self) -> Query4<'_, A, B, C, D> {
+        self.ecs
+            .query4::<A, B, C, D>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 4 components, iterable
+    pub fn query4_mut<A: Any, B: Any, C: Any, D: Any>(&mut self) -> Query4Mut<'_, A, B, C, D> {
+        self.ecs
+            .query4_mut::<A, B, C, D>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 4 components with given filters, iterable
+    pub fn query4_filtered<A: Any, B: Any, C: Any, D: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query4<'_, A, B, C, D> {
+        self.ecs.query4::<A, B, C, D>(include, exclude)
+    }
+
+    /// create mutable query for 4 components with given filters, iterable
+    pub fn query4_mut_filtered<A: Any, B: Any, C: Any, D: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query4Mut<'_, A, B, C, D> {
+        self.ecs.query4_mut::<A, B, C, D>(include, exclude)
+    }
+
+    /// create immutable query for 5 components, iterable
+    pub fn query5<A: Any, B: Any, C: Any, D: Any, E: Any>(&self) -> Query5<'_, A, B, C, D, E> {
+        self.ecs
+            .query5::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 5 components, iterable
+    pub fn query5_mut<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &mut self,
+    ) -> Query5Mut<'_, A, B, C, D, E> {
+        self.ecs
+            .query5_mut::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 5 components with given filters, iterable
+    pub fn query5_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query5<'_, A, B, C, D, E> {
+        self.ecs.query5::<A, B, C, D, E>(include, exclude)
+    }
+
+    /// create mutable query for 5 components with given filters, iterable
+    pub fn query5_mut_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query5Mut<'_, A, B, C, D, E> {
+        self.ecs.query5_mut::<A, B, C, D, E>(include, exclude)
     }
 
     /// makes mesh data available for a given entity id
@@ -132,6 +321,19 @@ impl EntityManager {
     /// iterate over all of the stored entities
     pub fn all_ids_iter(&self) -> Keys<'_, EntityID, EntityRecord> {
         self.ecs.entity_index.keys()
+    }
+
+    /// adds a new mesh to the asset register if necessary
+    fn try_add_mesh(&mut self, mesh_type: MeshType) {
+        if !self.asset_register.keys().any(|t| *t == mesh_type) {
+            let mesh = match mesh_type {
+                MeshType::Sphere => Mesh::new("sphere.obj"),
+                MeshType::Cube => Mesh::new("cube.obj"),
+                MeshType::Plane => Mesh::new("plane.obj"),
+            };
+            self.asset_register
+                .insert(mesh_type, SharedMesh::from_mesh(mesh));
+        }
     }
 }
 
@@ -204,7 +406,7 @@ impl ECS {
     }
 
     /// yields the component data reference of an entity if present
-    pub fn get_component<T: Any>(&self, entity: EntityID) -> Option<&T> {
+    pub(crate) fn get_component<T: Any>(&self, entity: EntityID) -> Option<&T> {
         let record = self.entity_index.get(&entity)?;
         let archetype = self.archetypes.get(&record.archetype_id)?;
         let component_vec = archetype.components.get(&TypeId::of::<T>())?;
@@ -213,7 +415,7 @@ impl ECS {
     }
 
     /// yields the mutable component data reference of an entity if present
-    pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
+    pub(crate) fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
         let record = self.entity_index.get(&entity)?;
         let archetype = self.archetypes.get_mut(&record.archetype_id)?;
         let component_vec = archetype.components.get_mut(&TypeId::of::<T>())?;
@@ -222,7 +424,7 @@ impl ECS {
     }
 
     /// gets the vector of all associated component TypeId's
-    pub fn get_entity_type(&self, entity: EntityID) -> EntityType {
+    pub(crate) fn get_entity_type(&self, entity: EntityID) -> EntityType {
         let record = self.entity_index.get(&entity).expect("entity doesnt exist");
         let archetype = self.archetypes.get(&record.archetype_id).unwrap();
 
@@ -230,7 +432,7 @@ impl ECS {
     }
 
     /// adds a component to an existing entity
-    pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) {
+    pub(crate) fn add_component<T: Any>(&mut self, entity: EntityID, component: T) {
         let row = self.entity_index.get(&entity).unwrap().row;
         let archetype_id = self.entity_index.get(&entity).unwrap().archetype_id;
         let old_archetype = self.archetypes.get_mut(&archetype_id).unwrap();
@@ -273,14 +475,14 @@ impl ECS {
     }
 
     /// checks wether or not an entity has a component of given type associated with it
-    pub fn has_component<T: Any>(&self, entity: EntityID) -> bool {
+    pub(crate) fn has_component<T: Any>(&self, entity: EntityID) -> bool {
         let record = self.entity_index.get(&entity).unwrap();
         let archetype = self.archetypes.get(&record.archetype_id).unwrap();
         archetype.components.contains_key(&TypeId::of::<T>())
     }
 
     /// removes a component from an entity and returns the component data if present
-    pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
+    pub(crate) fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
         let type_id = TypeId::of::<T>();
         let archetype_id = self.entity_index.get(&entity).unwrap().archetype_id;
         let row = self.entity_index.get(&entity).unwrap().row;

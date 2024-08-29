@@ -1,7 +1,6 @@
 use crate::ecs::component::MeshAttribute::*;
 use crate::ecs::component::{MeshAttribute, MeshType, Position, Renderable};
 use crate::ecs::entity_manager::EntityManager;
-use crate::ecs::query::{exclude_filter, include_filter, ExcludeFilter, IncludeFilter};
 use crate::engine::EngineMode;
 use crate::glm;
 use crate::rendering::batch_renderer::BatchRenderer;
@@ -56,10 +55,7 @@ impl RenderingSystem {
                 Voxel(renderer) => renderer.init(),
             }
         }
-        for (position, renderable) in entity_manager
-            .ecs
-            .query2::<Position, Renderable>(include_filter!(), exclude_filter!())
-        {
+        for (position, renderable) in entity_manager.query2::<Position, Renderable>() {
             let mesh = entity_manager.asset_from_type(renderable.mesh_type);
 
             let mut found = false;

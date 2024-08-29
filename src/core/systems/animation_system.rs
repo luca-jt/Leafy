@@ -1,6 +1,5 @@
 use crate::ecs::component::{MotionState, Position, TouchTime};
 use crate::ecs::entity_manager::EntityManager;
-use crate::ecs::query::{exclude_filter, include_filter, ExcludeFilter, IncludeFilter};
 use crate::utils::constants::G;
 
 pub struct AnimationSystem {
@@ -18,10 +17,7 @@ impl AnimationSystem {
     /// applys all of the physics to all of the entities
     pub(crate) fn apply_physics(&self, entity_manager: &mut EntityManager) {
         // apply physics
-        for (p, m, t) in entity_manager
-            .ecs
-            .query3_mut::<Position, MotionState, TouchTime>(include_filter!(), exclude_filter!())
-        {
+        for (p, m, t) in entity_manager.query3_mut::<Position, MotionState, TouchTime>() {
             let dt = t.delta_time_f32() * self.animation_speed;
 
             p.add(0.5 * m.acceleration.data() * dt.powi(2) + m.velocity.data() * dt);
