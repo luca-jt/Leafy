@@ -8,12 +8,29 @@ pub type EntityID = u64;
 
 /// defines a type an entity can have
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
-pub struct EntityType(pub Vec<TypeId>);
+pub(crate) struct EntityType(pub(crate) Vec<TypeId>);
 
 impl EntityType {
     /// wrapper for the `iter()` function of the stored Vec
-    pub fn iter(&self) -> Iter<'_, TypeId> {
+    pub(crate) fn iter(&self) -> Iter<'_, TypeId> {
         self.0.iter()
+    }
+
+    /// adds a component to the entity type and re-sorts
+    pub(crate) fn add_component<T: Any>(&mut self) {
+        self.0.push(TypeId::of::<T>());
+        self.0.sort();
+    }
+
+    /// removes a component from the entity type and re-sorts
+    pub(crate) fn rm_component<T: Any>(&mut self) {
+        self.0 = self
+            .0
+            .iter_mut()
+            .filter(|id| **id != TypeId::of::<T>())
+            .map(|id| *id)
+            .collect();
+        self.0.sort();
     }
 }
 
