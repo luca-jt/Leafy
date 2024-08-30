@@ -88,8 +88,8 @@ impl<'a, T: Any> Iterator for Query1<'a, T> {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
-                return self.next();
             }
+            return self.next();
         }
 
         None
@@ -129,8 +129,8 @@ impl<'a, T: Any> Iterator for Query1Mut<'a, T> {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
-                return self.next();
             }
+            return self.next();
         }
 
         None
@@ -174,8 +174,8 @@ impl<'a, A: Any, B: Any> Iterator for Query2<'a, A, B> {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
-                return self.next();
             }
+            return self.next();
         }
 
         None
@@ -221,8 +221,8 @@ impl<'a, A: Any, B: Any> Iterator for Query2Mut<'a, A, B> {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
-                return self.next();
             }
+            return self.next();
         }
 
         None
@@ -270,8 +270,8 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3<'a, A, B, C> {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
-                return self.next();
             }
+            return self.next();
         }
 
         None
@@ -320,8 +320,8 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Mut<'a, A, B, C> {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
-                return self.next();
             }
+            return self.next();
         }
 
         None
@@ -375,8 +375,8 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4<'a, A, B, C, D> {
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
-                return self.next();
             }
+            return self.next();
         }
 
         None
@@ -432,8 +432,8 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Mut<'a, A, B, C, D> 
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
-                return self.next();
             }
+            return self.next();
         }
 
         None
@@ -491,8 +491,8 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5<'a, A, B, C
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
-                return self.next();
             }
+            return self.next();
         }
 
         None
@@ -556,8 +556,8 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Mut<'a, A, B
             if self.include.matches(archetype) && self.exclude.matches(archetype) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
-                return self.next();
             }
+            return self.next();
         }
 
         None
