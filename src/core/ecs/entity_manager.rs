@@ -380,10 +380,10 @@ impl ECS {
         let archetype = self.archetypes.get_mut(&archetype_id).unwrap();
         let row = archetype.components.values().nth(0).unwrap().len();
 
-        for (i, component) in components.into_iter().enumerate() {
+        for component in components {
             archetype
                 .components
-                .get_mut(&entity_type[i])
+                .get_mut(&(*component).type_id())
                 .unwrap()
                 .push(component);
         }

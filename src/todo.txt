@@ -16,4 +16,5 @@ set model matrix for every entity (rotation, scaling) -> renderer rewrite (also 
 query filter that return an optional ref
 controller events
 flip uv coords in mesh loading?
+general query filter trait usage
 clean up renderers
