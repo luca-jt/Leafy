@@ -144,8 +144,7 @@ pub struct Query2<'a, A: Any, B: Any> {
     component_index: usize,
     include: IncludeFilter,
     exclude: ExcludeFilter,
-    phantom_a: PhantomData<A>,
-    phantom_b: PhantomData<B>,
+    phantom: PhantomData<(A, B)>,
 }
 
 impl<'a, A: Any, B: Any> Iterator for Query2<'a, A, B> {
@@ -189,8 +188,7 @@ pub struct Query2Mut<'a, A: Any, B: Any> {
     component_index: usize,
     include: IncludeFilter,
     exclude: ExcludeFilter,
-    phantom_a: PhantomData<A>,
-    phantom_b: PhantomData<B>,
+    phantom: PhantomData<(A, B)>,
 }
 
 impl<'a, A: Any, B: Any> Iterator for Query2Mut<'a, A, B> {
@@ -236,9 +234,7 @@ pub struct Query3<'a, A: Any, B: Any, C: Any> {
     component_index: usize,
     include: IncludeFilter,
     exclude: ExcludeFilter,
-    phantom_a: PhantomData<A>,
-    phantom_b: PhantomData<B>,
-    phantom_c: PhantomData<C>,
+    phantom: PhantomData<(A, B, C)>,
 }
 
 impl<'a, A: Any, B: Any, C: Any> Iterator for Query3<'a, A, B, C> {
@@ -285,9 +281,7 @@ pub struct Query3Mut<'a, A: Any, B: Any, C: Any> {
     component_index: usize,
     include: IncludeFilter,
     exclude: ExcludeFilter,
-    phantom_a: PhantomData<A>,
-    phantom_b: PhantomData<B>,
-    phantom_c: PhantomData<C>,
+    phantom: PhantomData<(A, B, C)>,
 }
 
 impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Mut<'a, A, B, C> {
@@ -335,10 +329,7 @@ pub struct Query4<'a, A: Any, B: Any, C: Any, D: Any> {
     component_index: usize,
     include: IncludeFilter,
     exclude: ExcludeFilter,
-    phantom_a: PhantomData<A>,
-    phantom_b: PhantomData<B>,
-    phantom_c: PhantomData<C>,
-    phantom_d: PhantomData<D>,
+    phantom: PhantomData<(A, B, C, D)>,
 }
 
 impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4<'a, A, B, C, D> {
@@ -390,10 +381,7 @@ pub struct Query4Mut<'a, A: Any, B: Any, C: Any, D: Any> {
     component_index: usize,
     include: IncludeFilter,
     exclude: ExcludeFilter,
-    phantom_a: PhantomData<A>,
-    phantom_b: PhantomData<B>,
-    phantom_c: PhantomData<C>,
-    phantom_d: PhantomData<D>,
+    phantom: PhantomData<(A, B, C, D)>,
 }
 
 impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Mut<'a, A, B, C, D> {
@@ -447,11 +435,7 @@ pub struct Query5<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     component_index: usize,
     include: IncludeFilter,
     exclude: ExcludeFilter,
-    phantom_a: PhantomData<A>,
-    phantom_b: PhantomData<B>,
-    phantom_c: PhantomData<C>,
-    phantom_d: PhantomData<D>,
-    phantom_e: PhantomData<E>,
+    phantom: PhantomData<(A, B, C, D, E)>,
 }
 
 impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5<'a, A, B, C, D, E> {
@@ -506,11 +490,7 @@ pub struct Query5Mut<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     component_index: usize,
     include: IncludeFilter,
     exclude: ExcludeFilter,
-    phantom_a: PhantomData<A>,
-    phantom_b: PhantomData<B>,
-    phantom_c: PhantomData<C>,
-    phantom_d: PhantomData<D>,
-    phantom_e: PhantomData<E>,
+    phantom: PhantomData<(A, B, C, D, E)>,
 }
 
 impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Mut<'a, A, B, C, D, E> {
@@ -609,8 +589,7 @@ impl ECS {
             component_index: 0,
             include,
             exclude,
-            phantom_a: PhantomData,
-            phantom_b: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -626,8 +605,7 @@ impl ECS {
             component_index: 0,
             include,
             exclude,
-            phantom_a: PhantomData,
-            phantom_b: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -643,9 +621,7 @@ impl ECS {
             component_index: 0,
             include,
             exclude,
-            phantom_a: PhantomData,
-            phantom_b: PhantomData,
-            phantom_c: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -661,9 +637,7 @@ impl ECS {
             component_index: 0,
             include,
             exclude,
-            phantom_a: PhantomData,
-            phantom_b: PhantomData,
-            phantom_c: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -679,10 +653,7 @@ impl ECS {
             component_index: 0,
             include,
             exclude,
-            phantom_a: PhantomData,
-            phantom_b: PhantomData,
-            phantom_c: PhantomData,
-            phantom_d: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -698,10 +669,7 @@ impl ECS {
             component_index: 0,
             include,
             exclude,
-            phantom_a: PhantomData,
-            phantom_b: PhantomData,
-            phantom_c: PhantomData,
-            phantom_d: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -717,11 +685,7 @@ impl ECS {
             component_index: 0,
             include,
             exclude,
-            phantom_a: PhantomData,
-            phantom_b: PhantomData,
-            phantom_c: PhantomData,
-            phantom_d: PhantomData,
-            phantom_e: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -737,11 +701,7 @@ impl ECS {
             component_index: 0,
             include,
             exclude,
-            phantom_a: PhantomData,
-            phantom_b: PhantomData,
-            phantom_c: PhantomData,
-            phantom_d: PhantomData,
-            phantom_e: PhantomData,
+            phantom: PhantomData,
         }
     }
 }
