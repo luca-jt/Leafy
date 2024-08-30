@@ -5,13 +5,18 @@ use std::any::{Any, TypeId};
 use std::collections::hash_map::Values;
 use std::marker::PhantomData;
 
+/// filter functionality for any struct
+trait QueryFilter {
+    /// checks wether or not the filter accepts an archetype
+    fn matches(&self, archetype: &Archetype) -> bool;
+}
+
 /// a query filter that requires components to be included in an entity
 #[derive(Debug, Clone)]
 pub struct IncludeFilter(pub(crate) Vec<TypeId>);
 
-impl IncludeFilter {
-    /// checks wether or not the filter accepts an archetype
-    pub(crate) fn matches(&self, archetype: &Archetype) -> bool {
+impl QueryFilter for IncludeFilter {
+    fn matches(&self, archetype: &Archetype) -> bool {
         self.0
             .iter()
             .all(|&ty| archetype.components.contains_key(&ty))
@@ -30,9 +35,8 @@ macro_rules! include_filter {
 #[derive(Debug, Clone)]
 pub struct ExcludeFilter(pub(crate) Vec<TypeId>);
 
-impl ExcludeFilter {
-    /// checks wether or not the filter accepts an archetype
-    pub(crate) fn matches(&self, archetype: &Archetype) -> bool {
+impl QueryFilter for ExcludeFilter {
+    fn matches(&self, archetype: &Archetype) -> bool {
         self.0
             .iter()
             .all(|&ty| !archetype.components.contains_key(&ty))
@@ -46,6 +50,14 @@ macro_rules! exclude_filter {
         ExcludeFilter(vec![$(TypeId::of<$T>(), )*])
     };
 }
+
+/*pub struct MightFilter(pub(crate) Vec<TypeId>);
+
+impl QueryFilter for MightFilter {
+    fn matches(&self, archetype: &Archetype) -> bool {
+        true
+    }
+}*/
 
 /// immutable query for 1 component
 pub struct Query1<'a, T: Any> {

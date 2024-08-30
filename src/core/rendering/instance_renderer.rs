@@ -1,6 +1,6 @@
 use super::data::{PerspectiveCamera, ShadowMap};
 use super::shader::ShaderProgram;
-use crate::ecs::component::Color32;
+use crate::ecs::component::{Color32, Position};
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::tools::SharedPtr;
@@ -203,11 +203,11 @@ impl InstanceRenderer {
     }
 
     /// adds a position where the mesh shall be rendered
-    pub(crate) fn add_position(&mut self, position: glm::Vec3) {
+    pub(crate) fn add_position(&mut self, position: &Position) {
         if self.pos_idx == self.num_instances {
             panic!("Attempt to draw too many Instances");
         }
-        self.positions[self.pos_idx] = position;
+        self.positions[self.pos_idx] = *position.data();
         self.index_count += self.shared_mesh.borrow().num_indeces() as GLsizei;
         self.pos_idx += 1;
     }

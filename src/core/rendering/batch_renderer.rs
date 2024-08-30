@@ -1,6 +1,6 @@
 use super::data::{PerspectiveCamera, ShadowMap, Vertex};
 use super::shader::ShaderProgram;
-use crate::ecs::component::Color32;
+use crate::ecs::component::{Color32, Position};
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
@@ -267,7 +267,7 @@ impl BatchRenderer {
     /// draws a mesh with a texture
     pub(crate) fn draw_tex_mesh(
         &mut self,
-        position: glm::Vec3,
+        position: &Position,
         scale: f32,
         tex_id: GLuint,
         camera: &PerspectiveCamera,
@@ -309,7 +309,7 @@ impl BatchRenderer {
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_verteces() {
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
-                position: mesh.positions[i] * scale + position,
+                position: mesh.positions[i] * scale + position.data(),
                 color: glm::Vec4::new(1.0, 1.0, 1.0, 1.0),
                 uv_coords: mesh.texture_coords[i],
                 normal: mesh.normals[i],
@@ -323,7 +323,7 @@ impl BatchRenderer {
     /// draws a mesh with a color
     pub(crate) fn draw_color_mesh(
         &mut self,
-        position: glm::Vec3,
+        position: &Position,
         scale: f32,
         color: Color32,
         camera: &PerspectiveCamera,
@@ -348,7 +348,7 @@ impl BatchRenderer {
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_verteces() {
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
-                position: mesh.positions[i] * scale + position,
+                position: mesh.positions[i] * scale + position.data(),
                 color: color.to_vec4(),
                 uv_coords: mesh.texture_coords[i],
                 normal: mesh.normals[i],

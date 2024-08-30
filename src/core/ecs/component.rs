@@ -54,18 +54,13 @@ impl Orientation {
 }
 
 /// position in 3D space
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Position(glm::Vec3);
 
 impl Position {
     /// creates a new position
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self(glm::Vec3::new(x, y, z))
-    }
-
-    /// yields a copy of the stored data
-    pub fn data_clone(&self) -> glm::Vec3 {
-        self.0
     }
 
     /// grants immutable access to the stored data
@@ -96,18 +91,13 @@ impl Default for Position {
 }
 
 /// velocity in 3D space
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Velocity(glm::Vec3);
 
 impl Velocity {
     /// creates a new velocity
     pub const fn new(dx: f32, dy: f32, dz: f32) -> Self {
         Self(glm::Vec3::new(dx, dy, dz))
-    }
-
-    /// yields a copy of the stored data
-    pub fn data_clone(&self) -> glm::Vec3 {
-        self.0
     }
 
     /// grants immutable access to the stored data
@@ -138,18 +128,13 @@ impl Default for Velocity {
 }
 
 /// acceleration in 3D space
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Acceleration(glm::Vec3);
 
 impl Acceleration {
     /// creates a new acceleration
     pub const fn new(ddx: f32, ddy: f32, ddz: f32) -> Self {
         Self(glm::Vec3::new(ddx, ddy, ddz))
-    }
-
-    /// yields a copy of the stored data
-    pub fn data_clone(&self) -> glm::Vec3 {
-        self.0
     }
 
     /// grants immutable access to the stored data

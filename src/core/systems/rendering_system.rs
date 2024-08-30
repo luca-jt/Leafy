@@ -65,7 +65,7 @@ impl RenderingSystem {
                         match renderable.mesh_attribute {
                             Textured(path) => {
                                 renderer.draw_tex_mesh(
-                                    position.data_clone(),
+                                    position,
                                     renderable.scale.0,
                                     entity_manager.texture_map.get_tex_id(path).unwrap(),
                                     &self.perspective_camera,
@@ -76,7 +76,7 @@ impl RenderingSystem {
                             }
                             Colored(color) => {
                                 renderer.draw_color_mesh(
-                                    position.data_clone(),
+                                    position,
                                     renderable.scale.0,
                                     color,
                                     &self.perspective_camera,
@@ -94,14 +94,14 @@ impl RenderingSystem {
                                 if entity_manager.texture_map.get_tex_id(path).unwrap()
                                     == renderer.tex_id
                                 {
-                                    renderer.add_position(position.data_clone());
+                                    renderer.add_position(position);
                                     found = true;
                                     break;
                                 }
                             }
                             Colored(color) => {
                                 if color == renderer.color {
-                                    renderer.add_position(position.data_clone());
+                                    renderer.add_position(position);
                                     found = true;
                                     break;
                                 }
