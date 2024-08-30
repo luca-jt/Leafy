@@ -15,3 +15,4 @@ multiple light sources for the rendering system
 set model matrix for every entity (rotation, scaling) -> renderer rewrite (also change render behavior based on engine mode)
 controller events
 flip uv coords in mesh loading?
+clean up renderers

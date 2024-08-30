@@ -4,7 +4,7 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
 use crate::glm;
 use crate::rendering::batch_renderer::BatchRenderer;
-use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
+use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap};
 use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::sprite_renderer::SpriteRenderer;
@@ -16,7 +16,6 @@ use RendererType::*;
 /// responsible for the automated rendering of all entities
 pub struct RenderingSystem {
     current_mode: EngineMode,
-    texture_map: TextureMap,
     shadow_map: ShadowMap,
     renderers: Vec<RendererType>,
     perspective_camera: PerspectiveCamera,
@@ -35,7 +34,6 @@ impl RenderingSystem {
 
         Self {
             current_mode: EngineMode::Running,
-            texture_map: TextureMap::new(),
             shadow_map: ShadowMap::new(2048, 2048, glm::Vec3::new(1.0, 10.0, 1.0)),
             renderers: Vec::new(),
             perspective_camera: PerspectiveCamera::new(cam_pos, cam_focus),
@@ -56,18 +54,20 @@ impl RenderingSystem {
             }
         }
         for (position, renderable) in entity_manager.query2::<Position, Renderable>() {
-            let mesh = entity_manager.asset_from_type(renderable.mesh_type);
+            let mesh = entity_manager
+                .asset_from_type(renderable.mesh_type)
+                .unwrap();
 
             let mut found = false;
             for r_type in self.renderers.iter_mut() {
                 if let Batch(m_type, renderer) = r_type {
                     if *m_type == renderable.mesh_type {
                         match renderable.mesh_attribute {
-                            Textured(id) => {
+                            Textured(path) => {
                                 renderer.draw_tex_mesh(
                                     position.data_clone(),
                                     renderable.scale.0,
-                                    id,
+                                    entity_manager.texture_map.get_tex_id(path).unwrap(),
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
                                 );
@@ -90,8 +90,10 @@ impl RenderingSystem {
                 } else if let Instance(m_type, m_attr, renderer) = r_type {
                     if *m_type == renderable.mesh_type && *m_attr == renderable.mesh_attribute {
                         match renderable.mesh_attribute {
-                            Textured(id) => {
-                                if id == renderer.tex_id {
+                            Textured(path) => {
+                                if entity_manager.texture_map.get_tex_id(path).unwrap()
+                                    == renderer.tex_id
+                                {
                                     renderer.add_position(position.data_clone());
                                     found = true;
                                     break;
@@ -118,8 +120,9 @@ impl RenderingSystem {
                     MeshType::Sphere => {
                         let mut renderer = InstanceRenderer::new(mesh, 10);
                         match renderable.mesh_attribute {
-                            Textured(tex_id) => {
-                                renderer.tex_id = tex_id;
+                            Textured(path) => {
+                                renderer.tex_id =
+                                    entity_manager.texture_map.get_tex_id(path).unwrap();
                             }
                             Colored(color) => {
                                 renderer.color = color;

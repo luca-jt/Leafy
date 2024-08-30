@@ -1,5 +1,6 @@
 use crate::rendering::batch_renderer::BatchRenderer;
-use crate::rendering::mesh::SharedMesh;
+use crate::rendering::mesh::Mesh;
+use crate::utils::tools::shared_ptr;
 
 pub(crate) struct FontRenderer {
     batch_renderer: BatchRenderer,
@@ -8,7 +9,7 @@ pub(crate) struct FontRenderer {
 impl FontRenderer {
     pub(crate) fn new() -> Self {
         Self {
-            batch_renderer: BatchRenderer::new(SharedMesh::from_file("plane.obj"), 100),
+            batch_renderer: BatchRenderer::new(shared_ptr(Mesh::new("plane.obj")), 100),
         }
     }
 

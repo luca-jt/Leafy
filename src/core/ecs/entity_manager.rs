@@ -8,9 +8,10 @@ use crate::ecs::query::{
     ExcludeFilter, IncludeFilter, Query1, Query1Mut, Query2, Query2Mut, Query3, Query3Mut, Query4,
     Query4Mut, Query5, Query5Mut,
 };
-use crate::rendering::mesh::{Mesh, SharedMesh};
+use crate::rendering::data::TextureMap;
+use crate::rendering::mesh::Mesh;
+use crate::utils::tools::{shared_ptr, SharedPtr};
 use crate::{exclude_filter, include_filter};
-use fyrox_resource::core::num_traits::Zero;
 use std::any::{Any, TypeId};
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
@@ -28,7 +29,8 @@ pub(crate) use components;
 /// the main ressource manager holding both the ECS and the asset data
 pub struct EntityManager {
     ecs: ECS,
-    asset_register: HashMap<MeshType, SharedMesh>,
+    asset_register: HashMap<MeshType, SharedPtr<Mesh>>,
+    pub(crate) texture_map: TextureMap,
 }
 
 impl EntityManager {
@@ -37,6 +39,7 @@ impl EntityManager {
         Self {
             ecs: ECS::new(),
             asset_register: HashMap::new(),
+            texture_map: TextureMap::new(),
         }
     }
 
@@ -44,10 +47,12 @@ impl EntityManager {
     pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
         if components.contains_component::<Renderable>() {
             // following unwrap is safe because of contains check
-            let mesh_type = components.component_data::<Renderable>().unwrap().mesh_type;
-            self.try_add_mesh(mesh_type);
+            let component = components.component_data::<Renderable>().unwrap();
+            self.try_add_mesh(component.mesh_type);
+            if let MeshAttribute::Textured(file) = &component.mesh_attribute {
+                self.texture_map.add_texture(file);
+            }
         }
-
         self.ecs.create_entity(components)
     }
 
@@ -94,11 +99,23 @@ impl EntityManager {
     /// deletes an entity from the register by id and returns the removed entity
     pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), ()> {
         if let Some(renderable) = self.ecs.get_component::<Renderable>(entity) {
-            if !self
+            if self
                 .query1::<Renderable>()
-                .any(|component| renderable.mesh_type == component.mesh_type)
+                .filter(|component| renderable.mesh_type == component.mesh_type)
+                .count()
+                == 1
             {
                 self.asset_register.remove(&renderable.mesh_type);
+            }
+            if let MeshAttribute::Textured(path) = &renderable.mesh_attribute {
+                if self
+                    .query1::<Renderable>()
+                    .filter(|component| renderable.mesh_attribute == component.mesh_attribute)
+                    .count()
+                    == 1
+                {
+                    self.texture_map.delete_texture(path);
+                }
             }
         }
         self.ecs.delete_entity(entity)
@@ -137,6 +154,14 @@ impl EntityManager {
                     .any(|component| renderable.mesh_type == component.mesh_type)
                 {
                     self.asset_register.remove(&renderable.mesh_type);
+                }
+                if let MeshAttribute::Textured(path) = &renderable.mesh_attribute {
+                    if !self
+                        .query1::<Renderable>()
+                        .any(|component| renderable.mesh_attribute == component.mesh_attribute)
+                    {
+                        self.texture_map.delete_texture(path);
+                    }
                 }
             }
         }
@@ -295,22 +320,14 @@ impl EntityManager {
     }
 
     /// makes mesh data available for a given entity id
-    pub fn asset_from_id(&self, entity: EntityID) -> Option<SharedMesh> {
+    pub fn asset_from_id(&self, entity: EntityID) -> Option<SharedPtr<Mesh>> {
         let mesh_type = self.ecs.get_component::<MeshType>(entity)?;
-        Some(
-            self.asset_register
-                .get(mesh_type)
-                .expect("asset not in the register")
-                .clone(),
-        )
+        Some(self.asset_register.get(mesh_type)?.clone())
     }
 
     /// makes mesh data available for a given mesh type
-    pub fn asset_from_type(&self, mesh_type: MeshType) -> SharedMesh {
-        self.asset_register
-            .get(&mesh_type)
-            .expect("asset not in the register")
-            .clone()
+    pub fn asset_from_type(&self, mesh_type: MeshType) -> Option<SharedPtr<Mesh>> {
+        Some(self.asset_register.get(&mesh_type)?.clone())
     }
 
     /// iterate over all of the stored entities
@@ -326,8 +343,7 @@ impl EntityManager {
                 MeshType::Cube => Mesh::new("cube.obj"),
                 MeshType::Plane => Mesh::new("plane.obj"),
             };
-            self.asset_register
-                .insert(mesh_type, SharedMesh::from_mesh(mesh));
+            self.asset_register.insert(mesh_type, shared_ptr(mesh));
         }
     }
 }
@@ -364,10 +380,10 @@ impl ECS {
         let archetype = self.archetypes.get_mut(&archetype_id).unwrap();
         let row = archetype.components.values().nth(0).unwrap().len();
 
-        for component in components {
+        for (i, component) in components.into_iter().enumerate() {
             archetype
                 .components
-                .get_mut(&(*component).type_id())
+                .get_mut(&entity_type[i])
                 .unwrap()
                 .push(component);
         }
@@ -385,14 +401,7 @@ impl ECS {
         for column in archetype.components.values_mut() {
             column.remove(record.row);
         }
-        if archetype
-            .components
-            .values()
-            .nth(0)
-            .unwrap()
-            .len()
-            .is_zero()
-        {
+        if archetype.components.values().nth(0).unwrap().len() == 0 {
             self.archetypes.remove(&record.archetype_id);
             self.type_to_archetype
                 .retain(|_, arch_id| *arch_id != record.archetype_id);

@@ -1,8 +1,9 @@
 use super::data::{PerspectiveCamera, ShadowMap};
-use super::mesh::SharedMesh;
 use super::shader::ShaderProgram;
 use crate::ecs::component::Color32;
 use crate::glm;
+use crate::rendering::mesh::Mesh;
+use crate::utils::tools::SharedPtr;
 use gl::types::*;
 use std::{mem, ptr};
 
@@ -17,7 +18,7 @@ pub(crate) struct InstanceRenderer {
     white_texture: GLuint,
     index_count: GLsizei,
     program: ShaderProgram,
-    shared_mesh: SharedMesh,
+    shared_mesh: SharedPtr<Mesh>,
     positions: Vec<glm::Vec3>,
     pos_idx: usize,
     pub(crate) color: Color32,
@@ -27,7 +28,7 @@ pub(crate) struct InstanceRenderer {
 
 impl InstanceRenderer {
     /// creates a new instance renderer
-    pub(crate) fn new(shared_mesh: SharedMesh, num_instances: usize) -> Self {
+    pub(crate) fn new(shared_mesh: SharedPtr<Mesh>, num_instances: usize) -> Self {
         let mesh = shared_mesh.clone();
         let mesh = mesh.borrow();
 

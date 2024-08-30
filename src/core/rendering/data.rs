@@ -71,21 +71,21 @@ impl TextureMap {
     }
 
     /// adds a texture from file
-    pub(crate) fn add_texture(&mut self, name: &str, file: &str) {
-        self.textures.insert(name.to_string(), load_texture(file));
+    pub(crate) fn add_texture(&mut self, file: &str) {
+        self.textures.insert(file.to_string(), load_texture(file));
     }
 
     /// deletes a stored texture
-    pub(crate) fn delete_texture(&mut self, name: &str) {
-        let deleted = self.textures.remove(name).expect("texture not stored");
+    pub(crate) fn delete_texture(&mut self, file: &str) {
+        let deleted = self.textures.remove(file).expect("texture not stored");
         unsafe {
             gl::DeleteTextures(1, &deleted);
         }
     }
 
     /// yields a texture id for given name
-    pub(crate) fn get_tex_id(&self, name: &str) -> Option<GLuint> {
-        self.textures.get(name).copied()
+    pub(crate) fn get_tex_id(&self, file: &str) -> Option<GLuint> {
+        self.textures.get(file).copied()
     }
 }
 

@@ -25,7 +25,7 @@ impl EventSystem {
         listeners.push(Box::new(weak_ptr(handler) as WeakPtr<dyn EventObserver<T>>));
     }
 
-    /// trigger an event
+    /// trigger an event and call all relevant functions of listeners
     pub fn trigger<T: Any>(&self, event: T) {
         if let Some(handlers) = self.listeners.get(&TypeId::of::<T>()) {
             for handler in handlers {

@@ -1,9 +1,10 @@
 use super::data::{PerspectiveCamera, ShadowMap, Vertex};
-use super::mesh::SharedMesh;
 use super::shader::ShaderProgram;
 use crate::ecs::component::Color32;
 use crate::glm;
+use crate::rendering::mesh::Mesh;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
+use crate::utils::tools::SharedPtr;
 use gl::types::*;
 use std::{mem, ptr};
 
@@ -19,14 +20,14 @@ pub(crate) struct BatchRenderer {
     tex_slots: Vec<GLuint>,
     tex_slot_index: GLuint,
     program: ShaderProgram,
-    shared_mesh: SharedMesh,
+    shared_mesh: SharedPtr<Mesh>,
     max_num_meshes: usize,
     samplers: [i32; MAX_TEXTURE_COUNT - 1],
 }
 
 impl BatchRenderer {
     /// creates a new batch renderer
-    pub(crate) fn new(shared_mesh: SharedMesh, max_num_meshes: usize) -> Self {
+    pub(crate) fn new(shared_mesh: SharedPtr<Mesh>, max_num_meshes: usize) -> Self {
         let mesh = shared_mesh.clone();
         let mesh = mesh.borrow();
         // init the data ids

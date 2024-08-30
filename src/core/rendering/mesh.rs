@@ -1,10 +1,8 @@
 use crate::glm;
 use gl::types::*;
 use obj::{load_obj, Obj, TexturedVertex};
-use std::cell::{Ref, RefCell};
 use std::fs::File;
 use std::io::BufReader;
-use std::rc::Rc;
 
 use super::data::Vertex;
 use crate::utils::file::get_model_path;
@@ -81,26 +79,5 @@ impl Mesh {
                 tex_index: 0.0,
             })
             .collect()
-    }
-}
-
-/// reference counted mesh
-#[derive(Clone)]
-pub struct SharedMesh(Rc<RefCell<Mesh>>);
-
-impl SharedMesh {
-    /// creates a new shared mesh from file
-    pub(crate) fn from_file(file_name: &str) -> Self {
-        Self(Rc::new(RefCell::new(Mesh::new(file_name))))
-    }
-
-    /// creates a new shared mesh from existing mesh
-    pub(crate) fn from_mesh(mesh: Mesh) -> Self {
-        Self(Rc::new(RefCell::new(mesh)))
-    }
-
-    /// borrows the stored value immutably
-    pub fn borrow(&self) -> Ref<'_, Mesh> {
-        self.0.borrow()
     }
 }

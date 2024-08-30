@@ -1,6 +1,5 @@
 use crate::glm;
 use crate::systems::audio_system::SoundHandleID;
-use gl::types::GLuint;
 use std::time::Instant;
 use MeshAttribute::*;
 
@@ -247,18 +246,10 @@ pub enum MeshType {
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub enum MeshAttribute {
     Colored(Color32),
-    Textured(GLuint),
+    Textured(&'static str),
 }
 
 impl MeshAttribute {
-    /// returns the texture id if present
-    pub fn tex_id(&self) -> Option<GLuint> {
-        match self {
-            Textured(id) => Some(*id),
-            Colored(_) => None,
-        }
-    }
-
     /// returns the color if present
     pub fn color(&self) -> Option<Color32> {
         match self {
