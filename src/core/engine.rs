@@ -70,6 +70,7 @@ impl Engine {
         self.audio_system
             .borrow_mut()
             .update(self.app.as_mut().unwrap().entity_manager().deref());
+
         self.animation_system
             .apply_physics(self.app.as_mut().unwrap().entity_manager().deref_mut());
 

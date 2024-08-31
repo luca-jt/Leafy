@@ -19,7 +19,6 @@ pub(crate) struct BatchRenderer {
     obj_buffer_ptr: usize,
     tex_slots: Vec<GLuint>,
     tex_slot_index: GLuint,
-    program: ShaderProgram,
     shared_mesh: SharedPtr<Mesh>,
     max_num_meshes: usize,
     samplers: [i32; MAX_TEXTURE_COUNT - 1],
@@ -27,7 +26,11 @@ pub(crate) struct BatchRenderer {
 
 impl BatchRenderer {
     /// creates a new batch renderer
-    pub(crate) fn new(shared_mesh: SharedPtr<Mesh>, max_num_meshes: usize) -> Self {
+    pub(crate) fn new(
+        shared_mesh: SharedPtr<Mesh>,
+        max_num_meshes: usize,
+        program: &ShaderProgram,
+    ) -> Self {
         let mesh = shared_mesh.clone();
         let mesh = mesh.borrow();
         // init the data ids
@@ -35,26 +38,10 @@ impl BatchRenderer {
         let mut vao = 0;
         let mut vbo = 0;
         let mut ibo = 0;
-        let mut program = ShaderProgram::new("batch_vs.glsl", "batch_fs.glsl");
         let mut white_texture = 0;
         let mut tex_slots: Vec<GLuint> = vec![0; MAX_TEXTURE_COUNT - 1];
 
         unsafe {
-            // CREATE SHADER
-            program.add_unif_location("projection");
-            program.add_unif_location("view");
-            program.add_unif_location("model");
-            program.add_unif_location("tex_sampler");
-            program.add_unif_location("shadow_map");
-            program.add_unif_location("light_pos");
-            program.add_unif_location("light_matrix");
-
-            program.add_attr_location("position");
-            program.add_attr_location("color");
-            program.add_attr_location("uv");
-            program.add_attr_location("normal");
-            program.add_attr_location("tex_idx");
-
             // GENERATE BUFFERS
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
@@ -164,7 +151,6 @@ impl BatchRenderer {
             obj_buffer_ptr: 0,
             tex_slots,
             tex_slot_index: 1,
-            program,
             white_texture,
             shared_mesh,
             max_num_meshes,
@@ -209,10 +195,15 @@ impl BatchRenderer {
     }
 
     /// send data to GPU and reset
-    pub(crate) fn flush(&mut self, camera: &PerspectiveCamera, shadow_map: &ShadowMap) {
+    pub(crate) fn flush(
+        &mut self,
+        camera: &PerspectiveCamera,
+        shadow_map: &ShadowMap,
+        program: &ShaderProgram,
+    ) {
         unsafe {
             // bind shader, textures, uniforms
-            gl::UseProgram(self.program.id);
+            gl::UseProgram(program.id);
             // bind textures
             shadow_map.bind_reading(0);
             for i in 1..self.tex_slot_index {
@@ -220,32 +211,23 @@ impl BatchRenderer {
             }
             // bind uniforms
             gl::UniformMatrix4fv(
-                self.program.get_unif("projection"),
+                program.get_unif("projection"),
                 1,
                 gl::FALSE,
                 &camera.projection[0],
             );
-            gl::UniformMatrix4fv(self.program.get_unif("view"), 1, gl::FALSE, &camera.view[0]);
+            gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view[0]);
+            gl::UniformMatrix4fv(program.get_unif("model"), 1, gl::FALSE, &camera.model[0]);
             gl::UniformMatrix4fv(
-                self.program.get_unif("model"),
-                1,
-                gl::FALSE,
-                &camera.model[0],
-            );
-            gl::UniformMatrix4fv(
-                self.program.get_unif("light_matrix"),
+                program.get_unif("light_matrix"),
                 1,
                 gl::FALSE,
                 &shadow_map.light_matrix[0],
             );
-            gl::Uniform3fv(
-                self.program.get_unif("light_pos"),
-                1,
-                &shadow_map.light_src[0],
-            );
-            gl::Uniform1i(self.program.get_unif("shadow_map"), 0);
+            gl::Uniform3fv(program.get_unif("light_pos"), 1, &shadow_map.light_src[0]);
+            gl::Uniform1i(program.get_unif("shadow_map"), 0);
             gl::Uniform1iv(
-                self.program.get_unif("tex_sampler"),
+                program.get_unif("tex_sampler"),
                 MAX_TEXTURE_COUNT as GLsizei - 1,
                 &self.samplers[0],
             );
@@ -272,6 +254,7 @@ impl BatchRenderer {
         tex_id: GLuint,
         camera: &PerspectiveCamera,
         shadow_map: &mut ShadowMap,
+        program: &ShaderProgram,
     ) {
         let mesh = self.shared_mesh.clone();
         let mesh = mesh.borrow();
@@ -285,7 +268,7 @@ impl BatchRenderer {
             shadow_map.try_clear_depth();
             self.render_shadows();
             shadow_map.unbind_writing();
-            self.flush(camera, shadow_map);
+            self.flush(camera, shadow_map, program);
             self.begin_batch();
         }
 
@@ -328,6 +311,7 @@ impl BatchRenderer {
         color: Color32,
         camera: &PerspectiveCamera,
         shadow_map: &mut ShadowMap,
+        program: &ShaderProgram,
     ) {
         let mesh = self.shared_mesh.clone();
         let mesh = mesh.borrow();
@@ -339,7 +323,7 @@ impl BatchRenderer {
             shadow_map.try_clear_depth();
             self.render_shadows();
             shadow_map.unbind_writing();
-            self.flush(camera, shadow_map);
+            self.flush(camera, shadow_map, program);
             self.begin_batch();
         }
 

@@ -17,7 +17,6 @@ pub(crate) struct InstanceRenderer {
     ibo: GLuint,
     white_texture: GLuint,
     index_count: GLsizei,
-    program: ShaderProgram,
     shared_mesh: SharedPtr<Mesh>,
     positions: Vec<glm::Vec3>,
     pos_idx: usize,
@@ -28,7 +27,11 @@ pub(crate) struct InstanceRenderer {
 
 impl InstanceRenderer {
     /// creates a new instance renderer
-    pub(crate) fn new(shared_mesh: SharedPtr<Mesh>, num_instances: usize) -> Self {
+    pub(crate) fn new(
+        shared_mesh: SharedPtr<Mesh>,
+        num_instances: usize,
+        program: &ShaderProgram,
+    ) -> Self {
         let mesh = shared_mesh.clone();
         let mesh = mesh.borrow();
 
@@ -38,26 +41,10 @@ impl InstanceRenderer {
         let mut nbo = 0; // normals
         let mut obo = 0; // offsets
         let mut ibo = 0; // indeces
-        let mut program = ShaderProgram::new("instance_vs.glsl", "instance_fs.glsl");
         let mut white_texture = 0;
         let positions = vec![glm::Vec3::zeros(); num_instances];
 
         unsafe {
-            // CREATE SHADER
-            program.add_unif_location("projection");
-            program.add_unif_location("view");
-            program.add_unif_location("model");
-            program.add_unif_location("tex_sampler");
-            program.add_unif_location("shadow_map");
-            program.add_unif_location("light_pos");
-            program.add_unif_location("color");
-            program.add_unif_location("light_matrix");
-
-            program.add_attr_location("position");
-            program.add_attr_location("uv");
-            program.add_attr_location("normal");
-            program.add_attr_location("offset");
-
             // GENERATE BUFFERS
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
@@ -177,7 +164,6 @@ impl InstanceRenderer {
             ibo,
             white_texture,
             index_count: 0,
-            program,
             shared_mesh,
             positions,
             pos_idx: 0,
@@ -245,41 +231,37 @@ impl InstanceRenderer {
     }
 
     /// draws the mesh at all the positions specified until the call of this and clears the positions
-    pub(crate) fn draw_all(&mut self, camera: &PerspectiveCamera, shadow_map: &ShadowMap) {
+    pub(crate) fn draw_all(
+        &mut self,
+        camera: &PerspectiveCamera,
+        shadow_map: &ShadowMap,
+        program: &ShaderProgram,
+    ) {
         unsafe {
             // bind shader, textures, uniforms
-            gl::UseProgram(self.program.id);
+            gl::UseProgram(program.id);
             // bind texture
             gl::BindTextureUnit(0, self.tex_id);
             shadow_map.bind_reading(1);
             // bind uniforms
             gl::UniformMatrix4fv(
-                self.program.get_unif("projection"),
+                program.get_unif("projection"),
                 1,
                 gl::FALSE,
                 &camera.projection[0],
             );
-            gl::UniformMatrix4fv(self.program.get_unif("view"), 1, gl::FALSE, &camera.view[0]);
+            gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view[0]);
+            gl::UniformMatrix4fv(program.get_unif("model"), 1, gl::FALSE, &camera.model[0]);
             gl::UniformMatrix4fv(
-                self.program.get_unif("model"),
-                1,
-                gl::FALSE,
-                &camera.model[0],
-            );
-            gl::UniformMatrix4fv(
-                self.program.get_unif("light_matrix"),
+                program.get_unif("light_matrix"),
                 1,
                 gl::FALSE,
                 &shadow_map.light_matrix[0],
             );
-            gl::Uniform3fv(
-                self.program.get_unif("light_pos"),
-                1,
-                &shadow_map.light_src[0],
-            );
-            gl::Uniform1i(self.program.get_unif("tex_sampler"), 0);
-            gl::Uniform1i(self.program.get_unif("shadow_map"), 1);
-            gl::Uniform3fv(self.program.get_unif("color"), 1, &self.color.to_vec4()[0]);
+            gl::Uniform3fv(program.get_unif("light_pos"), 1, &shadow_map.light_src[0]);
+            gl::Uniform1i(program.get_unif("tex_sampler"), 0);
+            gl::Uniform1i(program.get_unif("shadow_map"), 1);
+            gl::Uniform3fv(program.get_unif("color"), 1, &self.color.to_vec4()[0]);
 
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);

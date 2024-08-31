@@ -40,17 +40,21 @@ impl ShaderProgram {
     }
 
     /// sets an uniform location
-    pub(crate) unsafe fn add_unif_location(&mut self, name: &str) {
+    pub(crate) fn add_unif_location(&mut self, name: &str) {
         let c_name = CString::new(name).unwrap();
-        let unif = gl::GetUniformLocation(self.id, c_name.as_ptr());
-        self.uniform_locations.insert(name.to_string(), unif);
+        unsafe {
+            let unif = gl::GetUniformLocation(self.id, c_name.as_ptr());
+            self.uniform_locations.insert(name.to_string(), unif);
+        }
     }
 
     /// sets an attrib location
-    pub(crate) unsafe fn add_attr_location(&mut self, name: &str) {
+    pub(crate) fn add_attr_location(&mut self, name: &str) {
         let c_name = CString::new(name).unwrap();
-        let attr = gl::GetAttribLocation(self.id, c_name.as_ptr());
-        self.attrib_locations.insert(name.to_string(), attr);
+        unsafe {
+            let attr = gl::GetAttribLocation(self.id, c_name.as_ptr());
+            self.attrib_locations.insert(name.to_string(), attr);
+        }
     }
 
     /// gets an uniform location
@@ -147,5 +151,79 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
             );
         }
         program
+    }
+}
+
+/// holds all the shader data and loads them if needed
+pub struct ShaderCatalog {
+    batch_basic: Option<ShaderProgram>,
+    instance_basic: Option<ShaderProgram>,
+}
+
+impl ShaderCatalog {
+    /// creates a new shader catalog
+    pub fn new() -> Self {
+        Self {
+            batch_basic: None,
+            instance_basic: None,
+        }
+    }
+
+    /// returns a reference to the basic shader for the batch renderer
+    pub fn batch_basic(&mut self) -> &ShaderProgram {
+        if self.batch_basic.is_none() {
+            self.create_batch_basic();
+        }
+        self.batch_basic.as_ref().unwrap()
+    }
+
+    /// returns a reference to the basic shader for the instance renderer
+    pub fn instance_basic(&mut self) -> &ShaderProgram {
+        if self.instance_basic.is_none() {
+            self.create_instance_basic();
+        }
+        self.instance_basic.as_ref().unwrap()
+    }
+
+    /// creates a new basic batch renderer shader
+    fn create_batch_basic(&mut self) {
+        let mut program = ShaderProgram::new("batch_vs.glsl", "batch_fs.glsl");
+
+        program.add_unif_location("projection");
+        program.add_unif_location("view");
+        program.add_unif_location("model");
+        program.add_unif_location("tex_sampler");
+        program.add_unif_location("shadow_map");
+        program.add_unif_location("light_pos");
+        program.add_unif_location("light_matrix");
+
+        program.add_attr_location("position");
+        program.add_attr_location("color");
+        program.add_attr_location("uv");
+        program.add_attr_location("normal");
+        program.add_attr_location("tex_idx");
+
+        self.batch_basic = Some(program);
+    }
+
+    /// creates a new basic instance renderer shader
+    fn create_instance_basic(&mut self) {
+        let mut program = ShaderProgram::new("instance_vs.glsl", "instance_fs.glsl");
+
+        program.add_unif_location("projection");
+        program.add_unif_location("view");
+        program.add_unif_location("model");
+        program.add_unif_location("tex_sampler");
+        program.add_unif_location("shadow_map");
+        program.add_unif_location("light_pos");
+        program.add_unif_location("color");
+        program.add_unif_location("light_matrix");
+
+        program.add_attr_location("position");
+        program.add_attr_location("uv");
+        program.add_attr_location("normal");
+        program.add_attr_location("offset");
+
+        self.instance_basic = Some(program);
     }
 }

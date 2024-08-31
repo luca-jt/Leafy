@@ -7,6 +7,7 @@ use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap};
 use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
+use crate::rendering::shader::ShaderCatalog;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
 use crate::systems::event_system::events::{CamPositionChange, EngineModeChange};
@@ -20,6 +21,7 @@ pub struct RenderingSystem {
     renderers: Vec<RendererType>,
     perspective_camera: PerspectiveCamera,
     ortho_camera: OrthoCamera,
+    shader_catalog: ShaderCatalog,
 }
 
 impl RenderingSystem {
@@ -31,6 +33,7 @@ impl RenderingSystem {
             gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::SCISSOR_TEST);
         }
+        let mut shader_catalog = ShaderCatalog::new();
 
         Self {
             current_mode: EngineMode::Running,
@@ -38,6 +41,7 @@ impl RenderingSystem {
             renderers: Vec::new(),
             perspective_camera: PerspectiveCamera::new(cam_pos, cam_focus),
             ortho_camera: OrthoCamera::from_size(1.0),
+            shader_catalog,
         }
     }
 
@@ -70,6 +74,7 @@ impl RenderingSystem {
                                     entity_manager.texture_map.get_tex_id(path).unwrap(),
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
+                                    self.shader_catalog.batch_basic(),
                                 );
                                 found = true;
                                 break;
@@ -81,6 +86,7 @@ impl RenderingSystem {
                                     color,
                                     &self.perspective_camera,
                                     &mut self.shadow_map,
+                                    self.shader_catalog.batch_basic(),
                                 );
                                 found = true;
                                 break;
@@ -114,11 +120,14 @@ impl RenderingSystem {
             if !found {
                 match renderable.mesh_type {
                     MeshType::Plane | MeshType::Cube => {
-                        self.renderers
-                            .push(Batch(renderable.mesh_type, BatchRenderer::new(mesh, 10)));
+                        self.renderers.push(Batch(
+                            renderable.mesh_type,
+                            BatchRenderer::new(mesh, 10, self.shader_catalog.batch_basic()),
+                        ));
                     }
                     MeshType::Sphere => {
-                        let mut renderer = InstanceRenderer::new(mesh, 10);
+                        let mut renderer =
+                            InstanceRenderer::new(mesh, 10, self.shader_catalog.instance_basic());
                         match renderable.mesh_attribute {
                             Textured(path) => {
                                 renderer.tex_id =
@@ -161,10 +170,18 @@ impl RenderingSystem {
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
                 Batch(_, renderer) => {
-                    renderer.flush(&self.perspective_camera, &self.shadow_map);
+                    renderer.flush(
+                        &self.perspective_camera,
+                        &self.shadow_map,
+                        self.shader_catalog.batch_basic(),
+                    );
                 }
                 Instance(_, _, renderer) => {
-                    renderer.draw_all(&self.perspective_camera, &self.shadow_map);
+                    renderer.draw_all(
+                        &self.perspective_camera,
+                        &self.shadow_map,
+                        self.shader_catalog.instance_basic(),
+                    );
                 }
                 Font(renderer) => renderer.end(),
                 Sprite(renderer) => renderer.end(),
