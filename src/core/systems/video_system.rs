@@ -18,7 +18,7 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SwapInterval, WindowSurface};
 
 use glutin_winit::{DisplayBuilder, GlWindow};
-use winit::dpi::{LogicalPosition, PhysicalSize};
+use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::platform::windows::IconExtWindows;
 
 use crate::systems::event_system::events::{FPSCapToggle, KeyPress, WindowResize};
@@ -45,10 +45,8 @@ impl VideoSystem {
         let window_attributes = Window::default_attributes()
             .with_transparent(true)
             .with_title(WIN_TITLE)
-            .with_inner_size(PhysicalSize::new(MIN_WIN_WIDTH, MIN_WIN_HEIGHT))
-            .with_min_inner_size(PhysicalSize::new(MIN_WIN_WIDTH, MIN_WIN_HEIGHT))
-            .with_position(LogicalPosition::new(0.0, 0.0))
-            .with_resizable(true)
+            .with_inner_size(LogicalSize::new(MIN_WIN_WIDTH, MIN_WIN_HEIGHT))
+            .with_min_inner_size(LogicalSize::new(MIN_WIN_WIDTH, MIN_WIN_HEIGHT))
             .with_window_icon(Some(
                 Icon::from_path(get_image_path("icon.ico"), None).unwrap(),
             ));
@@ -151,7 +149,6 @@ impl VideoSystem {
             let symbol = CString::new(symbol).unwrap();
             gl_display.get_proc_address(symbol.as_c_str()).cast()
         });
-
         log_gl_config();
 
         // refresh the video state
@@ -255,14 +252,7 @@ impl EventObserver<KeyPress> for VideoSystem {
                 if window.fullscreen().is_some() {
                     window.set_fullscreen(None);
                 } else {
-                    window.set_fullscreen(Some(Fullscreen::Exclusive(
-                        window
-                            .current_monitor()
-                            .unwrap()
-                            .video_modes()
-                            .next()
-                            .unwrap(),
-                    )));
+                    window.set_fullscreen(Some(Fullscreen::Borderless(window.current_monitor())));
                 }
             }
         }
@@ -274,12 +264,12 @@ impl EventObserver<WindowResize> for VideoSystem {
         // Some platforms like EGL require resizing GL surface to update the size.
         // Notable platforms here are Wayland and macOS, others don't require it.
         // It's wise to resize it for portability reasons.
-        if let (Some(gl_surface), Some(gl_context), Some(window)) = (
+        if let (Some(gl_surface), Some(gl_context), Some(_window)) = (
             self.gl_surface.as_ref(),
             self.gl_context.as_ref(),
             self.window.as_ref(),
         ) {
-            let corrected_height = (event.width as f32 * INV_WIN_RATIO) as u32;
+            /*let corrected_height = (event.width as f32 * INV_WIN_RATIO) as u32;
             let final_size: (u32, u32);
 
             if corrected_height != event.height {
@@ -292,14 +282,14 @@ impl EventObserver<WindowResize> for VideoSystem {
                 }
             } else {
                 final_size = (event.width, event.height);
-            }
+            }*/
             gl_surface.resize(
                 gl_context,
-                NonZeroU32::new(final_size.0).unwrap(),
-                NonZeroU32::new(final_size.1).unwrap(),
+                NonZeroU32::new(event.width).unwrap(),
+                NonZeroU32::new(event.height).unwrap(),
             );
             unsafe {
-                gl::Viewport(0, 0, final_size.0 as GLsizei, final_size.1 as GLsizei);
+                gl::Viewport(0, 0, event.width as GLsizei, event.height as GLsizei);
             }
         }
     }

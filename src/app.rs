@@ -6,8 +6,8 @@ use fl_core::ecs::entity::EntityID;
 use fl_core::ecs::entity_manager::EntityManager;
 use fl_core::engine::{Engine, FallingLeafApp};
 use fl_core::glm;
-use fl_core::systems::audio_system::AudioSystem;
-use fl_core::systems::event_system::events::KeyPress;
+use fl_core::systems::audio_system::{AudioSystem, VolumeKind};
+use fl_core::systems::event_system::events::*;
 use fl_core::systems::event_system::{EventObserver, EventSystem};
 use fl_core::utils::tools::{shared_ptr, SharedPtr};
 use fl_core::winit::keyboard::KeyCode;
@@ -36,7 +36,12 @@ impl FallingLeafApp for App {
         engine
             .audio_system
             .borrow_mut()
-            .play_background_music("helicopter.wav");
+            .play_background_music("drop.wav");
+
+        engine.event_system.trigger(AudioVolumeChanged {
+            kind: VolumeKind::Master,
+            new_volume: 0.1,
+        });
 
         let sound = engine.audio_system.borrow_mut().new_sound_controller();
         engine.audio_system.borrow().enable_hrtf();
@@ -45,7 +50,7 @@ impl FallingLeafApp for App {
         engine
             .audio_system
             .borrow_mut()
-            .play_sfx_at("drop.wav", true, &sound, &position);
+            .play_sfx_at("helicopter.wav", true, &sound, &position);
 
         let cube = self
             .game_state

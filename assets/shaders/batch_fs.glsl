@@ -1,6 +1,6 @@
 #version 450 core
 
-in vec3 v_color;
+in vec4 v_color;
 in vec2 v_uv;
 in vec3 v_normal;
 in float v_tex_idx;
