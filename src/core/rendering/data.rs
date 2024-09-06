@@ -32,7 +32,7 @@ pub fn load_texture(file_name: &str) -> GLuint {
             texture.width as GLint,
             texture.height as GLint,
             0,
-            gl::RGBA,
+            gl::RGBA8,
             gl::UNSIGNED_BYTE,
             texture.data.as_ptr() as *const GLvoid,
         );

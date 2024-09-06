@@ -139,7 +139,7 @@ impl InstanceRenderer {
             // 1x1 WHITE TEXTURE
             gl::GenTextures(1, &mut white_texture);
             gl::BindTexture(gl::TEXTURE_2D, white_texture);
-            let white_color_data: Vec<u8> = vec![255, 255, 255];
+            let white_color_data: Vec<u8> = vec![255, 255, 255, 255];
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
@@ -147,7 +147,7 @@ impl InstanceRenderer {
                 1,
                 1,
                 0,
-                gl::RGBA,
+                gl::RGBA8,
                 gl::UNSIGNED_BYTE,
                 white_color_data.as_ptr() as *const GLvoid,
             );

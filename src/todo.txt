@@ -10,7 +10,6 @@ particle system
 sprite renderer
 collision detection
 physics (+ friction)
-shader definition outside of the renderers
 multiple light sources for the rendering system
 set model matrix for every entity (rotation, scaling) -> renderer rewrite (also change render behavior based on engine mode)
 query filter that return an optional ref
