@@ -320,4 +320,10 @@ pub mod events {
     /// toggles the fps cap functionality
     #[derive(Debug, Clone, PartialEq)]
     pub struct FPSCapToggle;
+
+    /// changes the engines fps cap that is used if fps capping is enabled
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct FPSCapChanged {
+        pub new_fps: f64,
+    }
 }

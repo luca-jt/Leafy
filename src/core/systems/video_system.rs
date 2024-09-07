@@ -21,9 +21,9 @@ use glutin_winit::{DisplayBuilder, GlWindow};
 use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::platform::windows::IconExtWindows;
 
-use crate::systems::event_system::events::{FPSCapToggle, KeyPress, WindowResize};
+use crate::systems::event_system::events::{FPSCapChanged, FPSCapToggle, KeyPress, WindowResize};
 use crate::systems::event_system::EventObserver;
-use crate::utils::constants::{FPS_CAP, INV_WIN_RATIO, MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
+use crate::utils::constants::{INV_WIN_RATIO, MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
 use crate::utils::file::get_image_path;
 
 /// holds the video backend attributes
@@ -37,6 +37,7 @@ pub struct VideoSystem {
     current_fps: f64,
     frame_start_time: Instant,
     cap_fps: bool,
+    fps_cap: f64,
 }
 
 impl VideoSystem {
@@ -67,6 +68,7 @@ impl VideoSystem {
             current_fps: 0f64,
             frame_start_time: Instant::now(),
             cap_fps: true,
+            fps_cap: 300f64,
         }
     }
 
@@ -223,7 +225,7 @@ impl VideoSystem {
             return;
         }
         let elapsed_frame_time = self.frame_start_time.elapsed();
-        let max_frame_time = Duration::from_secs_f64(1.0 / FPS_CAP);
+        let max_frame_time = Duration::from_secs_f64(1.0 / self.fps_cap);
         if elapsed_frame_time < max_frame_time {
             std::thread::sleep(max_frame_time - elapsed_frame_time);
         }
@@ -302,6 +304,12 @@ impl EventObserver<WindowResize> for VideoSystem {
 impl EventObserver<FPSCapToggle> for VideoSystem {
     fn on_event(&mut self, _event: &FPSCapToggle) {
         self.cap_fps = !self.cap_fps;
+    }
+}
+
+impl EventObserver<FPSCapChanged> for VideoSystem {
+    fn on_event(&mut self, event: &FPSCapChanged) {
+        self.fps_cap = event.new_fps;
     }
 }
 

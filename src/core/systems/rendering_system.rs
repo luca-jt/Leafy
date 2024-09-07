@@ -38,7 +38,7 @@ impl RenderingSystem {
 
         Self {
             current_mode: EngineMode::Running,
-            shadow_map: ShadowMap::new(2048, 2048, glm::Vec3::new(1.0, 10.0, 1.0)),
+            shadow_map: ShadowMap::new(2048, 2048, glm::Vec3::new(1.0, 8.0, 1.0)),
             renderers: Vec::new(),
             perspective_camera: PerspectiveCamera::new(cam_pos, cam_focus),
             ortho_camera: OrthoCamera::from_size(1.0),
