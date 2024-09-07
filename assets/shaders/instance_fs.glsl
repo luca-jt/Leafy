@@ -40,5 +40,6 @@ void main() {
     float diff = max(dot(norm, light_dir), 0.0);
     float light_strength = min(1.2, ambient_light + diff * (1.0 - shadow_calc(frag_pos_light)));
 
-    out_color = texture(tex_sampler, v_uv).rgba * v_color * light_strength;
+    vec4 textured = texture(tex_sampler, v_uv).rgba * v_color;
+    out_color = vec4(textured.rgb * light_strength, textured.a);
 }

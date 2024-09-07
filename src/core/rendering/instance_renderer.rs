@@ -261,7 +261,7 @@ impl InstanceRenderer {
             gl::Uniform3fv(program.get_unif("light_pos"), 1, &shadow_map.light_src[0]);
             gl::Uniform1i(program.get_unif("tex_sampler"), 0);
             gl::Uniform1i(program.get_unif("shadow_map"), 1);
-            gl::Uniform3fv(program.get_unif("color"), 1, &self.color.to_vec4()[0]);
+            gl::Uniform4fv(program.get_unif("color"), 1, &self.color.to_vec4()[0]);
 
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);

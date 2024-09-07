@@ -269,6 +269,9 @@ impl EventObserver<WindowResize> for VideoSystem {
             self.gl_context.as_ref(),
             self.window.as_ref(),
         ) {
+            if event.width == 0 || event.height == 0 {
+                return;
+            }
             /*let corrected_height = (event.width as f32 * INV_WIN_RATIO) as u32;
             let final_size: (u32, u32);
 

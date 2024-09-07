@@ -46,7 +46,7 @@ impl FallingLeafApp for App {
         let sound = engine.audio_system.borrow_mut().new_sound_controller();
         engine.audio_system.borrow().enable_hrtf();
 
-        let position = Position::new(0.0, 0.0, 1.0);
+        let position = Position::new(0.0, 1.0, 1.0);
         engine
             .audio_system
             .borrow_mut()
