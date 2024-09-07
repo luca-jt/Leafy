@@ -293,6 +293,7 @@ impl EventObserver<WindowResize> for VideoSystem {
             );
             unsafe {
                 gl::Viewport(0, 0, event.width as GLsizei, event.height as GLsizei);
+                gl::Scissor(0, 0, event.width as GLsizei, event.height as GLsizei);
             }
         }
     }
@@ -312,7 +313,6 @@ fn log_gl_config() {
     if let Some(version) = get_gl_string(gl::VERSION) {
         println!("OpenGL Version {}", version.to_string_lossy());
     }
-
     if let Some(shaders_version) = get_gl_string(gl::SHADING_LANGUAGE_VERSION) {
         println!("Shaders version on {}", shaders_version.to_string_lossy());
     }

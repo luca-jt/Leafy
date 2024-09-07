@@ -139,7 +139,7 @@ impl BatchRenderer {
         // TEXTURE SAMPLERS
         let mut samplers: [GLint; MAX_TEXTURE_COUNT - 1] = [0; MAX_TEXTURE_COUNT - 1];
         for (i, sampler) in samplers.iter_mut().enumerate() {
-            *sampler = i as GLint;
+            *sampler = i as GLint + 1;
         }
 
         Self {
@@ -206,8 +206,8 @@ impl BatchRenderer {
             gl::UseProgram(program.id);
             // bind textures
             shadow_map.bind_reading(0);
-            for i in 1..self.tex_slot_index {
-                gl::BindTextureUnit(i, *self.tex_slots.get(i as usize).unwrap());
+            for i in 0..self.tex_slot_index {
+                gl::BindTextureUnit(i + 1, *self.tex_slots.get(i as usize).unwrap());
             }
             // bind uniforms
             gl::UniformMatrix4fv(

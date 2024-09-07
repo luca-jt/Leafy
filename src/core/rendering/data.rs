@@ -256,6 +256,7 @@ impl ShadowMap {
         unsafe {
             gl::GetIntegerv(gl::VIEWPORT, &mut self.tmp_viewport[0]);
             gl::Viewport(0, 0, self.width, self.height);
+            gl::Scissor(0, 0, self.width, self.height);
             gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.dbo);
             gl::UseProgram(self.program.id);
             gl::UniformMatrix4fv(
@@ -273,10 +274,17 @@ impl ShadowMap {
         }
     }
 
+    /// unbinds the shadow map and restores the regular viewport
     pub(crate) fn unbind_writing(&self) {
         unsafe {
             gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
             gl::Viewport(
+                self.tmp_viewport[0],
+                self.tmp_viewport[1],
+                self.tmp_viewport[2] as GLsizei,
+                self.tmp_viewport[3] as GLsizei,
+            );
+            gl::Scissor(
                 self.tmp_viewport[0],
                 self.tmp_viewport[1],
                 self.tmp_viewport[2] as GLsizei,
