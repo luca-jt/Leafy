@@ -11,6 +11,7 @@ use fl_core::systems::event_system::events::*;
 use fl_core::systems::event_system::{EventObserver, EventSystem};
 use fl_core::utils::tools::{shared_ptr, SharedPtr};
 use fl_core::winit::keyboard::KeyCode;
+use std::any::Any;
 use std::cell::RefMut;
 use std::f32::consts::PI;
 
@@ -28,44 +29,50 @@ impl App {
 }
 
 impl FallingLeafApp for App {
-    fn init(&mut self, engine: &mut Engine) {
+    fn init(&mut self, engine: &Engine) {
+        engine.event_system().trigger(CamPositionChange {
+            new_pos: glm::Vec3::new(0.0, 1.0, -2.0),
+            new_focus: glm::Vec3::zeros(),
+        });
+
+        let _floor = self.entity_manager().create_entity(components!(
+            Position::zeros(),
+            Renderable {
+                scale: 5f32.into(),
+                mesh_type: MeshType::Plane,
+                mesh_attribute: MeshAttribute::Textured("wall.png"),
+            }
+        ));
+
         engine
-            .event_system
+            .event_system()
             .add_listener::<KeyPress>(&self.game_state);
 
-        engine
-            .audio_system
-            .borrow_mut()
-            .play_background_music("drop.wav");
+        engine.audio_system().play_background_music("drop.wav");
 
-        engine.event_system.trigger(AudioVolumeChanged {
+        engine.event_system().trigger(AudioVolumeChanged {
             kind: VolumeKind::Master,
             new_volume: 0.1,
         });
 
-        let sound = engine.audio_system.borrow_mut().new_sound_controller();
-        engine.audio_system.borrow().enable_hrtf();
+        let sound = engine.audio_system().new_sound_controller();
+        engine.audio_system().enable_hrtf();
 
         let position = Position::new(0.0, 1.0, 1.0);
         engine
-            .audio_system
-            .borrow_mut()
+            .audio_system()
             .play_sfx_at("helicopter.wav", true, &sound, &position);
 
-        let cube = self
-            .game_state
-            .borrow_mut()
-            .entity_manager
-            .create_entity(components!(
-                position,
-                Renderable {
-                    scale: 0.5f32.into(),
-                    mesh_type: MeshType::Cube,
-                    mesh_attribute: MeshAttribute::Colored(Color32::BLUE),
-                },
-                sound,
-                TouchTime::now()
-            ));
+        let cube = self.entity_manager().create_entity(components!(
+            position,
+            Renderable {
+                scale: 0.5f32.into(),
+                mesh_type: MeshType::Cube,
+                mesh_attribute: MeshAttribute::Colored(Color32::BLUE),
+            },
+            sound,
+            TouchTime::now()
+        ));
 
         self.game_state.borrow_mut().cube = Some(cube);
     }
@@ -96,10 +103,6 @@ impl FallingLeafApp for App {
             &mut game_state.entity_manager
         })
     }
-
-    fn cam_start_data(&self) -> (glm::Vec3, glm::Vec3) {
-        (glm::Vec3::new(0.0, 1.0, -2.0), glm::Vec3::zeros())
-    }
 }
 
 /// example game state that holds all the entity data and other stuff
@@ -113,15 +116,6 @@ impl GameState {
     /// initialize some example data
     pub fn init() -> SharedPtr<Self> {
         let mut entity_manager = EntityManager::new();
-
-        let _floor = entity_manager.create_entity(components!(
-            Position::zeros(),
-            Renderable {
-                scale: 5f32.into(),
-                mesh_type: MeshType::Plane,
-                mesh_attribute: MeshAttribute::Colored(Color32::GREEN),
-            }
-        ));
 
         let player = entity_manager.create_regular_moving(
             Position::new(0.0, 2.0, 0.0),
@@ -149,3 +143,15 @@ impl EventObserver<KeyPress> for GameState {
         }
     }
 }
+
+/*fn jump(event: &KeyPress, app: &mut Box<dyn Any>, entity_manager: &mut EntityManager) {
+    let app = app.downcast_mut::<App>().unwrap();
+    if event.key == KeyCode::Space {
+        let v_ref = &mut entity_manager
+            .get_component_mut::<MotionState>(app.player)
+            .unwrap()
+            .velocity;
+        *v_ref = Velocity::new(0.0, 3.0, 0.0);
+    }
+}
+*/

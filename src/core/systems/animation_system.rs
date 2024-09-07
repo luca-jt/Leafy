@@ -1,9 +1,11 @@
 use crate::ecs::component::{MotionState, Position, TouchTime};
 use crate::ecs::entity_manager::EntityManager;
+use crate::systems::event_system::events::AnimationSpeedChange;
+use crate::systems::event_system::EventObserver;
 use crate::utils::constants::G;
 
 pub struct AnimationSystem {
-    pub animation_speed: f32,
+    animation_speed: f32,
 }
 
 impl AnimationSystem {
@@ -26,6 +28,12 @@ impl AnimationSystem {
 
             t.reset();
         }
+    }
+}
+
+impl EventObserver<AnimationSpeedChange> for AnimationSystem {
+    fn on_event(&mut self, event: &AnimationSpeedChange) {
+        self.animation_speed = event.new_animation_speed;
     }
 }
 

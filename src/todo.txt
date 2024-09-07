@@ -14,7 +14,8 @@ multiple light sources for the rendering system
 set model matrix for every entity (rotation, scaling) -> renderer rewrite (also change render behavior based on engine mode)
 query filter that return an optional ref
 controller events
-flip uv coords in mesh loading?
-entity system events via functions?
-general query filter trait usage
 clean up renderers if not needed anymore
+change indeces type in mesh for large models with many verteces
+flip uv coords in mesh loading?
+general query filter trait usage
+entity system events via functions

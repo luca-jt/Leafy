@@ -1,3 +1,5 @@
+use crate::ecs::entity_manager::EntityManager;
+use crate::engine::FallingLeafApp;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
@@ -175,6 +177,11 @@ pub trait EventObserver<T: Any> {
     fn on_event(&mut self, event: &T);
 }
 
+/// holds the function pointer to the entity system event function
+struct EventFunction<T: Any> {
+    pub(crate) f: fn(&T, &mut Box<dyn FallingLeafApp>, &mut EntityManager),
+}
+
 pub mod events {
     use crate::engine::EngineMode;
     use crate::glm;
@@ -325,5 +332,11 @@ pub mod events {
     #[derive(Debug, Clone, PartialEq)]
     pub struct FPSCapChanged {
         pub new_fps: f64,
+    }
+
+    /// changes the animation speed of the rendering system
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct AnimationSpeedChange {
+        pub new_animation_speed: f32,
     }
 }

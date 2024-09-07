@@ -28,7 +28,7 @@ pub struct RenderingSystem {
 
 impl RenderingSystem {
     /// creates a new rendering system with initial cam data
-    pub(crate) fn new(cam_pos: glm::Vec3, cam_focus: glm::Vec3) -> Self {
+    pub(crate) fn new() -> Self {
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LESS);
@@ -40,7 +40,10 @@ impl RenderingSystem {
             current_mode: EngineMode::Running,
             shadow_map: ShadowMap::new(2048, 2048, glm::Vec3::new(1.0, 8.0, 1.0)),
             renderers: Vec::new(),
-            perspective_camera: PerspectiveCamera::new(cam_pos, cam_focus),
+            perspective_camera: PerspectiveCamera::new(
+                glm::Vec3::new(0.0, 1.0, -2.0),
+                glm::Vec3::zeros(),
+            ),
             ortho_camera: OrthoCamera::from_size(1.0),
             shader_catalog: ShaderCatalog::new(),
         }
