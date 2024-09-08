@@ -28,11 +28,11 @@ pub fn load_texture(file_name: &str) -> GLuint {
         gl::TexImage2D(
             gl::TEXTURE_2D,
             0,
-            gl::RGBA as GLint,
+            gl::RGBA8 as GLint,
             texture.width as GLint,
             texture.height as GLint,
             0,
-            gl::RGBA8,
+            gl::RGBA,
             gl::UNSIGNED_BYTE,
             texture.data.as_ptr() as *const GLvoid,
         );

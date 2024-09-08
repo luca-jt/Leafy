@@ -30,12 +30,12 @@ impl App {
 impl FallingLeafApp for App {
     fn init(&mut self, engine: &Engine) {
         engine.event_system().trigger(CamPositionChange {
-            new_pos: glm::Vec3::new(0.0, 1.0, -2.0),
+            new_pos: glm::Vec3::new(0.0, 5.0, -5.0),
             new_focus: glm::Vec3::zeros(),
         });
         engine.event_system().trigger(AudioVolumeChanged {
             kind: VolumeKind::Master,
-            new_volume: 0.1,
+            new_volume: 0.5,
         });
 
         let mut entity_manager = engine.entity_manager();
@@ -48,7 +48,7 @@ impl FallingLeafApp for App {
             }
         ));
         let player = entity_manager.create_regular_moving(
-            Position::new(0.0, 2.0, 0.0),
+            Position::new(0.0, 4.0, 0.0),
             MeshType::Sphere,
             MeshAttribute::Colored(Color32::RED),
         );
@@ -63,7 +63,7 @@ impl FallingLeafApp for App {
         let cube = entity_manager.create_entity(components!(
             heli_position,
             Renderable {
-                scale: 0.5f32.into(),
+                scale: 0.1f32.into(),
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::BLUE),
             },
@@ -89,8 +89,8 @@ impl FallingLeafApp for App {
             .get_component_mut::<Position>(self.cube.unwrap())
             .unwrap();
         let av = PI / 2.0;
-        pos.data_mut().x = (av * secs).sin();
-        pos.data_mut().z = (av * secs).cos();
+        pos.data_mut().x = (av * secs).sin() * 3.0;
+        pos.data_mut().z = (av * secs).cos() * 3.0;
     }
 }
 

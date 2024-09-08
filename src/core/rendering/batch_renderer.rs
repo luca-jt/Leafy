@@ -123,11 +123,11 @@ impl BatchRenderer {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGBA as GLint,
+                gl::RGBA8 as GLint,
                 1,
                 1,
                 0,
-                gl::RGBA8,
+                gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 white_color_data.as_ptr() as *const GLvoid,
             );
