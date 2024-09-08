@@ -5,7 +5,7 @@ use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::tools::SharedPtr;
 use gl::types::*;
-use std::{mem, ptr};
+use std::ptr;
 
 /// instance renderer for the 3D rendering option
 pub(crate) struct InstanceRenderer {
@@ -54,7 +54,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, pbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_verteces() * mem::size_of::<glm::Vec3>()) as GLsizeiptr,
+                (mesh.num_verteces() * size_of::<glm::Vec3>()) as GLsizeiptr,
                 mesh.positions.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -73,7 +73,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, tbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_verteces() * mem::size_of::<glm::Vec2>()) as GLsizeiptr,
+                (mesh.num_verteces() * size_of::<glm::Vec2>()) as GLsizeiptr,
                 mesh.texture_coords.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -92,7 +92,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, nbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_verteces() * mem::size_of::<glm::Vec3>()) as GLsizeiptr,
+                (mesh.num_verteces() * size_of::<glm::Vec3>()) as GLsizeiptr,
                 mesh.normals.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -111,7 +111,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, obo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (num_instances * mem::size_of::<glm::Vec3>()) as GLsizeiptr,
+                (num_instances * size_of::<glm::Vec3>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -131,7 +131,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
-                (mesh.num_indeces() * mem::size_of::<GLushort>()) as GLsizeiptr,
+                (mesh.num_indeces() * size_of::<GLuint>()) as GLsizeiptr,
                 mesh.indeces.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -181,7 +181,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.obo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (self.num_instances * mem::size_of::<glm::Vec3>()) as GLsizeiptr,
+                (self.num_instances * size_of::<glm::Vec3>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -202,8 +202,7 @@ impl InstanceRenderer {
     pub(crate) fn confirm_positions(&self) {
         unsafe {
             // dynamically copy the updated postion data
-            let positions_size: GLsizeiptr =
-                (self.pos_idx * mem::size_of::<glm::Vec3>()) as GLsizeiptr;
+            let positions_size: GLsizeiptr = (self.pos_idx * size_of::<glm::Vec3>()) as GLsizeiptr;
             gl::BindBuffer(gl::ARRAY_BUFFER, self.obo);
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
@@ -222,7 +221,7 @@ impl InstanceRenderer {
             gl::DrawElementsInstanced(
                 gl::TRIANGLES,
                 self.index_count,
-                gl::UNSIGNED_SHORT,
+                gl::UNSIGNED_INT,
                 ptr::null(),
                 self.pos_idx as GLsizei,
             );
@@ -268,7 +267,7 @@ impl InstanceRenderer {
             gl::DrawElementsInstanced(
                 gl::TRIANGLES,
                 self.index_count,
-                gl::UNSIGNED_SHORT,
+                gl::UNSIGNED_INT,
                 ptr::null(),
                 self.pos_idx as GLsizei,
             );

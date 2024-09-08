@@ -49,7 +49,7 @@ impl BatchRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_verteces() * max_num_meshes * mem::size_of::<Vertex>()) as GLsizeiptr,
+                (mesh.num_verteces() * max_num_meshes * size_of::<Vertex>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -61,7 +61,7 @@ impl BatchRenderer {
                 3,
                 gl::FLOAT,
                 gl::FALSE as GLboolean,
-                mem::size_of::<Vertex>() as GLsizei,
+                size_of::<Vertex>() as GLsizei,
                 mem::offset_of!(Vertex, position) as *const GLvoid,
             );
             gl::EnableVertexAttribArray(program.get_attr("color") as GLuint);
@@ -70,7 +70,7 @@ impl BatchRenderer {
                 4,
                 gl::FLOAT,
                 gl::FALSE as GLboolean,
-                mem::size_of::<Vertex>() as GLsizei,
+                size_of::<Vertex>() as GLsizei,
                 mem::offset_of!(Vertex, color) as *const GLvoid,
             );
             gl::EnableVertexAttribArray(program.get_attr("uv") as GLuint);
@@ -79,7 +79,7 @@ impl BatchRenderer {
                 2,
                 gl::FLOAT,
                 gl::FALSE as GLboolean,
-                mem::size_of::<Vertex>() as GLsizei,
+                size_of::<Vertex>() as GLsizei,
                 mem::offset_of!(Vertex, uv_coords) as *const GLvoid,
             );
             gl::EnableVertexAttribArray(program.get_attr("normal") as GLuint);
@@ -88,7 +88,7 @@ impl BatchRenderer {
                 3,
                 gl::FLOAT,
                 gl::FALSE as GLboolean,
-                mem::size_of::<Vertex>() as GLsizei,
+                size_of::<Vertex>() as GLsizei,
                 mem::offset_of!(Vertex, normal) as *const GLvoid,
             );
             gl::EnableVertexAttribArray(program.get_attr("tex_idx") as GLuint);
@@ -97,22 +97,21 @@ impl BatchRenderer {
                 1,
                 gl::FLOAT,
                 gl::FALSE as GLboolean,
-                mem::size_of::<Vertex>() as GLsizei,
+                size_of::<Vertex>() as GLsizei,
                 mem::offset_of!(Vertex, tex_index) as *const GLvoid,
             );
 
             // INDECES
-            let mut indeces: Vec<GLushort> = vec![0; mesh.num_indeces() * max_num_meshes];
+            let mut indeces: Vec<GLuint> = vec![0; mesh.num_indeces() * max_num_meshes];
             for i in 0..mesh.num_indeces() * max_num_meshes {
                 indeces[i] = mesh.indeces[i % mesh.num_indeces()]
-                    + mesh.num_verteces() as GLushort
-                        * (i as GLushort / mesh.num_indeces() as GLushort);
+                    + mesh.num_verteces() as GLuint * (i as GLuint / mesh.num_indeces() as GLuint);
             }
             gl::GenBuffers(1, &mut ibo);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
-                (mesh.num_indeces() * max_num_meshes * mem::size_of::<GLushort>()) as GLsizeiptr,
+                (mesh.num_indeces() * max_num_meshes * size_of::<GLuint>()) as GLsizeiptr,
                 indeces.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -168,7 +167,7 @@ impl BatchRenderer {
         // dynamically copy the the drawn mesh vertex data from object buffer into the vertex buffer on the gpu
         unsafe {
             let verteces_size: GLsizeiptr =
-                (self.obj_buffer_ptr * mem::size_of::<Vertex>()) as GLsizeiptr;
+                (self.obj_buffer_ptr * size_of::<Vertex>()) as GLsizeiptr;
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
@@ -187,7 +186,7 @@ impl BatchRenderer {
             gl::DrawElements(
                 gl::TRIANGLES,
                 self.index_count,
-                gl::UNSIGNED_SHORT,
+                gl::UNSIGNED_INT,
                 ptr::null(),
             );
             gl::BindVertexArray(0);
@@ -237,7 +236,7 @@ impl BatchRenderer {
             gl::DrawElements(
                 gl::TRIANGLES,
                 self.index_count,
-                gl::UNSIGNED_SHORT,
+                gl::UNSIGNED_INT,
                 ptr::null(),
             );
             gl::BindVertexArray(0);
