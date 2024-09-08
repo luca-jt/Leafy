@@ -1,18 +1,40 @@
 # Falling Leaf
-This project is designed to be a great starting point for building simple games in Rust using SDL and OpenGL.\
-This is not meant to be a full on game engine with an actual GUI Editor, but a template that you can use to start building the game immediately.\
-![icon](https://github.com/luca-jt/Falling-Leaf/assets/82292985/c87b1c7c-119f-4934-9eb2-0854884bc3f5)
+This project is a Mini-Engine designed to be a great starting point for building games in Rust using OpenGL.\
+It is written in pure Rust and with minimal external dependecies.\
+
+![icon](https://github.com/luca-jt/Falling-Leaf/assets/82292985/c87b1c7c-119f-4934-9eb2-0854884bc3f5)\
+
+So far, the Falling Leaf Engine provides the following features out of the Box:
+- A simple ECS (Entity Component System) for
+- A fully automated Rendering System based on entity data
+- 3D-Audio with Soundeffects attachable to entities
+- A non-polling Eventsystem with dynamically dispatched Listeners and function events (expandable by the user)
+- An immediate-mode UI library
+- 2D and 3D rendering
+- OS events are already managed and accessable via the event system
+- A functional windowed app up and running in seconds
 
 ## Build Process
-- install vcpkg
-- run the following commands:
+- add the following to your `Cargo.toml` file:
 ```
-cargo install cargo-vcpkg
-cargo vcpkg build
-cargo build
+[dependencies]
+falling_leaf = "*"
 ```
-## Usage
-Probably the most interesting part is the game state. There is an ``init`` function and an ``update`` function that you can customize to your specific needs. It is the heart and soul of the project and lets you add entities to the game world and alter their state.\
-The rendering and physics is already taken care of.\
-Another possible point of interest is the event system. This is where all of the keyboard input is handled.\
-In general: feel free to change anything you like - this is a template after all.
+- simply run:
+```
+cargo run
+```
+## Overview
+- create an app that implements the `FallingLeafApp` trait and run the app like this:
+```rs
+use fl_core::engine::Engine;
+use std::error::Error;
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let app = App::new();
+    let mut engine = Engine::new();
+    engine.run(app)
+}
+```
+## Examples
+- located in the `/examples` folder

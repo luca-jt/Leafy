@@ -18,4 +18,3 @@ clean up renderers if not needed anymore
 change indeces type in mesh for large models with many verteces
 flip uv coords in mesh loading?
 general query filter trait usage
-entity system events via functions

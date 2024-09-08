@@ -170,7 +170,7 @@ impl ShaderCatalog {
     }
 
     /// returns a reference to the basic shader for the batch renderer
-    pub fn batch_basic(&mut self) -> &ShaderProgram {
+    pub(crate) fn batch_basic(&mut self) -> &ShaderProgram {
         if self.batch_basic.is_none() {
             self.create_batch_basic();
         }
@@ -178,7 +178,7 @@ impl ShaderCatalog {
     }
 
     /// returns a reference to the basic shader for the instance renderer
-    pub fn instance_basic(&mut self) -> &ShaderProgram {
+    pub(crate) fn instance_basic(&mut self) -> &ShaderProgram {
         if self.instance_basic.is_none() {
             self.create_instance_basic();
         }

@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, VecDeque};
@@ -261,5 +262,16 @@ impl<K: Hash + Eq, V> SplitGet<K, V> for HashMap<K, V> {
             self.get(k4)?,
             self.get(k5)?,
         ))
+    }
+}
+
+/// cast anything to Any
+pub trait AnyCast: Any {
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+}
+
+impl<T: Any> AnyCast for T {
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

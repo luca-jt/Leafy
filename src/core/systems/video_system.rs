@@ -18,12 +18,12 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SwapInterval, WindowSurface};
 
 use glutin_winit::{DisplayBuilder, GlWindow};
-use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
+use winit::dpi::LogicalSize;
 use winit::platform::windows::IconExtWindows;
 
 use crate::systems::event_system::events::{FPSCapChanged, FPSCapToggle, KeyPress, WindowResize};
 use crate::systems::event_system::EventObserver;
-use crate::utils::constants::{INV_WIN_RATIO, MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
+use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
 use crate::utils::file::get_image_path;
 
 /// holds the video backend attributes

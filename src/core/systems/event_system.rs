@@ -1,7 +1,9 @@
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::FallingLeafApp;
 use std::any::{Any, TypeId};
+use std::cell::RefMut;
 use std::collections::HashMap;
+use std::ops::DerefMut;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
 
@@ -10,14 +12,20 @@ use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
 
 /// system managing the events
 pub struct EventSystem {
+    pub(crate) app: Option<WeakPtr<Box<dyn FallingLeafApp>>>,
+    entity_manager: WeakPtr<EntityManager>,
     listeners: HashMap<TypeId, Vec<Box<dyn Any>>>,
+    entity_modifiers: HashMap<TypeId, Vec<Box<dyn Any>>>,
 }
 
 impl EventSystem {
     /// creates a new event system
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(entity_manager: &SharedPtr<EntityManager>) -> Self {
         Self {
+            app: None,
+            entity_manager: weak_ptr(entity_manager),
             listeners: HashMap::new(),
+            entity_modifiers: HashMap::new(),
         }
     }
 
@@ -25,6 +33,16 @@ impl EventSystem {
     pub fn add_listener<T: Any>(&mut self, handler: &SharedPtr<impl EventObserver<T> + 'static>) {
         let listeners = self.listeners.entry(TypeId::of::<T>()).or_default();
         listeners.push(Box::new(weak_ptr(handler) as WeakPtr<dyn EventObserver<T>>));
+    }
+
+    /// add a entity system modifier for a specific event type to the system
+    pub fn add_modifier<T: Any>(
+        &mut self,
+        modifier: fn(&T, RefMut<Box<dyn FallingLeafApp>>, &mut EntityManager),
+    ) {
+        let wrapper = EventFunction { f: modifier };
+        let modifiers = self.entity_modifiers.entry(TypeId::of::<T>()).or_default();
+        modifiers.push(Box::new(wrapper));
     }
 
     /// trigger an event and call all relevant functions of listeners
@@ -37,6 +55,22 @@ impl EventSystem {
                 if let Some(handler_rc) = casted_handler.upgrade() {
                     let mut handler_ref = handler_rc.borrow_mut();
                     handler_ref.on_event(&event);
+                }
+            }
+        }
+        if let (Some(modifiers), Some(weak_app), Some(entity_manager)) = (
+            self.entity_modifiers.get(&TypeId::of::<T>()),
+            self.app.as_ref(),
+            self.entity_manager.upgrade(),
+        ) {
+            if let Some(app) = weak_app.upgrade() {
+                for modifier in modifiers {
+                    let casted = modifier.downcast_ref::<EventFunction<T>>().unwrap();
+                    (casted.f)(
+                        &event,
+                        app.borrow_mut(),
+                        entity_manager.borrow_mut().deref_mut(),
+                    );
                 }
             }
         }
@@ -179,7 +213,7 @@ pub trait EventObserver<T: Any> {
 
 /// holds the function pointer to the entity system event function
 struct EventFunction<T: Any> {
-    pub(crate) f: fn(&T, &mut Box<dyn FallingLeafApp>, &mut EntityManager),
+    pub(crate) f: fn(&T, RefMut<Box<dyn FallingLeafApp>>, &mut EntityManager),
 }
 
 pub mod events {
