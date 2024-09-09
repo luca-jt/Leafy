@@ -217,6 +217,7 @@ struct EventFunction<T: Any> {
 }
 
 pub mod events {
+    use crate::ecs::entity::EntityID;
     use crate::engine::EngineMode;
     use crate::glm;
     use crate::systems::audio_system::VolumeKind;
@@ -372,5 +373,17 @@ pub mod events {
     #[derive(Debug, Clone, PartialEq)]
     pub struct AnimationSpeedChange {
         pub new_animation_speed: f32,
+    }
+
+    /// link the 3D camera position to some entity position or unlink using None
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct LinkCamToEntity {
+        pub link: Option<EntityID>,
+    }
+
+    /// change the fov (in degrees) for 3D rendering
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct FOVChange {
+        pub fov: f32,
     }
 }

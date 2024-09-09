@@ -17,7 +17,7 @@ impl AnimationSystem {
     }
 
     /// applys all of the physics to all of the entities
-    pub(crate) fn apply_physics(&self, entity_manager: &mut EntityManager) {
+    pub(crate) fn update(&self, entity_manager: &mut EntityManager) {
         // apply physics
         for (p, m, t) in entity_manager.query3_mut::<Position, MotionState, TouchTime>() {
             let dt = t.delta_time() * self.animation_speed;

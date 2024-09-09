@@ -1,5 +1,6 @@
 use crate::ecs::component::MeshAttribute::*;
 use crate::ecs::component::{MeshAttribute, MeshType, Position, Renderable};
+use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
 use crate::glm;
@@ -11,8 +12,11 @@ use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::ShaderCatalog;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
-use crate::systems::event_system::events::{CamPositionChange, EngineModeChange};
+use crate::systems::event_system::events::{
+    CamPositionChange, EngineModeChange, FOVChange, LinkCamToEntity,
+};
 use crate::systems::event_system::EventObserver;
+use crate::utils::constants::{ORIGIN, Z_AXIS};
 use crate::utils::tools::SharedPtr;
 use RendererType::*;
 
@@ -24,6 +28,8 @@ pub struct RenderingSystem {
     perspective_camera: PerspectiveCamera,
     ortho_camera: OrthoCamera,
     shader_catalog: ShaderCatalog,
+    used_renderer_indeces: Vec<usize>,
+    cam_position_link: Option<EntityID>,
 }
 
 impl RenderingSystem {
@@ -40,17 +46,24 @@ impl RenderingSystem {
             current_mode: EngineMode::Running,
             shadow_map: ShadowMap::new(2048, 2048, glm::Vec3::new(1.0, 8.0, 1.0)),
             renderers: Vec::new(),
-            perspective_camera: PerspectiveCamera::new(
-                glm::Vec3::new(0.0, 1.0, -2.0),
-                glm::Vec3::zeros(),
-            ),
+            perspective_camera: PerspectiveCamera::new(glm::Vec3::new(0.0, 1.0, -2.0), ORIGIN),
             ortho_camera: OrthoCamera::from_size(1.0),
             shader_catalog: ShaderCatalog::new(),
+            used_renderer_indeces: Vec::new(),
+            cam_position_link: None,
         }
     }
 
     /// start the rendering for all renderers
     pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
+        if let Some(entity) = self.cam_position_link {
+            let pos = entity_manager
+                .get_component::<Position>(entity)
+                .expect("entity has no position");
+            self.perspective_camera
+                .update_cam(pos.data(), &(pos.data() + Z_AXIS));
+        }
+        self.used_renderer_indeces.clear();
         clear_gl_screen();
         self.init_renderers();
         // add entity data
@@ -67,6 +80,7 @@ impl RenderingSystem {
         }
         self.render_shadows();
         self.render_geometry();
+        self.cleanup_renderers();
     }
 
     /// initialize all the stored renderers
@@ -135,9 +149,10 @@ impl RenderingSystem {
         renderable: &Renderable,
         texture_map: &TextureMap,
     ) -> bool {
-        for r_type in self.renderers.iter_mut() {
+        for (i, r_type) in self.renderers.iter_mut().enumerate() {
             if let Batch(m_type, renderer) = r_type {
                 if *m_type == renderable.mesh_type {
+                    self.used_renderer_indeces.push(i);
                     return match renderable.mesh_attribute {
                         Textured(path) => {
                             renderer.draw_tex_mesh(
@@ -169,12 +184,14 @@ impl RenderingSystem {
                         Textured(path) => {
                             if texture_map.get_tex_id(path).unwrap() == renderer.tex_id {
                                 renderer.add_position(position, &renderable.scale);
+                                self.used_renderer_indeces.push(i);
                                 return true;
                             }
                         }
                         Colored(color) => {
                             if color == renderer.color {
                                 renderer.add_position(position, &renderable.scale);
+                                self.used_renderer_indeces.push(i);
                                 return true;
                             }
                         }
@@ -239,6 +256,17 @@ impl RenderingSystem {
                 ));
             }
         }
+        self.used_renderer_indeces
+            .push(self.used_renderer_indeces.len());
+    }
+
+    /// drop renderers that are not used anymore
+    fn cleanup_renderers(&mut self) {
+        for i in 0..self.renderers.len() {
+            if !self.used_renderer_indeces.contains(&i) {
+                self.renderers.remove(i);
+            }
+        }
     }
 }
 
@@ -252,6 +280,18 @@ impl EventObserver<CamPositionChange> for RenderingSystem {
     fn on_event(&mut self, event: &CamPositionChange) {
         self.perspective_camera
             .update_cam(&event.new_pos, &event.new_focus);
+    }
+}
+
+impl EventObserver<LinkCamToEntity> for RenderingSystem {
+    fn on_event(&mut self, event: &LinkCamToEntity) {
+        self.cam_position_link = event.link;
+    }
+}
+
+impl EventObserver<FOVChange> for RenderingSystem {
+    fn on_event(&mut self, event: &FOVChange) {
+        self.perspective_camera.update_fov(event.fov);
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::glm;
 use crate::rendering::shader::ShaderProgram;
-use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH};
+use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, ORIGIN, Z_AXIS};
 use crate::utils::file::get_texture_path;
 use gl::types::*;
 use stb_image::image::{Image, LoadResult};
@@ -127,6 +127,16 @@ impl PerspectiveCamera {
         }
     }
 
+    /// update the projection matrix based on a given fov
+    pub(crate) fn update_fov(&mut self, fov: f32) {
+        self.projection = glm::perspective::<f32>(
+            MIN_WIN_WIDTH as f32 / MIN_WIN_HEIGHT as f32,
+            fov.to_radians(),
+            0.1,
+            100.0,
+        );
+    }
+
     /// update the model matrix for a specific object position `(x, y, z)`
     pub(crate) fn update_model(&mut self, x: f32, y: f32, z: f32) {
         self.model = glm::translate(&glm::Mat4::identity(), &glm::Vec3::new(x, y, z));
@@ -147,11 +157,11 @@ pub(crate) struct OrthoCamera {
 impl OrthoCamera {
     /// creates a new orthographic camera
     pub(crate) fn new(left: f32, right: f32, bottom: f32, top: f32) -> Self {
-        let position = glm::Vec3::new(0.0, 0.0, -1.0);
+        let position = -Z_AXIS;
 
         Self {
             projection: glm::ortho(left, right, bottom, top, -1.0, 1.0),
-            view: glm::look_at(&position, &glm::Vec3::zeros(), &glm::Vec3::y_axis()),
+            view: glm::look_at(&position, &ORIGIN, &glm::Vec3::y_axis()),
         }
     }
 

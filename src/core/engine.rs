@@ -73,7 +73,7 @@ impl Engine {
         self.audio_system().update(self.entity_manager().deref());
 
         self.animation_system()
-            .apply_physics(self.entity_manager().deref_mut());
+            .update(self.entity_manager().deref_mut());
 
         self.rendering_system()
             .render(self.entity_manager().deref());
@@ -128,6 +128,10 @@ impl ApplicationHandler for Engine {
             .add_listener::<EngineModeChange>(self.rendering_system.as_ref().unwrap());
         self.event_system()
             .add_listener::<CamPositionChange>(self.rendering_system.as_ref().unwrap());
+        self.event_system()
+            .add_listener::<LinkCamToEntity>(self.rendering_system.as_ref().unwrap());
+        self.event_system()
+            .add_listener::<FOVChange>(self.rendering_system.as_ref().unwrap());
         self.app().init(self);
     }
 
