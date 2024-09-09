@@ -85,16 +85,16 @@ impl FallingLeafApp for App {
 
     fn on_frame_update(&mut self, engine: &Engine) {
         let mut entity_manager = engine.entity_manager();
-        let tt = entity_manager
+        let secs = entity_manager
             .get_component_mut::<TouchTime>(self.cube.unwrap())
-            .unwrap();
-        let secs = tt.delta_time_f32();
+            .unwrap()
+            .delta_time();
         let pos = entity_manager
             .get_component_mut::<Position>(self.cube.unwrap())
             .unwrap();
         let av = PI / 2.0;
-        pos.data_mut().x = (av * secs).sin() * 3.0;
-        pos.data_mut().z = (av * secs).cos() * 3.0;
+        pos.data_mut().x = (secs * av).0.sin() * 3.0;
+        pos.data_mut().z = (secs * av).0.cos() * 3.0;
     }
 }
 

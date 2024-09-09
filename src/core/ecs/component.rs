@@ -1,9 +1,10 @@
 use crate::glm;
 use crate::systems::audio_system::SoundHandleID;
+use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 use std::time::Instant;
 use MeshAttribute::*;
 
-/// wrapper struct for an object scaling
+/// wrapper struct for an object scaling holding a float
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct Scale(pub f32);
 
@@ -73,14 +74,51 @@ impl Position {
         &mut self.0
     }
 
-    /// adds a data vector
-    pub fn add(&mut self, vec: glm::Vec3) {
-        self.0 += vec;
-    }
-
     /// creates a new position filled with zeros (origin)
     pub fn zeros() -> Self {
         Self(glm::Vec3::zeros())
+    }
+}
+
+impl Add for Position {
+    type Output = Position;
+
+    fn add(self, rhs: Position) -> Self::Output {
+        Position(self.0 + rhs.0)
+    }
+}
+
+impl AddAssign for Position {
+    fn add_assign(&mut self, rhs: Position) {
+        self.0 += rhs.0;
+    }
+}
+
+impl Sub for Position {
+    type Output = Position;
+
+    fn sub(self, rhs: Position) -> Self::Output {
+        Position(self.0 - rhs.0)
+    }
+}
+
+impl SubAssign for Position {
+    fn sub_assign(&mut self, rhs: Position) {
+        self.0 -= rhs.0;
+    }
+}
+
+impl Mul<f32> for Position {
+    type Output = Position;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Position(self.0 * rhs)
+    }
+}
+
+impl MulAssign<f32> for Position {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.0 *= rhs;
     }
 }
 
@@ -110,14 +148,59 @@ impl Velocity {
         &mut self.0
     }
 
-    /// adds a data vector
-    pub fn add(&mut self, vec: glm::Vec3) {
-        self.0 += vec;
-    }
-
     /// creates a new velocity filled with zeros
     pub fn zeros() -> Self {
         Self(glm::Vec3::zeros())
+    }
+}
+
+impl Add for Velocity {
+    type Output = Velocity;
+
+    fn add(self, rhs: Velocity) -> Self::Output {
+        Velocity(self.0 + rhs.0)
+    }
+}
+
+impl AddAssign for Velocity {
+    fn add_assign(&mut self, rhs: Velocity) {
+        self.0 += rhs.0;
+    }
+}
+
+impl Sub for Velocity {
+    type Output = Velocity;
+
+    fn sub(self, rhs: Velocity) -> Self::Output {
+        Velocity(self.0 - rhs.0)
+    }
+}
+
+impl SubAssign for Velocity {
+    fn sub_assign(&mut self, rhs: Velocity) {
+        self.0 -= rhs.0;
+    }
+}
+
+impl Mul<TimeDuration> for Velocity {
+    type Output = Position;
+
+    fn mul(self, rhs: TimeDuration) -> Self::Output {
+        Position(self.0 * rhs.0)
+    }
+}
+
+impl Mul<f32> for Velocity {
+    type Output = Velocity;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Velocity(self.0 * rhs)
+    }
+}
+
+impl MulAssign<f32> for Velocity {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.0 *= rhs;
     }
 }
 
@@ -147,14 +230,59 @@ impl Acceleration {
         &mut self.0
     }
 
-    /// adds a data vector
-    pub fn add(&mut self, vec: glm::Vec3) {
-        self.0 += vec;
-    }
-
     /// creates a new acceleration filled with zeros
     pub fn zeros() -> Self {
         Self(glm::Vec3::zeros())
+    }
+}
+
+impl Add for Acceleration {
+    type Output = Acceleration;
+
+    fn add(self, rhs: Acceleration) -> Self::Output {
+        Acceleration(self.0 + rhs.0)
+    }
+}
+
+impl AddAssign for Acceleration {
+    fn add_assign(&mut self, rhs: Acceleration) {
+        self.0 += rhs.0;
+    }
+}
+
+impl Sub for Acceleration {
+    type Output = Acceleration;
+
+    fn sub(self, rhs: Acceleration) -> Self::Output {
+        Acceleration(self.0 - rhs.0)
+    }
+}
+
+impl SubAssign for Acceleration {
+    fn sub_assign(&mut self, rhs: Acceleration) {
+        self.0 -= rhs.0;
+    }
+}
+
+impl Mul<TimeDuration> for Acceleration {
+    type Output = Velocity;
+
+    fn mul(self, rhs: TimeDuration) -> Self::Output {
+        Velocity(self.0 * rhs.0)
+    }
+}
+
+impl Mul<f32> for Acceleration {
+    type Output = Acceleration;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Acceleration(self.0 * rhs)
+    }
+}
+
+impl MulAssign<f32> for Acceleration {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.0 *= rhs;
     }
 }
 
@@ -266,13 +394,56 @@ impl TouchTime {
     }
 
     /// generate the delta time since the last reset in seconds
-    pub fn delta_time_f32(&self) -> f32 {
-        self.0.elapsed().as_secs_f32()
+    pub fn delta_time(&self) -> TimeDuration {
+        TimeDuration(self.0.elapsed().as_secs_f32())
+    }
+}
+
+/// time duration unit for physics computations
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
+pub struct TimeDuration(pub f32);
+
+impl Mul<f32> for TimeDuration {
+    type Output = TimeDuration;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        TimeDuration(self.0 * rhs)
     }
 }
 
 /// stores all of the associated sound controller ids for an entity
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SoundController {
     pub(crate) id: SoundHandleID,
+}
+
+/// responsible for entity collision checking
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Hitbox {
+    Quad,
+    Cube,
+    Sphere,
+}
+
+impl Hitbox {
+    /// checks wether or not a hitbox is touching another hitbox
+    pub fn hit_by(&self, other: &Hitbox) -> bool {
+        match self {
+            Hitbox::Quad => match other {
+                Hitbox::Quad => true,
+                Hitbox::Cube => true,
+                Hitbox::Sphere => true,
+            },
+            Hitbox::Cube => match other {
+                Hitbox::Quad => true,
+                Hitbox::Cube => true,
+                Hitbox::Sphere => true,
+            },
+            Hitbox::Sphere => match other {
+                Hitbox::Quad => true,
+                Hitbox::Cube => true,
+                Hitbox::Sphere => true,
+            },
+        }
+    }
 }
