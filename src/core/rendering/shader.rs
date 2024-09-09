@@ -223,6 +223,7 @@ impl ShaderCatalog {
         program.add_attr_location("uv");
         program.add_attr_location("normal");
         program.add_attr_location("offset");
+        program.add_attr_location("scale");
 
         self.instance_basic = Some(program);
     }

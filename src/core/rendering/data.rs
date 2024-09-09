@@ -189,6 +189,8 @@ impl ShadowMap {
         unsafe {
             program.add_attr_location("position");
             program.add_attr_location("offset");
+            program.add_attr_location("scale");
+
             program.add_unif_location("light_matrix");
             program.add_unif_location("model");
 

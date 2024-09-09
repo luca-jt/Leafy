@@ -168,13 +168,13 @@ impl RenderingSystem {
                     match renderable.mesh_attribute {
                         Textured(path) => {
                             if texture_map.get_tex_id(path).unwrap() == renderer.tex_id {
-                                renderer.add_position(position);
+                                renderer.add_position(position, &renderable.scale);
                                 return true;
                             }
                         }
                         Colored(color) => {
                             if color == renderer.color {
-                                renderer.add_position(position);
+                                renderer.add_position(position, &renderable.scale);
                                 return true;
                             }
                         }
@@ -231,7 +231,7 @@ impl RenderingSystem {
                         renderer.color = color;
                     }
                 }
-                renderer.add_position(position);
+                renderer.add_position(position, &renderable.scale);
                 self.renderers.push(Instance(
                     renderable.mesh_type,
                     renderable.mesh_attribute,

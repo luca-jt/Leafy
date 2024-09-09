@@ -1,6 +1,6 @@
 use super::data::{PerspectiveCamera, ShadowMap};
 use super::shader::ShaderProgram;
-use crate::ecs::component::{Color32, Position};
+use crate::ecs::component::{Color32, Position, Scale};
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::tools::SharedPtr;
@@ -14,11 +14,13 @@ pub(crate) struct InstanceRenderer {
     tbo: GLuint,
     nbo: GLuint,
     obo: GLuint,
+    sbo: GLuint,
     ibo: GLuint,
     white_texture: GLuint,
     index_count: GLsizei,
     shared_mesh: SharedPtr<Mesh>,
     positions: Vec<glm::Vec3>,
+    scales: Vec<GLfloat>,
     pos_idx: usize,
     pub(crate) color: Color32,
     pub(crate) tex_id: GLuint,
@@ -40,9 +42,11 @@ impl InstanceRenderer {
         let mut tbo = 0; // uv
         let mut nbo = 0; // normals
         let mut obo = 0; // offsets
+        let mut sbo = 0; // scales
         let mut ibo = 0; // indeces
         let mut white_texture = 0;
         let positions = vec![glm::Vec3::zeros(); num_instances];
+        let scales = vec![0.0; num_instances];
 
         unsafe {
             // GENERATE BUFFERS
@@ -126,6 +130,26 @@ impl InstanceRenderer {
             );
             gl::VertexAttribDivisor(program.get_attr("offset") as GLuint, 1);
 
+            // scale buffer
+            gl::CreateBuffers(1, &mut sbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, sbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (num_instances * size_of::<GLfloat>()) as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
+            gl::EnableVertexAttribArray(program.get_attr("scale") as GLuint);
+            gl::VertexAttribPointer(
+                program.get_attr("scale") as GLuint,
+                1,
+                gl::FLOAT,
+                gl::FALSE as GLboolean,
+                0,
+                ptr::null(),
+            );
+            gl::VertexAttribDivisor(program.get_attr("scale") as GLuint, 1);
+
             // INDECES
             gl::GenBuffers(1, &mut ibo);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
@@ -161,11 +185,13 @@ impl InstanceRenderer {
             tbo,
             nbo,
             obo,
+            sbo,
             ibo,
             white_texture,
             index_count: 0,
             shared_mesh,
             positions,
+            scales,
             pos_idx: 0,
             color: Color32::WHITE,
             tex_id: white_texture,
@@ -177,6 +203,7 @@ impl InstanceRenderer {
     pub(crate) fn resize_buffer(&mut self, size: usize) {
         self.num_instances += size;
         self.positions.reserve_exact(size);
+        self.scales.reserve_exact(size);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.obo);
             gl::BufferData(
@@ -185,15 +212,23 @@ impl InstanceRenderer {
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.sbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (self.num_instances * size_of::<GLfloat>()) as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
         }
     }
 
     /// adds a position where the mesh shall be rendered
-    pub(crate) fn add_position(&mut self, position: &Position) {
+    pub(crate) fn add_position(&mut self, position: &Position, scale: &Scale) {
         if self.pos_idx == self.num_instances {
             panic!("Attempt to draw too many Instances");
         }
         self.positions[self.pos_idx] = *position.data();
+        self.scales[self.pos_idx] = scale.0;
         self.index_count += self.shared_mesh.borrow().num_indeces() as GLsizei;
         self.pos_idx += 1;
     }
@@ -209,6 +244,15 @@ impl InstanceRenderer {
                 0,
                 positions_size,
                 self.positions[0].as_ptr() as *const GLvoid,
+            );
+            // dynamically copy the updated scale data
+            let scales_size: GLsizeiptr = (self.pos_idx * size_of::<GLfloat>()) as GLsizeiptr;
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.sbo);
+            gl::BufferSubData(
+                gl::ARRAY_BUFFER,
+                0,
+                scales_size,
+                self.scales.as_ptr() as *const GLvoid,
             );
         }
     }
@@ -286,6 +330,7 @@ impl Drop for InstanceRenderer {
             gl::DeleteBuffers(1, &self.tbo);
             gl::DeleteBuffers(1, &self.nbo);
             gl::DeleteBuffers(1, &self.obo);
+            gl::DeleteBuffers(1, &self.sbo);
             gl::DeleteBuffers(1, &self.ibo);
             gl::DeleteTextures(1, &self.white_texture);
             gl::DeleteVertexArrays(1, &self.vao);

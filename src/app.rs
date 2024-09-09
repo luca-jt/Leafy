@@ -52,6 +52,10 @@ impl FallingLeafApp for App {
             MeshType::Sphere,
             MeshAttribute::Colored(Color32::RED),
         );
+        entity_manager
+            .get_component_mut::<Renderable>(player)
+            .unwrap()
+            .scale = 0.2f32.into();
 
         let sound = engine.audio_system().new_sound_controller();
         let heli_position = Position::new(0.0, 1.0, 1.0);
