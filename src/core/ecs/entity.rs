@@ -68,11 +68,19 @@ pub(crate) struct Archetype {
 impl Archetype {
     /// get the optional reference to a component of type T stored at index in this archetype
     pub(crate) fn component_ref_at<T: Any>(&self, index: usize) -> Option<&T> {
-        self.components.get(&TypeId::of::<T>())?[index].downcast_ref::<T>()
+        Some(
+            self.components.get(&TypeId::of::<T>())?[index]
+                .downcast_ref::<T>()
+                .unwrap(),
+        )
     }
     /// get the optional mutable reference to a component of type T stored at index in this archetype
     pub(crate) fn component_mut_at<T: Any>(&mut self, index: usize) -> Option<&mut T> {
-        self.components.get_mut(&TypeId::of::<T>())?[index].downcast_mut::<T>()
+        Some(
+            self.components.get_mut(&TypeId::of::<T>())?[index]
+                .downcast_mut::<T>()
+                .unwrap(),
+        )
     }
 }
 
