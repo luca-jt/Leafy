@@ -1,7 +1,5 @@
 use fl_core::components;
-use fl_core::ecs::component::{
-    Color32, MeshAttribute, MeshType, MotionState, Position, Renderable, TouchTime, Velocity,
-};
+use fl_core::ecs::component::*;
 use fl_core::ecs::entity::EntityID;
 use fl_core::ecs::entity_manager::EntityManager;
 use fl_core::engine::{app_downcast, Engine, FallingLeafApp};
@@ -41,21 +39,16 @@ impl FallingLeafApp for App {
         let mut entity_manager = engine.entity_manager();
         let _floor = entity_manager.create_entity(components!(
             Position::zeros(),
-            Renderable {
-                scale: 5f32.into(),
-                mesh_type: MeshType::Plane,
-                mesh_attribute: MeshAttribute::Textured("wall.png"),
-            }
+            Scale(5.0),
+            MeshType::Plane,
+            MeshAttribute::Textured("wall.png")
         ));
         let player = entity_manager.create_regular_moving(
             Position::new(0.0, 4.0, 0.0),
             MeshType::Sphere,
             MeshAttribute::Colored(Color32::RED),
         );
-        entity_manager
-            .get_component_mut::<Renderable>(player)
-            .unwrap()
-            .scale = 0.2f32.into();
+        *entity_manager.get_component_mut::<Scale>(player).unwrap() = Scale(0.2);
 
         let sound = engine.audio_system().new_sound_controller();
         let heli_position = Position::new(0.0, 1.0, 1.0);
@@ -66,11 +59,9 @@ impl FallingLeafApp for App {
 
         let cube = entity_manager.create_entity(components!(
             heli_position,
-            Renderable {
-                scale: 0.1f32.into(),
-                mesh_type: MeshType::Cube,
-                mesh_attribute: MeshAttribute::Colored(Color32::BLUE),
-            },
+            Scale(0.1),
+            MeshType::Cube,
+            MeshAttribute::Colored(Color32::BLUE),
             sound,
             TouchTime::now()
         ));
@@ -105,10 +96,9 @@ fn jump(
 ) {
     let app = app_downcast::<App>(app);
     if event.key == KeyCode::Space {
-        let v_ref = &mut entity_manager
-            .get_component_mut::<MotionState>(app.player.unwrap())
-            .unwrap()
-            .velocity;
+        let v_ref = entity_manager
+            .get_component_mut::<Velocity>(app.player.unwrap())
+            .unwrap();
         *v_ref = Velocity::new(0.0, 3.0, 0.0);
     }
 }

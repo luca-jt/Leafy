@@ -65,6 +65,17 @@ pub(crate) struct Archetype {
     pub(crate) components: HashMap<TypeId, Vec<Box<dyn Any>>>,
 }
 
+impl Archetype {
+    /// get the optional reference to a component of type T stored at index in this archetype
+    pub(crate) fn component_ref_at<T: Any>(&self, index: usize) -> Option<&T> {
+        self.components.get(&TypeId::of::<T>())?[index].downcast_ref::<T>()
+    }
+    /// get the optional mutable reference to a component of type T stored at index in this archetype
+    pub(crate) fn component_mut_at<T: Any>(&mut self, index: usize) -> Option<&mut T> {
+        self.components.get_mut(&TypeId::of::<T>())?[index].downcast_mut::<T>()
+    }
+}
+
 /// all basic functionality for storing components
 pub trait ComponentStorage {
     /// checks if a certain component is stored

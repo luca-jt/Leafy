@@ -1,4 +1,4 @@
-use crate::ecs::component::{MotionState, Position, TouchTime};
+use crate::ecs::component::{Acceleration, Position, TouchTime, Velocity};
 use crate::ecs::entity_manager::EntityManager;
 use crate::systems::event_system::events::AnimationSpeedChange;
 use crate::systems::event_system::EventObserver;
@@ -19,12 +19,17 @@ impl AnimationSystem {
     /// applys all of the physics to all of the entities
     pub(crate) fn update(&self, entity_manager: &mut EntityManager) {
         // apply physics
-        for (p, m, t) in entity_manager.query3_mut::<Position, MotionState, TouchTime>() {
+        for (p, t, v, a_opt) in
+            entity_manager.query4_mut_opt1::<Position, TouchTime, Velocity, Acceleration>()
+        {
             let dt = t.delta_time() * self.animation_speed;
 
-            *p += m.acceleration * dt * dt * 0.5 + m.velocity * dt;
-            m.velocity += m.acceleration * dt;
-            m.acceleration = G; // ?
+            *p += *v * dt;
+            if let Some(a) = a_opt {
+                *p += *a * dt * dt * 0.5;
+                *v += *a * dt;
+                *a = G; // ?
+            }
 
             t.reset();
         }

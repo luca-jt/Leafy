@@ -8,24 +8,10 @@ use MeshAttribute::*;
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct Scale(pub f32);
 
-impl From<f32> for Scale {
-    fn from(value: f32) -> Self {
-        Scale(value)
-    }
-}
-
 impl Default for Scale {
     fn default() -> Self {
         Scale(1.0)
     }
-}
-
-/// all data needed for the 3D rendering process
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Renderable {
-    pub scale: Scale,
-    pub mesh_type: MeshType,
-    pub mesh_attribute: MeshAttribute,
 }
 
 /// used for object orientation in 3D space
@@ -292,16 +278,9 @@ impl Default for Acceleration {
     }
 }
 
-/// binds all of the motion-specific data together
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct MotionState {
-    pub velocity: Velocity,
-    pub acceleration: Acceleration,
-}
-
 /// efficient 32bit color representation
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct Color32([u8; 4]);
 
 impl Color32 {
@@ -346,6 +325,12 @@ impl Color32 {
     }
 }
 
+impl Default for Color32 {
+    fn default() -> Self {
+        Self::WHITE
+    }
+}
+
 /// all of the known mesh types
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Default, Hash, Eq)]
 pub enum MeshType {
@@ -368,6 +353,13 @@ impl MeshAttribute {
         match self {
             Textured(_) => None,
             Colored(color) => Some(*color),
+        }
+    }
+    /// returns the texture path if present
+    pub fn texture_path(&self) -> Option<&str> {
+        match self {
+            Textured(path) => Some(*path),
+            Colored(_) => None,
         }
     }
 }

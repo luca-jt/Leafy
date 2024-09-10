@@ -1,13 +1,10 @@
 use crate::ecs::component::{
-    Acceleration, MeshAttribute, MeshType, MotionState, Position, Renderable, TouchTime, Velocity,
+    Acceleration, MeshAttribute, MeshType, Position, Scale, TouchTime, Velocity,
 };
 use crate::ecs::entity::{
     Archetype, ArchetypeID, ComponentStorage, EntityID, EntityRecord, EntityType,
 };
-use crate::ecs::query::{
-    ExcludeFilter, IncludeFilter, Query1, Query1Mut, Query2, Query2Mut, Query3, Query3Mut, Query4,
-    Query4Mut, Query5, Query5Mut,
-};
+use crate::ecs::query::*;
 use crate::rendering::data::TextureMap;
 use crate::rendering::mesh::Mesh;
 use crate::utils::tools::{shared_ptr, SharedPtr};
@@ -45,11 +42,13 @@ impl EntityManager {
 
     /// stores a new entity and returns the id of the new entity
     pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
-        if components.contains_component::<Renderable>() {
+        if components.contains_component::<MeshType>() {
             // following unwrap is safe because of contains check
-            let component = components.component_data::<Renderable>().unwrap();
-            self.try_add_mesh(component.mesh_type);
-            if let MeshAttribute::Textured(file) = &component.mesh_attribute {
+            let mesh_type = components.component_data::<MeshType>().unwrap();
+            self.try_add_mesh(*mesh_type);
+            if let Some(MeshAttribute::Textured(file)) =
+                components.component_data::<MeshAttribute>()
+            {
                 self.texture_map.add_texture(file);
             }
         }
@@ -65,52 +64,32 @@ impl EntityManager {
     ) -> EntityID {
         self.create_entity(components!(
             at,
-            Renderable {
-                scale: 1f32.into(),
-                mesh_type,
-                mesh_attribute,
-            },
-            MotionState {
-                velocity: Velocity::zeros(),
-                acceleration: Acceleration::zeros()
-            },
+            Scale::default(),
+            mesh_type,
+            mesh_attribute,
+            Velocity::zeros(),
+            Acceleration::zeros(),
             TouchTime::now()
-        ))
-    }
-
-    /// creates a new fixed entity with all basic data needed for rendering
-    pub fn create_regular_fixed(
-        &mut self,
-        at: Position,
-        mesh_type: MeshType,
-        mesh_attribute: MeshAttribute,
-    ) -> EntityID {
-        self.create_entity(components!(
-            at,
-            Renderable {
-                scale: 1f32.into(),
-                mesh_type,
-                mesh_attribute,
-            },
-            TouchTime::now() // needed?
         ))
     }
 
     /// deletes an entity from the register by id and returns the removed entity
     pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), ()> {
-        if let Some(renderable) = self.ecs.get_component::<Renderable>(entity) {
+        if let Some(mesh_type) = self.ecs.get_component::<MeshType>(entity) {
             if self
-                .query1::<Renderable>()
-                .filter(|component| renderable.mesh_type == component.mesh_type)
+                .query1::<MeshType>()
+                .filter(|component| *mesh_type == **component)
                 .count()
                 == 1
             {
-                self.asset_register.remove(&renderable.mesh_type);
+                self.asset_register.remove(mesh_type);
             }
-            if let MeshAttribute::Textured(path) = &renderable.mesh_attribute {
+            if let Some(MeshAttribute::Textured(path)) =
+                self.ecs.get_component::<MeshAttribute>(entity)
+            {
                 if self
-                    .query1::<Renderable>()
-                    .filter(|component| renderable.mesh_attribute == component.mesh_attribute)
+                    .query1::<MeshAttribute>()
+                    .filter(|component| *path == component.texture_path().unwrap_or(""))
                     .count()
                     == 1
                 {
@@ -133,8 +112,8 @@ impl EntityManager {
 
     /// adds a component to an existing entity
     pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) {
-        if let Some(c) = (&component as &dyn Any).downcast_ref::<Renderable>() {
-            self.try_add_mesh(c.mesh_type);
+        if let Some(mesh_type) = (&component as &dyn Any).downcast_ref::<MeshType>() {
+            self.try_add_mesh(*mesh_type);
         }
         self.ecs.add_component::<T>(entity, component)
     }
@@ -148,25 +127,58 @@ impl EntityManager {
     pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
         let removed = self.ecs.remove_component::<T>(entity);
         if let Some(component) = removed.as_ref() {
-            if let Some(renderable) = (component as &dyn Any).downcast_ref::<Renderable>() {
+            if let Some(mesh_type) = (component as &dyn Any).downcast_ref::<MeshType>() {
                 if !self
-                    .query1::<Renderable>()
-                    .any(|component| renderable.mesh_type == component.mesh_type)
+                    .query1::<MeshType>()
+                    .any(|component| mesh_type == component)
                 {
-                    self.asset_register.remove(&renderable.mesh_type);
+                    self.asset_register.remove(mesh_type);
                 }
-                if let MeshAttribute::Textured(path) = &renderable.mesh_attribute {
-                    if !self
-                        .query1::<Renderable>()
-                        .any(|component| renderable.mesh_attribute == component.mesh_attribute)
-                    {
-                        self.texture_map.delete_texture(path);
-                    }
+            }
+            if let Some(MeshAttribute::Textured(path)) =
+                (component as &dyn Any).downcast_ref::<MeshAttribute>()
+            {
+                if !self
+                    .query1::<MeshAttribute>()
+                    .any(|component| *path == component.texture_path().unwrap_or(""))
+                {
+                    self.texture_map.delete_texture(path);
                 }
             }
         }
         removed
     }
+
+    /// makes mesh data available for a given entity id
+    pub fn asset_from_id(&self, entity: EntityID) -> Option<SharedPtr<Mesh>> {
+        let mesh_type = self.ecs.get_component::<MeshType>(entity)?;
+        Some(self.asset_register.get(mesh_type)?.clone())
+    }
+
+    /// makes mesh data available for a given mesh type
+    pub fn asset_from_type(&self, mesh_type: MeshType) -> Option<SharedPtr<Mesh>> {
+        Some(self.asset_register.get(&mesh_type)?.clone())
+    }
+
+    /// iterate over all of the stored entities
+    pub fn all_ids_iter(&self) -> Keys<'_, EntityID, EntityRecord> {
+        self.ecs.entity_index.keys()
+    }
+
+    /// adds a new mesh to the asset register if necessary
+    fn try_add_mesh(&mut self, mesh_type: MeshType) {
+        if !self.asset_register.keys().any(|t| *t == mesh_type) {
+            let mesh = match mesh_type {
+                MeshType::Sphere => Mesh::new("sphere.obj"),
+                MeshType::Cube => Mesh::new("cube.obj"),
+                MeshType::Plane => Mesh::new("plane.obj"),
+            };
+            self.asset_register.insert(mesh_type, shared_ptr(mesh));
+        }
+    }
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // QUERY WRAPPER
 
     /// create immutable query for 1 component, iterable
     pub fn query1<T: Any>(&self) -> Query1<'_, T> {
@@ -203,10 +215,22 @@ impl EntityManager {
             .query2::<A, B>(include_filter!(), exclude_filter!())
     }
 
+    /// create immutable query for 2 components, 1 optional, iterable
+    pub fn query2_opt1<A: Any, B: Any>(&self) -> Query2Opt1<'_, A, B> {
+        self.ecs
+            .query2_opt1::<A, B>(include_filter!(), exclude_filter!())
+    }
+
     /// create mutable query for 2 components, iterable
     pub fn query2_mut<A: Any, B: Any>(&mut self) -> Query2Mut<'_, A, B> {
         self.ecs
             .query2_mut::<A, B>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 2 components, 1 optional, iterable
+    pub fn query2_mut_opt1<A: Any, B: Any>(&mut self) -> Query2MutOpt1<'_, A, B> {
+        self.ecs
+            .query2_mut_opt1::<A, B>(include_filter!(), exclude_filter!())
     }
 
     /// create immutable query for 2 components with given filters, iterable
@@ -218,6 +242,15 @@ impl EntityManager {
         self.ecs.query2::<A, B>(include, exclude)
     }
 
+    /// create immutable query for 2 components, 1 optional, with given filters, iterable
+    pub fn query2_opt1_filtered<A: Any, B: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query2Opt1<'_, A, B> {
+        self.ecs.query2_opt1::<A, B>(include, exclude)
+    }
+
     /// create mutable query for 2 components with given filters, iterable
     pub fn query2_mut_filtered<A: Any, B: Any>(
         &mut self,
@@ -227,16 +260,49 @@ impl EntityManager {
         self.ecs.query2_mut::<A, B>(include, exclude)
     }
 
+    /// create mutable query for 2 components, 1 optional, with given filters, iterable
+    pub fn query2_mut_opt1_filtered<A: Any, B: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query2MutOpt1<'_, A, B> {
+        self.ecs.query2_mut_opt1::<A, B>(include, exclude)
+    }
+
     /// create immutable query for 3 components, iterable
     pub fn query3<A: Any, B: Any, C: Any>(&self) -> Query3<'_, A, B, C> {
         self.ecs
             .query3::<A, B, C>(include_filter!(), exclude_filter!())
     }
 
+    /// create immutable query for 3 components, 1 optional, iterable
+    pub fn query3_opt1<A: Any, B: Any, C: Any>(&self) -> Query3Opt1<'_, A, B, C> {
+        self.ecs
+            .query3_opt1::<A, B, C>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 3 components, 2 optional, iterable
+    pub fn query3_opt2<A: Any, B: Any, C: Any>(&self) -> Query3Opt2<'_, A, B, C> {
+        self.ecs
+            .query3_opt2::<A, B, C>(include_filter!(), exclude_filter!())
+    }
+
     /// create mutable query for 3 components, iterable
     pub fn query3_mut<A: Any, B: Any, C: Any>(&mut self) -> Query3Mut<'_, A, B, C> {
         self.ecs
             .query3_mut::<A, B, C>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 3 components, 1 optional, iterable
+    pub fn query3_mut_opt1<A: Any, B: Any, C: Any>(&mut self) -> Query3MutOpt1<'_, A, B, C> {
+        self.ecs
+            .query3_mut_opt1::<A, B, C>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 3 components, 2 optional, iterable
+    pub fn query3_mut_opt2<A: Any, B: Any, C: Any>(&mut self) -> Query3MutOpt2<'_, A, B, C> {
+        self.ecs
+            .query3_mut_opt2::<A, B, C>(include_filter!(), exclude_filter!())
     }
 
     /// create immutable query for 3 components with given filters, iterable
@@ -248,6 +314,24 @@ impl EntityManager {
         self.ecs.query3::<A, B, C>(include, exclude)
     }
 
+    /// create immutable query for 3 components, 1 optional, with given filters, iterable
+    pub fn query3_opt1_filtered<A: Any, B: Any, C: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query3Opt1<'_, A, B, C> {
+        self.ecs.query3_opt1::<A, B, C>(include, exclude)
+    }
+
+    /// create immutable query for 3 components, 2 optional, with given filters, iterable
+    pub fn query3_opt2_filtered<A: Any, B: Any, C: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query3Opt2<'_, A, B, C> {
+        self.ecs.query3_opt2::<A, B, C>(include, exclude)
+    }
+
     /// create mutable query for 3 components with given filters, iterable
     pub fn query3_mut_filtered<A: Any, B: Any, C: Any>(
         &mut self,
@@ -257,16 +341,76 @@ impl EntityManager {
         self.ecs.query3_mut::<A, B, C>(include, exclude)
     }
 
+    /// create mutable query for 3 components, 1 optional, with given filters, iterable
+    pub fn query3_mut_opt1_filtered<A: Any, B: Any, C: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query3MutOpt1<'_, A, B, C> {
+        self.ecs.query3_mut_opt1::<A, B, C>(include, exclude)
+    }
+
+    /// create mutable query for 3 components, 2 optional, with given filters, iterable
+    pub fn query3_mut_opt2_filtered<A: Any, B: Any, C: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query3MutOpt2<'_, A, B, C> {
+        self.ecs.query3_mut_opt2::<A, B, C>(include, exclude)
+    }
+
     /// create immutable query for 4 components, iterable
     pub fn query4<A: Any, B: Any, C: Any, D: Any>(&self) -> Query4<'_, A, B, C, D> {
         self.ecs
             .query4::<A, B, C, D>(include_filter!(), exclude_filter!())
     }
 
+    /// create immutable query for 4 components, 1 optional, iterable
+    pub fn query4_opt1<A: Any, B: Any, C: Any, D: Any>(&self) -> Query4Opt1<'_, A, B, C, D> {
+        self.ecs
+            .query4_opt1::<A, B, C, D>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 4 components, 2 optional, iterable
+    pub fn query4_opt2<A: Any, B: Any, C: Any, D: Any>(&self) -> Query4Opt2<'_, A, B, C, D> {
+        self.ecs
+            .query4_opt2::<A, B, C, D>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 4 components, 3 optional, iterable
+    pub fn query4_opt3<A: Any, B: Any, C: Any, D: Any>(&self) -> Query4Opt3<'_, A, B, C, D> {
+        self.ecs
+            .query4_opt3::<A, B, C, D>(include_filter!(), exclude_filter!())
+    }
+
     /// create mutable query for 4 components, iterable
     pub fn query4_mut<A: Any, B: Any, C: Any, D: Any>(&mut self) -> Query4Mut<'_, A, B, C, D> {
         self.ecs
             .query4_mut::<A, B, C, D>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 4 components, 1 optional, iterable
+    pub fn query4_mut_opt1<A: Any, B: Any, C: Any, D: Any>(
+        &mut self,
+    ) -> Query4MutOpt1<'_, A, B, C, D> {
+        self.ecs
+            .query4_mut_opt1::<A, B, C, D>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 4 components, 2 optional, iterable
+    pub fn query4_mut_opt2<A: Any, B: Any, C: Any, D: Any>(
+        &mut self,
+    ) -> Query4MutOpt2<'_, A, B, C, D> {
+        self.ecs
+            .query4_mut_opt2::<A, B, C, D>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 4 components, 3 optional, iterable
+    pub fn query4_mut_opt3<A: Any, B: Any, C: Any, D: Any>(
+        &mut self,
+    ) -> Query4MutOpt3<'_, A, B, C, D> {
+        self.ecs
+            .query4_mut_opt3::<A, B, C, D>(include_filter!(), exclude_filter!())
     }
 
     /// create immutable query for 4 components with given filters, iterable
@@ -278,6 +422,33 @@ impl EntityManager {
         self.ecs.query4::<A, B, C, D>(include, exclude)
     }
 
+    /// create immutable query for 4 components, 1 optional, with given filters, iterable
+    pub fn query4_opt1_filtered<A: Any, B: Any, C: Any, D: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query4Opt1<'_, A, B, C, D> {
+        self.ecs.query4_opt1::<A, B, C, D>(include, exclude)
+    }
+
+    /// create immutable query for 4 components, 2 optional, with given filters, iterable
+    pub fn query4_opt2_filtered<A: Any, B: Any, C: Any, D: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query4Opt2<'_, A, B, C, D> {
+        self.ecs.query4_opt2::<A, B, C, D>(include, exclude)
+    }
+
+    /// create immutable query for 4 components, 3 optional, with given filters, iterable
+    pub fn query4_opt3_filtered<A: Any, B: Any, C: Any, D: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query4Opt3<'_, A, B, C, D> {
+        self.ecs.query4_opt3::<A, B, C, D>(include, exclude)
+    }
+
     /// create mutable query for 4 components with given filters, iterable
     pub fn query4_mut_filtered<A: Any, B: Any, C: Any, D: Any>(
         &mut self,
@@ -287,10 +458,69 @@ impl EntityManager {
         self.ecs.query4_mut::<A, B, C, D>(include, exclude)
     }
 
+    /// create mutable query for 4 components, 1 optional, with given filters, iterable
+    pub fn query4_mut_opt1_filtered<A: Any, B: Any, C: Any, D: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query4MutOpt1<'_, A, B, C, D> {
+        self.ecs.query4_mut_opt1::<A, B, C, D>(include, exclude)
+    }
+
+    /// create mutable query for 4 components, 2 optional, with given filters, iterable
+    pub fn query4_mut_opt2_filtered<A: Any, B: Any, C: Any, D: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query4MutOpt2<'_, A, B, C, D> {
+        self.ecs.query4_mut_opt2::<A, B, C, D>(include, exclude)
+    }
+
+    /// create mutable query for 4 components, 3 optional, with given filters, iterable
+    pub fn query4_mut_opt3_filtered<A: Any, B: Any, C: Any, D: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query4MutOpt3<'_, A, B, C, D> {
+        self.ecs.query4_mut_opt3::<A, B, C, D>(include, exclude)
+    }
+
     /// create immutable query for 5 components, iterable
     pub fn query5<A: Any, B: Any, C: Any, D: Any, E: Any>(&self) -> Query5<'_, A, B, C, D, E> {
         self.ecs
             .query5::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 5 components, 1 optional, iterable
+    pub fn query5_opt1<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &self,
+    ) -> Query5Opt1<'_, A, B, C, D, E> {
+        self.ecs
+            .query5_opt1::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 5 components, 2 optional, iterable
+    pub fn query5_opt2<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &self,
+    ) -> Query5Opt2<'_, A, B, C, D, E> {
+        self.ecs
+            .query5_opt2::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 5 components, 3 optional, iterable
+    pub fn query5_opt3<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &self,
+    ) -> Query5Opt3<'_, A, B, C, D, E> {
+        self.ecs
+            .query5_opt3::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+    }
+
+    /// create immutable query for 5 components, 4 optional, iterable
+    pub fn query5_opt4<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &self,
+    ) -> Query5Opt4<'_, A, B, C, D, E> {
+        self.ecs
+            .query5_opt4::<A, B, C, D, E>(include_filter!(), exclude_filter!())
     }
 
     /// create mutable query for 5 components, iterable
@@ -299,6 +529,38 @@ impl EntityManager {
     ) -> Query5Mut<'_, A, B, C, D, E> {
         self.ecs
             .query5_mut::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 5 components, 1 optional, iterable
+    pub fn query5_mut_opt1<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &mut self,
+    ) -> Query5MutOpt1<'_, A, B, C, D, E> {
+        self.ecs
+            .query5_mut_opt1::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 5 components, 2 optional, iterable
+    pub fn query5_mut_opt2<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &mut self,
+    ) -> Query5MutOpt2<'_, A, B, C, D, E> {
+        self.ecs
+            .query5_mut_opt2::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 5 components, 3 optional, iterable
+    pub fn query5_mut_opt3<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &mut self,
+    ) -> Query5MutOpt3<'_, A, B, C, D, E> {
+        self.ecs
+            .query5_mut_opt3::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+    }
+
+    /// create mutable query for 5 components, 4 optional, iterable
+    pub fn query5_mut_opt4<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &mut self,
+    ) -> Query5MutOpt4<'_, A, B, C, D, E> {
+        self.ecs
+            .query5_mut_opt4::<A, B, C, D, E>(include_filter!(), exclude_filter!())
     }
 
     /// create immutable query for 5 components with given filters, iterable
@@ -310,6 +572,42 @@ impl EntityManager {
         self.ecs.query5::<A, B, C, D, E>(include, exclude)
     }
 
+    /// create immutable query for 5 components, 1 optional, with given filters, iterable
+    pub fn query5_opt1_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query5Opt1<'_, A, B, C, D, E> {
+        self.ecs.query5_opt1::<A, B, C, D, E>(include, exclude)
+    }
+
+    /// create immutable query for 5 components, 2 optional, with given filters, iterable
+    pub fn query5_opt2_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query5Opt2<'_, A, B, C, D, E> {
+        self.ecs.query5_opt2::<A, B, C, D, E>(include, exclude)
+    }
+
+    /// create immutable query for 5 components, 3 optional, with given filters, iterable
+    pub fn query5_opt3_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query5Opt3<'_, A, B, C, D, E> {
+        self.ecs.query5_opt3::<A, B, C, D, E>(include, exclude)
+    }
+
+    /// create immutable query for 5 components, 4 optional, with given filters, iterable
+    pub fn query5_opt4_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query5Opt4<'_, A, B, C, D, E> {
+        self.ecs.query5_opt4::<A, B, C, D, E>(include, exclude)
+    }
+
     /// create mutable query for 5 components with given filters, iterable
     pub fn query5_mut_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &mut self,
@@ -319,32 +617,40 @@ impl EntityManager {
         self.ecs.query5_mut::<A, B, C, D, E>(include, exclude)
     }
 
-    /// makes mesh data available for a given entity id
-    pub fn asset_from_id(&self, entity: EntityID) -> Option<SharedPtr<Mesh>> {
-        let mesh_type = self.ecs.get_component::<MeshType>(entity)?;
-        Some(self.asset_register.get(mesh_type)?.clone())
+    /// create mutable query for 5 components, 1 optional, with given filters, iterable
+    pub fn query5_mut_opt1_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query5MutOpt1<'_, A, B, C, D, E> {
+        self.ecs.query5_mut_opt1::<A, B, C, D, E>(include, exclude)
     }
 
-    /// makes mesh data available for a given mesh type
-    pub fn asset_from_type(&self, mesh_type: MeshType) -> Option<SharedPtr<Mesh>> {
-        Some(self.asset_register.get(&mesh_type)?.clone())
+    /// create mutable query for 5 components, 2 optional, with given filters, iterable
+    pub fn query5_mut_opt2_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query5MutOpt2<'_, A, B, C, D, E> {
+        self.ecs.query5_mut_opt2::<A, B, C, D, E>(include, exclude)
     }
 
-    /// iterate over all of the stored entities
-    pub fn all_ids_iter(&self) -> Keys<'_, EntityID, EntityRecord> {
-        self.ecs.entity_index.keys()
+    /// create mutable query for 5 components, 3 optional, with given filters, iterable
+    pub fn query5_mut_opt3_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query5MutOpt3<'_, A, B, C, D, E> {
+        self.ecs.query5_mut_opt3::<A, B, C, D, E>(include, exclude)
     }
 
-    /// adds a new mesh to the asset register if necessary
-    fn try_add_mesh(&mut self, mesh_type: MeshType) {
-        if !self.asset_register.keys().any(|t| *t == mesh_type) {
-            let mesh = match mesh_type {
-                MeshType::Sphere => Mesh::new("sphere.obj"),
-                MeshType::Cube => Mesh::new("cube.obj"),
-                MeshType::Plane => Mesh::new("plane.obj"),
-            };
-            self.asset_register.insert(mesh_type, shared_ptr(mesh));
-        }
+    /// create mutable query for 5 components, 4 optional, with given filters, iterable
+    pub fn query5_mut_opt4_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
+        &mut self,
+        include: IncludeFilter,
+        exclude: ExcludeFilter,
+    ) -> Query5MutOpt4<'_, A, B, C, D, E> {
+        self.ecs.query5_mut_opt4::<A, B, C, D, E>(include, exclude)
     }
 }
 

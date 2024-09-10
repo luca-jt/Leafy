@@ -1,10 +1,12 @@
 controller events
+queries implementations with macros?
 sampled animations from files
 voxel renderer
 cascaded shadow mapping
 shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
 lighting improvement
+more query sizes
 ui basics
 font renderer
 particle system
@@ -13,5 +15,4 @@ collision detection
 physics (+ friction)
 multiple light sources for the rendering system
 set model matrix for every entity (rotation, scaling) -> renderer rewrite (also change render behavior based on engine mode)
-query filter that return an optional ref -> get rid of motion state + renderable?
 general query filter trait usage

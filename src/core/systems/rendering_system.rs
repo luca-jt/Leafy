@@ -1,5 +1,5 @@
 use crate::ecs::component::MeshAttribute::*;
-use crate::ecs::component::{MeshAttribute, MeshType, Position, Renderable};
+use crate::ecs::component::{Color32, MeshAttribute, MeshType, Position, Scale};
 use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
@@ -67,15 +67,28 @@ impl RenderingSystem {
         clear_gl_screen();
         self.init_renderers();
         // add entity data
-        for (position, renderable) in entity_manager.query2::<Position, Renderable>() {
-            let is_added = self.try_add_data(position, renderable, &entity_manager.texture_map);
+        for (position, mesh_type, mesh_attr, scale) in
+            entity_manager.query4_opt2::<Position, MeshType, MeshAttribute, Scale>()
+        {
+            let is_added = self.try_add_data(
+                position,
+                mesh_type,
+                mesh_attr.unwrap_or(&Colored(Color32::WHITE)),
+                scale.unwrap_or(&Scale::default()),
+                &entity_manager.texture_map,
+            );
             // add new renderer if needed
             if !is_added {
-                let mesh = entity_manager
-                    .asset_from_type(renderable.mesh_type)
-                    .unwrap();
+                let mesh = entity_manager.asset_from_type(*mesh_type).unwrap();
 
-                self.add_new_renderer(position, renderable, mesh, &entity_manager.texture_map);
+                self.add_new_renderer(
+                    position,
+                    mesh_type,
+                    mesh_attr.unwrap_or(&Colored(Color32::WHITE)),
+                    scale.unwrap_or(&Scale::default()),
+                    mesh,
+                    &entity_manager.texture_map,
+                );
             }
         }
         self.render_shadows();
@@ -146,18 +159,20 @@ impl RenderingSystem {
     fn try_add_data(
         &mut self,
         position: &Position,
-        renderable: &Renderable,
+        mesh_type: &MeshType,
+        mesh_attr: &MeshAttribute,
+        scale: &Scale,
         texture_map: &TextureMap,
     ) -> bool {
         for (i, r_type) in self.renderers.iter_mut().enumerate() {
             if let Batch(m_type, renderer) = r_type {
-                if *m_type == renderable.mesh_type {
+                if m_type == mesh_type {
                     self.used_renderer_indeces.push(i);
-                    return match renderable.mesh_attribute {
+                    return match mesh_attr {
                         Textured(path) => {
                             renderer.draw_tex_mesh(
                                 position,
-                                renderable.scale.0,
+                                scale.0,
                                 texture_map.get_tex_id(path).unwrap(),
                                 &self.perspective_camera,
                                 &mut self.shadow_map,
@@ -168,8 +183,8 @@ impl RenderingSystem {
                         Colored(color) => {
                             renderer.draw_color_mesh(
                                 position,
-                                renderable.scale.0,
-                                color,
+                                scale.0,
+                                *color,
                                 &self.perspective_camera,
                                 &mut self.shadow_map,
                                 self.shader_catalog.batch_basic(),
@@ -179,18 +194,18 @@ impl RenderingSystem {
                     };
                 }
             } else if let Instance(m_type, m_attr, renderer) = r_type {
-                if *m_type == renderable.mesh_type && *m_attr == renderable.mesh_attribute {
-                    match renderable.mesh_attribute {
+                if m_type == mesh_type && m_attr == mesh_attr {
+                    match mesh_attr {
                         Textured(path) => {
                             if texture_map.get_tex_id(path).unwrap() == renderer.tex_id {
-                                renderer.add_position(position, &renderable.scale);
+                                renderer.add_position(position, scale);
                                 self.used_renderer_indeces.push(i);
                                 return true;
                             }
                         }
                         Colored(color) => {
-                            if color == renderer.color {
-                                renderer.add_position(position, &renderable.scale);
+                            if *color == renderer.color {
+                                renderer.add_position(position, scale);
                                 self.used_renderer_indeces.push(i);
                                 return true;
                             }
@@ -206,19 +221,21 @@ impl RenderingSystem {
     fn add_new_renderer(
         &mut self,
         position: &Position,
-        renderable: &Renderable,
+        mesh_type: &MeshType,
+        mesh_attr: &MeshAttribute,
+        scale: &Scale,
         mesh: SharedPtr<Mesh>,
         texture_map: &TextureMap,
     ) {
-        match renderable.mesh_type {
+        match mesh_type {
             MeshType::Plane | MeshType::Cube => {
                 let mut renderer = BatchRenderer::new(mesh, 10, self.shader_catalog.batch_basic());
-                match renderable.mesh_attribute {
+                match mesh_attr {
                     Colored(color) => {
                         renderer.draw_color_mesh(
                             position,
-                            renderable.scale.0,
-                            color,
+                            scale.0,
+                            *color,
                             &self.perspective_camera,
                             &mut self.shadow_map,
                             self.shader_catalog.batch_basic(),
@@ -227,7 +244,7 @@ impl RenderingSystem {
                     Textured(path) => {
                         renderer.draw_tex_mesh(
                             position,
-                            renderable.scale.0,
+                            scale.0,
                             texture_map.get_tex_id(path).unwrap(),
                             &self.perspective_camera,
                             &mut self.shadow_map,
@@ -235,25 +252,22 @@ impl RenderingSystem {
                         );
                     }
                 }
-                self.renderers.push(Batch(renderable.mesh_type, renderer));
+                self.renderers.push(Batch(*mesh_type, renderer));
             }
             MeshType::Sphere => {
                 let mut renderer =
                     InstanceRenderer::new(mesh, 10, self.shader_catalog.instance_basic());
-                match renderable.mesh_attribute {
+                match mesh_attr {
                     Textured(path) => {
                         renderer.tex_id = texture_map.get_tex_id(path).unwrap();
                     }
                     Colored(color) => {
-                        renderer.color = color;
+                        renderer.color = *color;
                     }
                 }
-                renderer.add_position(position, &renderable.scale);
-                self.renderers.push(Instance(
-                    renderable.mesh_type,
-                    renderable.mesh_attribute,
-                    renderer,
-                ));
+                renderer.add_position(position, scale);
+                self.renderers
+                    .push(Instance(*mesh_type, *mesh_attr, renderer));
             }
         }
         self.used_renderer_indeces
