@@ -1,6 +1,7 @@
 controller events
 queries implementations with macros?
 sampled animations from files
+linux support
 voxel renderer
 cascaded shadow mapping
 shadow anti-aliasing -> pcss
@@ -17,3 +18,4 @@ collision detection
 physics (+ friction)
 multiple light sources for the rendering system
 general query filter trait usage
+bin in example folder

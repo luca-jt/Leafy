@@ -60,6 +60,7 @@ impl FallingLeafApp for App {
         let cube = entity_manager.create_entity(components!(
             heli_position,
             Scale::from_factor(0.1),
+            Orientation::new(45.0, 0.0, 1.0, 0.0),
             MeshType::Cube,
             MeshAttribute::Colored(Color32::BLUE),
             sound,
