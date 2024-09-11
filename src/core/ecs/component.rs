@@ -15,28 +15,24 @@ impl Default for Scale {
 }
 
 /// used for object orientation in 3D space
-#[derive(Debug, Clone, PartialEq)]
-pub struct Orientation(glm::Vec4);
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub struct Orientation {
+    pub angle: f32,
+    pub axis: glm::Vec3,
+}
 
 impl Orientation {
-    /// creates a new orientation
-    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
-        Self(glm::Vec4::new(x, y, z, w))
+    /// creates a new orientation with angle in degrees around axis (x, y, z)
+    pub fn new(angle: f32, x: f32, y: f32, z: f32) -> Self {
+        Self {
+            angle,
+            axis: glm::Vec3::new(x, y, z),
+        }
     }
 
-    /// yields a copy of the stored data
-    pub fn data_clone(&self) -> glm::Vec4 {
-        self.0
-    }
-
-    /// grants immutable access to the stored data
-    pub fn data(&self) -> &glm::Vec4 {
-        &self.0
-    }
-
-    /// grants mutable access to the stored data
-    pub fn data_mut(&mut self) -> &mut glm::Vec4 {
-        &mut self.0
+    /// generates the rotation matrix for the stored quaternion
+    pub fn rotation_matrix(&self) -> glm::Mat4 {
+        glm::quat_to_mat4(&glm::quat_angle_axis(self.angle.to_radians(), &self.axis))
     }
 }
 
@@ -412,30 +408,53 @@ pub struct SoundController {
 /// responsible for entity collision checking
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Hitbox {
-    Quad,
-    Cube,
-    Sphere,
+    Quad {
+        position: glm::Vec3,
+        orientation: Orientation,
+        width: f32,
+        height: f32,
+        link: Hitbox,
+    },
+    Cube {
+        position: glm::Vec3,
+        orientation: Orientation,
+        width: f32,
+        height: f32,
+        depth: f32,
+        link: Hitbox,
+    },
+    Sphere {
+        position: glm::Vec3,
+        radius: f32,
+        link: Hitbox,
+    },
+    None,
 }
-
+/*
 impl Hitbox {
     /// checks wether or not a hitbox is touching another hitbox
     pub fn hit_by(&self, other: &Hitbox) -> bool {
         match self {
-            Hitbox::Quad => match other {
-                Hitbox::Quad => true,
-                Hitbox::Cube => true,
-                Hitbox::Sphere => true,
+            Hitbox::Quad(h1) => match other {
+                Hitbox::Quad(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
+                Hitbox::Cube(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
+                Hitbox::Sphere(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
+                Hitbox::None => false,
             },
-            Hitbox::Cube => match other {
-                Hitbox::Quad => true,
-                Hitbox::Cube => true,
-                Hitbox::Sphere => true,
+            Hitbox::Cube(h1) => match other {
+                Hitbox::Quad(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
+                Hitbox::Cube(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
+                Hitbox::Sphere(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
+                Hitbox::None => false,
             },
-            Hitbox::Sphere => match other {
-                Hitbox::Quad => true,
-                Hitbox::Cube => true,
-                Hitbox::Sphere => true,
+            Hitbox::Sphere(h1) => match other {
+                Hitbox::Quad(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
+                Hitbox::Cube(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
+                Hitbox::Sphere(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
+                Hitbox::None => false,
             },
+            Hitbox::None => false,
         }
     }
 }
+*/

@@ -244,7 +244,7 @@ impl ShadowMap {
             shadow_map,
             width,
             height,
-            light_matrix: glm::ortho(-50.0, 50.0, -50.0, 50.0, 0.1, 100.0)
+            light_matrix: glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
                 * glm::look_at(&light_src, &glm::Vec3::zeros(), &glm::Vec3::y_axis()),
             light_src,
             program,
