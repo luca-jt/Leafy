@@ -1,5 +1,5 @@
 use crate::ecs::component::MeshAttribute::*;
-use crate::ecs::component::{Color32, MeshAttribute, MeshType, Position, Scale};
+use crate::ecs::component::{Color32, MeshAttribute, MeshType, Orientation, Position, Scale};
 use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
@@ -67,14 +67,15 @@ impl RenderingSystem {
         clear_gl_screen();
         self.init_renderers();
         // add entity data
-        for (position, mesh_type, mesh_attr, scale) in
-            entity_manager.query4_opt2::<Position, MeshType, MeshAttribute, Scale>()
+        for (position, mesh_type, mesh_attr, scale, orientation) in
+            entity_manager.query5_opt3::<Position, MeshType, MeshAttribute, Scale, Orientation>()
         {
             let is_added = self.try_add_data(
                 position,
                 mesh_type,
                 mesh_attr.unwrap_or(&Colored(Color32::WHITE)),
                 scale.unwrap_or(&Scale::default()),
+                orientation.unwrap_or(&Orientation::default()),
                 &entity_manager.texture_map,
             );
             // add new renderer if needed
@@ -86,6 +87,7 @@ impl RenderingSystem {
                     mesh_type,
                     mesh_attr.unwrap_or(&Colored(Color32::WHITE)),
                     scale.unwrap_or(&Scale::default()),
+                    orientation.unwrap_or(&Orientation::default()),
                     mesh,
                     &entity_manager.texture_map,
                 );
@@ -142,11 +144,11 @@ impl RenderingSystem {
             match renderer_type {
                 Batch(_, renderer) => {
                     renderer.end_batch();
-                    renderer.render_shadows();
+                    renderer.render_shadows(&self.shadow_map);
                 }
                 Instance(_, _, renderer) => {
                     renderer.confirm_positions();
-                    renderer.render_shadows();
+                    renderer.render_shadows(&self.shadow_map);
                 }
                 _ => {}
             }
@@ -162,6 +164,7 @@ impl RenderingSystem {
         mesh_type: &MeshType,
         mesh_attr: &MeshAttribute,
         scale: &Scale,
+        orientation: &Orientation,
         texture_map: &TextureMap,
     ) -> bool {
         for (i, r_type) in self.renderers.iter_mut().enumerate() {
@@ -172,7 +175,8 @@ impl RenderingSystem {
                         Textured(path) => {
                             renderer.draw_tex_mesh(
                                 position,
-                                scale.0,
+                                scale,
+                                orientation,
                                 texture_map.get_tex_id(path).unwrap(),
                                 &self.perspective_camera,
                                 &mut self.shadow_map,
@@ -183,7 +187,8 @@ impl RenderingSystem {
                         Colored(color) => {
                             renderer.draw_color_mesh(
                                 position,
-                                scale.0,
+                                scale,
+                                orientation,
                                 *color,
                                 &self.perspective_camera,
                                 &mut self.shadow_map,
@@ -198,14 +203,14 @@ impl RenderingSystem {
                     match mesh_attr {
                         Textured(path) => {
                             if texture_map.get_tex_id(path).unwrap() == renderer.tex_id {
-                                renderer.add_position(position, scale);
+                                renderer.add_position(position, scale, orientation);
                                 self.used_renderer_indeces.push(i);
                                 return true;
                             }
                         }
                         Colored(color) => {
                             if *color == renderer.color {
-                                renderer.add_position(position, scale);
+                                renderer.add_position(position, scale, orientation);
                                 self.used_renderer_indeces.push(i);
                                 return true;
                             }
@@ -224,6 +229,7 @@ impl RenderingSystem {
         mesh_type: &MeshType,
         mesh_attr: &MeshAttribute,
         scale: &Scale,
+        orientation: &Orientation,
         mesh: SharedPtr<Mesh>,
         texture_map: &TextureMap,
     ) {
@@ -234,7 +240,8 @@ impl RenderingSystem {
                     Colored(color) => {
                         renderer.draw_color_mesh(
                             position,
-                            scale.0,
+                            scale,
+                            orientation,
                             *color,
                             &self.perspective_camera,
                             &mut self.shadow_map,
@@ -244,7 +251,8 @@ impl RenderingSystem {
                     Textured(path) => {
                         renderer.draw_tex_mesh(
                             position,
-                            scale.0,
+                            scale,
+                            orientation,
                             texture_map.get_tex_id(path).unwrap(),
                             &self.perspective_camera,
                             &mut self.shadow_map,
@@ -265,7 +273,7 @@ impl RenderingSystem {
                         renderer.color = *color;
                     }
                 }
-                renderer.add_position(position, scale);
+                renderer.add_position(position, scale, orientation);
                 self.renderers
                     .push(Instance(*mesh_type, *mesh_attr, renderer));
             }

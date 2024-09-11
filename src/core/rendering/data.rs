@@ -1,3 +1,4 @@
+use crate::ecs::component::{Orientation, Position, Scale};
 use crate::glm;
 use crate::rendering::shader::ShaderProgram;
 use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, ORIGIN, Z_AXIS};
@@ -99,6 +100,18 @@ impl Drop for TextureMap {
     }
 }
 
+/// calculate the model matrix for a given position, scale and orientation
+pub fn calc_model_matrix(
+    position: &Position,
+    scale: &Scale,
+    orientation: &Orientation,
+) -> glm::Mat4 {
+    let translate = glm::translate(&glm::Mat4::identity(), position.data());
+    let rotate = orientation.rotation_matrix();
+    let scaled = scale.scale_matrix();
+    translate * rotate * scaled
+}
+
 /// stores the current camera config for 3D rendering
 pub(crate) struct PerspectiveCamera {
     pub(crate) projection: glm::Mat4,
@@ -137,9 +150,14 @@ impl PerspectiveCamera {
         );
     }
 
-    /// update the model matrix for a specific object position `(x, y, z)`
-    pub(crate) fn update_model(&mut self, x: f32, y: f32, z: f32) {
-        self.model = glm::translate(&glm::Mat4::identity(), &glm::Vec3::new(x, y, z));
+    /// update the model matrix for the entire render process
+    pub(crate) fn update_model(
+        &mut self,
+        position: &Position,
+        scale: &Scale,
+        orientation: &Orientation,
+    ) {
+        self.model = calc_model_matrix(position, scale, orientation);
     }
 
     /// updates the camera for given camera position and focus
@@ -169,11 +187,6 @@ impl OrthoCamera {
     pub(crate) fn from_size(size: f32) -> Self {
         Self::new(-size, size, -size, size)
     }
-
-    /// updates the camera for given camera position and focus
-    pub(crate) fn update_cam(&mut self, position: glm::Vec3, focus: glm::Vec3) {
-        self.view = glm::look_at(&position, &focus, &glm::Vec3::y_axis());
-    }
 }
 
 /// shadow map used for rendering
@@ -184,7 +197,7 @@ pub(crate) struct ShadowMap {
     height: GLsizei,
     pub(crate) light_matrix: glm::Mat4,
     pub(crate) light_src: glm::Vec3,
-    program: ShaderProgram,
+    pub(crate) program: ShaderProgram,
     tmp_viewport: [GLint; 4],
     pub(crate) depth_buffer_cleared: bool,
 }
@@ -198,11 +211,11 @@ impl ShadowMap {
 
         unsafe {
             program.add_attr_location("position");
-            program.add_attr_location("offset");
-            program.add_attr_location("scale");
+            program.add_attr_location("model");
 
             program.add_unif_location("light_matrix");
-            program.add_unif_location("model");
+            program.add_unif_location("general_model");
+            program.add_unif_location("use_input_model");
 
             gl::GenFramebuffers(1, &mut dbo);
             gl::GenTextures(1, &mut shadow_map);
@@ -278,7 +291,7 @@ impl ShadowMap {
                 &self.light_matrix[0],
             );
             gl::UniformMatrix4fv(
-                self.program.get_unif("model"),
+                self.program.get_unif("general_model"),
                 1,
                 gl::FALSE,
                 &camera.model[0],

@@ -6,13 +6,14 @@ cascaded shadow mapping
 shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
 lighting improvement
+change render behavior based on engine mode
 more query sizes
 ui basics
 font renderer
 particle system
+triangle mesh -> mesh types not as enum but as struct containing file name
 sprite renderer
 collision detection
 physics (+ friction)
 multiple light sources for the rendering system
-set model matrix for every entity (rotation, scaling) -> renderer rewrite (also change render behavior based on engine mode)
 general query filter trait usage

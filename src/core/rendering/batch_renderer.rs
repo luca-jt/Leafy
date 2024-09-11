@@ -1,6 +1,6 @@
-use super::data::{PerspectiveCamera, ShadowMap, Vertex};
+use super::data::{calc_model_matrix, PerspectiveCamera, ShadowMap, Vertex};
 use super::shader::ShaderProgram;
-use crate::ecs::component::{Color32, Position};
+use crate::ecs::component::{Color32, Orientation, Position, Scale};
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
@@ -179,8 +179,9 @@ impl BatchRenderer {
     }
 
     /// renders to the shadow map
-    pub(crate) fn render_shadows(&self) {
+    pub(crate) fn render_shadows(&self, shadow_map: &ShadowMap) {
         unsafe {
+            gl::Uniform1i(shadow_map.program.get_unif("use_input_model"), 0);
             // draw the triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
             gl::DrawElements(
@@ -216,7 +217,12 @@ impl BatchRenderer {
                 &camera.projection[0],
             );
             gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view[0]);
-            gl::UniformMatrix4fv(program.get_unif("model"), 1, gl::FALSE, &camera.model[0]);
+            gl::UniformMatrix4fv(
+                program.get_unif("general_model"),
+                1,
+                gl::FALSE,
+                &camera.model[0],
+            );
             gl::UniformMatrix4fv(
                 program.get_unif("light_matrix"),
                 1,
@@ -249,7 +255,8 @@ impl BatchRenderer {
     pub(crate) fn draw_tex_mesh(
         &mut self,
         position: &Position,
-        scale: f32,
+        scale: &Scale,
+        orientation: &Orientation,
         tex_id: GLuint,
         camera: &PerspectiveCamera,
         shadow_map: &mut ShadowMap,
@@ -265,7 +272,7 @@ impl BatchRenderer {
             self.end_batch();
             shadow_map.bind_writing(camera);
             shadow_map.try_clear_depth();
-            self.render_shadows();
+            self.render_shadows(shadow_map);
             shadow_map.unbind_writing();
             self.flush(camera, shadow_map, program);
             self.begin_batch();
@@ -290,8 +297,11 @@ impl BatchRenderer {
 
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_verteces() {
+            let trafo = calc_model_matrix(position, scale, orientation);
+            let vertex_pos = mesh.positions[i];
+            let new_pos = trafo * glm::Vec4::new(vertex_pos.x, vertex_pos.y, vertex_pos.z, 1.0);
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
-                position: mesh.positions[i] * scale + position.data(),
+                position: new_pos.xyz(),
                 color: glm::Vec4::new(1.0, 1.0, 1.0, 1.0),
                 uv_coords: mesh.texture_coords[i],
                 normal: mesh.normals[i],
@@ -306,7 +316,8 @@ impl BatchRenderer {
     pub(crate) fn draw_color_mesh(
         &mut self,
         position: &Position,
-        scale: f32,
+        scale: &Scale,
+        orientation: &Orientation,
         color: Color32,
         camera: &PerspectiveCamera,
         shadow_map: &mut ShadowMap,
@@ -320,7 +331,7 @@ impl BatchRenderer {
             self.end_batch();
             shadow_map.bind_writing(camera);
             shadow_map.try_clear_depth();
-            self.render_shadows();
+            self.render_shadows(shadow_map);
             shadow_map.unbind_writing();
             self.flush(camera, shadow_map, program);
             self.begin_batch();
@@ -330,8 +341,11 @@ impl BatchRenderer {
 
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_verteces() {
+            let trafo = calc_model_matrix(position, scale, orientation);
+            let vertex_pos = mesh.positions[i];
+            let new_pos = trafo * glm::Vec4::new(vertex_pos.x, vertex_pos.y, vertex_pos.z, 1.0);
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
-                position: mesh.positions[i] * scale + position.data(),
+                position: new_pos.xyz(),
                 color: color.to_vec4(),
                 uv_coords: mesh.texture_coords[i],
                 normal: mesh.normals[i],

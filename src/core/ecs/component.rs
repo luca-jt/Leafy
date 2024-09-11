@@ -4,13 +4,40 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 use std::time::Instant;
 use MeshAttribute::*;
 
-/// wrapper struct for an object scaling holding a float
+/// wrapper struct for an object scaling
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
-pub struct Scale(pub f32);
+pub struct Scale(glm::Vec3);
+
+impl Scale {
+    /// create a new scale for given input values
+    pub fn new(x_scale: f32, y_scale: f32, z_scale: f32) -> Self {
+        Self(glm::Vec3::new(x_scale, y_scale, z_scale))
+    }
+
+    /// grants immutable access to the stored data
+    pub fn data(&self) -> &glm::Vec3 {
+        &self.0
+    }
+
+    /// grants mutable access to the stored data
+    pub fn data_mut(&mut self) -> &mut glm::Vec3 {
+        &mut self.0
+    }
+
+    /// creates an even scaling with a given factor
+    pub fn from_factor(factor: f32) -> Self {
+        Self::new(factor, factor, factor)
+    }
+
+    /// calculates the scale matrix for the stored scalars
+    pub fn scale_matrix(&self) -> glm::Mat4 {
+        glm::scale(&glm::Mat4::identity(), &self.0)
+    }
+}
 
 impl Default for Scale {
     fn default() -> Self {
-        Scale(1.0)
+        Self::new(1.0, 1.0, 1.0)
     }
 }
 
@@ -33,6 +60,12 @@ impl Orientation {
     /// generates the rotation matrix for the stored quaternion
     pub fn rotation_matrix(&self) -> glm::Mat4 {
         glm::quat_to_mat4(&glm::quat_angle_axis(self.angle.to_radians(), &self.axis))
+    }
+}
+
+impl Default for Orientation {
+    fn default() -> Self {
+        Self::new(0.0, 1.0, 0.0, 0.0)
     }
 }
 
@@ -406,14 +439,14 @@ pub struct SoundController {
 }
 
 /// responsible for entity collision checking
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Hitbox {
     Quad {
         position: glm::Vec3,
         orientation: Orientation,
         width: f32,
         height: f32,
-        link: Hitbox,
+        link: Box<Hitbox>,
     },
     Cube {
         position: glm::Vec3,
@@ -421,12 +454,12 @@ pub enum Hitbox {
         width: f32,
         height: f32,
         depth: f32,
-        link: Hitbox,
+        link: Box<Hitbox>,
     },
     Sphere {
         position: glm::Vec3,
         radius: f32,
-        link: Hitbox,
+        link: Box<Hitbox>,
     },
     None,
 }

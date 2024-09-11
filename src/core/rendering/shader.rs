@@ -191,7 +191,7 @@ impl ShaderCatalog {
 
         program.add_unif_location("projection");
         program.add_unif_location("view");
-        program.add_unif_location("model");
+        program.add_unif_location("general_model");
         program.add_unif_location("tex_sampler");
         program.add_unif_location("shadow_map");
         program.add_unif_location("light_pos");
@@ -212,7 +212,7 @@ impl ShaderCatalog {
 
         program.add_unif_location("projection");
         program.add_unif_location("view");
-        program.add_unif_location("model");
+        program.add_unif_location("general_model");
         program.add_unif_location("tex_sampler");
         program.add_unif_location("shadow_map");
         program.add_unif_location("light_pos");
@@ -222,8 +222,7 @@ impl ShaderCatalog {
         program.add_attr_location("position");
         program.add_attr_location("uv");
         program.add_attr_location("normal");
-        program.add_attr_location("offset");
-        program.add_attr_location("scale");
+        program.add_attr_location("model");
 
         self.instance_basic = Some(program);
     }

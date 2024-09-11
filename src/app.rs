@@ -39,7 +39,7 @@ impl FallingLeafApp for App {
         let mut entity_manager = engine.entity_manager();
         let _floor = entity_manager.create_entity(components!(
             Position::zeros(),
-            Scale(5.0),
+            Scale::from_factor(5.0),
             MeshType::Plane,
             MeshAttribute::Textured("wall.png")
         ));
@@ -48,7 +48,7 @@ impl FallingLeafApp for App {
             MeshType::Sphere,
             MeshAttribute::Colored(Color32::RED),
         );
-        *entity_manager.get_component_mut::<Scale>(player).unwrap() = Scale(0.2);
+        *entity_manager.get_component_mut::<Scale>(player).unwrap() = Scale::from_factor(0.2);
 
         let sound = engine.audio_system().new_sound_controller();
         let heli_position = Position::new(0.0, 1.0, 1.0);
@@ -59,7 +59,7 @@ impl FallingLeafApp for App {
 
         let cube = entity_manager.create_entity(components!(
             heli_position,
-            Scale(0.1),
+            Scale::from_factor(0.1),
             MeshType::Cube,
             MeshAttribute::Colored(Color32::BLUE),
             sound,

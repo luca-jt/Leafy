@@ -1,6 +1,6 @@
-use super::data::{PerspectiveCamera, ShadowMap};
+use super::data::{calc_model_matrix, PerspectiveCamera, ShadowMap};
 use super::shader::ShaderProgram;
-use crate::ecs::component::{Color32, Position, Scale};
+use crate::ecs::component::{Color32, Orientation, Position, Scale};
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::tools::SharedPtr;
@@ -13,14 +13,12 @@ pub(crate) struct InstanceRenderer {
     pbo: GLuint,
     tbo: GLuint,
     nbo: GLuint,
-    obo: GLuint,
-    sbo: GLuint,
+    mbo: GLuint,
     ibo: GLuint,
     white_texture: GLuint,
     index_count: GLsizei,
     shared_mesh: SharedPtr<Mesh>,
-    positions: Vec<glm::Vec3>,
-    scales: Vec<GLfloat>,
+    models: Vec<glm::Mat4>,
     pos_idx: usize,
     pub(crate) color: Color32,
     pub(crate) tex_id: GLuint,
@@ -41,12 +39,10 @@ impl InstanceRenderer {
         let mut pbo = 0; // positions
         let mut tbo = 0; // uv
         let mut nbo = 0; // normals
-        let mut obo = 0; // offsets
-        let mut sbo = 0; // scales
+        let mut mbo = 0; // models (includes offsets)
         let mut ibo = 0; // indeces
         let mut white_texture = 0;
-        let positions = vec![glm::Vec3::zeros(); num_instances];
-        let scales = vec![0.0; num_instances];
+        let models = vec![glm::Mat4::identity(); num_instances];
 
         unsafe {
             // GENERATE BUFFERS
@@ -110,45 +106,60 @@ impl InstanceRenderer {
                 ptr::null(),
             );
 
-            // offset buffer
-            gl::CreateBuffers(1, &mut obo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, obo);
+            // model buffer
+            gl::CreateBuffers(1, &mut mbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, mbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (num_instances * size_of::<glm::Vec3>()) as GLsizeiptr,
+                (num_instances * size_of::<glm::Mat4>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
-            gl::EnableVertexAttribArray(program.get_attr("offset") as GLuint);
+            let model_pos = program.get_attr("model") as GLuint;
+            let pos1 = model_pos + 0;
+            let pos2 = model_pos + 1;
+            let pos3 = model_pos + 2;
+            let pos4 = model_pos + 3;
+            gl::EnableVertexAttribArray(pos1);
+            gl::EnableVertexAttribArray(pos2);
+            gl::EnableVertexAttribArray(pos3);
+            gl::EnableVertexAttribArray(pos4);
             gl::VertexAttribPointer(
-                program.get_attr("offset") as GLuint,
-                3,
+                pos1,
+                4,
                 gl::FLOAT,
                 gl::FALSE as GLboolean,
-                0,
+                (size_of::<GLfloat>() * 4 * 4) as GLsizei,
                 ptr::null(),
             );
-            gl::VertexAttribDivisor(program.get_attr("offset") as GLuint, 1);
-
-            // scale buffer
-            gl::CreateBuffers(1, &mut sbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, sbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (num_instances * size_of::<GLfloat>()) as GLsizeiptr,
-                ptr::null(),
-                gl::DYNAMIC_DRAW,
-            );
-            gl::EnableVertexAttribArray(program.get_attr("scale") as GLuint);
             gl::VertexAttribPointer(
-                program.get_attr("scale") as GLuint,
-                1,
+                pos2,
+                4,
                 gl::FLOAT,
                 gl::FALSE as GLboolean,
-                0,
-                ptr::null(),
+                (size_of::<GLfloat>() * 4 * 4) as GLsizei,
+                (size_of::<GLfloat>() * 4) as *const GLvoid,
             );
-            gl::VertexAttribDivisor(program.get_attr("scale") as GLuint, 1);
+            gl::VertexAttribPointer(
+                pos3,
+                4,
+                gl::FLOAT,
+                gl::FALSE as GLboolean,
+                (size_of::<GLfloat>() * 4 * 4) as GLsizei,
+                (size_of::<GLfloat>() * 8) as *const GLvoid,
+            );
+            gl::VertexAttribPointer(
+                pos4,
+                4,
+                gl::FLOAT,
+                gl::FALSE as GLboolean,
+                (size_of::<GLfloat>() * 4 * 4) as GLsizei,
+                (size_of::<GLfloat>() * 12) as *const GLvoid,
+            );
+            gl::VertexAttribDivisor(pos1, 1);
+            gl::VertexAttribDivisor(pos2, 1);
+            gl::VertexAttribDivisor(pos3, 1);
+            gl::VertexAttribDivisor(pos4, 1);
 
             // INDECES
             gl::GenBuffers(1, &mut ibo);
@@ -184,14 +195,12 @@ impl InstanceRenderer {
             pbo,
             tbo,
             nbo,
-            obo,
-            sbo,
+            mbo,
             ibo,
             white_texture,
             index_count: 0,
             shared_mesh,
-            positions,
-            scales,
+            models,
             pos_idx: 0,
             color: Color32::WHITE,
             tex_id: white_texture,
@@ -202,20 +211,12 @@ impl InstanceRenderer {
     /// resizes the internal offset buffer to the specified number of elements (erases all positions added prior to this call)
     pub(crate) fn resize_buffer(&mut self, size: usize) {
         self.num_instances += size;
-        self.positions.reserve_exact(size);
-        self.scales.reserve_exact(size);
+        self.models.reserve_exact(size);
         unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.obo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (self.num_instances * size_of::<glm::Vec3>()) as GLsizeiptr,
-                ptr::null(),
-                gl::DYNAMIC_DRAW,
-            );
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.sbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (self.num_instances * size_of::<GLfloat>()) as GLsizeiptr,
+                (self.num_instances * size_of::<glm::Mat4>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -223,12 +224,16 @@ impl InstanceRenderer {
     }
 
     /// adds a position where the mesh shall be rendered
-    pub(crate) fn add_position(&mut self, position: &Position, scale: &Scale) {
+    pub(crate) fn add_position(
+        &mut self,
+        position: &Position,
+        scale: &Scale,
+        orientation: &Orientation,
+    ) {
         if self.pos_idx == self.num_instances {
             panic!("Attempt to draw too many Instances");
         }
-        self.positions[self.pos_idx] = *position.data();
-        self.scales[self.pos_idx] = scale.0;
+        self.models[self.pos_idx] = calc_model_matrix(position, scale, orientation);
         self.index_count += self.shared_mesh.borrow().num_indeces() as GLsizei;
         self.pos_idx += 1;
     }
@@ -236,30 +241,22 @@ impl InstanceRenderer {
     /// end position input, copy all the added positions to the gpu
     pub(crate) fn confirm_positions(&self) {
         unsafe {
-            // dynamically copy the updated postion data
-            let positions_size: GLsizeiptr = (self.pos_idx * size_of::<glm::Vec3>()) as GLsizeiptr;
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.obo);
+            // dynamically copy the updated model data
+            let models_size: GLsizeiptr = (self.pos_idx * size_of::<glm::Mat4>()) as GLsizeiptr;
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
                 0,
-                positions_size,
-                self.positions[0].as_ptr() as *const GLvoid,
-            );
-            // dynamically copy the updated scale data
-            let scales_size: GLsizeiptr = (self.pos_idx * size_of::<GLfloat>()) as GLsizeiptr;
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.sbo);
-            gl::BufferSubData(
-                gl::ARRAY_BUFFER,
-                0,
-                scales_size,
-                self.scales.as_ptr() as *const GLvoid,
+                models_size,
+                self.models.as_ptr() as *const GLvoid,
             );
         }
     }
 
     /// renders to the shadow map
-    pub(crate) fn render_shadows(&self) {
+    pub(crate) fn render_shadows(&self, shadow_map: &ShadowMap) {
         unsafe {
+            gl::Uniform1i(shadow_map.program.get_unif("use_input_model"), 1);
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
             gl::DrawElementsInstanced(
@@ -294,7 +291,12 @@ impl InstanceRenderer {
                 &camera.projection[0],
             );
             gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view[0]);
-            gl::UniformMatrix4fv(program.get_unif("model"), 1, gl::FALSE, &camera.model[0]);
+            gl::UniformMatrix4fv(
+                program.get_unif("general_model"),
+                1,
+                gl::FALSE,
+                &camera.model[0],
+            );
             gl::UniformMatrix4fv(
                 program.get_unif("light_matrix"),
                 1,
@@ -329,8 +331,7 @@ impl Drop for InstanceRenderer {
             gl::DeleteBuffers(1, &self.pbo);
             gl::DeleteBuffers(1, &self.tbo);
             gl::DeleteBuffers(1, &self.nbo);
-            gl::DeleteBuffers(1, &self.obo);
-            gl::DeleteBuffers(1, &self.sbo);
+            gl::DeleteBuffers(1, &self.mbo);
             gl::DeleteBuffers(1, &self.ibo);
             gl::DeleteTextures(1, &self.white_texture);
             gl::DeleteVertexArrays(1, &self.vao);
