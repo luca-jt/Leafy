@@ -15,16 +15,21 @@ So far the Falling Leaf Engine provides the following features out of the box:
 - A functional windowed app up and running in seconds
 - 3D-Audio with sound effects attachable to entities
 
-## Build Process
+## Usage
 - add the following to your `Cargo.toml` file:
 ```
 [dependencies]
 falling_leaf = "0.1.0"
 ```
-- simply run:
+
+## Examples
+- all examples are located in the `/examples` folder
+- run them with:
+```sh
+# runs the "fl_test" example
+cargo run --example fl_test
 ```
-cargo run
-```
+
 ## Overview
 - create an app struct that implements the `FallingLeafApp` trait and run the app like this:
 ```rs
@@ -37,12 +42,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     engine.run(app)
 }
 ```
-## Examples
-- all examples are located in the `/examples` folder
-- run them with:
-```
-# runs the "test" example
-cargo run --example test
-```
+
 ### Credits
 This library uses [fyrox-sound](https://github.com/FyroxEngine/Fyrox/tree/master/fyrox-sound) for audio file decoding and 3D audio composing. Its functionality is integrated in the engines' audio system to interact with the entity data.
