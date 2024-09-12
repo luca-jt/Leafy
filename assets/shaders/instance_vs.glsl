@@ -14,11 +14,10 @@ out vec4 frag_pos_light;
 uniform vec4 color;
 uniform mat4 projection;
 uniform mat4 view;
-uniform mat4 general_model;
 uniform mat4 light_matrix;
 
 void main() {
-    gl_Position = projection * view * model * general_model * vec4(position, 1.0);
+    gl_Position = projection * view * model * vec4(position, 1.0);
     v_color = color;
     v_uv = uv;
     v_normal = normal;

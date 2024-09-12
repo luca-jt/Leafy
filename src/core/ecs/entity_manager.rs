@@ -7,7 +7,7 @@ use crate::ecs::entity::{
 use crate::ecs::query::*;
 use crate::rendering::data::TextureMap;
 use crate::rendering::mesh::Mesh;
-use crate::utils::tools::{shared_ptr, SharedPtr};
+use crate::utils::tools::{shared_ptr, weak_ptr, SharedPtr, WeakPtr};
 use crate::{exclude_filter, include_filter};
 use std::any::{Any, TypeId};
 use std::collections::hash_map::Keys;
@@ -150,14 +150,14 @@ impl EntityManager {
     }
 
     /// makes mesh data available for a given entity id
-    pub fn asset_from_id(&self, entity: EntityID) -> Option<SharedPtr<Mesh>> {
+    pub fn asset_from_id(&self, entity: EntityID) -> Option<WeakPtr<Mesh>> {
         let mesh_type = self.ecs.get_component::<MeshType>(entity)?;
-        Some(self.asset_register.get(mesh_type)?.clone())
+        Some(weak_ptr(self.asset_register.get(mesh_type)?))
     }
 
     /// makes mesh data available for a given mesh type
-    pub fn asset_from_type(&self, mesh_type: MeshType) -> Option<SharedPtr<Mesh>> {
-        Some(self.asset_register.get(&mesh_type)?.clone())
+    pub fn asset_from_type(&self, mesh_type: MeshType) -> Option<WeakPtr<Mesh>> {
+        Some(weak_ptr(self.asset_register.get(&mesh_type)?))
     }
 
     /// iterate over all of the stored entities
@@ -169,9 +169,11 @@ impl EntityManager {
     fn try_add_mesh(&mut self, mesh_type: MeshType) {
         if !self.asset_register.keys().any(|t| *t == mesh_type) {
             let mesh = match mesh_type {
-                MeshType::Sphere => Mesh::new("sphere.obj"),
-                MeshType::Cube => Mesh::new("cube.obj"),
+                MeshType::Triangle => Mesh::new("triangle.obj"),
                 MeshType::Plane => Mesh::new("plane.obj"),
+                MeshType::Cube => Mesh::new("cube.obj"),
+                MeshType::Sphere => Mesh::new("sphere.obj"),
+                MeshType::Custom(path) => Mesh::new(path),
             };
             self.asset_register.insert(mesh_type, shared_ptr(mesh));
         }

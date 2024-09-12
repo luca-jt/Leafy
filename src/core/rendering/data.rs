@@ -100,6 +100,14 @@ impl Drop for TextureMap {
     }
 }
 
+/// allows for fluent exchange of camera implementation details in rendering
+pub(crate) trait Camera {
+    /// access to the projection matrix
+    fn projection(&self) -> &glm::Mat4;
+    /// access to the view matrix
+    fn view(&self) -> &glm::Mat4;
+}
+
 /// calculate the model matrix for a given position, scale and orientation
 pub fn calc_model_matrix(
     position: &Position,
@@ -114,9 +122,8 @@ pub fn calc_model_matrix(
 
 /// stores the current camera config for 3D rendering
 pub(crate) struct PerspectiveCamera {
-    pub(crate) projection: glm::Mat4,
-    pub(crate) view: glm::Mat4,
-    pub(crate) model: glm::Mat4,
+    projection: glm::Mat4,
+    view: glm::Mat4,
 }
 
 impl PerspectiveCamera {
@@ -131,13 +138,8 @@ impl PerspectiveCamera {
         );
         let up = glm::Vec3::y_axis();
         let view = glm::look_at::<f32>(&position, &focus, &up);
-        let model = glm::Mat4::identity();
 
-        Self {
-            projection,
-            view,
-            model,
-        }
+        Self { projection, view }
     }
 
     /// update the projection matrix based on a given fov
@@ -150,26 +152,26 @@ impl PerspectiveCamera {
         );
     }
 
-    /// update the model matrix for the entire render process
-    pub(crate) fn update_model(
-        &mut self,
-        position: &Position,
-        scale: &Scale,
-        orientation: &Orientation,
-    ) {
-        self.model = calc_model_matrix(position, scale, orientation);
-    }
-
     /// updates the camera for given camera position and focus
     pub(crate) fn update_cam(&mut self, position: &glm::Vec3, focus: &glm::Vec3) {
         self.view = glm::look_at(position, focus, &glm::Vec3::y_axis());
     }
 }
 
+impl Camera for PerspectiveCamera {
+    fn projection(&self) -> &glm::Mat4 {
+        &self.projection
+    }
+
+    fn view(&self) -> &glm::Mat4 {
+        &self.view
+    }
+}
+
 /// stores the current camera config for 2D rendering
 pub(crate) struct OrthoCamera {
-    pub(crate) projection: glm::Mat4,
-    pub(crate) view: glm::Mat4,
+    projection: glm::Mat4,
+    view: glm::Mat4,
 }
 
 impl OrthoCamera {
@@ -186,6 +188,16 @@ impl OrthoCamera {
     /// creates a new orthographic camera from a size: `(-size, size, -size, size)`
     pub(crate) fn from_size(size: f32) -> Self {
         Self::new(-size, size, -size, size)
+    }
+}
+
+impl Camera for OrthoCamera {
+    fn projection(&self) -> &glm::Mat4 {
+        &self.projection
+    }
+
+    fn view(&self) -> &glm::Mat4 {
+        &self.view
     }
 }
 
@@ -214,7 +226,6 @@ impl ShadowMap {
             program.add_attr_location("model");
 
             program.add_unif_location("light_matrix");
-            program.add_unif_location("general_model");
             program.add_unif_location("use_input_model");
 
             gl::GenFramebuffers(1, &mut dbo);
@@ -277,7 +288,7 @@ impl ShadowMap {
     }
 
     /// bind the depth buffer for writing
-    pub(crate) fn bind_writing(&mut self, camera: &PerspectiveCamera) {
+    pub(crate) fn bind_writing(&mut self) {
         unsafe {
             gl::GetIntegerv(gl::VIEWPORT, &mut self.tmp_viewport[0]);
             gl::Viewport(0, 0, self.width, self.height);
@@ -289,12 +300,6 @@ impl ShadowMap {
                 1,
                 gl::FALSE,
                 &self.light_matrix[0],
-            );
-            gl::UniformMatrix4fv(
-                self.program.get_unif("general_model"),
-                1,
-                gl::FALSE,
-                &camera.model[0],
             );
         }
     }

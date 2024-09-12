@@ -17,7 +17,7 @@ use crate::systems::event_system::events::{
 };
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{ORIGIN, Z_AXIS};
-use crate::utils::tools::SharedPtr;
+use crate::utils::tools::WeakPtr;
 use RendererType::*;
 
 /// responsible for the automated rendering of all entities
@@ -54,7 +54,7 @@ impl RenderingSystem {
         }
     }
 
-    /// start the rendering for all renderers
+    /// start the 3D rendering for all renderers
     pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
         if let Some(entity) = self.cam_position_link {
             let pos = entity_manager
@@ -138,7 +138,7 @@ impl RenderingSystem {
 
     /// renders the shadows to the shadow map
     fn render_shadows(&mut self) {
-        self.shadow_map.bind_writing(&self.perspective_camera);
+        self.shadow_map.bind_writing();
         self.shadow_map.try_clear_depth();
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
@@ -230,11 +230,11 @@ impl RenderingSystem {
         mesh_attr: &MeshAttribute,
         scale: &Scale,
         orientation: &Orientation,
-        mesh: SharedPtr<Mesh>,
+        mesh: WeakPtr<Mesh>,
         texture_map: &TextureMap,
     ) {
         match mesh_type {
-            MeshType::Plane | MeshType::Cube => {
+            MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
                 let mut renderer = BatchRenderer::new(mesh, 10, self.shader_catalog.batch_basic());
                 match mesh_attr {
                     Colored(color) => {
@@ -262,7 +262,7 @@ impl RenderingSystem {
                 }
                 self.renderers.push(Batch(*mesh_type, renderer));
             }
-            MeshType::Sphere => {
+            _ => {
                 let mut renderer =
                     InstanceRenderer::new(mesh, 10, self.shader_catalog.instance_basic());
                 match mesh_attr {

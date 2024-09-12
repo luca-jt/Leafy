@@ -361,12 +361,13 @@ impl Default for Color32 {
 }
 
 /// all of the known mesh types
-#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Default, Hash, Eq)]
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Hash, Eq)]
 pub enum MeshType {
-    #[default]
-    Cube,
+    Triangle,
     Plane,
+    Cube,
     Sphere,
+    Custom(&'static str),
 }
 
 /// wether or not a mesh is colored or textured

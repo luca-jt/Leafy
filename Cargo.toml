@@ -16,6 +16,10 @@ path = "src/core/lib.rs"
 name = "fl_test"
 path = "examples/fl_test/main.rs"
 
+[[example]]
+name = "2d"
+path = "examples/2d/main.rs"
+
 [dependencies]
 glutin = "0.32.0"
 glutin-winit = "0.5.0"

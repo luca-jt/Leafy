@@ -1,10 +1,10 @@
-use super::data::{calc_model_matrix, PerspectiveCamera, ShadowMap, Vertex};
+use super::data::{calc_model_matrix, Camera, ShadowMap, Vertex};
 use super::shader::ShaderProgram;
 use crate::ecs::component::{Color32, Orientation, Position, Scale};
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
-use crate::utils::tools::SharedPtr;
+use crate::utils::tools::WeakPtr;
 use gl::types::*;
 use std::{mem, ptr};
 
@@ -19,7 +19,7 @@ pub(crate) struct BatchRenderer {
     obj_buffer_ptr: usize,
     tex_slots: Vec<GLuint>,
     tex_slot_index: GLuint,
-    shared_mesh: SharedPtr<Mesh>,
+    shared_mesh: WeakPtr<Mesh>,
     max_num_meshes: usize,
     samplers: [i32; MAX_TEXTURE_COUNT - 1],
 }
@@ -27,12 +27,13 @@ pub(crate) struct BatchRenderer {
 impl BatchRenderer {
     /// creates a new batch renderer
     pub(crate) fn new(
-        shared_mesh: SharedPtr<Mesh>,
+        shared_mesh: WeakPtr<Mesh>,
         max_num_meshes: usize,
         program: &ShaderProgram,
     ) -> Self {
-        let mesh = shared_mesh.clone();
+        let mesh = shared_mesh.upgrade().unwrap();
         let mesh = mesh.borrow();
+
         // init the data ids
         let obj_buffer: Vec<Vertex> = vec![Vertex::default(); mesh.num_verteces() * max_num_meshes];
         let mut vao = 0;
@@ -197,7 +198,7 @@ impl BatchRenderer {
     /// send data to GPU and reset
     pub(crate) fn flush(
         &mut self,
-        camera: &PerspectiveCamera,
+        camera: &impl Camera,
         shadow_map: &ShadowMap,
         program: &ShaderProgram,
     ) {
@@ -214,15 +215,9 @@ impl BatchRenderer {
                 program.get_unif("projection"),
                 1,
                 gl::FALSE,
-                &camera.projection[0],
+                &camera.projection()[0],
             );
-            gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view[0]);
-            gl::UniformMatrix4fv(
-                program.get_unif("general_model"),
-                1,
-                gl::FALSE,
-                &camera.model[0],
-            );
+            gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view()[0]);
             gl::UniformMatrix4fv(
                 program.get_unif("light_matrix"),
                 1,
@@ -258,11 +253,11 @@ impl BatchRenderer {
         scale: &Scale,
         orientation: &Orientation,
         tex_id: GLuint,
-        camera: &PerspectiveCamera,
+        camera: &impl Camera,
         shadow_map: &mut ShadowMap,
         program: &ShaderProgram,
     ) {
-        let mesh = self.shared_mesh.clone();
+        let mesh = self.shared_mesh.upgrade().unwrap();
         let mesh = mesh.borrow();
 
         if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes
@@ -270,7 +265,7 @@ impl BatchRenderer {
         {
             // start a new batch if batch size exceeded or ran out of texture slots
             self.end_batch();
-            shadow_map.bind_writing(camera);
+            shadow_map.bind_writing();
             shadow_map.try_clear_depth();
             self.render_shadows(shadow_map);
             shadow_map.unbind_writing();
@@ -319,17 +314,17 @@ impl BatchRenderer {
         scale: &Scale,
         orientation: &Orientation,
         color: Color32,
-        camera: &PerspectiveCamera,
+        camera: &impl Camera,
         shadow_map: &mut ShadowMap,
         program: &ShaderProgram,
     ) {
-        let mesh = self.shared_mesh.clone();
+        let mesh = self.shared_mesh.upgrade().unwrap();
         let mesh = mesh.borrow();
 
         if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes {
             // start a new batch if batch size exceeded
             self.end_batch();
-            shadow_map.bind_writing(camera);
+            shadow_map.bind_writing();
             shadow_map.try_clear_depth();
             self.render_shadows(shadow_map);
             shadow_map.unbind_writing();

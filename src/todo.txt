@@ -3,6 +3,7 @@ queries implementations with macros?
 sampled animations from files
 linux support
 voxel renderer
+externally addded mesh files dont need path functions
 cascaded shadow mapping
 shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
@@ -19,6 +20,4 @@ multiple light sources for the rendering system
 builder like engine creator for window title etc
 triangle mesh -> mesh types not as enum but as struct containing file name
 general query filter trait usage -> no specific filter usage methods in the entity manager
-camera trait for different cam usage for the same renderers -> access to the matrices
-mesh type not as enum but as struct containing the file name
-mesh data not as cloned shared pointer?
+use const new methods wherever possible

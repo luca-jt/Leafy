@@ -1,9 +1,9 @@
-use super::data::{calc_model_matrix, PerspectiveCamera, ShadowMap};
+use super::data::{calc_model_matrix, Camera, ShadowMap};
 use super::shader::ShaderProgram;
 use crate::ecs::component::{Color32, Orientation, Position, Scale};
 use crate::glm;
 use crate::rendering::mesh::Mesh;
-use crate::utils::tools::SharedPtr;
+use crate::utils::tools::WeakPtr;
 use gl::types::*;
 use std::ptr;
 
@@ -17,7 +17,7 @@ pub(crate) struct InstanceRenderer {
     ibo: GLuint,
     white_texture: GLuint,
     index_count: GLsizei,
-    shared_mesh: SharedPtr<Mesh>,
+    shared_mesh: WeakPtr<Mesh>,
     models: Vec<glm::Mat4>,
     pos_idx: usize,
     pub(crate) color: Color32,
@@ -28,11 +28,11 @@ pub(crate) struct InstanceRenderer {
 impl InstanceRenderer {
     /// creates a new instance renderer
     pub(crate) fn new(
-        shared_mesh: SharedPtr<Mesh>,
+        shared_mesh: WeakPtr<Mesh>,
         num_instances: usize,
         program: &ShaderProgram,
     ) -> Self {
-        let mesh = shared_mesh.clone();
+        let mesh = shared_mesh.upgrade().unwrap();
         let mesh = mesh.borrow();
 
         let mut vao = 0; // vertex array
@@ -234,7 +234,7 @@ impl InstanceRenderer {
             panic!("Attempt to draw too many Instances");
         }
         self.models[self.pos_idx] = calc_model_matrix(position, scale, orientation);
-        self.index_count += self.shared_mesh.borrow().num_indeces() as GLsizei;
+        self.index_count += self.shared_mesh.upgrade().unwrap().borrow().num_indeces() as GLsizei;
         self.pos_idx += 1;
     }
 
@@ -273,7 +273,7 @@ impl InstanceRenderer {
     /// draws the mesh at all the positions specified until the call of this and clears the positions
     pub(crate) fn draw_all(
         &mut self,
-        camera: &PerspectiveCamera,
+        camera: &impl Camera,
         shadow_map: &ShadowMap,
         program: &ShaderProgram,
     ) {
@@ -288,15 +288,9 @@ impl InstanceRenderer {
                 program.get_unif("projection"),
                 1,
                 gl::FALSE,
-                &camera.projection[0],
+                &camera.projection()[0],
             );
-            gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view[0]);
-            gl::UniformMatrix4fv(
-                program.get_unif("general_model"),
-                1,
-                gl::FALSE,
-                &camera.model[0],
-            );
+            gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view()[0]);
             gl::UniformMatrix4fv(
                 program.get_unif("light_matrix"),
                 1,
