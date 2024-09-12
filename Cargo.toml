@@ -3,15 +3,18 @@ name = "falling_leaf"
 version = "0.1.0"
 edition = "2021"
 authors = ["Luca Thomas"]
+keywords = ["game", "engine", "gamedev"]
+license = "MIT"
+rust-version = "1.81.0"
 build = "build.rs"
 
 [lib]
 name = "fl_core"
 path = "src/core/lib.rs"
 
-[[bin]]
+[[example]]
 name = "fl_test"
-path = "src/main.rs"
+path = "examples/fl_test/main.rs"
 
 [dependencies]
 glutin = "0.32.0"

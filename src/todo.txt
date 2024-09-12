@@ -12,10 +12,13 @@ more query sizes
 ui basics
 font renderer
 particle system
-triangle mesh -> mesh types not as enum but as struct containing file name
 sprite renderer
 collision detection
 physics (+ friction)
 multiple light sources for the rendering system
-general query filter trait usage
-bin in example folder
+builder like engine creator for window title etc
+triangle mesh -> mesh types not as enum but as struct containing file name
+general query filter trait usage -> no specific filter usage methods in the entity manager
+camera trait for different cam usage for the same renderers -> access to the matrices
+mesh type not as enum but as struct containing the file name
+mesh data not as cloned shared pointer?
