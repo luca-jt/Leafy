@@ -10,7 +10,7 @@ build = "build.rs"
 
 [lib]
 name = "fl_core"
-path = "src/core/lib.rs"
+path = "src/lib.rs"
 
 [[example]]
 name = "fl_test"
