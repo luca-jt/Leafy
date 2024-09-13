@@ -183,211 +183,104 @@ impl EntityManager {
 
     /// create immutable query for 1 component, iterable
     pub fn query1<T: Any>(&self) -> Query1<'_, T> {
-        self.ecs.query1::<T>(include_filter!(), exclude_filter!())
+        self.ecs
+            .query1::<T>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 1 component with given filters, iterable
     pub fn query1_mut<T: Any>(&mut self) -> Query1Mut<'_, T> {
         self.ecs
-            .query1_mut::<T>(include_filter!(), exclude_filter!())
-    }
-
-    /// create immutable query for 1 component with given filters, iterable
-    pub fn query1_filtered<T: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query1<'_, T> {
-        self.ecs.query1::<T>(include, exclude)
-    }
-
-    /// create mutable query for 1 component with given filters, iterable
-    pub fn query1_mut_filtered<T: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query1Mut<'_, T> {
-        self.ecs.query1_mut::<T>(include, exclude)
+            .query1_mut::<T>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 2 components, iterable
     pub fn query2<A: Any, B: Any>(&self) -> Query2<'_, A, B> {
         self.ecs
-            .query2::<A, B>(include_filter!(), exclude_filter!())
+            .query2::<A, B>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 2 components, 1 optional, iterable
     pub fn query2_opt1<A: Any, B: Any>(&self) -> Query2Opt1<'_, A, B> {
         self.ecs
-            .query2_opt1::<A, B>(include_filter!(), exclude_filter!())
+            .query2_opt1::<A, B>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 2 components, iterable
     pub fn query2_mut<A: Any, B: Any>(&mut self) -> Query2Mut<'_, A, B> {
         self.ecs
-            .query2_mut::<A, B>(include_filter!(), exclude_filter!())
+            .query2_mut::<A, B>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 2 components, 1 optional, iterable
     pub fn query2_mut_opt1<A: Any, B: Any>(&mut self) -> Query2MutOpt1<'_, A, B> {
         self.ecs
-            .query2_mut_opt1::<A, B>(include_filter!(), exclude_filter!())
-    }
-
-    /// create immutable query for 2 components with given filters, iterable
-    pub fn query2_filtered<A: Any, B: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query2<'_, A, B> {
-        self.ecs.query2::<A, B>(include, exclude)
-    }
-
-    /// create immutable query for 2 components, 1 optional, with given filters, iterable
-    pub fn query2_opt1_filtered<A: Any, B: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query2Opt1<'_, A, B> {
-        self.ecs.query2_opt1::<A, B>(include, exclude)
-    }
-
-    /// create mutable query for 2 components with given filters, iterable
-    pub fn query2_mut_filtered<A: Any, B: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query2Mut<'_, A, B> {
-        self.ecs.query2_mut::<A, B>(include, exclude)
-    }
-
-    /// create mutable query for 2 components, 1 optional, with given filters, iterable
-    pub fn query2_mut_opt1_filtered<A: Any, B: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query2MutOpt1<'_, A, B> {
-        self.ecs.query2_mut_opt1::<A, B>(include, exclude)
+            .query2_mut_opt1::<A, B>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 3 components, iterable
     pub fn query3<A: Any, B: Any, C: Any>(&self) -> Query3<'_, A, B, C> {
         self.ecs
-            .query3::<A, B, C>(include_filter!(), exclude_filter!())
+            .query3::<A, B, C>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 3 components, 1 optional, iterable
     pub fn query3_opt1<A: Any, B: Any, C: Any>(&self) -> Query3Opt1<'_, A, B, C> {
         self.ecs
-            .query3_opt1::<A, B, C>(include_filter!(), exclude_filter!())
+            .query3_opt1::<A, B, C>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 3 components, 2 optional, iterable
     pub fn query3_opt2<A: Any, B: Any, C: Any>(&self) -> Query3Opt2<'_, A, B, C> {
         self.ecs
-            .query3_opt2::<A, B, C>(include_filter!(), exclude_filter!())
+            .query3_opt2::<A, B, C>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 3 components, iterable
     pub fn query3_mut<A: Any, B: Any, C: Any>(&mut self) -> Query3Mut<'_, A, B, C> {
         self.ecs
-            .query3_mut::<A, B, C>(include_filter!(), exclude_filter!())
+            .query3_mut::<A, B, C>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 3 components, 1 optional, iterable
     pub fn query3_mut_opt1<A: Any, B: Any, C: Any>(&mut self) -> Query3MutOpt1<'_, A, B, C> {
         self.ecs
-            .query3_mut_opt1::<A, B, C>(include_filter!(), exclude_filter!())
+            .query3_mut_opt1::<A, B, C>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 3 components, 2 optional, iterable
     pub fn query3_mut_opt2<A: Any, B: Any, C: Any>(&mut self) -> Query3MutOpt2<'_, A, B, C> {
         self.ecs
-            .query3_mut_opt2::<A, B, C>(include_filter!(), exclude_filter!())
-    }
-
-    /// create immutable query for 3 components with given filters, iterable
-    pub fn query3_filtered<A: Any, B: Any, C: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query3<'_, A, B, C> {
-        self.ecs.query3::<A, B, C>(include, exclude)
-    }
-
-    /// create immutable query for 3 components, 1 optional, with given filters, iterable
-    pub fn query3_opt1_filtered<A: Any, B: Any, C: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query3Opt1<'_, A, B, C> {
-        self.ecs.query3_opt1::<A, B, C>(include, exclude)
-    }
-
-    /// create immutable query for 3 components, 2 optional, with given filters, iterable
-    pub fn query3_opt2_filtered<A: Any, B: Any, C: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query3Opt2<'_, A, B, C> {
-        self.ecs.query3_opt2::<A, B, C>(include, exclude)
-    }
-
-    /// create mutable query for 3 components with given filters, iterable
-    pub fn query3_mut_filtered<A: Any, B: Any, C: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query3Mut<'_, A, B, C> {
-        self.ecs.query3_mut::<A, B, C>(include, exclude)
-    }
-
-    /// create mutable query for 3 components, 1 optional, with given filters, iterable
-    pub fn query3_mut_opt1_filtered<A: Any, B: Any, C: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query3MutOpt1<'_, A, B, C> {
-        self.ecs.query3_mut_opt1::<A, B, C>(include, exclude)
-    }
-
-    /// create mutable query for 3 components, 2 optional, with given filters, iterable
-    pub fn query3_mut_opt2_filtered<A: Any, B: Any, C: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query3MutOpt2<'_, A, B, C> {
-        self.ecs.query3_mut_opt2::<A, B, C>(include, exclude)
+            .query3_mut_opt2::<A, B, C>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 4 components, iterable
     pub fn query4<A: Any, B: Any, C: Any, D: Any>(&self) -> Query4<'_, A, B, C, D> {
         self.ecs
-            .query4::<A, B, C, D>(include_filter!(), exclude_filter!())
+            .query4::<A, B, C, D>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 4 components, 1 optional, iterable
     pub fn query4_opt1<A: Any, B: Any, C: Any, D: Any>(&self) -> Query4Opt1<'_, A, B, C, D> {
         self.ecs
-            .query4_opt1::<A, B, C, D>(include_filter!(), exclude_filter!())
+            .query4_opt1::<A, B, C, D>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 4 components, 2 optional, iterable
     pub fn query4_opt2<A: Any, B: Any, C: Any, D: Any>(&self) -> Query4Opt2<'_, A, B, C, D> {
         self.ecs
-            .query4_opt2::<A, B, C, D>(include_filter!(), exclude_filter!())
+            .query4_opt2::<A, B, C, D>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 4 components, 3 optional, iterable
     pub fn query4_opt3<A: Any, B: Any, C: Any, D: Any>(&self) -> Query4Opt3<'_, A, B, C, D> {
         self.ecs
-            .query4_opt3::<A, B, C, D>(include_filter!(), exclude_filter!())
+            .query4_opt3::<A, B, C, D>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 4 components, iterable
     pub fn query4_mut<A: Any, B: Any, C: Any, D: Any>(&mut self) -> Query4Mut<'_, A, B, C, D> {
         self.ecs
-            .query4_mut::<A, B, C, D>(include_filter!(), exclude_filter!())
+            .query4_mut::<A, B, C, D>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 4 components, 1 optional, iterable
@@ -395,7 +288,7 @@ impl EntityManager {
         &mut self,
     ) -> Query4MutOpt1<'_, A, B, C, D> {
         self.ecs
-            .query4_mut_opt1::<A, B, C, D>(include_filter!(), exclude_filter!())
+            .query4_mut_opt1::<A, B, C, D>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 4 components, 2 optional, iterable
@@ -403,7 +296,7 @@ impl EntityManager {
         &mut self,
     ) -> Query4MutOpt2<'_, A, B, C, D> {
         self.ecs
-            .query4_mut_opt2::<A, B, C, D>(include_filter!(), exclude_filter!())
+            .query4_mut_opt2::<A, B, C, D>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 4 components, 3 optional, iterable
@@ -411,85 +304,13 @@ impl EntityManager {
         &mut self,
     ) -> Query4MutOpt3<'_, A, B, C, D> {
         self.ecs
-            .query4_mut_opt3::<A, B, C, D>(include_filter!(), exclude_filter!())
-    }
-
-    /// create immutable query for 4 components with given filters, iterable
-    pub fn query4_filtered<A: Any, B: Any, C: Any, D: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query4<'_, A, B, C, D> {
-        self.ecs.query4::<A, B, C, D>(include, exclude)
-    }
-
-    /// create immutable query for 4 components, 1 optional, with given filters, iterable
-    pub fn query4_opt1_filtered<A: Any, B: Any, C: Any, D: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query4Opt1<'_, A, B, C, D> {
-        self.ecs.query4_opt1::<A, B, C, D>(include, exclude)
-    }
-
-    /// create immutable query for 4 components, 2 optional, with given filters, iterable
-    pub fn query4_opt2_filtered<A: Any, B: Any, C: Any, D: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query4Opt2<'_, A, B, C, D> {
-        self.ecs.query4_opt2::<A, B, C, D>(include, exclude)
-    }
-
-    /// create immutable query for 4 components, 3 optional, with given filters, iterable
-    pub fn query4_opt3_filtered<A: Any, B: Any, C: Any, D: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query4Opt3<'_, A, B, C, D> {
-        self.ecs.query4_opt3::<A, B, C, D>(include, exclude)
-    }
-
-    /// create mutable query for 4 components with given filters, iterable
-    pub fn query4_mut_filtered<A: Any, B: Any, C: Any, D: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query4Mut<'_, A, B, C, D> {
-        self.ecs.query4_mut::<A, B, C, D>(include, exclude)
-    }
-
-    /// create mutable query for 4 components, 1 optional, with given filters, iterable
-    pub fn query4_mut_opt1_filtered<A: Any, B: Any, C: Any, D: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query4MutOpt1<'_, A, B, C, D> {
-        self.ecs.query4_mut_opt1::<A, B, C, D>(include, exclude)
-    }
-
-    /// create mutable query for 4 components, 2 optional, with given filters, iterable
-    pub fn query4_mut_opt2_filtered<A: Any, B: Any, C: Any, D: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query4MutOpt2<'_, A, B, C, D> {
-        self.ecs.query4_mut_opt2::<A, B, C, D>(include, exclude)
-    }
-
-    /// create mutable query for 4 components, 3 optional, with given filters, iterable
-    pub fn query4_mut_opt3_filtered<A: Any, B: Any, C: Any, D: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query4MutOpt3<'_, A, B, C, D> {
-        self.ecs.query4_mut_opt3::<A, B, C, D>(include, exclude)
+            .query4_mut_opt3::<A, B, C, D>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 5 components, iterable
     pub fn query5<A: Any, B: Any, C: Any, D: Any, E: Any>(&self) -> Query5<'_, A, B, C, D, E> {
         self.ecs
-            .query5::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+            .query5::<A, B, C, D, E>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 5 components, 1 optional, iterable
@@ -497,7 +318,7 @@ impl EntityManager {
         &self,
     ) -> Query5Opt1<'_, A, B, C, D, E> {
         self.ecs
-            .query5_opt1::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+            .query5_opt1::<A, B, C, D, E>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 5 components, 2 optional, iterable
@@ -505,7 +326,7 @@ impl EntityManager {
         &self,
     ) -> Query5Opt2<'_, A, B, C, D, E> {
         self.ecs
-            .query5_opt2::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+            .query5_opt2::<A, B, C, D, E>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 5 components, 3 optional, iterable
@@ -513,7 +334,7 @@ impl EntityManager {
         &self,
     ) -> Query5Opt3<'_, A, B, C, D, E> {
         self.ecs
-            .query5_opt3::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+            .query5_opt3::<A, B, C, D, E>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create immutable query for 5 components, 4 optional, iterable
@@ -521,7 +342,7 @@ impl EntityManager {
         &self,
     ) -> Query5Opt4<'_, A, B, C, D, E> {
         self.ecs
-            .query5_opt4::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+            .query5_opt4::<A, B, C, D, E>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 5 components, iterable
@@ -529,7 +350,7 @@ impl EntityManager {
         &mut self,
     ) -> Query5Mut<'_, A, B, C, D, E> {
         self.ecs
-            .query5_mut::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+            .query5_mut::<A, B, C, D, E>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 5 components, 1 optional, iterable
@@ -537,7 +358,7 @@ impl EntityManager {
         &mut self,
     ) -> Query5MutOpt1<'_, A, B, C, D, E> {
         self.ecs
-            .query5_mut_opt1::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+            .query5_mut_opt1::<A, B, C, D, E>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 5 components, 2 optional, iterable
@@ -545,7 +366,7 @@ impl EntityManager {
         &mut self,
     ) -> Query5MutOpt2<'_, A, B, C, D, E> {
         self.ecs
-            .query5_mut_opt2::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+            .query5_mut_opt2::<A, B, C, D, E>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 5 components, 3 optional, iterable
@@ -553,7 +374,7 @@ impl EntityManager {
         &mut self,
     ) -> Query5MutOpt3<'_, A, B, C, D, E> {
         self.ecs
-            .query5_mut_opt3::<A, B, C, D, E>(include_filter!(), exclude_filter!())
+            .query5_mut_opt3::<A, B, C, D, E>(vec![include_filter!(), exclude_filter!()])
     }
 
     /// create mutable query for 5 components, 4 optional, iterable
@@ -561,97 +382,7 @@ impl EntityManager {
         &mut self,
     ) -> Query5MutOpt4<'_, A, B, C, D, E> {
         self.ecs
-            .query5_mut_opt4::<A, B, C, D, E>(include_filter!(), exclude_filter!())
-    }
-
-    /// create immutable query for 5 components with given filters, iterable
-    pub fn query5_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query5<'_, A, B, C, D, E> {
-        self.ecs.query5::<A, B, C, D, E>(include, exclude)
-    }
-
-    /// create immutable query for 5 components, 1 optional, with given filters, iterable
-    pub fn query5_opt1_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query5Opt1<'_, A, B, C, D, E> {
-        self.ecs.query5_opt1::<A, B, C, D, E>(include, exclude)
-    }
-
-    /// create immutable query for 5 components, 2 optional, with given filters, iterable
-    pub fn query5_opt2_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query5Opt2<'_, A, B, C, D, E> {
-        self.ecs.query5_opt2::<A, B, C, D, E>(include, exclude)
-    }
-
-    /// create immutable query for 5 components, 3 optional, with given filters, iterable
-    pub fn query5_opt3_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query5Opt3<'_, A, B, C, D, E> {
-        self.ecs.query5_opt3::<A, B, C, D, E>(include, exclude)
-    }
-
-    /// create immutable query for 5 components, 4 optional, with given filters, iterable
-    pub fn query5_opt4_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query5Opt4<'_, A, B, C, D, E> {
-        self.ecs.query5_opt4::<A, B, C, D, E>(include, exclude)
-    }
-
-    /// create mutable query for 5 components with given filters, iterable
-    pub fn query5_mut_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query5Mut<'_, A, B, C, D, E> {
-        self.ecs.query5_mut::<A, B, C, D, E>(include, exclude)
-    }
-
-    /// create mutable query for 5 components, 1 optional, with given filters, iterable
-    pub fn query5_mut_opt1_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query5MutOpt1<'_, A, B, C, D, E> {
-        self.ecs.query5_mut_opt1::<A, B, C, D, E>(include, exclude)
-    }
-
-    /// create mutable query for 5 components, 2 optional, with given filters, iterable
-    pub fn query5_mut_opt2_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query5MutOpt2<'_, A, B, C, D, E> {
-        self.ecs.query5_mut_opt2::<A, B, C, D, E>(include, exclude)
-    }
-
-    /// create mutable query for 5 components, 3 optional, with given filters, iterable
-    pub fn query5_mut_opt3_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query5MutOpt3<'_, A, B, C, D, E> {
-        self.ecs.query5_mut_opt3::<A, B, C, D, E>(include, exclude)
-    }
-
-    /// create mutable query for 5 components, 4 optional, with given filters, iterable
-    pub fn query5_mut_opt4_filtered<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query5MutOpt4<'_, A, B, C, D, E> {
-        self.ecs.query5_mut_opt4::<A, B, C, D, E>(include, exclude)
+            .query5_mut_opt4::<A, B, C, D, E>(vec![include_filter!(), exclude_filter!()])
     }
 }
 

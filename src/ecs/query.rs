@@ -6,7 +6,7 @@ use std::collections::hash_map::{Values, ValuesMut};
 use std::marker::PhantomData;
 
 /// filter functionality for any struct
-trait QueryFilter {
+pub trait QueryFilter {
     /// checks wether or not the filter accepts an archetype
     fn matches(&self, archetype: &Archetype) -> bool;
 }
@@ -27,7 +27,7 @@ impl QueryFilter for IncludeFilter {
 #[macro_export]
 macro_rules! include_filter {
     ($($T:ty),*) => {
-        IncludeFilter(vec![$(TypeId::of<$T>(), )*])
+        Box::new(IncludeFilter(vec![$(TypeId::of<$T>(), )*]))
     };
 }
 
@@ -47,8 +47,20 @@ impl QueryFilter for ExcludeFilter {
 #[macro_export]
 macro_rules! exclude_filter {
     ($($T:ty),*) => {
-        ExcludeFilter(vec![$(TypeId::of<$T>(), )*])
+        Box::new(ExcludeFilter(vec![$(TypeId::of<$T>(), )*]))
     };
+}
+
+macro_rules! impl_query {
+    ($name:ident; $($comp:ty),+; $($ret:ty),+) => {
+        //...
+    };
+
+    (@COUNT; $($element:expr), *) => {
+        <[()]>::len(&[$($crate::impl_query!(@SUBST; $element)),*])
+    };
+
+    (@SUBST; $_element:expr) => { () };
 }
 
 /// immutable query for 1 component
@@ -56,8 +68,7 @@ pub struct Query1<'a, T: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<T>,
 }
 
@@ -76,7 +87,7 @@ impl<'a, T: Any> Iterator for Query1<'a, T> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -91,8 +102,7 @@ pub struct Query1Mut<'a, T: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<T>,
 }
 
@@ -115,7 +125,7 @@ impl<'a, T: Any> Iterator for Query1Mut<'a, T> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -130,8 +140,7 @@ pub struct Query2<'a, A: Any, B: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B)>,
 }
 
@@ -157,7 +166,7 @@ impl<'a, A: Any, B: Any> Iterator for Query2<'a, A, B> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -172,8 +181,7 @@ pub struct Query2Opt1<'a, A: Any, B: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B)>,
 }
 
@@ -193,7 +201,7 @@ impl<'a, A: Any, B: Any> Iterator for Query2Opt1<'a, A, B> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -208,8 +216,7 @@ pub struct Query2Mut<'a, A: Any, B: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B)>,
 }
 
@@ -237,7 +244,7 @@ impl<'a, A: Any, B: Any> Iterator for Query2Mut<'a, A, B> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -252,8 +259,7 @@ pub struct Query2MutOpt1<'a, A: Any, B: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B)>,
 }
 
@@ -275,7 +281,7 @@ impl<'a, A: Any, B: Any> Iterator for Query2MutOpt1<'a, A, B> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -290,8 +296,7 @@ pub struct Query3<'a, A: Any, B: Any, C: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C)>,
 }
 
@@ -320,7 +325,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3<'a, A, B, C> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -335,8 +340,7 @@ pub struct Query3Opt1<'a, A: Any, B: Any, C: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C)>,
 }
 
@@ -364,7 +368,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Opt1<'a, A, B, C> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -379,8 +383,7 @@ pub struct Query3Opt2<'a, A: Any, B: Any, C: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C)>,
 }
 
@@ -405,7 +408,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Opt2<'a, A, B, C> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -420,8 +423,7 @@ pub struct Query3Mut<'a, A: Any, B: Any, C: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C)>,
 }
 
@@ -451,7 +453,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Mut<'a, A, B, C> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -466,8 +468,7 @@ pub struct Query3MutOpt1<'a, A: Any, B: Any, C: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C)>,
 }
 
@@ -497,7 +498,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3MutOpt1<'a, A, B, C> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -512,8 +513,7 @@ pub struct Query3MutOpt2<'a, A: Any, B: Any, C: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C)>,
 }
 
@@ -540,7 +540,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3MutOpt2<'a, A, B, C> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -555,8 +555,7 @@ pub struct Query4<'a, A: Any, B: Any, C: Any, D: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D)>,
 }
 
@@ -590,7 +589,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4<'a, A, B, C, D> {
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -605,8 +604,7 @@ pub struct Query4Opt1<'a, A: Any, B: Any, C: Any, D: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D)>,
 }
 
@@ -637,7 +635,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Opt1<'a, A, B, C, D>
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -652,8 +650,7 @@ pub struct Query4Opt2<'a, A: Any, B: Any, C: Any, D: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D)>,
 }
 
@@ -683,7 +680,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Opt2<'a, A, B, C, D>
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -698,8 +695,7 @@ pub struct Query4Opt3<'a, A: Any, B: Any, C: Any, D: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D)>,
 }
 
@@ -726,7 +722,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Opt3<'a, A, B, C, D>
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -741,8 +737,7 @@ pub struct Query4Mut<'a, A: Any, B: Any, C: Any, D: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D)>,
 }
 
@@ -778,7 +773,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Mut<'a, A, B, C, D> 
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -793,8 +788,7 @@ pub struct Query4MutOpt1<'a, A: Any, B: Any, C: Any, D: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D)>,
 }
 
@@ -826,7 +820,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4MutOpt1<'a, A, B, C,
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -841,8 +835,7 @@ pub struct Query4MutOpt2<'a, A: Any, B: Any, C: Any, D: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D)>,
 }
 
@@ -874,7 +867,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4MutOpt2<'a, A, B, C,
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -889,8 +882,7 @@ pub struct Query4MutOpt3<'a, A: Any, B: Any, C: Any, D: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D)>,
 }
 
@@ -924,7 +916,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4MutOpt3<'a, A, B, C,
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -939,8 +931,7 @@ pub struct Query5<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D, E)>,
 }
 
@@ -977,7 +968,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5<'a, A, B, C
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -992,8 +983,7 @@ pub struct Query5Opt1<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D, E)>,
 }
 
@@ -1029,7 +1019,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Opt1<'a, A, 
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -1044,8 +1034,7 @@ pub struct Query5Opt2<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D, E)>,
 }
 
@@ -1078,7 +1067,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Opt2<'a, A, 
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -1093,8 +1082,7 @@ pub struct Query5Opt3<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D, E)>,
 }
 
@@ -1126,7 +1114,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Opt3<'a, A, 
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -1141,8 +1129,7 @@ pub struct Query5Opt4<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     archetype_iter: Values<'a, ArchetypeID, Archetype>,
     current_archetype: Option<&'a Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D, E)>,
 }
 
@@ -1177,7 +1164,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Opt4<'a, A, 
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -1192,8 +1179,7 @@ pub struct Query5Mut<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D, E)>,
 }
 
@@ -1236,7 +1222,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Mut<'a, A, B
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -1251,8 +1237,7 @@ pub struct Query5MutOpt1<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D, E)>,
 }
 
@@ -1296,7 +1281,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5MutOpt1<'a, 
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -1311,8 +1296,7 @@ pub struct Query5MutOpt2<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D, E)>,
 }
 
@@ -1352,7 +1336,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5MutOpt2<'a, 
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -1367,8 +1351,7 @@ pub struct Query5MutOpt3<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D, E)>,
 }
 
@@ -1408,7 +1391,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5MutOpt3<'a, 
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -1423,8 +1406,7 @@ pub struct Query5MutOpt4<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
     current_archetype: Option<*mut Archetype>,
     component_index: usize,
-    include: IncludeFilter,
-    exclude: ExcludeFilter,
+    filter: Vec<Box<dyn QueryFilter>>,
     phantom: PhantomData<(A, B, C, D, E)>,
 }
 
@@ -1461,7 +1443,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5MutOpt4<'a, 
             }
         }
         if let Some(archetype) = self.archetype_iter.next() {
-            if self.include.matches(archetype) && self.exclude.matches(archetype) {
+            if self.filter.iter().all(|filter| filter.matches(archetype)) {
                 self.current_archetype = Some(archetype);
                 self.component_index = 0;
             }
@@ -1473,17 +1455,12 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5MutOpt4<'a, 
 
 impl ECS {
     /// create immutable query for 1 component with given filters, iterable
-    pub(crate) fn query1<T: Any>(
-        &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
-    ) -> Query1<'_, T> {
+    pub(crate) fn query1<T: Any>(&self, filter: Vec<Box<dyn QueryFilter>>) -> Query1<'_, T> {
         Query1 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1491,15 +1468,13 @@ impl ECS {
     /// create mutable query for 1 component with given filters, iterable
     pub(crate) fn query1_mut<T: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query1Mut<'_, T> {
         Query1Mut {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1507,15 +1482,13 @@ impl ECS {
     /// create immutable query for 2 components with given filters, iterable
     pub(crate) fn query2<A: Any, B: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query2<'_, A, B> {
         Query2 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1523,15 +1496,13 @@ impl ECS {
     /// create immutable query for 2 components, 1 optional, with given filters, iterable
     pub(crate) fn query2_opt1<A: Any, B: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query2Opt1<'_, A, B> {
         Query2Opt1 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1539,15 +1510,13 @@ impl ECS {
     /// create mutable query for 2 components with given filters, iterable
     pub(crate) fn query2_mut<A: Any, B: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query2Mut<'_, A, B> {
         Query2Mut {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1555,15 +1524,13 @@ impl ECS {
     /// create mutable query for 2 components, 1 optional, with given filters, iterable
     pub(crate) fn query2_mut_opt1<A: Any, B: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query2MutOpt1<'_, A, B> {
         Query2MutOpt1 {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1571,15 +1538,13 @@ impl ECS {
     /// create immutable query for 3 components with given filters, iterable
     pub(crate) fn query3<A: Any, B: Any, C: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query3<'_, A, B, C> {
         Query3 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1587,15 +1552,13 @@ impl ECS {
     /// create immutable query for 3 components, 1 optional, with given filters, iterable
     pub(crate) fn query3_opt1<A: Any, B: Any, C: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query3Opt1<'_, A, B, C> {
         Query3Opt1 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1603,15 +1566,13 @@ impl ECS {
     /// create immutable query for 3 components, 2 optional, with given filters, iterable
     pub(crate) fn query3_opt2<A: Any, B: Any, C: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query3Opt2<'_, A, B, C> {
         Query3Opt2 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1619,15 +1580,13 @@ impl ECS {
     /// create mutable query for 3 components with given filters, iterable
     pub(crate) fn query3_mut<A: Any, B: Any, C: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query3Mut<'_, A, B, C> {
         Query3Mut {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1635,15 +1594,13 @@ impl ECS {
     /// create mutable query for 3 components, 1 optional, with given filters, iterable
     pub(crate) fn query3_mut_opt1<A: Any, B: Any, C: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query3MutOpt1<'_, A, B, C> {
         Query3MutOpt1 {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1651,15 +1608,13 @@ impl ECS {
     /// create mutable query for 3 components, 2 optional, with given filters, iterable
     pub(crate) fn query3_mut_opt2<A: Any, B: Any, C: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query3MutOpt2<'_, A, B, C> {
         Query3MutOpt2 {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1667,15 +1622,13 @@ impl ECS {
     /// create immutable query for 4 components with given filters, iterable
     pub(crate) fn query4<A: Any, B: Any, C: Any, D: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query4<'_, A, B, C, D> {
         Query4 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1683,15 +1636,13 @@ impl ECS {
     /// create immutable query for 4 components, 1 optional, with given filters, iterable
     pub(crate) fn query4_opt1<A: Any, B: Any, C: Any, D: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query4Opt1<'_, A, B, C, D> {
         Query4Opt1 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1699,15 +1650,13 @@ impl ECS {
     /// create immutable query for 4 components, 2 optional, with given filters, iterable
     pub(crate) fn query4_opt2<A: Any, B: Any, C: Any, D: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query4Opt2<'_, A, B, C, D> {
         Query4Opt2 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1715,15 +1664,13 @@ impl ECS {
     /// create immutable query for 4 components, 3 optional, with given filters, iterable
     pub(crate) fn query4_opt3<A: Any, B: Any, C: Any, D: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query4Opt3<'_, A, B, C, D> {
         Query4Opt3 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1731,15 +1678,13 @@ impl ECS {
     /// create mutable query for 4 components with given filters, iterable
     pub(crate) fn query4_mut<A: Any, B: Any, C: Any, D: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query4Mut<'_, A, B, C, D> {
         Query4Mut {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1747,15 +1692,13 @@ impl ECS {
     /// create mutable query for 4 components, 1 optional, with given filters, iterable
     pub(crate) fn query4_mut_opt1<A: Any, B: Any, C: Any, D: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query4MutOpt1<'_, A, B, C, D> {
         Query4MutOpt1 {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1763,15 +1706,13 @@ impl ECS {
     /// create mutable query for 4 components, 2 optional, with given filters, iterable
     pub(crate) fn query4_mut_opt2<A: Any, B: Any, C: Any, D: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query4MutOpt2<'_, A, B, C, D> {
         Query4MutOpt2 {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1779,15 +1720,13 @@ impl ECS {
     /// create mutable query for 4 components, 3 optional, with given filters, iterable
     pub(crate) fn query4_mut_opt3<A: Any, B: Any, C: Any, D: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query4MutOpt3<'_, A, B, C, D> {
         Query4MutOpt3 {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1795,15 +1734,13 @@ impl ECS {
     /// create immutable query for 5 components with given filters, iterable
     pub(crate) fn query5<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5<'_, A, B, C, D, E> {
         Query5 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1811,15 +1748,13 @@ impl ECS {
     /// create immutable query for 5 components, 1 optional, with given filters, iterable
     pub(crate) fn query5_opt1<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5Opt1<'_, A, B, C, D, E> {
         Query5Opt1 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1827,15 +1762,13 @@ impl ECS {
     /// create immutable query for 5 components, 2 optional, with given filters, iterable
     pub(crate) fn query5_opt2<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5Opt2<'_, A, B, C, D, E> {
         Query5Opt2 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1843,15 +1776,13 @@ impl ECS {
     /// create immutable query for 5 components, 3 optional, with given filters, iterable
     pub(crate) fn query5_opt3<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5Opt3<'_, A, B, C, D, E> {
         Query5Opt3 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1859,15 +1790,13 @@ impl ECS {
     /// create immutable query for 5 components, 4 optional, with given filters, iterable
     pub(crate) fn query5_opt4<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5Opt4<'_, A, B, C, D, E> {
         Query5Opt4 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1875,15 +1804,13 @@ impl ECS {
     /// create mutable query for 5 components with given filters, iterable
     pub(crate) fn query5_mut<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5Mut<'_, A, B, C, D, E> {
         Query5Mut {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1891,15 +1818,13 @@ impl ECS {
     /// create mutable query for 5 components, 1 optional, with given filters, iterable
     pub(crate) fn query5_mut_opt1<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5MutOpt1<'_, A, B, C, D, E> {
         Query5MutOpt1 {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1907,15 +1832,13 @@ impl ECS {
     /// create mutable query for 5 components, 2 optional, with given filters, iterable
     pub(crate) fn query5_mut_opt2<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5MutOpt2<'_, A, B, C, D, E> {
         Query5MutOpt2 {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1923,15 +1846,13 @@ impl ECS {
     /// create mutable query for 5 components, 3 optional, with given filters, iterable
     pub(crate) fn query5_mut_opt3<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5MutOpt3<'_, A, B, C, D, E> {
         Query5MutOpt3 {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }
@@ -1939,15 +1860,13 @@ impl ECS {
     /// create mutable query for 5 components, 4 optional, with given filters, iterable
     pub(crate) fn query5_mut_opt4<A: Any, B: Any, C: Any, D: Any, E: Any>(
         &mut self,
-        include: IncludeFilter,
-        exclude: ExcludeFilter,
+        filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5MutOpt4<'_, A, B, C, D, E> {
         Query5MutOpt4 {
             archetype_iter: self.archetypes.values_mut(),
             current_archetype: None,
             component_index: 0,
-            include,
-            exclude,
+            filter,
             phantom: PhantomData,
         }
     }

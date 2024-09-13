@@ -19,4 +19,4 @@ builder like engine creator for window title etc? or just events to change param
 triangle mesh
 more query sizes
 queries implementations with macros
-general query filter trait usage -> no specific filter usage methods in the entity manager
+correct entity manager query functions with filter arguments
