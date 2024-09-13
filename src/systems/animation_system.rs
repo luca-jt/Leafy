@@ -20,7 +20,7 @@ impl AnimationSystem {
     pub(crate) fn update(&self, entity_manager: &mut EntityManager) {
         // apply physics
         for (p, t, v, a_opt) in
-            entity_manager.query4_mut_opt1::<Position, TouchTime, Velocity, Acceleration>()
+            entity_manager.query4_mut_opt1::<Position, TouchTime, Velocity, Acceleration>(vec![])
         {
             let dt = t.delta_time() * self.animation_speed;
 

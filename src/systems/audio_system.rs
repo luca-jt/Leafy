@@ -68,7 +68,7 @@ impl AudioSystem {
         }
         // update entity sound positions
         let sfx_volume = self.calc_absolute_volume(VolumeKind::SFX);
-        for (pos, sound) in entity_manager.query2::<Position, SoundController>() {
+        for (pos, sound) in entity_manager.query2::<Position, SoundController>(vec![]) {
             let handles = self.sound_register.get(&sound.id).unwrap();
             for handle in handles {
                 let mut state = self.sound_context.state();

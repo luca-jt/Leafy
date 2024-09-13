@@ -66,8 +66,8 @@ impl RenderingSystem {
         clear_gl_screen();
         self.init_renderers();
         // add entity data
-        for (position, mesh_type, mesh_attr, scale, orientation) in
-            entity_manager.query5_opt3::<Position, MeshType, MeshAttribute, Scale, Orientation>()
+        for (position, mesh_type, mesh_attr, scale, orientation) in entity_manager
+            .query5_opt3::<Position, MeshType, MeshAttribute, Scale, Orientation>(vec![])
         {
             let mesh = entity_manager.asset_from_type(*mesh_type).unwrap();
 
