@@ -17,7 +17,6 @@ use crate::systems::event_system::events::{
 };
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{ORIGIN, Z_AXIS};
-use crate::utils::tools::WeakPtr;
 use RendererType::*;
 
 /// responsible for the automated rendering of all entities
@@ -70,18 +69,19 @@ impl RenderingSystem {
         for (position, mesh_type, mesh_attr, scale, orientation) in
             entity_manager.query5_opt3::<Position, MeshType, MeshAttribute, Scale, Orientation>()
         {
+            let mesh = entity_manager.asset_from_type(*mesh_type).unwrap();
+
             let is_added = self.try_add_data(
                 position,
                 mesh_type,
                 mesh_attr.unwrap_or(&Colored(Color32::WHITE)),
                 scale.unwrap_or(&Scale::default()),
                 orientation.unwrap_or(&Orientation::default()),
+                mesh,
                 &entity_manager.texture_map,
             );
             // add new renderer if needed
             if !is_added {
-                let mesh = entity_manager.asset_from_type(*mesh_type).unwrap();
-
                 self.add_new_renderer(
                     position,
                     mesh_type,
@@ -165,6 +165,7 @@ impl RenderingSystem {
         mesh_attr: &MeshAttribute,
         scale: &Scale,
         orientation: &Orientation,
+        mesh: &Mesh,
         texture_map: &TextureMap,
     ) -> bool {
         for (i, r_type) in self.renderers.iter_mut().enumerate() {
@@ -181,6 +182,7 @@ impl RenderingSystem {
                                 &self.perspective_camera,
                                 &mut self.shadow_map,
                                 self.shader_catalog.batch_basic(),
+                                mesh,
                             );
                             true
                         }
@@ -193,6 +195,7 @@ impl RenderingSystem {
                                 &self.perspective_camera,
                                 &mut self.shadow_map,
                                 self.shader_catalog.batch_basic(),
+                                mesh,
                             );
                             true
                         }
@@ -203,14 +206,14 @@ impl RenderingSystem {
                     match mesh_attr {
                         Textured(path) => {
                             if texture_map.get_tex_id(path).unwrap() == renderer.tex_id {
-                                renderer.add_position(position, scale, orientation);
+                                renderer.add_position(position, scale, orientation, mesh);
                                 self.used_renderer_indeces.push(i);
                                 return true;
                             }
                         }
                         Colored(color) => {
                             if *color == renderer.color {
-                                renderer.add_position(position, scale, orientation);
+                                renderer.add_position(position, scale, orientation, mesh);
                                 self.used_renderer_indeces.push(i);
                                 return true;
                             }
@@ -230,7 +233,7 @@ impl RenderingSystem {
         mesh_attr: &MeshAttribute,
         scale: &Scale,
         orientation: &Orientation,
-        mesh: WeakPtr<Mesh>,
+        mesh: &Mesh,
         texture_map: &TextureMap,
     ) {
         match mesh_type {
@@ -246,6 +249,7 @@ impl RenderingSystem {
                             &self.perspective_camera,
                             &mut self.shadow_map,
                             self.shader_catalog.batch_basic(),
+                            mesh,
                         );
                     }
                     Textured(path) => {
@@ -257,6 +261,7 @@ impl RenderingSystem {
                             &self.perspective_camera,
                             &mut self.shadow_map,
                             self.shader_catalog.batch_basic(),
+                            mesh,
                         );
                     }
                 }
@@ -273,7 +278,7 @@ impl RenderingSystem {
                         renderer.color = *color;
                     }
                 }
-                renderer.add_position(position, scale, orientation);
+                renderer.add_position(position, scale, orientation, mesh);
                 self.renderers
                     .push(Instance(*mesh_type, *mesh_attr, renderer));
             }

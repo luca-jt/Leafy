@@ -4,7 +4,6 @@ use crate::ecs::component::{Color32, Orientation, Position, Scale};
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
-use crate::utils::tools::WeakPtr;
 use gl::types::*;
 use std::{mem, ptr};
 
@@ -19,21 +18,13 @@ pub(crate) struct BatchRenderer {
     obj_buffer_ptr: usize,
     tex_slots: Vec<GLuint>,
     tex_slot_index: GLuint,
-    shared_mesh: WeakPtr<Mesh>,
     max_num_meshes: usize,
     samplers: [i32; MAX_TEXTURE_COUNT - 1],
 }
 
 impl BatchRenderer {
     /// creates a new batch renderer
-    pub(crate) fn new(
-        shared_mesh: WeakPtr<Mesh>,
-        max_num_meshes: usize,
-        program: &ShaderProgram,
-    ) -> Self {
-        let mesh = shared_mesh.upgrade().unwrap();
-        let mesh = mesh.borrow();
-
+    pub(crate) fn new(mesh: &Mesh, max_num_meshes: usize, program: &ShaderProgram) -> Self {
         // init the data ids
         let obj_buffer: Vec<Vertex> = vec![Vertex::default(); mesh.num_verteces() * max_num_meshes];
         let mut vao = 0;
@@ -152,7 +143,6 @@ impl BatchRenderer {
             tex_slots,
             tex_slot_index: 1,
             white_texture,
-            shared_mesh,
             max_num_meshes,
             samplers,
         }
@@ -256,10 +246,8 @@ impl BatchRenderer {
         camera: &impl Camera,
         shadow_map: &mut ShadowMap,
         program: &ShaderProgram,
+        mesh: &Mesh,
     ) {
-        let mesh = self.shared_mesh.upgrade().unwrap();
-        let mesh = mesh.borrow();
-
         if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes
             || self.tex_slot_index as usize > MAX_TEXTURE_COUNT - 1
         {
@@ -317,10 +305,8 @@ impl BatchRenderer {
         camera: &impl Camera,
         shadow_map: &mut ShadowMap,
         program: &ShaderProgram,
+        mesh: &Mesh,
     ) {
-        let mesh = self.shared_mesh.upgrade().unwrap();
-        let mesh = mesh.borrow();
-
         if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes {
             // start a new batch if batch size exceeded
             self.end_batch();

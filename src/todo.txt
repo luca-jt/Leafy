@@ -1,5 +1,4 @@
 controller events
-queries implementations with macros?
 sampled animations from files
 linux support
 voxel renderer
@@ -9,7 +8,6 @@ shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
 lighting improvement
 change render behavior based on engine mode
-more query sizes
 ui basics
 font renderer
 particle system
@@ -17,7 +15,8 @@ sprite renderer
 collision detection
 physics (+ friction)
 multiple light sources for the rendering system
-builder like engine creator for window title etc
-triangle mesh -> mesh types not as enum but as struct containing file name
+builder like engine creator for window title etc? or just events to change parameters in engine setup?
+triangle mesh
+more query sizes
+queries implementations with macros
 general query filter trait usage -> no specific filter usage methods in the entity manager
-use const new methods wherever possible

@@ -38,7 +38,7 @@ impl FallingLeafApp for App {
 
         let mut entity_manager = engine.entity_manager();
         let _floor = entity_manager.create_entity(components!(
-            Position::zeros(),
+            Position::origin(),
             Scale::from_factor(5.0),
             MeshType::Plane,
             MeshAttribute::Textured("wall.png")

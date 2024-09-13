@@ -10,7 +10,7 @@ pub struct Scale(glm::Vec3);
 
 impl Scale {
     /// create a new scale for given input values
-    pub fn new(x_scale: f32, y_scale: f32, z_scale: f32) -> Self {
+    pub const fn new(x_scale: f32, y_scale: f32, z_scale: f32) -> Self {
         Self(glm::Vec3::new(x_scale, y_scale, z_scale))
     }
 
@@ -25,7 +25,7 @@ impl Scale {
     }
 
     /// creates an even scaling with a given factor
-    pub fn from_factor(factor: f32) -> Self {
+    pub const fn from_factor(factor: f32) -> Self {
         Self::new(factor, factor, factor)
     }
 
@@ -50,7 +50,7 @@ pub struct Orientation {
 
 impl Orientation {
     /// creates a new orientation with angle in degrees around axis (x, y, z)
-    pub fn new(angle: f32, x: f32, y: f32, z: f32) -> Self {
+    pub const fn new(angle: f32, x: f32, y: f32, z: f32) -> Self {
         Self {
             angle,
             axis: glm::Vec3::new(x, y, z),
@@ -89,9 +89,9 @@ impl Position {
         &mut self.0
     }
 
-    /// creates a new position filled with zeros (origin)
-    pub fn zeros() -> Self {
-        Self(glm::Vec3::zeros())
+    /// creates a new position at the coordinate origin
+    pub const fn origin() -> Self {
+        Self(glm::Vec3::new(0.0, 0.0, 0.0))
     }
 }
 
@@ -139,7 +139,7 @@ impl MulAssign<f32> for Position {
 
 impl Default for Position {
     fn default() -> Self {
-        Position::zeros()
+        Position::origin()
     }
 }
 
@@ -164,8 +164,8 @@ impl Velocity {
     }
 
     /// creates a new velocity filled with zeros
-    pub fn zeros() -> Self {
-        Self(glm::Vec3::zeros())
+    pub const fn zero() -> Self {
+        Self(glm::Vec3::new(0.0, 0.0, 0.0))
     }
 }
 
@@ -221,7 +221,7 @@ impl MulAssign<f32> for Velocity {
 
 impl Default for Velocity {
     fn default() -> Self {
-        Velocity::zeros()
+        Velocity::zero()
     }
 }
 
@@ -246,8 +246,8 @@ impl Acceleration {
     }
 
     /// creates a new acceleration filled with zeros
-    pub fn zeros() -> Self {
-        Self(glm::Vec3::zeros())
+    pub const fn zero() -> Self {
+        Self(glm::Vec3::new(0.0, 0.0, 0.0))
     }
 }
 
@@ -303,7 +303,7 @@ impl MulAssign<f32> for Acceleration {
 
 impl Default for Acceleration {
     fn default() -> Self {
-        Acceleration::zeros()
+        Acceleration::zero()
     }
 }
 
