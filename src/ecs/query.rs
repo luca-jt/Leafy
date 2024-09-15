@@ -51,8 +51,8 @@ macro_rules! exclude_filter {
     };
 }
 
-macro_rules! impl_query {
-    ($name:ident; $($comp:ty),+; $($ret:ty),+) => {
+macro_rules! impl_ref_query {
+    ($sname:ident; $fname:ident; $($comp:ty),+; $($ret:ty),+; $($ret_opt:ty),+) => {
         //...
     };
 
@@ -61,6 +61,12 @@ macro_rules! impl_query {
     };
 
     (@SUBST; $_element:expr) => { () };
+}
+
+macro_rules! impl_mut_query {
+    ($sname:ident; $fname:ident; $($comp:ty),+; $($ret:ty),+; $($ret_opt:ty),+) => {
+        //...
+    };
 }
 
 /// immutable query for 1 component

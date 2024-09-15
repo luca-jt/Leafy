@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use raw_window_handle::HasWindowHandle;
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::KeyCode;
-use winit::window::{Fullscreen, Icon, Window};
+use winit::window::{Fullscreen, Window};
 
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{
@@ -19,11 +19,17 @@ use glutin::surface::{Surface, SwapInterval, WindowSurface};
 
 use glutin_winit::{DisplayBuilder, GlWindow};
 use winit::dpi::LogicalSize;
+
+#[cfg(target_os = "windows")]
 use winit::platform::windows::IconExtWindows;
+#[cfg(target_os = "windows")]
+use winit::window::Icon;
 
 use crate::systems::event_system::events::{FPSCapChanged, FPSCapToggle, KeyPress, WindowResize};
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
+
+#[cfg(target_os = "windows")]
 use crate::utils::file::get_image_path;
 
 /// holds the video backend attributes
@@ -47,10 +53,12 @@ impl VideoSystem {
             .with_transparent(true)
             .with_title(WIN_TITLE)
             .with_inner_size(LogicalSize::new(MIN_WIN_WIDTH, MIN_WIN_HEIGHT))
-            .with_min_inner_size(LogicalSize::new(MIN_WIN_WIDTH, MIN_WIN_HEIGHT))
-            .with_window_icon(Some(
-                Icon::from_path(get_image_path("icon.ico"), None).unwrap(),
-            ));
+            .with_min_inner_size(LogicalSize::new(MIN_WIN_WIDTH, MIN_WIN_HEIGHT));
+
+        #[cfg(target_os = "windows")]
+        let window_attributes = window_attributes.with_window_icon(Some(
+            Icon::from_path(get_image_path("icon.ico"), None).unwrap(),
+        ));
 
         let config_template = ConfigTemplateBuilder::new()
             .with_alpha_size(8)

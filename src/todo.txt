@@ -1,6 +1,5 @@
 controller events
 sampled animations from files
-linux support
 voxel renderer
 externally addded mesh files dont need path functions
 cascaded shadow mapping

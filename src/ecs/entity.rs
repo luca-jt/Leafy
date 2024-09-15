@@ -60,9 +60,9 @@ pub struct EntityRecord {
 }
 
 /// archetype meta data
-pub(crate) struct Archetype {
+pub struct Archetype {
     pub(crate) id: ArchetypeID,
-    pub(crate) components: HashMap<TypeId, Vec<Box<dyn Any>>>,
+    pub components: HashMap<TypeId, Vec<Box<dyn Any>>>,
 }
 
 impl Archetype {
