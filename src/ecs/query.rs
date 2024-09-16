@@ -27,7 +27,7 @@ impl QueryFilter for IncludeFilter {
 #[macro_export]
 macro_rules! include_filter {
     ($($T:ty),+) => {
-        Box::new(crate::ecs::query::IncludeFilter(vec![$(TypeId::of<$T>(), )+]))
+        Box::new(crate::ecs::query::IncludeFilter(vec![$(TypeId::of<$T>()), +]))
     };
 }
 
@@ -46,26 +46,116 @@ impl QueryFilter for ExcludeFilter {
 /// easy creation of a boxed exclude filter from given component types
 #[macro_export]
 macro_rules! exclude_filter {
-    ($($T:ty),+) => {
-        Box::new(crate::ecs::query::ExcludeFilter(vec![$(TypeId::of<$T>(), )+]))
+    ($($T:ty), +) => {
+        Box::new(crate::ecs::query::ExcludeFilter(vec![$(TypeId::of<$T>()), +]))
     };
 }
 
 macro_rules! impl_ref_query {
-    ($sname:ident; $fname:ident; $($comp:ty),+; $($ret:ty),+; $($ret_opt:ty),+) => {
-        //...
-    };
+    ($sname:ident; $fname:ident; $($comp:ident), +; $($ret:ty), +; $($ret_opt:ty), +) => {
+        pub struct $sname<'a, $($comp: Any), *> {
+            archetype_iter: Values<'a, ArchetypeID, Archetype>,
+            current_archetype: Option<&'a Archetype>,
+            component_index: usize,
+            filter: Vec<Box<dyn QueryFilter>>,
+            phantom: PhantomData<($($comp), *)>,
+        }
 
-    (@COUNT; $($element:expr), *) => {
-        <[()]>::len(&[$($crate::impl_query!(@SUBST; $element)),*])
-    };
+        impl<'a, $($comp: Any), *> Iterator for $sname<'a, $($comp), *> {
+            type Item = ($($ret), *, $($ret_opt), *);
 
-    (@SUBST; $_element:expr) => { () };
+            fn next(&mut self) -> Option<Self::Item> {
+                if let Some(archetype) = self.current_archetype {
+                    if let Some(components_a) = archetype.components.get(&TypeId::of::<A>()) {
+                        if self.component_index < components_a.len() {
+                            let component_a = &components_a[self.component_index];
+                            let component_b = archetype.component_ref_at::<B>(self.component_index);
+                            self.component_index += 1;
+
+                            return Some((component_a.downcast_ref::<A>().unwrap(), component_b));
+                        }
+                    }
+                }
+                if let Some(archetype) = self.archetype_iter.next() {
+                    if self.filter.iter().all(|filter| filter.matches(archetype)) {
+                        self.current_archetype = Some(archetype);
+                        self.component_index = 0;
+                    }
+                    return self.next();
+                }
+                None
+            }
+        }
+
+        impl ECS {
+            pub(crate) fn $fname<$($comp: Any), *>(
+                &self,
+                filter: Vec<Box<dyn QueryFilter>>
+            ) -> $sname<'_, $($comp), *> {
+                $sname {
+                    archetype_iter: self.archetypes.values(),
+                    current_archetype: None,
+                    component_index: 0,
+                    filter,
+                    phantom: PhantomData,
+                }
+            }
+        }
+    };
 }
 
 macro_rules! impl_mut_query {
-    ($sname:ident; $fname:ident; $($comp:ty),+; $($ret:ty),+; $($ret_opt:ty),+) => {
-        //...
+    ($sname:ident; $fname:ident; $($comp:ident), +; $($ret:ty), +; $($ret_opt:ty), *) => {
+        pub struct $sname<'a, $($comp: Any), *> {
+            archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
+            current_archetype: Option<*mut Archetype>,
+            component_index: usize,
+            filter: Vec<Box<dyn QueryFilter>>,
+            phantom: PhantomData<($($comp), *)>,
+        }
+
+        impl<'a, $($comp: Any), *> Iterator for $sname<'a, $($comp), *> {
+            type Item = ($($ret), *, $($ret_opt), *);
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if let Some(archetype) = self.current_archetype {
+                    unsafe {
+                        if let Some(components_a) = (*archetype).components.get_mut(&TypeId::of::<A>()) {
+                            if self.component_index < components_a.len() {
+                                let component_a = &mut components_a[self.component_index];
+                                let component_b = (*archetype).component_mut_at::<B>(self.component_index);
+                                self.component_index += 1;
+
+                                return Some((component_a.downcast_mut::<A>().unwrap(), component_b));
+                            }
+                        }
+                    }
+                }
+                if let Some(archetype) = self.archetype_iter.next() {
+                    if self.filter.iter().all(|filter| filter.matches(archetype)) {
+                        self.current_archetype = Some(archetype);
+                        self.component_index = 0;
+                    }
+                    return self.next();
+                }
+                None
+            }
+        }
+
+        impl ECS {
+            pub(crate) fn $fname<$($comp: Any), *>(
+                &mut self,
+                filter: Vec<Box<dyn QueryFilter>>,
+            ) -> $sname<'_, $($comp), *> {
+                $sname {
+                    archetype_iter: self.archetypes.values_mut(),
+                    current_archetype: None,
+                    component_index: 0,
+                    filter,
+                    phantom: PhantomData,
+                }
+            }
+        }
     };
 }
 
