@@ -62,6 +62,9 @@ macro_rules! helper {
 }
 
 // use array returns for get methods instead of tuples so they are iterable
+// also the splitmut trait should change to return one final result
+// maybe even change it to options instead of a result
+// -> makes more sense if there is no case differentiation between errors
 
 macro_rules! impl_ref_query {
     ($sname:ident; $fname:ident; $getfunc:ident; $($ret:ident), +; $($ret_opt:ident), *) => {
