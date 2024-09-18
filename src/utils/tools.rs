@@ -101,7 +101,12 @@ unsafe fn from_r<'a, V>(a: R<V>) -> Result<&'a mut V, SplitMutError> {
 
 pub unsafe trait SplitMut<K, V> {
     /// wrapper for get_mut, used internally
-    fn get1_mut(&mut self, k1: K) -> Option<&mut V>;
+    fn get1_mut_proxy(&mut self, k1: K) -> Option<&mut V>;
+
+    /// returns one mutable reference to a value within the collection
+    fn get1_mut(&mut self, k1: K) -> [Result<&mut V, SplitMutError>; 1] {
+        [self.get1_mut_proxy(k1).ok_or(SplitMutError::NoValue)]
+    }
 
     /// returns two mutable references to two distinct values within the same collection
     fn get2_mut(
@@ -109,8 +114,8 @@ pub unsafe trait SplitMut<K, V> {
         k1: K,
         k2: K,
     ) -> (Result<&mut V, SplitMutError>, Result<&mut V, SplitMutError>) {
-        let p1 = to_r(self.get1_mut(k1));
-        let p2 = to_r(self.get1_mut(k2));
+        let p1 = to_r(self.get1_mut_proxy(k1));
+        let p2 = to_r(self.get1_mut_proxy(k2));
         let p2 = check_r(&p1, p2);
         unsafe { (from_r(p1), from_r(p2)) }
     }
@@ -126,9 +131,9 @@ pub unsafe trait SplitMut<K, V> {
         Result<&mut V, SplitMutError>,
         Result<&mut V, SplitMutError>,
     ) {
-        let p1 = to_r(self.get1_mut(k1));
-        let p2 = to_r(self.get1_mut(k2));
-        let p3 = to_r(self.get1_mut(k3));
+        let p1 = to_r(self.get1_mut_proxy(k1));
+        let p2 = to_r(self.get1_mut_proxy(k2));
+        let p3 = to_r(self.get1_mut_proxy(k3));
         let p2 = check_r(&p1, p2);
         let p3 = check_r(&p1, p3);
         let p3 = check_r(&p2, p3);
@@ -148,10 +153,10 @@ pub unsafe trait SplitMut<K, V> {
         Result<&mut V, SplitMutError>,
         Result<&mut V, SplitMutError>,
     ) {
-        let p1 = to_r(self.get1_mut(k1));
-        let p2 = to_r(self.get1_mut(k2));
-        let p3 = to_r(self.get1_mut(k3));
-        let p4 = to_r(self.get1_mut(k4));
+        let p1 = to_r(self.get1_mut_proxy(k1));
+        let p2 = to_r(self.get1_mut_proxy(k2));
+        let p3 = to_r(self.get1_mut_proxy(k3));
+        let p4 = to_r(self.get1_mut_proxy(k4));
         let p2 = check_r(&p1, p2);
         let p3 = check_r(&p1, p3);
         let p3 = check_r(&p2, p3);
@@ -176,11 +181,11 @@ pub unsafe trait SplitMut<K, V> {
         Result<&mut V, SplitMutError>,
         Result<&mut V, SplitMutError>,
     ) {
-        let p1 = to_r(self.get1_mut(k1));
-        let p2 = to_r(self.get1_mut(k2));
-        let p3 = to_r(self.get1_mut(k3));
-        let p4 = to_r(self.get1_mut(k4));
-        let p5 = to_r(self.get1_mut(k5));
+        let p1 = to_r(self.get1_mut_proxy(k1));
+        let p2 = to_r(self.get1_mut_proxy(k2));
+        let p3 = to_r(self.get1_mut_proxy(k3));
+        let p4 = to_r(self.get1_mut_proxy(k4));
+        let p5 = to_r(self.get1_mut_proxy(k5));
         let p2 = check_r(&p1, p2);
         let p3 = check_r(&p1, p3);
         let p3 = check_r(&p2, p3);
@@ -197,21 +202,21 @@ pub unsafe trait SplitMut<K, V> {
 
 unsafe impl<'a, V> SplitMut<usize, V> for &'a mut [V] {
     #[inline]
-    fn get1_mut(&mut self, k: usize) -> Option<&mut V> {
+    fn get1_mut_proxy(&mut self, k: usize) -> Option<&mut V> {
         self.get_mut(k)
     }
 }
 
 unsafe impl<'a, V> SplitMut<usize, V> for Vec<V> {
     #[inline]
-    fn get1_mut(&mut self, k: usize) -> Option<&mut V> {
+    fn get1_mut_proxy(&mut self, k: usize) -> Option<&mut V> {
         self.get_mut(k)
     }
 }
 
 unsafe impl<'a, V> SplitMut<usize, V> for VecDeque<V> {
     #[inline]
-    fn get1_mut(&mut self, k: usize) -> Option<&mut V> {
+    fn get1_mut_proxy(&mut self, k: usize) -> Option<&mut V> {
         self.get_mut(k)
     }
 }
@@ -220,14 +225,14 @@ unsafe impl<'a, K: Hash + Eq + Borrow<Q>, Q: Hash + Eq + ?Sized, V, S: BuildHash
     SplitMut<&'a Q, V> for HashMap<K, V, S>
 {
     #[inline]
-    fn get1_mut(&mut self, k: &'a Q) -> Option<&mut V> {
+    fn get1_mut_proxy(&mut self, k: &'a Q) -> Option<&mut V> {
         self.get_mut(k)
     }
 }
 
 unsafe impl<'a, K: Ord + Borrow<Q>, Q: Ord + ?Sized, V> SplitMut<&'a Q, V> for BTreeMap<K, V> {
     #[inline]
-    fn get1_mut(&mut self, k: &'a Q) -> Option<&mut V> {
+    fn get1_mut_proxy(&mut self, k: &'a Q) -> Option<&mut V> {
         self.get_mut(k)
     }
 }

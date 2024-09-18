@@ -51,23 +51,37 @@ macro_rules! exclude_filter {
     };
 }
 
+macro_rules! helper {
+    (@COUNT; $($element:expr), *) => {
+        <[()]>::len(&[$($crate::ecs::query::helper!(@SUBST; $element)),*])
+    };
+
+    (@SUBST; $_element:expr) => { () };
+
+    (@ERASE; $_element:expr) => {};
+}
+
+// use array returns for get methods instead of tuples so they are iterable
+
 macro_rules! impl_ref_query {
-    ($sname:ident; $fname:ident; $($comp:ident), +; $($ret:ty), +; $($ret_opt:ty), +) => {
-        pub struct $sname<'a, $($comp: Any), *> {
+    ($sname:ident; $fname:ident; $getfunc:ident; $($ret:ident), +; $($ret_opt:ident), *) => {
+        pub struct $sname<'a, $($ret: Any), +, $($ret_opt: Any), *> {
             archetype_iter: Values<'a, ArchetypeID, Archetype>,
             current_archetype: Option<&'a Archetype>,
             component_index: usize,
             filter: Vec<Box<dyn QueryFilter>>,
-            phantom: PhantomData<($($comp), *)>,
+            phantom: PhantomData<($($ret), +, $($ret_opt), *)>,
         }
 
-        impl<'a, $($comp: Any), *> Iterator for $sname<'a, $($comp), *> {
-            type Item = ($($ret), *, $($ret_opt), *);
+        impl<'a, $($ret: Any), +, $($ret_opt: Any), *> Iterator for $sname<'a, $($ret), +, $($ret_opt), *> {
+            type Item = ($(&'a $ret), +, $(Option<&'a $ret_opt>), *);
 
             fn next(&mut self) -> Option<Self::Item> {
                 if let Some(archetype) = self.current_archetype {
-                    if let Some(components_a) = archetype.components.get(&TypeId::of::<A>()) {
+                    // if check
+                    if let Some(components_a) = archetype.components.$getfunc($(&TypeId::of::<$ret>()), +) {
                         if self.component_index < components_a.len() {
+                            //let ret = ... ;
                             let component_a = &components_a[self.component_index];
                             let component_b = archetype.component_ref_at::<B>(self.component_index);
                             self.component_index += 1;
@@ -88,10 +102,10 @@ macro_rules! impl_ref_query {
         }
 
         impl ECS {
-            pub(crate) fn $fname<$($comp: Any), *>(
+            pub(crate) fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
                 &self,
                 filter: Vec<Box<dyn QueryFilter>>
-            ) -> $sname<'_, $($comp), *> {
+            ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
                 $sname {
                     archetype_iter: self.archetypes.values(),
                     current_archetype: None,
@@ -105,28 +119,41 @@ macro_rules! impl_ref_query {
 }
 
 macro_rules! impl_mut_query {
-    ($sname:ident; $fname:ident; $($comp:ident), +; $($ret:ty), +; $($ret_opt:ty), *) => {
-        pub struct $sname<'a, $($comp: Any), *> {
+    ($sname:ident; $fname:ident; $getfunc:ident; $($ret:ident), +; $($ret_opt:ident), *) => {
+        pub struct $sname<'a, $($ret: Any), +, $($ret_opt: Any), *> {
             archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
             current_archetype: Option<*mut Archetype>,
             component_index: usize,
             filter: Vec<Box<dyn QueryFilter>>,
-            phantom: PhantomData<($($comp), *)>,
+            phantom: PhantomData<($($ret), +, $($ret_opt), *)>,
         }
 
-        impl<'a, $($comp: Any), *> Iterator for $sname<'a, $($comp), *> {
-            type Item = ($($ret), *, $($ret_opt), *);
+        impl<'a, $($ret: Any), +, $($ret_opt: Any), *> Iterator for $sname<'a, $($ret), +, $($ret_opt), *> {
+            type Item = ($(&'a mut $ret), +, $(Option<&'a mut $ret_opt>), *);
 
             fn next(&mut self) -> Option<Self::Item> {
                 if let Some(archetype) = self.current_archetype {
                     unsafe {
-                        if let Some(components_a) = (*archetype).components.get_mut(&TypeId::of::<A>()) {
+                        // if check
+                        if let Some(components_a) = (*archetype).components.$getfunc($(&TypeId::of::<$ret>()), +) {
                             if self.component_index < components_a.len() {
+                                let components = (*archetype).components.$getfunc($(&TypeId::of::<$ret>()), +);
+                                let ret = (
+                                    $(
+                                    {
+                                        [self.component_index];
+                                        //...
+                                    }
+                                    )+,
+                                    $(
+                                        (*archetype).component_mut_at::<$ret_opt>(self.component_index)
+                                    )+
+                                );
                                 let component_a = &mut components_a[self.component_index];
                                 let component_b = (*archetype).component_mut_at::<B>(self.component_index);
                                 self.component_index += 1;
 
-                                return Some((component_a.downcast_mut::<A>().unwrap(), component_b));
+                                return Some(ret);
                             }
                         }
                     }
@@ -143,10 +170,10 @@ macro_rules! impl_mut_query {
         }
 
         impl ECS {
-            pub(crate) fn $fname<$($comp: Any), *>(
+            pub(crate) fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
                 &mut self,
                 filter: Vec<Box<dyn QueryFilter>>,
-            ) -> $sname<'_, $($comp), *> {
+            ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
                 $sname {
                     archetype_iter: self.archetypes.values_mut(),
                     current_archetype: None,

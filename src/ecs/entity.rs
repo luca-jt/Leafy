@@ -66,6 +66,11 @@ pub struct Archetype {
 }
 
 impl Archetype {
+    /// checks wether or not the archetype contains the given component
+    pub(crate) fn contains<T: Any>(&self) -> bool {
+        self.components.contains_key(&TypeId::of::<T>())
+    }
+
     /// get the optional reference to a component of type T stored at index in this archetype
     pub(crate) fn component_ref_at<T: Any>(&self, index: usize) -> Option<&T> {
         Some(
@@ -74,6 +79,7 @@ impl Archetype {
                 .unwrap(),
         )
     }
+
     /// get the optional mutable reference to a component of type T stored at index in this archetype
     pub(crate) fn component_mut_at<T: Any>(&mut self, index: usize) -> Option<&mut T> {
         Some(
