@@ -14,7 +14,9 @@ sprite renderer
 collision detection
 physics (+ friction)
 multiple light sources for the rendering system
+render distance that is changable through event
 builder like engine creator for window title etc? or just events to change parameters in engine setup?
 triangle mesh
 more query sizes
 queries implementations with macros
+queries: check if next archetype is fitting components before setting it as current (not every time next is called)

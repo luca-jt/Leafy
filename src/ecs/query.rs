@@ -26,7 +26,7 @@ impl QueryFilter for IncludeFilter {
 /// easy creation of a boxed include filter from given component types
 #[macro_export]
 macro_rules! include_filter {
-    ($($T:ty),+) => {
+    ($($T:ty),+ $(,)?) => {
         Box::new(crate::ecs::query::IncludeFilter(vec![$(TypeId::of<$T>()), +]))
     };
 }
@@ -46,7 +46,7 @@ impl QueryFilter for ExcludeFilter {
 /// easy creation of a boxed exclude filter from given component types
 #[macro_export]
 macro_rules! exclude_filter {
-    ($($T:ty), +) => {
+    ($($T:ty),+ $(,)?) => {
         Box::new(crate::ecs::query::ExcludeFilter(vec![$(TypeId::of<$T>()), +]))
     };
 }
@@ -81,15 +81,22 @@ macro_rules! impl_ref_query {
 
             fn next(&mut self) -> Option<Self::Item> {
                 if let Some(archetype) = self.current_archetype {
-                    // if check
-                    if let Some(components_a) = archetype.components.$getfunc($(&TypeId::of::<$ret>()), +) {
-                        if self.component_index < components_a.len() {
-                            //let ret = ... ;
-                            let component_a = &components_a[self.component_index];
-                            let component_b = archetype.component_ref_at::<B>(self.component_index);
+                    if $(archetype.contains::<$ret>()) && + {
+                        //...
+                    }
+                    if let Some(components) = archetype.components.$getfunc($(&TypeId::of::<$ret>()), +) {
+                        if self.component_index < components[0].len() {
+                            let ret = (
+                                $({
+                                    [self.component_index];
+                                    //...
+                                })+,
+                                $(
+                                    archetype.component_ref_at::<$ret_opt>(self.component_index)
+                                )*
+                            );
                             self.component_index += 1;
-
-                            return Some((component_a.downcast_ref::<A>().unwrap(), component_b));
+                            return Some(ret);
                         }
                     }
                 }
@@ -137,25 +144,21 @@ macro_rules! impl_mut_query {
             fn next(&mut self) -> Option<Self::Item> {
                 if let Some(archetype) = self.current_archetype {
                     unsafe {
-                        // if check
-                        if let Some(components_a) = (*archetype).components.$getfunc($(&TypeId::of::<$ret>()), +) {
-                            if self.component_index < components_a.len() {
-                                let components = (*archetype).components.$getfunc($(&TypeId::of::<$ret>()), +);
+                        if $((*archetype).contains::<$ret>()) && + {
+                            //...
+                        }
+                        if let Some(components) = (*archetype).components.$getfunc($(&TypeId::of::<$ret>()), +) {
+                            if self.component_index < components[0].len() {
                                 let ret = (
-                                    $(
-                                    {
+                                    $({
                                         [self.component_index];
                                         //...
-                                    }
-                                    )+,
+                                    })+,
                                     $(
                                         (*archetype).component_mut_at::<$ret_opt>(self.component_index)
-                                    )+
+                                    )*
                                 );
-                                let component_a = &mut components_a[self.component_index];
-                                let component_b = (*archetype).component_mut_at::<B>(self.component_index);
                                 self.component_index += 1;
-
                                 return Some(ret);
                             }
                         }
