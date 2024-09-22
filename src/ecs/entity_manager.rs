@@ -10,8 +10,8 @@ use std::collections::HashMap;
 /// create a component list for entity creation
 #[macro_export]
 macro_rules! components {
-    ($($T:expr),*) => {
-        vec![$(Box::new($T), )*]
+    ($($T:expr),+) => {
+        vec![$(Box::new($T)),+]
     };
 }
 

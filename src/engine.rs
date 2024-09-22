@@ -45,6 +45,7 @@ impl Engine {
         event_system.add_listener::<AudioVolumeChanged>(&audio_system);
         event_system.add_listener::<CamPositionChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&animation_system);
+        event_system.add_listener::<EngineModeChange>(&animation_system);
 
         Self {
             app: None,
@@ -181,5 +182,4 @@ pub fn app_downcast<T: FallingLeafApp>(ref_mut: RefMut<Box<dyn FallingLeafApp>>)
 pub enum EngineMode {
     Running,
     Paused,
-    Menu,
 }

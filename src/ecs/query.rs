@@ -26,7 +26,7 @@ impl QueryFilter for IncludeFilter {
 /// easy creation of a boxed include filter from given component types
 #[macro_export]
 macro_rules! include_filter {
-    ($($T:ty),+ $(,)?) => {
+    ($($T:ty),+) => {
         Box::new(crate::ecs::query::IncludeFilter(vec![$(TypeId::of<$T>()), +]))
     };
 }
@@ -46,7 +46,7 @@ impl QueryFilter for ExcludeFilter {
 /// easy creation of a boxed exclude filter from given component types
 #[macro_export]
 macro_rules! exclude_filter {
-    ($($T:ty),+ $(,)?) => {
+    ($($T:ty),+) => {
         Box::new(crate::ecs::query::ExcludeFilter(vec![$(TypeId::of<$T>()), +]))
     };
 }

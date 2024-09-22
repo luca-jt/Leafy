@@ -14,6 +14,7 @@ sprite renderer
 collision detection
 physics (+ friction)
 multiple light sources for the rendering system
+app struct as template parameter in the engine -> no downcasting for app event functions
 render distance that is changable through event
 builder like engine creator for window title etc? or just events to change parameters in engine setup?
 triangle mesh
