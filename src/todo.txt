@@ -2,7 +2,7 @@ controller events
 sampled animations from files
 voxel renderer
 externally addded mesh files dont need path functions
-cascaded shadow mapping
+cascaded shadow mapping -> map resolution setting
 shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
 lighting improvement
@@ -11,6 +11,7 @@ ui basics
 font renderer
 particle system
 sprite renderer
+material shaders
 collision detection
 physics (+ friction)
 multiple light sources for the rendering system
@@ -18,6 +19,7 @@ app struct as template parameter in the engine -> no downcasting for app event f
 render distance that is changable through event
 builder like engine creator for window title etc? or just events to change parameters in engine setup?
 triangle mesh
+disable shadows event + setting
 more query sizes
 queries implementations with macros
 queries: check if next archetype is fitting components before setting it as current (not every time next is called)
