@@ -5,13 +5,11 @@ externally addded mesh files dont need path functions
 cascaded shadow mapping -> map resolution setting
 shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
-lighting improvement
+graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 change render behavior based on engine mode
-ui basics
-font renderer
+ui basics + font rendering
 particle system
 sprite renderer
-material shaders
 collision detection
 physics (+ friction)
 multiple light sources for the rendering system
