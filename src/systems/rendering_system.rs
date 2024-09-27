@@ -139,7 +139,6 @@ impl RenderingSystem {
     /// renders the shadows to the shadow map
     fn render_shadows(&mut self) {
         self.shadow_map.bind_writing();
-        self.shadow_map.try_clear_depth();
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
                 Batch(_, renderer) => {

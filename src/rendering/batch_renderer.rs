@@ -254,7 +254,6 @@ impl BatchRenderer {
             // start a new batch if batch size exceeded or ran out of texture slots
             self.end_batch();
             shadow_map.bind_writing();
-            shadow_map.try_clear_depth();
             self.render_shadows(shadow_map);
             shadow_map.unbind_writing();
             self.flush(camera, shadow_map, program);
@@ -311,7 +310,6 @@ impl BatchRenderer {
             // start a new batch if batch size exceeded
             self.end_batch();
             shadow_map.bind_writing();
-            shadow_map.try_clear_depth();
             self.render_shadows(shadow_map);
             shadow_map.unbind_writing();
             self.flush(camera, shadow_map, program);

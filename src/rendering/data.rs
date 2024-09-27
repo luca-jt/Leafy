@@ -277,16 +277,6 @@ impl ShadowMap {
         }
     }
 
-    /// clears the depth buffer bit of the shadow map if not already done
-    pub(crate) fn try_clear_depth(&mut self) {
-        if !self.depth_buffer_cleared {
-            unsafe {
-                gl::Clear(gl::DEPTH_BUFFER_BIT);
-            }
-            self.depth_buffer_cleared = true;
-        }
-    }
-
     /// bind the depth buffer for writing
     pub(crate) fn bind_writing(&mut self) {
         unsafe {
@@ -301,6 +291,13 @@ impl ShadowMap {
                 gl::FALSE,
                 &self.light_matrix[0],
             );
+        }
+        // clear the depth buffer bit of the shadow map if not already done
+        if !self.depth_buffer_cleared {
+            unsafe {
+                gl::Clear(gl::DEPTH_BUFFER_BIT);
+            }
+            self.depth_buffer_cleared = true;
         }
     }
 
