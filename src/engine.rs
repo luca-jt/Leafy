@@ -41,8 +41,8 @@ impl Engine {
         event_system.add_listener::<KeyPress>(&video_system);
         event_system.add_listener::<WindowResize>(&video_system);
         event_system.add_listener::<FPSCapToggle>(&video_system);
-        event_system.add_listener::<FPSCapChanged>(&video_system);
-        event_system.add_listener::<AudioVolumeChanged>(&audio_system);
+        event_system.add_listener::<FPSCapChange>(&video_system);
+        event_system.add_listener::<AudioVolumeChange>(&audio_system);
         event_system.add_listener::<CamPositionChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&animation_system);
         event_system.add_listener::<EngineModeChange>(&animation_system);
@@ -133,6 +133,8 @@ impl ApplicationHandler for Engine {
             .add_listener::<LinkCamToEntity>(self.rendering_system.as_ref().unwrap());
         self.event_system()
             .add_listener::<FOVChange>(self.rendering_system.as_ref().unwrap());
+        self.event_system()
+            .add_listener::<SetShadowRendering>(self.rendering_system.as_ref().unwrap());
         self.app().init(self);
     }
 

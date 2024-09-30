@@ -25,7 +25,7 @@ use winit::platform::windows::IconExtWindows;
 #[cfg(target_os = "windows")]
 use winit::window::Icon;
 
-use crate::systems::event_system::events::{FPSCapChanged, FPSCapToggle, KeyPress, WindowResize};
+use crate::systems::event_system::events::{FPSCapChange, FPSCapToggle, KeyPress, WindowResize};
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
 
@@ -315,8 +315,8 @@ impl EventObserver<FPSCapToggle> for VideoSystem {
     }
 }
 
-impl EventObserver<FPSCapChanged> for VideoSystem {
-    fn on_event(&mut self, event: &FPSCapChanged) {
+impl EventObserver<FPSCapChange> for VideoSystem {
+    fn on_event(&mut self, event: &FPSCapChange) {
         self.fps_cap = event.new_fps;
     }
 }

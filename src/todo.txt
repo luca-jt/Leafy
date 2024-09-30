@@ -1,7 +1,7 @@
-controller events
-sampled animations from files
 voxel renderer
-externally added mesh files dont need path functions -> include asset files binaries if needed + fix file path integration in general
+controller events
+intergrate certain settings inside a file
+sampled animations from files
 cascaded shadow mapping -> map resolution setting
 shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
@@ -13,9 +13,9 @@ sprite renderer
 collision detection
 physics (+ friction)
 multiple light sources for the rendering system
-app struct as template parameter in the engine -> no downcasting for app event functions
-render distance that is changable through event
+externally added mesh files dont need path functions -> include asset files binaries if needed + fix file path integration in general
+render distance that is changable through event -> change rendering system behavior based on that
 maybe rendering shadows between batches does not work correctly? -> change batch size beforehand? not dynamically?
+app struct as template parameter in the engine -> no downcasting for app event functions
 make gl clearcolor changable (event) + change shadow map clear color
 builder like engine creator for window title etc? or just events to change parameters in engine setup?
-disable shadows event + setting

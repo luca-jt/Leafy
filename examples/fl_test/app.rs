@@ -31,7 +31,7 @@ impl FallingLeafApp for App {
             new_pos: glm::Vec3::new(0.0, 5.0, -5.0),
             new_focus: glm::Vec3::zeros(),
         });
-        engine.event_system().trigger(AudioVolumeChanged {
+        engine.event_system().trigger(AudioVolumeChange {
             kind: VolumeKind::Master,
             new_volume: 0.5,
         });

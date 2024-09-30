@@ -341,7 +341,7 @@ pub mod events {
 
     /// event that gets triggered when the the sound engines' volume is supposed to change (e.g. when an UI slider is used)
     #[derive(Debug, Clone, PartialEq)]
-    pub struct AudioVolumeChanged {
+    pub struct AudioVolumeChange {
         pub kind: VolumeKind,
         pub new_volume: f32,
     }
@@ -365,7 +365,7 @@ pub mod events {
 
     /// changes the engines fps cap that is used if fps capping is enabled
     #[derive(Debug, Clone, PartialEq)]
-    pub struct FPSCapChanged {
+    pub struct FPSCapChange {
         pub new_fps: f64,
     }
 
@@ -386,4 +386,8 @@ pub mod events {
     pub struct FOVChange {
         pub fov: f32,
     }
+
+    /// change wether or not shadows are rendered in 3D rendering
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct SetShadowRendering(pub bool);
 }

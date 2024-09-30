@@ -1,6 +1,6 @@
 use crate::ecs::component::{Position, SoundController};
 use crate::ecs::entity_manager::EntityManager;
-use crate::systems::event_system::events::{AudioVolumeChanged, CamPositionChange};
+use crate::systems::event_system::events::{AudioVolumeChange, CamPositionChange};
 use crate::systems::event_system::EventObserver;
 use crate::utils::file::get_audio_path;
 
@@ -225,8 +225,8 @@ impl AudioSystem {
     }
 }
 
-impl EventObserver<AudioVolumeChanged> for AudioSystem {
-    fn on_event(&mut self, event: &AudioVolumeChanged) {
+impl EventObserver<AudioVolumeChange> for AudioSystem {
+    fn on_event(&mut self, event: &AudioVolumeChange) {
         match event.kind {
             VolumeKind::Master => {
                 self.master_volume = event.new_volume;

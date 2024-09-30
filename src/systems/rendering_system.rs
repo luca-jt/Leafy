@@ -13,7 +13,7 @@ use crate::rendering::shader::ShaderCatalog;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
 use crate::systems::event_system::events::{
-    CamPositionChange, EngineModeChange, FOVChange, LinkCamToEntity,
+    CamPositionChange, EngineModeChange, FOVChange, LinkCamToEntity, SetShadowRendering,
 };
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{ORIGIN, Z_AXIS};
@@ -29,6 +29,7 @@ pub struct RenderingSystem {
     shader_catalog: ShaderCatalog,
     used_renderer_indeces: Vec<usize>,
     cam_position_link: Option<EntityID>,
+    render_shadows: bool,
 }
 
 impl RenderingSystem {
@@ -50,6 +51,7 @@ impl RenderingSystem {
             shader_catalog: ShaderCatalog::new(),
             used_renderer_indeces: Vec::new(),
             cam_position_link: None,
+            render_shadows: true,
         }
     }
 
@@ -318,6 +320,12 @@ impl EventObserver<LinkCamToEntity> for RenderingSystem {
 impl EventObserver<FOVChange> for RenderingSystem {
     fn on_event(&mut self, event: &FOVChange) {
         self.perspective_camera.update_fov(event.fov);
+    }
+}
+
+impl EventObserver<SetShadowRendering> for RenderingSystem {
+    fn on_event(&mut self, event: &SetShadowRendering) {
+        self.render_shadows = event.0;
     }
 }
 
