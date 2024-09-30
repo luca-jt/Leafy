@@ -1,7 +1,7 @@
 controller events
 sampled animations from files
 voxel renderer
-externally addded mesh files dont need path functions
+externally added mesh files dont need path functions -> include asset files binaries if needed + fix file path integration in general
 cascaded shadow mapping -> map resolution setting
 shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
@@ -18,6 +18,4 @@ render distance that is changable through event
 maybe rendering shadows between batches does not work correctly? -> change batch size beforehand? not dynamically?
 make gl clearcolor changable (event) + change shadow map clear color
 builder like engine creator for window title etc? or just events to change parameters in engine setup?
-triangle mesh
 disable shadows event + setting
-more query sizes

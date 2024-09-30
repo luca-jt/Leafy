@@ -166,6 +166,7 @@ impl EntityManager {
                 MeshType::Plane => Mesh::new("plane.obj"),
                 MeshType::Cube => Mesh::new("cube.obj"),
                 MeshType::Sphere => Mesh::new("sphere.obj"),
+                MeshType::Cylinder => Mesh::new("cylinder.obj"),
                 MeshType::Custom(path) => Mesh::new(path),
             };
             self.asset_register.insert(mesh_type, mesh);

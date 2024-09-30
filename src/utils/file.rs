@@ -34,6 +34,11 @@ pub fn get_model_path(file_name: &str) -> String {
     get_asset_path("models/") + file_name
 }
 
+/// yields material file path
+pub fn get_material_path(file_name: &str) -> String {
+    get_asset_path("materials/") + file_name
+}
+
 /// yields shader file path
 pub fn get_shader_path(file_name: &str) -> String {
     get_asset_path("shaders/") + file_name

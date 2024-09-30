@@ -367,6 +367,7 @@ pub enum MeshType {
     Plane,
     Cube,
     Sphere,
+    Cylinder,
     Custom(&'static str),
 }
 

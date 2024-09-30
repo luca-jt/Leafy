@@ -1,6 +1,5 @@
 # Blender 4.1.1
 # www.blender.org
-mtllib sphere.mtl
 o Sphere
 v 0.000000 0.827475 -0.550233
 v 0.000000 0.552901 -0.823481
