@@ -104,55 +104,31 @@ pub unsafe trait SplitMut<K, V> {
     fn get1_mut_proxy(&mut self, k1: K) -> Option<&mut V>;
 
     /// returns one mutable reference to a value within the collection
-    fn get1_mut(&mut self, k1: K) -> [Result<&mut V, SplitMutError>; 1] {
-        [self.get1_mut_proxy(k1).ok_or(SplitMutError::NoValue)]
+    fn get1_mut(&mut self, k1: K) -> Result<[&mut V; 1], SplitMutError> {
+        Ok([self.get1_mut_proxy(k1).ok_or(SplitMutError::NoValue)?])
     }
 
     /// returns two mutable references to two distinct values within the same collection
-    fn get2_mut(
-        &mut self,
-        k1: K,
-        k2: K,
-    ) -> (Result<&mut V, SplitMutError>, Result<&mut V, SplitMutError>) {
+    fn get2_mut(&mut self, k1: K, k2: K) -> Result<[&mut V; 2], SplitMutError> {
         let p1 = to_r(self.get1_mut_proxy(k1));
         let p2 = to_r(self.get1_mut_proxy(k2));
         let p2 = check_r(&p1, p2);
-        unsafe { (from_r(p1), from_r(p2)) }
+        unsafe { Ok([from_r(p1)?, from_r(p2)?]) }
     }
 
     /// returns three mutable references to three distinct values within the same collection
-    fn get3_mut(
-        &mut self,
-        k1: K,
-        k2: K,
-        k3: K,
-    ) -> (
-        Result<&mut V, SplitMutError>,
-        Result<&mut V, SplitMutError>,
-        Result<&mut V, SplitMutError>,
-    ) {
+    fn get3_mut(&mut self, k1: K, k2: K, k3: K) -> Result<[&mut V; 3], SplitMutError> {
         let p1 = to_r(self.get1_mut_proxy(k1));
         let p2 = to_r(self.get1_mut_proxy(k2));
         let p3 = to_r(self.get1_mut_proxy(k3));
         let p2 = check_r(&p1, p2);
         let p3 = check_r(&p1, p3);
         let p3 = check_r(&p2, p3);
-        unsafe { (from_r(p1), from_r(p2), from_r(p3)) }
+        unsafe { Ok([from_r(p1)?, from_r(p2)?, from_r(p3)?]) }
     }
 
     /// returns four mutable references to four distinct values within the same collection
-    fn get4_mut(
-        &mut self,
-        k1: K,
-        k2: K,
-        k3: K,
-        k4: K,
-    ) -> (
-        Result<&mut V, SplitMutError>,
-        Result<&mut V, SplitMutError>,
-        Result<&mut V, SplitMutError>,
-        Result<&mut V, SplitMutError>,
-    ) {
+    fn get4_mut(&mut self, k1: K, k2: K, k3: K, k4: K) -> Result<[&mut V; 4], SplitMutError> {
         let p1 = to_r(self.get1_mut_proxy(k1));
         let p2 = to_r(self.get1_mut_proxy(k2));
         let p3 = to_r(self.get1_mut_proxy(k3));
@@ -163,7 +139,7 @@ pub unsafe trait SplitMut<K, V> {
         let p4 = check_r(&p1, p4);
         let p4 = check_r(&p2, p4);
         let p4 = check_r(&p3, p4);
-        unsafe { (from_r(p1), from_r(p2), from_r(p3), from_r(p4)) }
+        unsafe { Ok([from_r(p1)?, from_r(p2)?, from_r(p3)?, from_r(p4)?]) }
     }
 
     /// returns five mutable references to four distinct values within the same collection
@@ -174,13 +150,7 @@ pub unsafe trait SplitMut<K, V> {
         k3: K,
         k4: K,
         k5: K,
-    ) -> (
-        Result<&mut V, SplitMutError>,
-        Result<&mut V, SplitMutError>,
-        Result<&mut V, SplitMutError>,
-        Result<&mut V, SplitMutError>,
-        Result<&mut V, SplitMutError>,
-    ) {
+    ) -> Result<[&mut V; 5], SplitMutError> {
         let p1 = to_r(self.get1_mut_proxy(k1));
         let p2 = to_r(self.get1_mut_proxy(k2));
         let p3 = to_r(self.get1_mut_proxy(k3));
@@ -196,7 +166,15 @@ pub unsafe trait SplitMut<K, V> {
         let p5 = check_r(&p2, p5);
         let p5 = check_r(&p3, p5);
         let p5 = check_r(&p4, p5);
-        unsafe { (from_r(p1), from_r(p2), from_r(p3), from_r(p4), from_r(p5)) }
+        unsafe {
+            Ok([
+                from_r(p1)?,
+                from_r(p2)?,
+                from_r(p3)?,
+                from_r(p4)?,
+                from_r(p5)?,
+            ])
+        }
     }
 }
 
@@ -249,38 +227,38 @@ pub trait SplitGet<K, V> {
     }
 
     /// returns two references to two values within the same collection
-    fn get2(&self, k1: &K, k2: &K) -> Option<(&V, &V)> {
-        Some((self.get1_proxy(k1)?, self.get1_proxy(k2)?))
+    fn get2(&self, k1: &K, k2: &K) -> Option<[&V; 2]> {
+        Some([self.get1_proxy(k1)?, self.get1_proxy(k2)?])
     }
 
     /// returns three references to three values within the same collection
-    fn get3(&self, k1: &K, k2: &K, k3: &K) -> Option<(&V, &V, &V)> {
-        Some((
+    fn get3(&self, k1: &K, k2: &K, k3: &K) -> Option<[&V; 3]> {
+        Some([
             self.get1_proxy(k1)?,
             self.get1_proxy(k2)?,
             self.get1_proxy(k3)?,
-        ))
+        ])
     }
 
     /// returns four mutable references to four values within the same collection
-    fn get4(&self, k1: &K, k2: &K, k3: &K, k4: &K) -> Option<(&V, &V, &V, &V)> {
-        Some((
+    fn get4(&self, k1: &K, k2: &K, k3: &K, k4: &K) -> Option<[&V; 4]> {
+        Some([
             self.get1_proxy(k1)?,
             self.get1_proxy(k2)?,
             self.get1_proxy(k3)?,
             self.get1_proxy(k4)?,
-        ))
+        ])
     }
 
     /// returns five references to five values within the same collection
-    fn get5(&self, k1: &K, k2: &K, k3: &K, k4: &K, k5: &K) -> Option<(&V, &V, &V, &V, &V)> {
-        Some((
+    fn get5(&self, k1: &K, k2: &K, k3: &K, k4: &K, k5: &K) -> Option<[&V; 5]> {
+        Some([
             self.get1_proxy(k1)?,
             self.get1_proxy(k2)?,
             self.get1_proxy(k3)?,
             self.get1_proxy(k4)?,
             self.get1_proxy(k5)?,
-        ))
+        ])
     }
 }
 

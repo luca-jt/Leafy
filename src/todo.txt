@@ -21,5 +21,3 @@ builder like engine creator for window title etc? or just events to change param
 triangle mesh
 disable shadows event + setting
 more query sizes
-queries implementations with macros
-queries: check if next archetype is fitting components before setting it as current (not every time next is called)

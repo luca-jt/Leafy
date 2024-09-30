@@ -1,8 +1,9 @@
 use crate::ecs::entity::{Archetype, ArchetypeID};
-use crate::ecs::entity_manager::ECS;
+use crate::ecs::entity_manager::{EntityManager, ECS};
 use crate::utils::tools::{SplitGet, SplitMut};
 use std::any::{Any, TypeId};
 use std::collections::hash_map::{Values, ValuesMut};
+use std::iter::Filter;
 use std::marker::PhantomData;
 
 /// filter functionality for any struct
@@ -51,25 +52,16 @@ macro_rules! exclude_filter {
     };
 }
 
-macro_rules! helper {
-    (@COUNT; $($element:expr), *) => {
-        <[()]>::len(&[$($crate::ecs::query::helper!(@SUBST; $element)),*])
+macro_rules! first {
+    ($first:expr, $($rest:expr), *) => {
+        $first
     };
-
-    (@SUBST; $_element:expr) => { () };
-
-    (@ERASE; $_element:expr) => {};
 }
-
-// use array returns for get methods instead of tuples so they are iterable
-// also the splitmut trait should change to return one final result
-// maybe even change it to options instead of a result
-// -> makes more sense if there is no case differentiation between errors
 
 macro_rules! impl_ref_query {
     ($sname:ident; $fname:ident; $getfunc:ident; $($ret:ident), +; $($ret_opt:ident), *) => {
         pub struct $sname<'a, $($ret: Any), +, $($ret_opt: Any), *> {
-            archetype_iter: Values<'a, ArchetypeID, Archetype>,
+            archetype_iter: Filter<Values<'a, ArchetypeID, Archetype>, fn(&&Archetype) -> bool>,
             current_archetype: Option<&'a Archetype>,
             component_index: usize,
             filter: Vec<Box<dyn QueryFilter>>,
@@ -81,23 +73,17 @@ macro_rules! impl_ref_query {
 
             fn next(&mut self) -> Option<Self::Item> {
                 if let Some(archetype) = self.current_archetype {
-                    if $(archetype.contains::<$ret>()) && + {
-                        //...
-                    }
-                    if let Some(components) = archetype.components.$getfunc($(&TypeId::of::<$ret>()), +) {
-                        if self.component_index < components[0].len() {
-                            let ret = (
-                                $({
-                                    [self.component_index];
-                                    //...
-                                })+,
-                                $(
-                                    archetype.component_ref_at::<$ret_opt>(self.component_index)
-                                )*
-                            );
-                            self.component_index += 1;
-                            return Some(ret);
-                        }
+                    if self.component_index < archetype.components.get(first!($(&TypeId::of::<$ret>()), +)).unwrap().len() {
+                        let ret = (
+                            $(
+                                archetype.components.get(&TypeId::of::<$ret>()).unwrap()[self.component_index].downcast_ref::<$ret>().unwrap()
+                            ),+,
+                            $(
+                                archetype.component_ref_at::<$ret_opt>(self.component_index)
+                            ),*
+                        );
+                        self.component_index += 1;
+                        return Some(ret);
                     }
                 }
                 if let Some(archetype) = self.archetype_iter.next() {
@@ -117,12 +103,22 @@ macro_rules! impl_ref_query {
                 filter: Vec<Box<dyn QueryFilter>>
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
                 $sname {
-                    archetype_iter: self.archetypes.values(),
+                    archetype_iter: self.archetypes.values().filter(|archetype| {$(archetype.contains::<$ret>()) && +}),
                     current_archetype: None,
                     component_index: 0,
                     filter,
                     phantom: PhantomData,
                 }
+            }
+        }
+
+        impl EntityManager {
+            #[doc = "immutable query for n components with m optionals"]
+            pub fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
+                &self,
+                filter: Vec<Box<dyn QueryFilter>>,
+            ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
+                self.ecs.$fname::<$($ret), +, $($ret_opt), *>(filter)
             }
         }
     };
@@ -131,7 +127,7 @@ macro_rules! impl_ref_query {
 macro_rules! impl_mut_query {
     ($sname:ident; $fname:ident; $getfunc:ident; $($ret:ident), +; $($ret_opt:ident), *) => {
         pub struct $sname<'a, $($ret: Any), +, $($ret_opt: Any), *> {
-            archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
+            archetype_iter: Filter<ValuesMut<'a, ArchetypeID, Archetype>, fn(&&mut Archetype) -> bool>,
             current_archetype: Option<*mut Archetype>,
             component_index: usize,
             filter: Vec<Box<dyn QueryFilter>>,
@@ -143,25 +139,19 @@ macro_rules! impl_mut_query {
 
             fn next(&mut self) -> Option<Self::Item> {
                 if let Some(archetype) = self.current_archetype {
-                    unsafe {
-                        if $((*archetype).contains::<$ret>()) && + {
-                            //...
-                        }
-                        if let Some(components) = (*archetype).components.$getfunc($(&TypeId::of::<$ret>()), +) {
-                            if self.component_index < components[0].len() {
-                                let ret = (
-                                    $({
-                                        [self.component_index];
-                                        //...
-                                    })+,
-                                    $(
-                                        (*archetype).component_mut_at::<$ret_opt>(self.component_index)
-                                    )*
-                                );
-                                self.component_index += 1;
-                                return Some(ret);
-                            }
-                        }
+                    // SAFETY: only one query can exist at a time and the raw pointer is
+                    // only used for tracking the current iteration
+                    if self.component_index < unsafe { (*archetype).components.get(first!($(&TypeId::of::<$ret>()), +)).unwrap().len() } {
+                        let ret = (
+                            $(
+                                unsafe { (*archetype).components.get_mut(&TypeId::of::<$ret>()).unwrap()[self.component_index].downcast_mut::<$ret>().unwrap() }
+                            ),+,
+                            $(
+                                unsafe { (*archetype).component_mut_at::<$ret_opt>(self.component_index) }
+                            ),*
+                        );
+                        self.component_index += 1;
+                        return Some(ret);
                     }
                 }
                 if let Some(archetype) = self.archetype_iter.next() {
@@ -181,7 +171,7 @@ macro_rules! impl_mut_query {
                 filter: Vec<Box<dyn QueryFilter>>,
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
                 $sname {
-                    archetype_iter: self.archetypes.values_mut(),
+                    archetype_iter: self.archetypes.values_mut().filter(|archetype| {$(archetype.contains::<$ret>()) && +}),
                     current_archetype: None,
                     component_index: 0,
                     filter,
@@ -189,8 +179,22 @@ macro_rules! impl_mut_query {
                 }
             }
         }
+
+        impl EntityManager {
+            #[doc = "mutable query for n components with m optionals"]
+            pub fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
+                &mut self,
+                filter: Vec<Box<dyn QueryFilter>>,
+            ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
+                self.ecs.$fname::<$($ret), +, $($ret_opt), *>(filter)
+            }
+        }
     };
 }
+
+impl_ref_query!(Query5Opt3; query5_opt3; get2; A, B; C, D, E);
+
+impl_mut_query!(Query4MutOpt1; query4_mut_opt1; get3_mut; A, B, C; D);
 
 /// immutable query for 1 component
 pub struct Query1<'a, T: Any> {
@@ -206,7 +210,7 @@ impl<'a, T: Any> Iterator for Query1<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some(components) = archetype.components.get(&TypeId::of::<T>()) {
+            if let Some([components]) = archetype.components.get1(&TypeId::of::<T>()) {
                 if self.component_index < components.len() {
                     let component = &components[self.component_index];
                     self.component_index += 1;
@@ -243,7 +247,7 @@ impl<'a, T: Any> Iterator for Query1Mut<'a, T> {
             // SAFETY: only one query can exist at a time and the raw pointer is
             // only used for tracking the current iteration
             unsafe {
-                if let Some(components) = (*archetype).components.get_mut(&TypeId::of::<T>()) {
+                if let Ok([components]) = (*archetype).components.get1_mut(&TypeId::of::<T>()) {
                     if self.component_index < components.len() {
                         let component = &mut components[self.component_index];
                         self.component_index += 1;
@@ -278,7 +282,7 @@ impl<'a, A: Any, B: Any> Iterator for Query2<'a, A, B> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some((components_a, components_b)) = archetype
+            if let Some([components_a, components_b]) = archetype
                 .components
                 .get2(&TypeId::of::<A>(), &TypeId::of::<B>())
             {
@@ -319,7 +323,7 @@ impl<'a, A: Any, B: Any> Iterator for Query2Opt1<'a, A, B> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some(components_a) = archetype.components.get(&TypeId::of::<A>()) {
+            if let Some([components_a]) = archetype.components.get1(&TypeId::of::<A>()) {
                 if self.component_index < components_a.len() {
                     let component_a = &components_a[self.component_index];
                     let component_b = archetype.component_ref_at::<B>(self.component_index);
@@ -355,7 +359,7 @@ impl<'a, A: Any, B: Any> Iterator for Query2Mut<'a, A, B> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let (Ok(components_a), Ok(components_b)) = (*archetype)
+                if let Ok([components_a, components_b]) = (*archetype)
                     .components
                     .get2_mut(&TypeId::of::<A>(), &TypeId::of::<B>())
                 {
@@ -398,7 +402,7 @@ impl<'a, A: Any, B: Any> Iterator for Query2MutOpt1<'a, A, B> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let Some(components_a) = (*archetype).components.get_mut(&TypeId::of::<A>()) {
+                if let Ok([components_a]) = (*archetype).components.get1_mut(&TypeId::of::<A>()) {
                     if self.component_index < components_a.len() {
                         let component_a = &mut components_a[self.component_index];
                         let component_b = (*archetype).component_mut_at::<B>(self.component_index);
@@ -434,7 +438,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3<'a, A, B, C> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some((components_a, components_b, components_c)) = archetype.components.get3(
+            if let Some([components_a, components_b, components_c]) = archetype.components.get3(
                 &TypeId::of::<A>(),
                 &TypeId::of::<B>(),
                 &TypeId::of::<C>(),
@@ -478,7 +482,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Opt1<'a, A, B, C> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some((components_a, components_b)) = archetype
+            if let Some([components_a, components_b]) = archetype
                 .components
                 .get2(&TypeId::of::<A>(), &TypeId::of::<B>())
             {
@@ -521,7 +525,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Opt2<'a, A, B, C> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some(components_a) = archetype.components.get(&TypeId::of::<A>()) {
+            if let Some([components_a]) = archetype.components.get1(&TypeId::of::<A>()) {
                 if self.component_index < components_a.len() {
                     let component_a = &components_a[self.component_index];
                     let component_b = archetype.component_ref_at::<B>(self.component_index);
@@ -562,7 +566,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3Mut<'a, A, B, C> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let (Ok(components_a), Ok(components_b), Ok(components_c)) = (*archetype)
+                if let Ok([components_a, components_b, components_c]) = (*archetype)
                     .components
                     .get3_mut(&TypeId::of::<A>(), &TypeId::of::<B>(), &TypeId::of::<C>())
                 {
@@ -607,7 +611,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3MutOpt1<'a, A, B, C> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let (Ok(components_a), Ok(components_b)) = (*archetype)
+                if let Ok([components_a, components_b]) = (*archetype)
                     .components
                     .get2_mut(&TypeId::of::<A>(), &TypeId::of::<B>())
                 {
@@ -652,7 +656,7 @@ impl<'a, A: Any, B: Any, C: Any> Iterator for Query3MutOpt2<'a, A, B, C> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let Some(components_a) = (*archetype).components.get_mut(&TypeId::of::<A>()) {
+                if let Ok([components_a]) = (*archetype).components.get1_mut(&TypeId::of::<A>()) {
                     if self.component_index < components_a.len() {
                         let component_a = &mut components_a[self.component_index];
                         let component_b = (*archetype).component_mut_at::<B>(self.component_index);
@@ -693,7 +697,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4<'a, A, B, C, D> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some((components_a, components_b, components_c, components_d)) =
+            if let Some([components_a, components_b, components_c, components_d]) =
                 archetype.components.get4(
                     &TypeId::of::<A>(),
                     &TypeId::of::<B>(),
@@ -742,7 +746,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Opt1<'a, A, B, C, D>
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some((components_a, components_b, components_c)) = archetype.components.get3(
+            if let Some([components_a, components_b, components_c]) = archetype.components.get3(
                 &TypeId::of::<A>(),
                 &TypeId::of::<B>(),
                 &TypeId::of::<C>(),
@@ -788,7 +792,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Opt2<'a, A, B, C, D>
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some((components_a, components_b)) = archetype
+            if let Some([components_a, components_b]) = archetype
                 .components
                 .get2(&TypeId::of::<A>(), &TypeId::of::<B>())
             {
@@ -833,7 +837,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Opt3<'a, A, B, C, D>
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some(components_a) = archetype.components.get(&TypeId::of::<A>()) {
+            if let Some([components_a]) = archetype.components.get1(&TypeId::of::<A>()) {
                 if self.component_index < components_a.len() {
                     let component_a = &components_a[self.component_index];
                     let component_b = archetype.component_ref_at::<B>(self.component_index);
@@ -876,7 +880,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Mut<'a, A, B, C, D> 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let (Ok(components_a), Ok(components_b), Ok(components_c), Ok(components_d)) =
+                if let Ok([components_a, components_b, components_c, components_d]) =
                     (*archetype).components.get4_mut(
                         &TypeId::of::<A>(),
                         &TypeId::of::<B>(),
@@ -912,53 +916,6 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4Mut<'a, A, B, C, D> 
     }
 }
 
-/// mutable query for 4 components with 1 optional
-pub struct Query4MutOpt1<'a, A: Any, B: Any, C: Any, D: Any> {
-    archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
-    current_archetype: Option<*mut Archetype>,
-    component_index: usize,
-    filter: Vec<Box<dyn QueryFilter>>,
-    phantom: PhantomData<(A, B, C, D)>,
-}
-
-impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4MutOpt1<'a, A, B, C, D> {
-    type Item = (&'a mut A, &'a mut B, &'a mut C, Option<&'a mut D>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(archetype) = self.current_archetype {
-            unsafe {
-                if let (Ok(components_a), Ok(components_b), Ok(components_c)) = (*archetype)
-                    .components
-                    .get3_mut(&TypeId::of::<A>(), &TypeId::of::<B>(), &TypeId::of::<C>())
-                {
-                    if self.component_index < components_a.len() {
-                        let component_a = &mut components_a[self.component_index];
-                        let component_b = &mut components_b[self.component_index];
-                        let component_c = &mut components_c[self.component_index];
-                        let component_d = (*archetype).component_mut_at::<D>(self.component_index);
-                        self.component_index += 1;
-
-                        return Some((
-                            component_a.downcast_mut::<A>().unwrap(),
-                            component_b.downcast_mut::<B>().unwrap(),
-                            component_c.downcast_mut::<C>().unwrap(),
-                            component_d,
-                        ));
-                    }
-                }
-            }
-        }
-        if let Some(archetype) = self.archetype_iter.next() {
-            if self.filter.iter().all(|filter| filter.matches(archetype)) {
-                self.current_archetype = Some(archetype);
-                self.component_index = 0;
-            }
-            return self.next();
-        }
-        None
-    }
-}
-
 /// mutable query for 4 components with 2 optionals
 pub struct Query4MutOpt2<'a, A: Any, B: Any, C: Any, D: Any> {
     archetype_iter: ValuesMut<'a, ArchetypeID, Archetype>,
@@ -974,7 +931,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4MutOpt2<'a, A, B, C,
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let (Ok(components_a), Ok(components_b)) = (*archetype)
+                if let Ok([components_a, components_b]) = (*archetype)
                     .components
                     .get2_mut(&TypeId::of::<A>(), &TypeId::of::<B>())
                 {
@@ -1026,7 +983,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any> Iterator for Query4MutOpt3<'a, A, B, C,
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let Some(components_a) = (*archetype).components.get_mut(&TypeId::of::<A>()) {
+                if let Ok([components_a]) = (*archetype).components.get1_mut(&TypeId::of::<A>()) {
                     if self.component_index < components_a.len() {
                         let component_a = &mut components_a[self.component_index];
                         let component_b = (*archetype).component_mut_at::<B>(self.component_index);
@@ -1069,7 +1026,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5<'a, A, B, C
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some((components_a, components_b, components_c, components_d, components_e)) =
+            if let Some([components_a, components_b, components_c, components_d, components_e]) =
                 archetype.components.get5(
                     &TypeId::of::<A>(),
                     &TypeId::of::<B>(),
@@ -1121,7 +1078,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Opt1<'a, A, 
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some((components_a, components_b, components_c, components_d)) =
+            if let Some([components_a, components_b, components_c, components_d]) =
                 archetype.components.get4(
                     &TypeId::of::<A>(),
                     &TypeId::of::<B>(),
@@ -1172,7 +1129,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Opt2<'a, A, 
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some((components_a, components_b, components_c)) = archetype.components.get3(
+            if let Some([components_a, components_b, components_c]) = archetype.components.get3(
                 &TypeId::of::<A>(),
                 &TypeId::of::<B>(),
                 &TypeId::of::<C>(),
@@ -1189,53 +1146,6 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Opt2<'a, A, 
                         component_a.downcast_ref::<A>().unwrap(),
                         component_b.downcast_ref::<B>().unwrap(),
                         component_c.downcast_ref::<C>().unwrap(),
-                        component_d,
-                        component_e,
-                    ));
-                }
-            }
-        }
-        if let Some(archetype) = self.archetype_iter.next() {
-            if self.filter.iter().all(|filter| filter.matches(archetype)) {
-                self.current_archetype = Some(archetype);
-                self.component_index = 0;
-            }
-            return self.next();
-        }
-        None
-    }
-}
-
-/// immutable query for 5 components with 3 optionals
-pub struct Query5Opt3<'a, A: Any, B: Any, C: Any, D: Any, E: Any> {
-    archetype_iter: Values<'a, ArchetypeID, Archetype>,
-    current_archetype: Option<&'a Archetype>,
-    component_index: usize,
-    filter: Vec<Box<dyn QueryFilter>>,
-    phantom: PhantomData<(A, B, C, D, E)>,
-}
-
-impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Opt3<'a, A, B, C, D, E> {
-    type Item = (&'a A, &'a B, Option<&'a C>, Option<&'a D>, Option<&'a E>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(archetype) = self.current_archetype {
-            if let Some((components_a, components_b)) = archetype
-                .components
-                .get2(&TypeId::of::<A>(), &TypeId::of::<B>())
-            {
-                if self.component_index < components_a.len() {
-                    let component_a = &components_a[self.component_index];
-                    let component_b = &components_b[self.component_index];
-                    let component_c = archetype.component_ref_at::<C>(self.component_index);
-                    let component_d = archetype.component_ref_at::<D>(self.component_index);
-                    let component_e = archetype.component_ref_at::<E>(self.component_index);
-                    self.component_index += 1;
-
-                    return Some((
-                        component_a.downcast_ref::<A>().unwrap(),
-                        component_b.downcast_ref::<B>().unwrap(),
-                        component_c,
                         component_d,
                         component_e,
                     ));
@@ -1273,7 +1183,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Opt4<'a, A, 
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
-            if let Some(components_a) = archetype.components.get(&TypeId::of::<A>()) {
+            if let Some([components_a]) = archetype.components.get1(&TypeId::of::<A>()) {
                 if self.component_index < components_a.len() {
                     let component_a = &components_a[self.component_index];
                     let component_b = archetype.component_ref_at::<B>(self.component_index);
@@ -1318,19 +1228,15 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5Mut<'a, A, B
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let (
-                    Ok(components_a),
-                    Ok(components_b),
-                    Ok(components_c),
-                    Ok(components_d),
-                    Ok(components_e),
-                ) = (*archetype).components.get5_mut(
-                    &TypeId::of::<A>(),
-                    &TypeId::of::<B>(),
-                    &TypeId::of::<C>(),
-                    &TypeId::of::<D>(),
-                    &TypeId::of::<E>(),
-                ) {
+                if let Ok([components_a, components_b, components_c, components_d, components_e]) =
+                    (*archetype).components.get5_mut(
+                        &TypeId::of::<A>(),
+                        &TypeId::of::<B>(),
+                        &TypeId::of::<C>(),
+                        &TypeId::of::<D>(),
+                        &TypeId::of::<E>(),
+                    )
+                {
                     if self.component_index < components_a.len() {
                         let component_a = &mut components_a[self.component_index];
                         let component_b = &mut components_b[self.component_index];
@@ -1382,7 +1288,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5MutOpt1<'a, 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let (Ok(components_a), Ok(components_b), Ok(components_c), Ok(components_d)) =
+                if let Ok([components_a, components_b, components_c, components_d]) =
                     (*archetype).components.get4_mut(
                         &TypeId::of::<A>(),
                         &TypeId::of::<B>(),
@@ -1441,7 +1347,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5MutOpt2<'a, 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let (Ok(components_a), Ok(components_b), Ok(components_c)) = (*archetype)
+                if let Ok([components_a, components_b, components_c]) = (*archetype)
                     .components
                     .get3_mut(&TypeId::of::<A>(), &TypeId::of::<B>(), &TypeId::of::<C>())
                 {
@@ -1496,7 +1402,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5MutOpt3<'a, 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let (Ok(components_a), Ok(components_b)) = (*archetype)
+                if let Ok([components_a, components_b]) = (*archetype)
                     .components
                     .get2_mut(&TypeId::of::<A>(), &TypeId::of::<B>())
                 {
@@ -1551,7 +1457,7 @@ impl<'a, A: Any, B: Any, C: Any, D: Any, E: Any> Iterator for Query5MutOpt4<'a, 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(archetype) = self.current_archetype {
             unsafe {
-                if let Some(components_a) = (*archetype).components.get_mut(&TypeId::of::<A>()) {
+                if let Ok([components_a]) = (*archetype).components.get1_mut(&TypeId::of::<A>()) {
                     if self.component_index < components_a.len() {
                         let component_a = &mut components_a[self.component_index];
                         let component_b = (*archetype).component_mut_at::<B>(self.component_index);
@@ -1818,20 +1724,6 @@ impl ECS {
         }
     }
 
-    /// create mutable query for 4 components, 1 optional, with given filters, iterable
-    pub(crate) fn query4_mut_opt1<A: Any, B: Any, C: Any, D: Any>(
-        &mut self,
-        filter: Vec<Box<dyn QueryFilter>>,
-    ) -> Query4MutOpt1<'_, A, B, C, D> {
-        Query4MutOpt1 {
-            archetype_iter: self.archetypes.values_mut(),
-            current_archetype: None,
-            component_index: 0,
-            filter,
-            phantom: PhantomData,
-        }
-    }
-
     /// create mutable query for 4 components, 2 optional, with given filters, iterable
     pub(crate) fn query4_mut_opt2<A: Any, B: Any, C: Any, D: Any>(
         &mut self,
@@ -1894,20 +1786,6 @@ impl ECS {
         filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5Opt2<'_, A, B, C, D, E> {
         Query5Opt2 {
-            archetype_iter: self.archetypes.values(),
-            current_archetype: None,
-            component_index: 0,
-            filter,
-            phantom: PhantomData,
-        }
-    }
-
-    /// create immutable query for 5 components, 3 optional, with given filters, iterable
-    pub(crate) fn query5_opt3<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &self,
-        filter: Vec<Box<dyn QueryFilter>>,
-    ) -> Query5Opt3<'_, A, B, C, D, E> {
-        Query5Opt3 {
             archetype_iter: self.archetypes.values(),
             current_archetype: None,
             component_index: 0,

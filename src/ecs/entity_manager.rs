@@ -19,7 +19,7 @@ pub(crate) use components;
 
 /// the main ressource manager holding both the ECS and the asset data
 pub struct EntityManager {
-    ecs: ECS,
+    pub(crate) ecs: ECS,
     asset_register: HashMap<MeshType, Mesh>,
     pub(crate) texture_map: TextureMap,
 }
@@ -303,14 +303,6 @@ impl EntityManager {
         self.ecs.query4_mut::<A, B, C, D>(filter)
     }
 
-    /// create mutable query for 4 components, 1 optional, iterable
-    pub fn query4_mut_opt1<A: Any, B: Any, C: Any, D: Any>(
-        &mut self,
-        filter: Vec<Box<dyn QueryFilter>>,
-    ) -> Query4MutOpt1<'_, A, B, C, D> {
-        self.ecs.query4_mut_opt1::<A, B, C, D>(filter)
-    }
-
     /// create mutable query for 4 components, 2 optional, iterable
     pub fn query4_mut_opt2<A: Any, B: Any, C: Any, D: Any>(
         &mut self,
@@ -349,14 +341,6 @@ impl EntityManager {
         filter: Vec<Box<dyn QueryFilter>>,
     ) -> Query5Opt2<'_, A, B, C, D, E> {
         self.ecs.query5_opt2::<A, B, C, D, E>(filter)
-    }
-
-    /// create immutable query for 5 components, 3 optional, iterable
-    pub fn query5_opt3<A: Any, B: Any, C: Any, D: Any, E: Any>(
-        &self,
-        filter: Vec<Box<dyn QueryFilter>>,
-    ) -> Query5Opt3<'_, A, B, C, D, E> {
-        self.ecs.query5_opt3::<A, B, C, D, E>(filter)
     }
 
     /// create immutable query for 5 components, 4 optional, iterable
