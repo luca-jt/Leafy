@@ -215,59 +215,6 @@ unsafe impl<'a, K: Ord + Borrow<Q>, Q: Ord + ?Sized, V> SplitMut<&'a Q, V> for B
     }
 }
 
-/// enables access to multiple immutable references via tuples for collections (e.g. HashMap),
-/// only returns `Some(...)` if all of the individual keys are valid
-pub trait SplitGet<K, V> {
-    /// wrapper for get, used internally
-    fn get1_proxy(&self, k1: &K) -> Option<&V>;
-
-    /// returns one reference to a value within the collection
-    fn get1(&self, k1: &K) -> Option<[&V; 1]> {
-        Some([self.get1_proxy(k1)?])
-    }
-
-    /// returns two references to two values within the same collection
-    fn get2(&self, k1: &K, k2: &K) -> Option<[&V; 2]> {
-        Some([self.get1_proxy(k1)?, self.get1_proxy(k2)?])
-    }
-
-    /// returns three references to three values within the same collection
-    fn get3(&self, k1: &K, k2: &K, k3: &K) -> Option<[&V; 3]> {
-        Some([
-            self.get1_proxy(k1)?,
-            self.get1_proxy(k2)?,
-            self.get1_proxy(k3)?,
-        ])
-    }
-
-    /// returns four mutable references to four values within the same collection
-    fn get4(&self, k1: &K, k2: &K, k3: &K, k4: &K) -> Option<[&V; 4]> {
-        Some([
-            self.get1_proxy(k1)?,
-            self.get1_proxy(k2)?,
-            self.get1_proxy(k3)?,
-            self.get1_proxy(k4)?,
-        ])
-    }
-
-    /// returns five references to five values within the same collection
-    fn get5(&self, k1: &K, k2: &K, k3: &K, k4: &K, k5: &K) -> Option<[&V; 5]> {
-        Some([
-            self.get1_proxy(k1)?,
-            self.get1_proxy(k2)?,
-            self.get1_proxy(k3)?,
-            self.get1_proxy(k4)?,
-            self.get1_proxy(k5)?,
-        ])
-    }
-}
-
-impl<K: Hash + Eq, V> SplitGet<K, V> for HashMap<K, V> {
-    fn get1_proxy(&self, k1: &K) -> Option<&V> {
-        self.get(k1)
-    }
-}
-
 /// cast anything to Any
 pub trait AnyCast: Any {
     fn as_any_mut(&mut self) -> &mut dyn Any;
