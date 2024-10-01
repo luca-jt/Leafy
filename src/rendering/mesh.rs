@@ -1,10 +1,9 @@
 use crate::glm;
+use crate::utils::file::get_model_path;
 use gl::types::*;
 use obj::{load_obj, Obj, TexturedVertex};
 use std::fs::File;
 use std::io::BufReader;
-
-use crate::utils::file::get_model_path;
 
 /// a mesh that can be rendered in gl
 pub struct Mesh {

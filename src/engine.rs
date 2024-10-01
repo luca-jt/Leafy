@@ -1,13 +1,3 @@
-use std::any::Any;
-use std::cell::{RefCell, RefMut};
-use std::error::Error;
-use std::ops::{Deref, DerefMut};
-use winit::application::ApplicationHandler;
-use winit::event::{DeviceEvent, DeviceId, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
-use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::WindowId;
-
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine_builder::EngineAttributes;
 use crate::systems::animation_system::AnimationSystem;
@@ -17,6 +7,15 @@ use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
 use crate::systems::video_system::VideoSystem;
 use crate::utils::tools::{shared_ptr, weak_ptr, AnyCast, SharedPtr};
+use std::any::Any;
+use std::cell::{RefCell, RefMut};
+use std::error::Error;
+use std::ops::{Deref, DerefMut};
+use winit::application::ApplicationHandler;
+use winit::event::{DeviceEvent, DeviceId, WindowEvent};
+use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::WindowId;
 
 /// main engine
 pub struct Engine {

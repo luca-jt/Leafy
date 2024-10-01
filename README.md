@@ -33,12 +33,12 @@ cargo run --example fl_test
 ## Overview
 - create an app struct that implements the `FallingLeafApp` trait and run the app like this:
 ```rs
-use fl_core::engine::Engine;
+use fl_core::engine_builder::EngineAttributes;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let app = App::new();
-    let mut engine = Engine::new();
+    let mut engine = EngineAttributes::new().build().unwrap();
     engine.run(app)
 }
 ```

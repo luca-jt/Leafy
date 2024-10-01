@@ -6,7 +6,6 @@ use crate::engine::EngineMode;
 use crate::glm;
 use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
-use crate::rendering::font_renderer::FontRenderer;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::ShaderCatalog;
@@ -109,9 +108,8 @@ impl RenderingSystem {
             match renderer_type {
                 Batch(_, renderer) => renderer.begin_batch(),
                 Instance(..) => {}
-                Font(renderer) => renderer.init(),
-                Sprite(renderer) => renderer.init(),
                 Voxel(renderer) => renderer.init(),
+                _ => {}
             }
         }
     }
@@ -134,7 +132,6 @@ impl RenderingSystem {
                         self.shader_catalog.instance_basic(),
                     );
                 }
-                Font(renderer) => renderer.end(),
                 Sprite(renderer) => renderer.end(),
                 Voxel(renderer) => renderer.end(),
             }
@@ -342,7 +339,6 @@ impl EventObserver<SetGLClearColor> for RenderingSystem {
 pub(crate) enum RendererType {
     Batch(MeshType, BatchRenderer),
     Instance(MeshType, MeshAttribute, InstanceRenderer),
-    Font(FontRenderer),
     Sprite(SpriteRenderer),
     Voxel(VoxelRenderer),
 }
