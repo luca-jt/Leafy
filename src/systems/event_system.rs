@@ -1,14 +1,13 @@
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::FallingLeafApp;
+use crate::systems::event_system::events::*;
+use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
 use std::any::{Any, TypeId};
 use std::cell::RefMut;
 use std::collections::HashMap;
 use std::ops::DerefMut;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
-
-use crate::systems::event_system::events::*;
-use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
 
 /// system managing the events
 pub struct EventSystem {
@@ -217,11 +216,8 @@ struct EventFunction<T: Any> {
 }
 
 pub mod events {
-    use crate::ecs::component::Color32;
-    use crate::ecs::entity::EntityID;
     use crate::engine::EngineMode;
     use crate::glm;
-    use crate::systems::audio_system::VolumeKind;
     use std::path::PathBuf;
     use winit::event::{DeviceId, InnerSizeWriter, MouseButton, TouchPhase};
     use winit::keyboard::KeyCode;
@@ -340,13 +336,6 @@ pub mod events {
         pub horizontal_delta: f32,
     }
 
-    /// event that gets triggered when the the sound engines' volume is supposed to change (e.g. when an UI slider is used)
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct AudioVolumeChange {
-        pub kind: VolumeKind,
-        pub new_volume: f32,
-    }
-
     /// global change of the engine mode
     #[derive(Debug, Clone, PartialEq)]
     pub struct EngineModeChange {
@@ -360,35 +349,9 @@ pub mod events {
         pub new_focus: glm::Vec3,
     }
 
-    /// changes the optional engines fps cap that is used while rendering
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct FPSCapChange {
-        pub new_cap: Option<f64>,
-    }
-
     /// changes the animation speed of the rendering system
     #[derive(Debug, Clone, PartialEq)]
     pub struct AnimationSpeedChange {
         pub new_animation_speed: f32,
     }
-
-    /// link the 3D camera position to some entity position or unlink using None
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct LinkCamToEntity {
-        pub link: Option<EntityID>,
-    }
-
-    /// change the fov (in degrees) for 3D rendering
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct FOVChange {
-        pub fov: f32,
-    }
-
-    /// change wether or not shadows are rendered in 3D rendering
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct SetShadowRendering(pub bool);
-
-    /// change the color that is used to clear the background in the rendering process
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct SetGLClearColor(pub Color32);
 }

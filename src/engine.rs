@@ -40,9 +40,8 @@ impl Engine {
 
         event_system.add_listener::<KeyPress>(&video_system);
         event_system.add_listener::<WindowResize>(&video_system);
-        event_system.add_listener::<FPSCapChange>(&video_system);
-        event_system.add_listener::<AudioVolumeChange>(&audio_system);
         event_system.add_listener::<CamPositionChange>(&audio_system);
+        event_system.add_listener::<AnimationSpeedChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&animation_system);
         event_system.add_listener::<EngineModeChange>(&animation_system);
 
@@ -90,12 +89,12 @@ impl Engine {
     }
 
     /// access to the engines animation system
-    fn animation_system(&self) -> RefMut<AnimationSystem> {
+    pub fn animation_system(&self) -> RefMut<AnimationSystem> {
         self.animation_system.borrow_mut()
     }
 
     /// access to the engines rendering system
-    fn rendering_system(&self) -> RefMut<RenderingSystem> {
+    pub fn rendering_system(&self) -> RefMut<RenderingSystem> {
         self.rendering_system.as_ref().unwrap().borrow_mut()
     }
 
@@ -129,14 +128,6 @@ impl ApplicationHandler for Engine {
             .add_listener::<EngineModeChange>(self.rendering_system.as_ref().unwrap());
         self.event_system()
             .add_listener::<CamPositionChange>(self.rendering_system.as_ref().unwrap());
-        self.event_system()
-            .add_listener::<LinkCamToEntity>(self.rendering_system.as_ref().unwrap());
-        self.event_system()
-            .add_listener::<FOVChange>(self.rendering_system.as_ref().unwrap());
-        self.event_system()
-            .add_listener::<SetShadowRendering>(self.rendering_system.as_ref().unwrap());
-        self.event_system()
-            .add_listener::<SetGLClearColor>(self.rendering_system.as_ref().unwrap());
 
         self.app().init(self);
     }

@@ -4,7 +4,7 @@ use fl_core::ecs::entity::EntityID;
 use fl_core::ecs::entity_manager::EntityManager;
 use fl_core::engine::{app_downcast, Engine, FallingLeafApp};
 use fl_core::glm;
-use fl_core::systems::audio_system::VolumeKind;
+use fl_core::systems::audio_system::VolumeType;
 use fl_core::systems::event_system::events::*;
 use fl_core::winit::keyboard::KeyCode;
 use std::cell::RefMut;
@@ -31,10 +31,7 @@ impl FallingLeafApp for App {
             new_pos: glm::Vec3::new(0.0, 5.0, -5.0),
             new_focus: glm::Vec3::zeros(),
         });
-        engine.event_system().trigger(AudioVolumeChange {
-            kind: VolumeKind::Master,
-            new_volume: 0.5,
-        });
+        engine.audio_system().set_volume(VolumeType::Master, 0.5);
 
         let mut entity_manager = engine.entity_manager();
         let _floor = entity_manager.create_entity(components!(

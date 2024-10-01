@@ -11,10 +11,7 @@ use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::ShaderCatalog;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
-use crate::systems::event_system::events::{
-    CamPositionChange, EngineModeChange, FOVChange, LinkCamToEntity, SetGLClearColor,
-    SetShadowRendering,
-};
+use crate::systems::event_system::events::{CamPositionChange, EngineModeChange};
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{ORIGIN, Z_AXIS};
 use RendererType::*;
@@ -296,6 +293,26 @@ impl RenderingSystem {
             }
         }
     }
+
+    /// change OpenGL's background clear color
+    pub fn set_gl_clearcolor(&mut self, color: Color32) {
+        self.clear_color = color;
+    }
+
+    /// engables/dislables the shadow rendering of all entities for 3D rendering
+    pub fn enable_shadows(&mut self, flag: bool) {
+        self.render_shadows = flag;
+    }
+
+    /// set the FOV for 3D rendering (in degrees)
+    pub fn set_fov(&mut self, fov: f32) {
+        self.perspective_camera.update_fov(fov);
+    }
+
+    /// link/unlink the 3D camera position to some enities' position
+    pub fn link_cam_to_entity(&mut self, link: Option<EntityID>) {
+        self.cam_position_link = link;
+    }
 }
 
 impl EventObserver<EngineModeChange> for RenderingSystem {
@@ -308,30 +325,6 @@ impl EventObserver<CamPositionChange> for RenderingSystem {
     fn on_event(&mut self, event: &CamPositionChange) {
         self.perspective_camera
             .update_cam(&event.new_pos, &event.new_focus);
-    }
-}
-
-impl EventObserver<LinkCamToEntity> for RenderingSystem {
-    fn on_event(&mut self, event: &LinkCamToEntity) {
-        self.cam_position_link = event.link;
-    }
-}
-
-impl EventObserver<FOVChange> for RenderingSystem {
-    fn on_event(&mut self, event: &FOVChange) {
-        self.perspective_camera.update_fov(event.fov);
-    }
-}
-
-impl EventObserver<SetShadowRendering> for RenderingSystem {
-    fn on_event(&mut self, event: &SetShadowRendering) {
-        self.render_shadows = event.0;
-    }
-}
-
-impl EventObserver<SetGLClearColor> for RenderingSystem {
-    fn on_event(&mut self, event: &SetGLClearColor) {
-        self.clear_color = event.0;
     }
 }
 

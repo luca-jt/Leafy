@@ -1,12 +1,8 @@
 use crate::ecs::component::{Position, SoundController};
 use crate::ecs::entity_manager::EntityManager;
-use crate::systems::event_system::events::{AudioVolumeChange, CamPositionChange};
+use crate::systems::event_system::events::{AnimationSpeedChange, CamPositionChange};
 use crate::systems::event_system::EventObserver;
 use crate::utils::file::get_audio_path;
-
-use std::collections::HashMap;
-use std::path::PathBuf;
-
 use fyrox_resource::io::FsResourceIo;
 use fyrox_sound::{
     algebra::Vector3,
@@ -23,6 +19,8 @@ use fyrox_sound::{
     },
     source::{SoundSource, SoundSourceBuilder, Status},
 };
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 pub type SoundHandleID = u64;
 
@@ -60,14 +58,14 @@ impl AudioSystem {
     /// update audio volume etc (runs every frame)
     pub(crate) fn update(&mut self, entity_manager: &EntityManager) {
         // update music volume
-        let music_volume = self.calc_absolute_volume(VolumeKind::Music);
+        let music_volume = self.calc_absolute_volume(VolumeType::Music);
         if let Some(music_handle) = self.background_music {
             let mut state = self.sound_context.state();
             let music_source = state.source_mut(music_handle);
             music_source.set_gain(music_volume);
         }
         // update entity sound positions
-        let sfx_volume = self.calc_absolute_volume(VolumeKind::SFX);
+        let sfx_volume = self.calc_absolute_volume(VolumeType::SFX);
         for (pos, sound) in entity_manager.query2::<Position, SoundController>(vec![]) {
             let handles = self.sound_register.get(&sound.id).unwrap();
             for handle in handles {
@@ -91,7 +89,7 @@ impl AudioSystem {
     /// plays a sound effect from a given file
     pub fn play_sfx(&self, file_name: &str, looping: bool) -> Handle<SoundSource> {
         let full_path = get_audio_path(file_name);
-        let volume = self.calc_absolute_volume(VolumeKind::SFX);
+        let volume = self.calc_absolute_volume(VolumeType::SFX);
 
         let buffer = SoundBufferResource::new_generic(
             block_on(DataSource::from_file(full_path, &FsResourceIo)).unwrap(),
@@ -119,7 +117,7 @@ impl AudioSystem {
         position: &Position,
     ) {
         let full_path = get_audio_path(file_name);
-        let volume = self.calc_absolute_volume(VolumeKind::SFX);
+        let volume = self.calc_absolute_volume(VolumeType::SFX);
 
         let buffer = SoundBufferResource::new_generic(
             block_on(DataSource::from_file(full_path, &FsResourceIo)).unwrap(),
@@ -149,7 +147,7 @@ impl AudioSystem {
     /// plays the music from a given file in a loop
     pub fn play_background_music(&mut self, file_name: &str) {
         let full_path = get_audio_path(file_name);
-        let volume = self.calc_absolute_volume(VolumeKind::Music);
+        let volume = self.calc_absolute_volume(VolumeType::Music);
         self.stop_background_music();
 
         let buffer = SoundBufferResource::new_generic(
@@ -213,30 +211,29 @@ impl AudioSystem {
             .remove_effect(0); // might need specification later on with more effects
     }
 
-    /// calculate the total resulting volume for either the sfx or music
-    fn calc_absolute_volume(&self, volume: VolumeKind) -> f32 {
-        match volume {
-            VolumeKind::Master => {
-                panic!("master volume is not supported");
+    /// changes the volume of the given type to the specified value
+    pub fn set_volume(&mut self, volume_type: VolumeType, new_volume: f32) {
+        match volume_type {
+            VolumeType::Master => {
+                self.master_volume = new_volume;
             }
-            VolumeKind::SFX => self.master_volume * self.sfx_volume,
-            VolumeKind::Music => self.master_volume * self.music_volume,
+            VolumeType::SFX => {
+                self.sfx_volume = new_volume;
+            }
+            VolumeType::Music => {
+                self.music_volume = new_volume;
+            }
         }
     }
-}
 
-impl EventObserver<AudioVolumeChange> for AudioSystem {
-    fn on_event(&mut self, event: &AudioVolumeChange) {
-        match event.kind {
-            VolumeKind::Master => {
-                self.master_volume = event.new_volume;
+    /// calculate the total resulting volume for either the sfx or music
+    fn calc_absolute_volume(&self, volume: VolumeType) -> f32 {
+        match volume {
+            VolumeType::Master => {
+                panic!("master volume is not supported");
             }
-            VolumeKind::SFX => {
-                self.sfx_volume = event.new_volume;
-            }
-            VolumeKind::Music => {
-                self.music_volume = event.new_volume;
-            }
+            VolumeType::SFX => self.master_volume * self.sfx_volume,
+            VolumeType::Music => self.master_volume * self.music_volume,
         }
     }
 }
@@ -255,9 +252,18 @@ impl EventObserver<CamPositionChange> for AudioSystem {
     }
 }
 
+impl EventObserver<AnimationSpeedChange> for AudioSystem {
+    fn on_event(&mut self, event: &AnimationSpeedChange) {
+        let mut state = self.sound_context.state();
+        for source in state.sources_mut().iter_mut() {
+            source.set_pitch(event.new_animation_speed as f64);
+        }
+    }
+}
+
 /// all versions of audio volume
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum VolumeKind {
+pub enum VolumeType {
     Master,
     SFX,
     Music,

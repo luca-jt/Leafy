@@ -1,7 +1,7 @@
 use crate::engine::Engine;
 use crate::utils::constants::*;
 use winit::dpi::LogicalSize;
-use winit::window::{Fullscreen, Window, WindowAttributes};
+use winit::window::{Fullscreen, Theme, Window, WindowAttributes};
 
 #[cfg(target_os = "windows")]
 use crate::utils::file::get_image_path;
@@ -24,6 +24,8 @@ pub struct EngineAttributes {
     max_size: Option<(u32, u32)>,
     fullscreen: bool,
     maximized: bool,
+    pub(crate) use_vsync: bool,
+    theme: Option<Theme>,
 }
 
 impl EngineAttributes {
@@ -42,6 +44,8 @@ impl EngineAttributes {
             max_size: None,
             fullscreen: false,
             maximized: false,
+            use_vsync: false,
+            theme: None,
         }
     }
 
@@ -117,6 +121,18 @@ impl EngineAttributes {
         self
     }
 
+    /// enables/disables vsync (default is false)
+    pub fn with_vsync(mut self, flag: bool) -> Self {
+        self.use_vsync = flag;
+        self
+    }
+
+    /// sets the theme (light or dark) for the window (default is the System default)
+    pub fn with_theme(mut self, theme: Theme) -> Self {
+        self.theme = Some(theme);
+        self
+    }
+
     /// builds the actual engine and performs engine
     pub fn build(self) -> Result<Engine, String> {
         if let Some(min_size) = self.min_size {
@@ -146,6 +162,7 @@ impl EngineAttributes {
             .with_title(self.title)
             .with_resizable(self.resizable)
             .with_maximized(self.maximized)
+            .with_theme(self.theme)
             .with_inner_size(LogicalSize::new(self.size.0, self.size.1));
 
         if let Some(min_size) = self.min_size {

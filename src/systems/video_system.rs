@@ -1,5 +1,5 @@
 use crate::engine_builder::EngineAttributes;
-use crate::systems::event_system::events::{FPSCapChange, KeyPress, WindowResize};
+use crate::systems::event_system::events::{KeyPress, WindowResize};
 use crate::systems::event_system::EventObserver;
 use gl::types::GLsizei;
 use glutin::config::{Config, ConfigTemplateBuilder};
@@ -17,7 +17,7 @@ use std::num::NonZeroU32;
 use std::time::{Duration, Instant};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::KeyCode;
-use winit::window::{Cursor, Fullscreen, Window};
+use winit::window::{CursorGrabMode, CursorIcon, Fullscreen, Window};
 
 /// holds the video backend attributes
 pub struct VideoSystem {
@@ -148,8 +148,14 @@ impl VideoSystem {
                 && self.window.replace(window).is_none()
         );
 
-        if let Err(res) = self.disable_vsync() {
-            eprintln!("Error setting vsync: {res:?}");
+        if self.stored_config.use_vsync {
+            if let Err(res) = self.enable_vsync() {
+                eprintln!("Error setting vsync: {res:?}");
+            }
+        } else {
+            if let Err(res) = self.disable_vsync() {
+                eprintln!("Error setting vsync: {res:?}");
+            }
         }
 
         Ok(())
@@ -225,17 +231,58 @@ impl VideoSystem {
         self.current_fps
     }
 
+    /// set the optional fps cap value for the rendering process
+    pub fn set_fps_cap(&mut self, new_cap: Option<f64>) {
+        self.fps_cap = new_cap;
+    }
+
     /// changes the title bar text in the window
-    pub fn set_window_title(&mut self, title: &str) {
+    pub fn set_window_title(&self, title: &str) {
         if let Some(window) = self.window.as_ref() {
             window.set_title(title);
         }
     }
 
     /// changes the appearance of the windows' cursor
-    pub fn set_cursor(&mut self, cursor: impl Into<Cursor>) {
+    pub fn set_cursor(&self, cursor: CursorIcon) {
         if let Some(window) = self.window.as_ref() {
             window.set_cursor(cursor);
+        }
+    }
+
+    /// brings the window into focus
+    pub fn focus_window(&self) {
+        if let Some(window) = self.window.as_ref() {
+            window.focus_window();
+        }
+    }
+
+    /// enables/disables the grab mode for the cursor (makes it unable to leave the window)
+    pub fn set_cursor_grab_mode(&self, flag: bool) {
+        if let Some(window) = self.window.as_ref() {
+            if flag {
+                window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
+            } else {
+                window.set_cursor_grab(CursorGrabMode::None).unwrap();
+            }
+        }
+    }
+
+    /// enables/disables fullscreen for the window
+    pub fn set_fullscreen(&self, flag: bool) {
+        if let Some(window) = self.window.as_ref() {
+            if flag {
+                window.set_fullscreen(Some(Fullscreen::Borderless(None)));
+            } else {
+                window.set_fullscreen(None);
+            }
+        }
+    }
+
+    /// makes the cursor visible/invisible
+    pub fn set_cursor_visible(&self, flag: bool) {
+        if let Some(window) = self.window.as_ref() {
+            window.set_cursor_visible(flag);
         }
     }
 }
@@ -292,12 +339,6 @@ impl EventObserver<WindowResize> for VideoSystem {
                 gl::Scissor(0, 0, event.width as GLsizei, event.height as GLsizei);
             }
         }
-    }
-}
-
-impl EventObserver<FPSCapChange> for VideoSystem {
-    fn on_event(&mut self, event: &FPSCapChange) {
-        self.fps_cap = event.new_cap;
     }
 }
 
