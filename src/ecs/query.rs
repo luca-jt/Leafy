@@ -62,6 +62,15 @@ macro_rules! first {
     };
 }
 
+/// makes shure the types of all the query entries are different
+macro_rules! verify_types {
+    ($t:ident) => { true };
+
+    ($first:ident, $($rest:ident), +) => {
+        $(TypeId::of::<$first>() != TypeId::of::<$rest>()) && + && verify_types!($($rest), +)
+    };
+}
+
 macro_rules! impl_ref_query {
     ($sname:ident; $fname:ident; $($ret:ident), +; $($ret_opt:ident), *) => {
         pub struct $sname<'a, $($ret: Any), +, $($ret_opt: Any), *> {
@@ -147,6 +156,7 @@ macro_rules! impl_mut_query {
                 if let Some(archetype) = self.current_archetype {
                     // SAFETY: only one query can exist at a time and the raw pointer is
                     // only used for tracking the current iteration
+                    // debug assert in ECS function prohibits multiple mutable references to the same component
                     if self.component_index < unsafe { (*archetype).components.get(first!($(&TypeId::of::<$ret>()), +)).unwrap().len() } {
                         let ret = (
                             $(
@@ -176,6 +186,7 @@ macro_rules! impl_mut_query {
                 &mut self,
                 filter: Vec<Box<dyn QueryFilter>>,
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
+                debug_assert!(verify_types!($($ret), +));
                 $sname {
                     archetype_iter: self.archetypes.values_mut().filter(|archetype| {$(archetype.contains::<$ret>()) && +}),
                     current_archetype: None,
