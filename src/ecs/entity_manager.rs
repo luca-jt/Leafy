@@ -227,7 +227,7 @@ impl ECS {
         for column in archetype.components.values_mut() {
             column.remove(record.row);
         }
-        if archetype.components.values().nth(0).unwrap().len() == 0 {
+        if archetype.components.values().nth(0).unwrap().is_empty() {
             self.archetypes.remove(&record.archetype_id);
             self.type_to_archetype
                 .retain(|_, arch_id| *arch_id != record.archetype_id);
@@ -278,7 +278,7 @@ impl ECS {
             .collect();
 
         // remove the old archetype if there are no more components in it
-        if old_archetype.components.values().nth(0).unwrap().len() == 0 {
+        if old_archetype.components.values().nth(0).unwrap().is_empty() {
             self.archetypes.remove(&record.archetype_id);
         }
 
@@ -341,7 +341,7 @@ impl ECS {
             .collect();
 
         // remove the old archetype if there are no more components in it
-        if old_archetype.components.values().nth(0).unwrap().len() == 0 {
+        if old_archetype.components.values().nth(0).unwrap().is_empty() {
             self.archetypes.remove(&record.archetype_id);
         }
 

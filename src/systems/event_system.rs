@@ -3,21 +3,20 @@ use crate::engine::FallingLeafApp;
 use crate::systems::event_system::events::*;
 use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
 use std::any::{Any, TypeId};
-use std::cell::RefMut;
 use std::collections::HashMap;
 use std::ops::DerefMut;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
 
 /// system managing the events
-pub struct EventSystem {
-    pub(crate) app: Option<WeakPtr<Box<dyn FallingLeafApp>>>,
+pub struct EventSystem<A: FallingLeafApp> {
+    pub(crate) app: Option<WeakPtr<A>>,
     entity_manager: WeakPtr<EntityManager>,
     listeners: HashMap<TypeId, Vec<Box<dyn Any>>>,
     entity_modifiers: HashMap<TypeId, Vec<Box<dyn Any>>>,
 }
 
-impl EventSystem {
+impl<A: FallingLeafApp> EventSystem<A> {
     /// creates a new event system
     pub(crate) fn new(entity_manager: &SharedPtr<EntityManager>) -> Self {
         Self {
@@ -35,10 +34,7 @@ impl EventSystem {
     }
 
     /// add a entity system modifier for a specific event type to the system
-    pub fn add_modifier<T: Any>(
-        &mut self,
-        modifier: fn(&T, RefMut<Box<dyn FallingLeafApp>>, &mut EntityManager),
-    ) {
+    pub fn add_modifier<T: Any>(&mut self, modifier: fn(&T, &mut A, &mut EntityManager)) {
         let wrapper = EventFunction { f: modifier };
         let modifiers = self.entity_modifiers.entry(TypeId::of::<T>()).or_default();
         modifiers.push(Box::new(wrapper));
@@ -64,10 +60,10 @@ impl EventSystem {
         ) {
             if let Some(app) = weak_app.upgrade() {
                 for modifier in modifiers {
-                    let casted = modifier.downcast_ref::<EventFunction<T>>().unwrap();
+                    let casted = modifier.downcast_ref::<EventFunction<T, A>>().unwrap();
                     (casted.f)(
                         &event,
-                        app.borrow_mut(),
+                        app.borrow_mut().deref_mut(),
                         entity_manager.borrow_mut().deref_mut(),
                     );
                 }
@@ -211,8 +207,8 @@ pub trait EventObserver<T: Any> {
 }
 
 /// holds the function pointer to the entity system event function
-struct EventFunction<T: Any> {
-    pub(crate) f: fn(&T, RefMut<Box<dyn FallingLeafApp>>, &mut EntityManager),
+struct EventFunction<T: Any, A: FallingLeafApp> {
+    pub(crate) f: fn(&T, &mut A, &mut EntityManager),
 }
 
 pub mod events {

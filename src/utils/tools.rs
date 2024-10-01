@@ -5,9 +5,7 @@ use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::hash::{BuildHasher, Hash};
-use std::ops::{Deref, DerefMut};
 use std::rc::{Rc, Weak};
-use std::sync::{Arc, Mutex};
 
 /// alias for a Rc<RefCell>
 pub type SharedPtr<T> = Rc<RefCell<T>>;
@@ -23,40 +21,6 @@ pub type WeakPtr<T> = Weak<RefCell<T>>;
 /// creates a new WeakPtr<T> from a SharedPtr<T>
 pub fn weak_ptr<T>(shared_ptr: &SharedPtr<T>) -> WeakPtr<T> {
     Rc::downgrade(shared_ptr)
-}
-
-/// wrapper for a reference counted mutex for ease of use
-#[derive(Clone)]
-pub struct RefCountMutex<T: Clone> {
-    data: Arc<Mutex<T>>,
-}
-
-impl<T: Clone> RefCountMutex<T> {
-    /// creates a new wrapper
-    pub fn new(data: T) -> Self {
-        Self {
-            data: Arc::new(Mutex::new(data)),
-        }
-    }
-
-    /// set the currently stored data
-    pub fn set(&self, data: T) {
-        *self.data.lock().unwrap() = data;
-    }
-
-    /// gets the currently stored data reference
-    pub fn get(&self) -> T {
-        self.data.lock().unwrap().deref().clone()
-    }
-
-    /// alter the stored data
-    pub fn alter<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut T),
-    {
-        let lock = self.data.lock();
-        f(lock.unwrap().deref_mut());
-    }
 }
 
 /// Error returned from get*_mut functions
@@ -185,14 +149,14 @@ unsafe impl<'a, V> SplitMut<usize, V> for &'a mut [V] {
     }
 }
 
-unsafe impl<'a, V> SplitMut<usize, V> for Vec<V> {
+unsafe impl<V> SplitMut<usize, V> for Vec<V> {
     #[inline]
     fn get1_mut_proxy(&mut self, k: usize) -> Option<&mut V> {
         self.get_mut(k)
     }
 }
 
-unsafe impl<'a, V> SplitMut<usize, V> for VecDeque<V> {
+unsafe impl<V> SplitMut<usize, V> for VecDeque<V> {
     #[inline]
     fn get1_mut_proxy(&mut self, k: usize) -> Option<&mut V> {
         self.get_mut(k)

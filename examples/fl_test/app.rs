@@ -2,12 +2,11 @@ use fl_core::components;
 use fl_core::ecs::component::*;
 use fl_core::ecs::entity::EntityID;
 use fl_core::ecs::entity_manager::EntityManager;
-use fl_core::engine::{app_downcast, Engine, FallingLeafApp};
+use fl_core::engine::{Engine, FallingLeafApp};
 use fl_core::glm;
 use fl_core::systems::audio_system::VolumeType;
 use fl_core::systems::event_system::events::*;
 use fl_core::winit::keyboard::KeyCode;
-use std::cell::RefMut;
 use std::f32::consts::PI;
 
 /// example app
@@ -26,7 +25,7 @@ impl App {
 }
 
 impl FallingLeafApp for App {
-    fn init(&mut self, engine: &Engine) {
+    fn init(&mut self, engine: &Engine<Self>) {
         engine.event_system().trigger(CamPositionChange {
             new_pos: glm::Vec3::new(0.0, 5.0, -5.0),
             new_focus: glm::Vec3::zeros(),
@@ -72,7 +71,7 @@ impl FallingLeafApp for App {
         self.player = Some(player);
     }
 
-    fn on_frame_update(&mut self, engine: &Engine) {
+    fn on_frame_update(&mut self, engine: &Engine<Self>) {
         let mut entity_manager = engine.entity_manager();
         let secs = entity_manager
             .get_component_mut::<TouchTime>(self.cube.unwrap())
@@ -87,12 +86,7 @@ impl FallingLeafApp for App {
     }
 }
 
-fn jump(
-    event: &KeyPress,
-    app: RefMut<Box<dyn FallingLeafApp>>,
-    entity_manager: &mut EntityManager,
-) {
-    let app = app_downcast::<App>(app);
+fn jump(event: &KeyPress, app: &mut App, entity_manager: &mut EntityManager) {
     if event.key == KeyCode::Space {
         let v_ref = entity_manager
             .get_component_mut::<Velocity>(app.player.unwrap())

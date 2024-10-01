@@ -6,8 +6,7 @@ use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
 use crate::systems::video_system::VideoSystem;
-use crate::utils::tools::{shared_ptr, weak_ptr, AnyCast, SharedPtr};
-use std::any::Any;
+use crate::utils::tools::{shared_ptr, weak_ptr, SharedPtr};
 use std::cell::{RefCell, RefMut};
 use std::error::Error;
 use std::ops::{Deref, DerefMut};
@@ -18,18 +17,18 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowId;
 
 /// main engine
-pub struct Engine {
-    app: Option<SharedPtr<Box<dyn FallingLeafApp>>>,
+pub struct Engine<A: FallingLeafApp> {
+    app: Option<SharedPtr<A>>,
     exit_state: Option<Result<(), Box<dyn Error>>>,
     rendering_system: Option<SharedPtr<RenderingSystem>>,
     audio_system: SharedPtr<AudioSystem>,
-    event_system: RefCell<EventSystem>,
+    event_system: RefCell<EventSystem<A>>,
     animation_system: SharedPtr<AnimationSystem>,
     entity_manager: SharedPtr<EntityManager>,
     video_system: SharedPtr<VideoSystem>,
 }
 
-impl Engine {
+impl<A: FallingLeafApp> Engine<A> {
     /// engine setup on startup
     pub(crate) fn new(config: EngineAttributes) -> Self {
         let video_system = shared_ptr(VideoSystem::new(config));
@@ -58,8 +57,8 @@ impl Engine {
     }
 
     /// runs the main loop
-    pub fn run(&mut self, app: impl FallingLeafApp) -> Result<(), Box<dyn Error>> {
-        self.app = Some(shared_ptr(Box::new(app)));
+    pub fn run(&mut self, app: A) -> Result<(), Box<dyn Error>> {
+        self.app = Some(shared_ptr(app));
         self.event_system().app = Some(weak_ptr(self.app.as_ref().unwrap()));
         let event_loop = EventLoop::new().unwrap();
         event_loop.set_control_flow(ControlFlow::Poll);
@@ -84,7 +83,7 @@ impl Engine {
     }
 
     /// access to the stored app
-    fn app(&self) -> RefMut<Box<dyn FallingLeafApp>> {
+    fn app(&self) -> RefMut<A> {
         self.app.as_ref().unwrap().borrow_mut()
     }
 
@@ -109,7 +108,7 @@ impl Engine {
     }
 
     /// access to the engines event system
-    pub fn event_system(&self) -> RefMut<EventSystem> {
+    pub fn event_system(&self) -> RefMut<EventSystem<A>> {
         self.event_system.borrow_mut()
     }
 
@@ -119,7 +118,7 @@ impl Engine {
     }
 }
 
-impl ApplicationHandler for Engine {
+impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
         self.rendering_system = Some(shared_ptr(RenderingSystem::new()));
@@ -161,16 +160,11 @@ impl ApplicationHandler for Engine {
 }
 
 /// all necessary app functionality to run the engine with
-pub trait FallingLeafApp: Any + AnyCast {
+pub trait FallingLeafApp: Sized + 'static {
     /// initialize the app (e.g. add event handling)
-    fn init(&mut self, engine: &Engine);
+    fn init(&mut self, engine: &Engine<Self>);
     /// run this update code every frame
-    fn on_frame_update(&mut self, engine: &Engine);
-}
-
-/// downcast to the actual app struct
-pub fn app_downcast<T: FallingLeafApp>(ref_mut: RefMut<Box<dyn FallingLeafApp>>) -> RefMut<T> {
-    RefMut::map(ref_mut, |b| (**b).as_any_mut().downcast_mut::<T>().unwrap())
+    fn on_frame_update(&mut self, engine: &Engine<Self>);
 }
 
 /// all possible states of the engine that influence its behavior

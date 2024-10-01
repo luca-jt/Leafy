@@ -152,10 +152,8 @@ impl VideoSystem {
             if let Err(res) = self.enable_vsync() {
                 eprintln!("Error setting vsync: {res:?}");
             }
-        } else {
-            if let Err(res) = self.disable_vsync() {
-                eprintln!("Error setting vsync: {res:?}");
-            }
+        } else if let Err(res) = self.disable_vsync() {
+            eprintln!("Error setting vsync: {res:?}");
         }
 
         Ok(())

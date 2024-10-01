@@ -164,7 +164,7 @@ impl BatchRenderer {
                 gl::ARRAY_BUFFER,
                 0,
                 verteces_size,
-                mem::transmute(self.obj_buffer.get(0).unwrap()),
+                mem::transmute(self.obj_buffer.first().unwrap()),
             );
         }
     }

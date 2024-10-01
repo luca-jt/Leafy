@@ -106,11 +106,10 @@ impl InstanceRenderer {
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
-            let model_pos = program.get_attr("model") as GLuint;
-            let pos1 = model_pos + 0;
-            let pos2 = model_pos + 1;
-            let pos3 = model_pos + 2;
-            let pos4 = model_pos + 3;
+            let pos1 = program.get_attr("model") as GLuint;
+            let pos2 = pos1 + 1;
+            let pos3 = pos1 + 2;
+            let pos4 = pos1 + 3;
             gl::EnableVertexAttribArray(pos1);
             gl::EnableVertexAttribArray(pos2);
             gl::EnableVertexAttribArray(pos3);

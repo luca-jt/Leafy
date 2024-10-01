@@ -1,4 +1,4 @@
-use crate::engine::Engine;
+use crate::engine::{Engine, FallingLeafApp};
 use crate::utils::constants::*;
 use winit::dpi::LogicalSize;
 use winit::window::{Fullscreen, Theme, Window, WindowAttributes};
@@ -134,7 +134,7 @@ impl EngineAttributes {
     }
 
     /// builds the actual engine and performs engine
-    pub fn build(self) -> Result<Engine, String> {
+    pub fn build<A: FallingLeafApp>(self) -> Result<Engine<A>, String> {
         if let Some(min_size) = self.min_size {
             if min_size.0 > self.size.0 || min_size.1 > self.size.1 {
                 return Err(String::from(

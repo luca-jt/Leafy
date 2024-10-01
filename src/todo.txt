@@ -19,4 +19,3 @@ multiple light sources for the rendering system
 externally added mesh files dont need path functions -> include asset files binaries if needed + fix file path integration in general
 render distance that is changable through event -> change rendering system behavior based on that
 maybe rendering shadows between batches does not work correctly? -> change batch size beforehand? not dynamically?
-app struct as template parameter in the engine -> no downcasting for app event functions
