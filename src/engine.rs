@@ -9,6 +9,7 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowId;
 
 use crate::ecs::entity_manager::EntityManager;
+use crate::engine_builder::EngineAttributes;
 use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
 use crate::systems::event_system::events::*;
@@ -31,8 +32,8 @@ pub struct Engine {
 
 impl Engine {
     /// engine setup on startup
-    pub fn new() -> Self {
-        let video_system = shared_ptr(VideoSystem::new());
+    pub(crate) fn new(config: EngineAttributes) -> Self {
+        let video_system = shared_ptr(VideoSystem::new(config));
         let audio_system = shared_ptr(AudioSystem::new());
         let animation_system = shared_ptr(AnimationSystem::new());
         let entity_manager = shared_ptr(EntityManager::new());
@@ -40,7 +41,6 @@ impl Engine {
 
         event_system.add_listener::<KeyPress>(&video_system);
         event_system.add_listener::<WindowResize>(&video_system);
-        event_system.add_listener::<FPSCapToggle>(&video_system);
         event_system.add_listener::<FPSCapChange>(&video_system);
         event_system.add_listener::<AudioVolumeChange>(&audio_system);
         event_system.add_listener::<CamPositionChange>(&audio_system);
@@ -125,6 +125,7 @@ impl ApplicationHandler for Engine {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
         self.rendering_system = Some(shared_ptr(RenderingSystem::new()));
+
         self.event_system()
             .add_listener::<EngineModeChange>(self.rendering_system.as_ref().unwrap());
         self.event_system()
@@ -135,6 +136,9 @@ impl ApplicationHandler for Engine {
             .add_listener::<FOVChange>(self.rendering_system.as_ref().unwrap());
         self.event_system()
             .add_listener::<SetShadowRendering>(self.rendering_system.as_ref().unwrap());
+        self.event_system()
+            .add_listener::<SetGLClearColor>(self.rendering_system.as_ref().unwrap());
+
         self.app().init(self);
     }
 

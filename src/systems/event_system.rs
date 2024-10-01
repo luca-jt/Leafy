@@ -217,6 +217,7 @@ struct EventFunction<T: Any> {
 }
 
 pub mod events {
+    use crate::ecs::component::Color32;
     use crate::ecs::entity::EntityID;
     use crate::engine::EngineMode;
     use crate::glm;
@@ -359,14 +360,10 @@ pub mod events {
         pub new_focus: glm::Vec3,
     }
 
-    /// toggles the fps cap functionality
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct FPSCapToggle;
-
-    /// changes the engines fps cap that is used if fps capping is enabled
+    /// changes the optional engines fps cap that is used while rendering
     #[derive(Debug, Clone, PartialEq)]
     pub struct FPSCapChange {
-        pub new_fps: f64,
+        pub new_cap: Option<f64>,
     }
 
     /// changes the animation speed of the rendering system
@@ -390,4 +387,8 @@ pub mod events {
     /// change wether or not shadows are rendered in 3D rendering
     #[derive(Debug, Clone, PartialEq)]
     pub struct SetShadowRendering(pub bool);
+
+    /// change the color that is used to clear the background in the rendering process
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct SetGLClearColor(pub Color32);
 }

@@ -13,7 +13,8 @@ use crate::rendering::shader::ShaderCatalog;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
 use crate::systems::event_system::events::{
-    CamPositionChange, EngineModeChange, FOVChange, LinkCamToEntity, SetShadowRendering,
+    CamPositionChange, EngineModeChange, FOVChange, LinkCamToEntity, SetGLClearColor,
+    SetShadowRendering,
 };
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{ORIGIN, Z_AXIS};
@@ -30,6 +31,7 @@ pub struct RenderingSystem {
     used_renderer_indeces: Vec<usize>,
     cam_position_link: Option<EntityID>,
     render_shadows: bool,
+    clear_color: Color32,
 }
 
 impl RenderingSystem {
@@ -52,6 +54,7 @@ impl RenderingSystem {
             used_renderer_indeces: Vec::new(),
             cam_position_link: None,
             render_shadows: true,
+            clear_color: Color32::WHITE,
         }
     }
 
@@ -65,7 +68,7 @@ impl RenderingSystem {
                 .update_cam(pos.data(), &(pos.data() + Z_AXIS));
         }
         self.used_renderer_indeces.clear();
-        clear_gl_screen();
+        clear_gl_screen(self.clear_color);
         self.init_renderers();
         // add entity data
         for (position, mesh_type, mesh_attr, scale, orientation) in entity_manager
@@ -329,6 +332,12 @@ impl EventObserver<SetShadowRendering> for RenderingSystem {
     }
 }
 
+impl EventObserver<SetGLClearColor> for RenderingSystem {
+    fn on_event(&mut self, event: &SetGLClearColor) {
+        self.clear_color = event.0;
+    }
+}
+
 /// stores the renderer type with rendered entity type + renderer
 pub(crate) enum RendererType {
     Batch(MeshType, BatchRenderer),
@@ -350,9 +359,10 @@ impl RendererType {
 }
 
 /// clears the opengl viewport
-fn clear_gl_screen() {
+fn clear_gl_screen(color: Color32) {
+    let float_color = color.to_vec4();
     unsafe {
-        gl::ClearColor(1.0, 1.0, 1.0, 1.0);
+        gl::ClearColor(float_color.x, float_color.y, float_color.z, float_color.w);
         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
     }
 }

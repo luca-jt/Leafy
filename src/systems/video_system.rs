@@ -1,14 +1,7 @@
+use crate::engine_builder::EngineAttributes;
+use crate::systems::event_system::events::{FPSCapChange, KeyPress, WindowResize};
+use crate::systems::event_system::EventObserver;
 use gl::types::GLsizei;
-use std::error::Error;
-use std::ffi::{CStr, CString};
-use std::num::NonZeroU32;
-use std::time::{Duration, Instant};
-
-use raw_window_handle::HasWindowHandle;
-use winit::event_loop::ActiveEventLoop;
-use winit::keyboard::KeyCode;
-use winit::window::{Fullscreen, Window};
-
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{
     ContextApi, ContextAttributesBuilder, NotCurrentContext, PossiblyCurrentContext, Version,
@@ -16,21 +9,15 @@ use glutin::context::{
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SwapInterval, WindowSurface};
-
 use glutin_winit::{DisplayBuilder, GlWindow};
-use winit::dpi::LogicalSize;
-
-#[cfg(target_os = "windows")]
-use winit::platform::windows::IconExtWindows;
-#[cfg(target_os = "windows")]
-use winit::window::Icon;
-
-use crate::systems::event_system::events::{FPSCapChange, FPSCapToggle, KeyPress, WindowResize};
-use crate::systems::event_system::EventObserver;
-use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, WIN_TITLE};
-
-#[cfg(target_os = "windows")]
-use crate::utils::file::get_image_path;
+use raw_window_handle::HasWindowHandle;
+use std::error::Error;
+use std::ffi::{CStr, CString};
+use std::num::NonZeroU32;
+use std::time::{Duration, Instant};
+use winit::event_loop::ActiveEventLoop;
+use winit::keyboard::KeyCode;
+use winit::window::{Cursor, Fullscreen, Window};
 
 /// holds the video backend attributes
 pub struct VideoSystem {
@@ -42,23 +29,14 @@ pub struct VideoSystem {
     pub(crate) window: Option<Window>,
     current_fps: f64,
     frame_start_time: Instant,
-    cap_fps: bool,
-    fps_cap: f64,
+    fps_cap: Option<f64>,
+    stored_config: EngineAttributes,
 }
 
 impl VideoSystem {
     /// creates a new video state
-    pub(crate) fn new() -> Self {
-        let window_attributes = Window::default_attributes()
-            .with_transparent(true)
-            .with_title(WIN_TITLE)
-            .with_inner_size(LogicalSize::new(MIN_WIN_WIDTH, MIN_WIN_HEIGHT))
-            .with_min_inner_size(LogicalSize::new(MIN_WIN_WIDTH, MIN_WIN_HEIGHT));
-
-        #[cfg(target_os = "windows")]
-        let window_attributes = window_attributes.with_window_icon(Some(
-            Icon::from_path(get_image_path("icon.ico"), None).unwrap(),
-        ));
+    pub(crate) fn new(config: EngineAttributes) -> Self {
+        let window_attributes = config.generate_win_attrs();
 
         let config_template = ConfigTemplateBuilder::new()
             .with_alpha_size(8)
@@ -75,8 +53,8 @@ impl VideoSystem {
             window: None,
             current_fps: 0f64,
             frame_start_time: Instant::now(),
-            cap_fps: true,
-            fps_cap: 300f64,
+            fps_cap: config.fps_cap,
+            stored_config: config,
         }
     }
 
@@ -134,10 +112,12 @@ impl VideoSystem {
             });
 
         let window = window.take().unwrap_or_else(|| {
-            let window_attributes = Window::default_attributes()
-                .with_transparent(true)
-                .with_title(WIN_TITLE);
-            glutin_winit::finalize_window(event_loop, window_attributes, &gl_config).unwrap()
+            glutin_winit::finalize_window(
+                event_loop,
+                self.stored_config.generate_win_attrs(),
+                &gl_config,
+            )
+            .unwrap()
         });
 
         let attrs = window
@@ -229,16 +209,15 @@ impl VideoSystem {
 
     /// caps the fps of the event loop if the setting requires it
     pub(crate) fn try_cap_fps(&mut self) {
-        if !self.cap_fps {
-            return;
+        if let Some(fps_cap) = self.fps_cap {
+            let elapsed_frame_time = self.frame_start_time.elapsed();
+            let max_frame_time = Duration::from_secs_f64(1.0 / fps_cap);
+            if elapsed_frame_time < max_frame_time {
+                std::thread::sleep(max_frame_time - elapsed_frame_time);
+            }
+            self.current_fps = (1.0 / self.frame_start_time.elapsed().as_secs_f64()).round();
+            self.frame_start_time = Instant::now();
         }
-        let elapsed_frame_time = self.frame_start_time.elapsed();
-        let max_frame_time = Duration::from_secs_f64(1.0 / self.fps_cap);
-        if elapsed_frame_time < max_frame_time {
-            std::thread::sleep(max_frame_time - elapsed_frame_time);
-        }
-        self.current_fps = (1.0 / self.frame_start_time.elapsed().as_secs_f64()).round();
-        self.frame_start_time = Instant::now();
     }
 
     /// gets the current fps in seconds
@@ -252,6 +231,13 @@ impl VideoSystem {
             window.set_title(title);
         }
     }
+
+    /// changes the appearance of the windows' cursor
+    pub fn set_cursor(&mut self, cursor: impl Into<Cursor>) {
+        if let Some(window) = self.window.as_ref() {
+            window.set_cursor(cursor);
+        }
+    }
 }
 
 impl EventObserver<KeyPress> for VideoSystem {
@@ -262,7 +248,7 @@ impl EventObserver<KeyPress> for VideoSystem {
                 if window.fullscreen().is_some() {
                     window.set_fullscreen(None);
                 } else {
-                    window.set_fullscreen(Some(Fullscreen::Borderless(window.current_monitor())));
+                    window.set_fullscreen(Some(Fullscreen::Borderless(None)));
                 }
             }
         }
@@ -309,15 +295,9 @@ impl EventObserver<WindowResize> for VideoSystem {
     }
 }
 
-impl EventObserver<FPSCapToggle> for VideoSystem {
-    fn on_event(&mut self, _event: &FPSCapToggle) {
-        self.cap_fps = !self.cap_fps;
-    }
-}
-
 impl EventObserver<FPSCapChange> for VideoSystem {
     fn on_event(&mut self, event: &FPSCapChange) {
-        self.fps_cap = event.new_fps;
+        self.fps_cap = event.new_cap;
     }
 }
 
