@@ -1,4 +1,4 @@
-use crate::ecs::component::{Orientation, Position, Scale};
+use crate::ecs::component::{Orientation, Position, Scale, Texture};
 use crate::glm;
 use crate::rendering::shader::ShaderProgram;
 use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, ORIGIN, Z_AXIS};
@@ -6,14 +6,15 @@ use crate::utils::file::get_texture_path;
 use gl::types::*;
 use stb_image::image::{Image, LoadResult};
 use std::collections::HashMap;
+use std::path::Path;
 use std::ptr;
 
 /// loads an opengl texture
-pub fn load_texture(file_name: &str) -> GLuint {
+pub fn load_texture(file_path: impl AsRef<Path>) -> GLuint {
     let mut tex_id = 0;
 
     let texture: Image<u8>;
-    match stb_image::image::load_with_depth(get_texture_path(file_name), 4, false) {
+    match stb_image::image::load_with_depth(file_path, 4, false) {
         LoadResult::ImageU8(im) => {
             texture = im;
         }
@@ -72,21 +73,62 @@ impl TextureMap {
     }
 
     /// adds a texture from file
-    pub(crate) fn add_texture(&mut self, file: &str) {
-        self.textures.insert(file.to_string(), load_texture(file));
+    pub(crate) fn add_texture(&mut self, texture: &Texture) {
+        match texture {
+            Texture::Ice => {
+                self.textures.insert(
+                    String::from("ice"),
+                    load_texture(get_texture_path("ice.png")),
+                );
+            }
+            Texture::Sand => {
+                self.textures.insert(
+                    String::from("sand"),
+                    load_texture(get_texture_path("sand.png")),
+                );
+            }
+            Texture::Wall => {
+                self.textures.insert(
+                    String::from("wall"),
+                    load_texture(get_texture_path("wall.png")),
+                );
+            }
+            Texture::Custom(path) => {
+                self.textures.insert(
+                    path.file_name().unwrap().to_str().unwrap().to_string(),
+                    load_texture(path),
+                );
+            }
+        }
     }
 
     /// deletes a stored texture
-    pub(crate) fn delete_texture(&mut self, file: &str) {
-        let deleted = self.textures.remove(file).expect("texture not stored");
+    pub(crate) fn delete_texture(&mut self, texture: &Texture) {
+        let deleted = match texture {
+            Texture::Ice => self.textures.remove("ice").expect("texture not stored"),
+            Texture::Sand => self.textures.remove("sand").expect("texture not stored"),
+            Texture::Wall => self.textures.remove("wall").expect("texture not stored"),
+            Texture::Custom(path) => self
+                .textures
+                .remove(path.file_name().unwrap().to_str().unwrap())
+                .expect("texture not stored"),
+        };
         unsafe {
             gl::DeleteTextures(1, &deleted);
         }
     }
 
     /// yields a texture id for given name
-    pub(crate) fn get_tex_id(&self, file: &str) -> Option<GLuint> {
-        self.textures.get(file).copied()
+    pub(crate) fn get_tex_id(&self, texture: &Texture) -> Option<GLuint> {
+        match texture {
+            Texture::Ice => self.textures.get("ice").copied(),
+            Texture::Sand => self.textures.get("sand").copied(),
+            Texture::Wall => self.textures.get("wall").copied(),
+            Texture::Custom(path) => self
+                .textures
+                .get(path.file_name().unwrap().to_str().unwrap())
+                .copied(),
+        }
     }
 }
 

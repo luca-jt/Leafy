@@ -2,6 +2,7 @@ use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::TextureMap;
 use crate::rendering::mesh::Mesh;
+use crate::utils::file::get_model_path;
 use std::any::{Any, TypeId};
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
@@ -13,8 +14,6 @@ macro_rules! components {
         vec![$(Box::new($T)),+]
     };
 }
-
-pub(crate) use components;
 
 /// the main ressource manager holding both the ECS and the asset data
 pub struct EntityManager {
@@ -82,7 +81,9 @@ impl EntityManager {
             {
                 if self
                     .query1::<MeshAttribute>(vec![])
-                    .filter(|&component| *path == component.texture_path().unwrap_or(""))
+                    .filter(|&component| {
+                        path.path() == component.texture_path().unwrap_or("".as_ref())
+                    })
                     .count()
                     == 1
                 {
@@ -133,7 +134,7 @@ impl EntityManager {
             {
                 if !self
                     .query1::<MeshAttribute>(vec![])
-                    .any(|component| *path == component.texture_path().unwrap_or(""))
+                    .any(|component| path.path() == component.texture_path().unwrap_or("".as_ref()))
                 {
                     self.texture_map.delete_texture(path);
                 }
@@ -162,11 +163,11 @@ impl EntityManager {
     fn try_add_mesh(&mut self, mesh_type: MeshType) {
         if !self.asset_register.keys().any(|t| *t == mesh_type) {
             let mesh = match mesh_type {
-                MeshType::Triangle => Mesh::new("triangle.obj"),
-                MeshType::Plane => Mesh::new("plane.obj"),
-                MeshType::Cube => Mesh::new("cube.obj"),
-                MeshType::Sphere => Mesh::new("sphere.obj"),
-                MeshType::Cylinder => Mesh::new("cylinder.obj"),
+                MeshType::Triangle => Mesh::new(get_model_path("triangle.obj")),
+                MeshType::Plane => Mesh::new(get_model_path("plane.obj")),
+                MeshType::Cube => Mesh::new(get_model_path("cube.obj")),
+                MeshType::Sphere => Mesh::new(get_model_path("sphere.obj")),
+                MeshType::Cylinder => Mesh::new(get_model_path("cylinder.obj")),
                 MeshType::Custom(path) => Mesh::new(path),
             };
             self.asset_register.insert(mesh_type, mesh);

@@ -1,6 +1,7 @@
 use crate::glm;
 use crate::systems::audio_system::SoundHandleID;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 use MeshAttribute::*;
 
@@ -371,11 +372,31 @@ pub enum MeshType {
     Custom(&'static str),
 }
 
+/// represents all texture types with path data
+#[derive(Debug, PartialOrd, PartialEq, Clone)]
+pub enum Texture {
+    Ice,
+    Sand,
+    Wall,
+    Custom(PathBuf),
+}
+
+impl Texture {
+    pub fn path(&self) -> &Path {
+        match self {
+            Texture::Ice => Path::new("ice.png"),
+            Texture::Sand => Path::new("sand.png"),
+            Texture::Wall => Path::new("wall.png"),
+            Texture::Custom(path) => path.as_path(),
+        }
+    }
+}
+
 /// wether or not a mesh is colored or textured
-#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum MeshAttribute {
     Colored(Color32),
-    Textured(&'static str),
+    Textured(Texture),
 }
 
 impl MeshAttribute {
@@ -387,9 +408,9 @@ impl MeshAttribute {
         }
     }
     /// returns the texture path if present
-    pub fn texture_path(&self) -> Option<&str> {
+    pub fn texture_path(&self) -> Option<&Path> {
         match self {
-            Textured(path) => Some(*path),
+            Textured(texture) => Some(texture.path()),
             Colored(_) => None,
         }
     }

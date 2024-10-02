@@ -20,7 +20,7 @@ use fyrox_sound::{
     source::{SoundSource, SoundSourceBuilder, Status},
 };
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub type SoundHandleID = u64;
 
@@ -87,12 +87,11 @@ impl AudioSystem {
     }
 
     /// plays a sound effect from a given file
-    pub fn play_sfx(&self, file_name: &str, looping: bool) -> Handle<SoundSource> {
-        let full_path = get_audio_path(file_name);
+    pub fn play_sfx(&self, file_path: impl AsRef<Path>, looping: bool) -> Handle<SoundSource> {
         let volume = self.calc_absolute_volume(VolumeType::SFX);
 
         let buffer = SoundBufferResource::new_generic(
-            block_on(DataSource::from_file(full_path, &FsResourceIo)).unwrap(),
+            block_on(DataSource::from_file(file_path, &FsResourceIo)).unwrap(),
         )
         .unwrap();
 
@@ -111,16 +110,15 @@ impl AudioSystem {
     /// plays a sound effect from a given file for a specific entity
     pub fn play_sfx_at(
         &mut self,
-        file_name: &str,
+        file_path: impl AsRef<Path>,
         looping: bool,
         controller: &SoundController,
         position: &Position,
     ) {
-        let full_path = get_audio_path(file_name);
         let volume = self.calc_absolute_volume(VolumeType::SFX);
 
         let buffer = SoundBufferResource::new_generic(
-            block_on(DataSource::from_file(full_path, &FsResourceIo)).unwrap(),
+            block_on(DataSource::from_file(file_path, &FsResourceIo)).unwrap(),
         )
         .unwrap();
 
@@ -145,13 +143,12 @@ impl AudioSystem {
     }
 
     /// plays the music from a given file in a loop
-    pub fn play_background_music(&mut self, file_name: &str) {
-        let full_path = get_audio_path(file_name);
+    pub fn play_background_music(&mut self, file_path: impl AsRef<Path>) {
         let volume = self.calc_absolute_volume(VolumeType::Music);
         self.stop_background_music();
 
         let buffer = SoundBufferResource::new_generic(
-            block_on(DataSource::from_file(full_path, &FsResourceIo)).unwrap(),
+            block_on(DataSource::from_file(file_path, &FsResourceIo)).unwrap(),
         )
         .unwrap();
 

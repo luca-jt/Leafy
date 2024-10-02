@@ -24,7 +24,8 @@ pub(crate) struct BatchRenderer {
 
 impl BatchRenderer {
     /// creates a new batch renderer
-    pub(crate) fn new(mesh: &Mesh, max_num_meshes: usize, program: &ShaderProgram) -> Self {
+    pub(crate) fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
+        let max_num_meshes: usize = 10;
         // init the data ids
         let obj_buffer: Vec<Vertex> = vec![Vertex::default(); mesh.num_verteces() * max_num_meshes];
         let mut vao = 0;

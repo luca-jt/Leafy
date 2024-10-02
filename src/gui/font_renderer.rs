@@ -9,7 +9,7 @@ pub(crate) struct FontRenderer {
 impl FontRenderer {
     pub(crate) fn new(mesh: &Mesh, shader: &ShaderProgram) -> Self {
         Self {
-            batch_renderer: BatchRenderer::new(mesh, 100, shader),
+            batch_renderer: BatchRenderer::new(mesh, shader),
         }
     }
 

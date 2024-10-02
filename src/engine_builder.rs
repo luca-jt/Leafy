@@ -1,5 +1,6 @@
 use crate::engine::{Engine, FallingLeafApp};
 use crate::utils::constants::*;
+use std::path::PathBuf;
 use winit::dpi::LogicalSize;
 use winit::window::{Fullscreen, Theme, Window, WindowAttributes};
 
@@ -19,7 +20,7 @@ pub struct EngineAttributes {
     pub(crate) inv_ratio: Option<f32>,
     transparent: bool,
     blur: bool,
-    icon: String,
+    icon: PathBuf,
     resizable: bool,
     max_size: Option<(u32, u32)>,
     fullscreen: bool,
@@ -39,7 +40,7 @@ impl EngineAttributes {
             inv_ratio: Some(INV_WIN_RATIO),
             transparent: false,
             blur: false,
-            icon: get_image_path("icon.ico"),
+            icon: PathBuf::from(get_image_path("icon.ico")),
             resizable: true,
             max_size: None,
             fullscreen: false,
@@ -92,8 +93,8 @@ impl EngineAttributes {
     }
 
     /// sets the window icon from a file (must be .ico) (only works on windows)
-    pub fn with_icon(mut self, path: &str) -> Self {
-        self.icon = path.to_string();
+    pub fn with_icon(mut self, path: PathBuf) -> Self {
+        self.icon = path;
         self
     }
 
@@ -180,7 +181,7 @@ impl EngineAttributes {
 
         #[cfg(target_os = "windows")]
         let window_attributes = window_attributes
-            .with_window_icon(Some(Icon::from_path(self.icon.as_str(), None).unwrap()));
+            .with_window_icon(Some(Icon::from_path(self.icon.as_path(), None).unwrap()));
 
         window_attributes
     }

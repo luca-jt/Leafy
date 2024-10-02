@@ -25,7 +25,9 @@ pub(crate) struct InstanceRenderer {
 
 impl InstanceRenderer {
     /// creates a new instance renderer
-    pub(crate) fn new(mesh: &Mesh, num_instances: usize, program: &ShaderProgram) -> Self {
+    pub(crate) fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
+        let num_instances: usize = 10;
+
         let mut vao = 0; // vertex array
         let mut pbo = 0; // positions
         let mut tbo = 0; // uv
@@ -198,9 +200,9 @@ impl InstanceRenderer {
     }
 
     /// resizes the internal offset buffer to the specified number of elements (erases all positions added prior to this call)
-    pub(crate) fn resize_buffer(&mut self, size: usize) {
-        self.num_instances += size;
-        self.models.reserve_exact(size);
+    fn resize_buffer(&mut self, add_size: usize) {
+        self.num_instances += add_size;
+        self.models.reserve_exact(add_size);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
             gl::BufferData(
@@ -221,7 +223,7 @@ impl InstanceRenderer {
         mesh: &Mesh,
     ) {
         if self.pos_idx == self.num_instances {
-            panic!("Attempt to draw too many Instances");
+            self.resize_buffer(self.num_instances * 2);
         }
         self.models[self.pos_idx] = calc_model_matrix(position, scale, orientation);
         self.index_count += mesh.num_indeces() as GLsizei;

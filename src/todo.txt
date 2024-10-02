@@ -1,6 +1,7 @@
 voxel renderer
 controller events
 intergrate certain settings inside a file
+include asset files in binary if needed
 sampled animations from files
 cascaded shadow mapping -> map resolution setting
 shadow anti-aliasing -> pcss
@@ -8,14 +9,12 @@ scene files and loading of them in the rendering system
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 immutable event observer? + immutable engine field access functions?
 dpi scale factor event handling
+ui basics + font rendering + events for ui struct
 change audio playback speed on animation speed change event + make that feature optional
 change render behavior based on engine mode
-ui basics + font rendering + events for ui struct
-particle system
+particle system https://youtu.be/GK0jHlv3e3w
 sprite renderer
-collision detection
-physics (+ friction)
+physics (+ friction + collision detection)
 multiple light sources for the rendering system
-externally added mesh files dont need path functions -> include asset files binaries if needed + fix file path integration in general
-render distance that is changable through event -> change rendering system behavior based on that
-maybe rendering shadows between batches does not work correctly? -> change batch size beforehand? not dynamically?
+change rendering system behavior based on render distance
+rendering shadows between batches does not work correctly -> change batch size dynamically? (-> only one batch in the end? -> what if not enough texture slots?)

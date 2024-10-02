@@ -38,7 +38,7 @@ use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let app = App::new();
-    let mut engine = EngineAttributes::new().build().unwrap();
+    let mut engine = EngineAttributes::new().build_engine().unwrap();
     engine.run(app)
 }
 ```

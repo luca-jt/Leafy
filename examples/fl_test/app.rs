@@ -6,6 +6,7 @@ use fl_core::engine::{Engine, FallingLeafApp};
 use fl_core::glm;
 use fl_core::systems::audio_system::VolumeType;
 use fl_core::systems::event_system::events::*;
+use fl_core::utils::file::get_audio_path;
 use fl_core::winit::keyboard::KeyCode;
 use std::f32::consts::PI;
 
@@ -37,7 +38,7 @@ impl FallingLeafApp for App {
             Position::origin(),
             Scale::from_factor(5.0),
             MeshType::Plane,
-            MeshAttribute::Textured("wall.png")
+            MeshAttribute::Textured(Texture::Wall)
         ));
         let player = entity_manager.create_regular_moving(
             Position::new(0.0, 4.0, 0.0),
@@ -49,9 +50,12 @@ impl FallingLeafApp for App {
         let sound = engine.audio_system().new_sound_controller();
         let heli_position = Position::new(0.0, 1.0, 1.0);
 
-        engine
-            .audio_system()
-            .play_sfx_at("helicopter.wav", true, &sound, &heli_position);
+        engine.audio_system().play_sfx_at(
+            get_audio_path("helicopter.wav"),
+            true,
+            &sound,
+            &heli_position,
+        );
 
         let cube = entity_manager.create_entity(components!(
             heli_position,
@@ -65,7 +69,9 @@ impl FallingLeafApp for App {
 
         engine.event_system().add_modifier(jump);
         engine.audio_system().enable_hrtf();
-        engine.audio_system().play_background_music("drop.wav");
+        engine
+            .audio_system()
+            .play_background_music(get_audio_path("drop.wav"));
 
         self.cube = Some(cube);
         self.player = Some(player);

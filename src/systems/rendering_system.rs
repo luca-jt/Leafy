@@ -28,6 +28,7 @@ pub struct RenderingSystem {
     cam_position_link: Option<EntityID>,
     render_shadows: bool,
     clear_color: Color32,
+    render_distance: Option<f32>,
 }
 
 impl RenderingSystem {
@@ -51,6 +52,7 @@ impl RenderingSystem {
             cam_position_link: None,
             render_shadows: true,
             clear_color: Color32::WHITE,
+            render_distance: None,
         }
     }
 
@@ -236,7 +238,7 @@ impl RenderingSystem {
     ) {
         match mesh_type {
             MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
-                let mut renderer = BatchRenderer::new(mesh, 10, self.shader_catalog.batch_basic());
+                let mut renderer = BatchRenderer::new(mesh, self.shader_catalog.batch_basic());
                 match mesh_attr {
                     Colored(color) => {
                         renderer.draw_color_mesh(
@@ -267,7 +269,7 @@ impl RenderingSystem {
             }
             _ => {
                 let mut renderer =
-                    InstanceRenderer::new(mesh, 10, self.shader_catalog.instance_basic());
+                    InstanceRenderer::new(mesh, self.shader_catalog.instance_basic());
                 match mesh_attr {
                     Textured(path) => {
                         renderer.tex_id = texture_map.get_tex_id(path).unwrap();
@@ -278,7 +280,7 @@ impl RenderingSystem {
                 }
                 renderer.add_position(position, scale, orientation, mesh);
                 self.renderers
-                    .push(Instance(*mesh_type, *mesh_attr, renderer));
+                    .push(Instance(*mesh_type, mesh_attr.clone(), renderer));
             }
         }
         self.used_renderer_indeces
@@ -312,6 +314,11 @@ impl RenderingSystem {
     /// link/unlink the 3D camera position to some enities' position
     pub fn link_cam_to_entity(&mut self, link: Option<EntityID>) {
         self.cam_position_link = link;
+    }
+
+    /// changes the render distance to `distance` units from the current camera position
+    pub fn set_render_distance(&mut self, distance: Option<f32>) {
+        self.render_distance = distance;
     }
 }
 
