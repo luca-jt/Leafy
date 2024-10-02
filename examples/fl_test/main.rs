@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let app = App::new();
     let mut engine = EngineAttributes::new()
         .with_transparent(true)
-        .build()
+        .build_engine()
         .unwrap();
 
     engine.run(app)
