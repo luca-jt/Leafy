@@ -21,7 +21,7 @@ impl BatchRenderer {
     /// creates a new batch renderer
     pub(crate) fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
         let mut white_texture = 0;
-        let mut tex_slots: Vec<GLuint> = vec![0; MAX_TEXTURE_COUNT - 2];
+        let tex_slots: Vec<GLuint> = vec![0; MAX_TEXTURE_COUNT - 2];
 
         unsafe {
             // 1x1 WHITE TEXTURE

@@ -29,6 +29,7 @@ pub struct RenderingSystem {
     render_shadows: bool,
     clear_color: Color32,
     render_distance: Option<f32>,
+    current_cam_pos: glm::Vec3,
 }
 
 impl RenderingSystem {
@@ -40,12 +41,13 @@ impl RenderingSystem {
             gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::SCISSOR_TEST);
         }
+        let start_cam_pos = glm::Vec3::new(0.0, 1.0, -2.0);
 
         Self {
             current_mode: EngineMode::Running,
             shadow_map: ShadowMap::new(2048, 2048, glm::Vec3::new(1.0, 8.0, 1.0)),
             renderers: Vec::new(),
-            perspective_camera: PerspectiveCamera::new(glm::Vec3::new(0.0, 1.0, -2.0), ORIGIN),
+            perspective_camera: PerspectiveCamera::new(start_cam_pos, ORIGIN),
             ortho_camera: OrthoCamera::from_size(1.0),
             shader_catalog: ShaderCatalog::new(),
             used_renderer_indeces: Vec::new(),
@@ -53,6 +55,7 @@ impl RenderingSystem {
             render_shadows: true,
             clear_color: Color32::WHITE,
             render_distance: None,
+            current_cam_pos: start_cam_pos,
         }
     }
 
@@ -69,8 +72,13 @@ impl RenderingSystem {
         clear_gl_screen(self.clear_color);
         self.init_renderers();
         // add entity data
+        let (render_dist, cam_pos) = (self.render_distance, self.current_cam_pos);
         for (position, mesh_type, mesh_attr, scale, orientation) in entity_manager
             .query5_opt3::<Position, MeshType, MeshAttribute, Scale, Orientation>(vec![])
+            .filter(|(pos, ..)| match render_dist {
+                None => true,
+                Some(dist) => (pos.data() - cam_pos).norm() <= dist,
+            })
         {
             let mesh = entity_manager.asset_from_type(mesh_type).unwrap();
 
@@ -310,6 +318,7 @@ impl EventObserver<CamPositionChange> for RenderingSystem {
     fn on_event(&mut self, event: &CamPositionChange) {
         self.perspective_camera
             .update_cam(&event.new_pos, &event.new_focus);
+        self.current_cam_pos = event.new_pos;
     }
 }
 

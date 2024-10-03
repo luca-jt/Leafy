@@ -10,10 +10,9 @@ graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 immutable event observer? + immutable engine field access functions?
 dpi scale factor event handling
 ui basics + font rendering + events for ui struct
-change audio playback speed on animation speed change event + make that feature optional
-change render behavior based on engine mode
 particle system https://youtu.be/GK0jHlv3e3w
 sprite renderer
 physics (+ friction + collision detection)
 multiple light sources for the rendering system
-change rendering system behavior based on render distance
+change audio playback speed on animation speed change event + make that feature optional
+change render behavior based on engine mode
