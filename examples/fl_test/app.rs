@@ -6,7 +6,6 @@ use fl_core::engine::{Engine, FallingLeafApp};
 use fl_core::glm;
 use fl_core::systems::audio_system::VolumeType;
 use fl_core::systems::event_system::events::*;
-use fl_core::utils::file::get_audio_path;
 use fl_core::winit::keyboard::KeyCode;
 use std::f32::consts::PI;
 
@@ -51,7 +50,7 @@ impl FallingLeafApp for App {
         let heli_position = Position::new(0.0, 1.0, 1.0);
 
         engine.audio_system().play_sfx_at(
-            get_audio_path("helicopter.wav"),
+            "examples/fl_test/helicopter.wav",
             true,
             &sound,
             &heli_position,
@@ -71,7 +70,7 @@ impl FallingLeafApp for App {
         engine.audio_system().enable_hrtf();
         engine
             .audio_system()
-            .play_background_music(get_audio_path("drop.wav"));
+            .play_background_music("examples/fl_test/drop.wav");
 
         self.cube = Some(cube);
         self.player = Some(player);

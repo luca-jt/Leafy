@@ -11,7 +11,7 @@ immutable event observer? + immutable engine field access functions?
 dpi scale factor event handling
 ui basics + font rendering + events for ui struct
 particle system https://youtu.be/GK0jHlv3e3w
-sprite renderer
+sprite renderer -> depth layers configurable
 physics (+ friction + collision detection)
 multiple light sources for the rendering system
 change audio playback speed on animation speed change event + make that feature optional

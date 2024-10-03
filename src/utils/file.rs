@@ -15,7 +15,7 @@ fn get_asset_path(dir_path: &str) -> String {
 }
 
 /// yields audio file path
-pub fn get_audio_path(file_name: &str) -> String {
+pub(crate) fn get_audio_path(file_name: &str) -> String {
     get_asset_path("audio/") + file_name
 }
 
