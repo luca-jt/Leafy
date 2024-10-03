@@ -72,7 +72,7 @@ impl RenderingSystem {
         for (position, mesh_type, mesh_attr, scale, orientation) in entity_manager
             .query5_opt3::<Position, MeshType, MeshAttribute, Scale, Orientation>(vec![])
         {
-            let mesh = entity_manager.asset_from_type(*mesh_type).unwrap();
+            let mesh = entity_manager.asset_from_type(mesh_type).unwrap();
 
             let is_added = self.try_add_data(
                 position,
@@ -105,7 +105,7 @@ impl RenderingSystem {
     fn init_renderers(&mut self) {
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                Batch(_, renderer) => renderer.begin_batch(),
+                Batch(_, renderer) => renderer.begin_first_batch(),
                 Instance(..) => {}
                 Voxel(renderer) => renderer.init(),
                 _ => {}
@@ -143,7 +143,7 @@ impl RenderingSystem {
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
                 Batch(_, renderer) => {
-                    renderer.end_batch();
+                    renderer.end_batches();
                     renderer.render_shadows(&self.shadow_map);
                 }
                 Instance(_, _, renderer) => {
@@ -179,24 +179,13 @@ impl RenderingSystem {
                                 scale,
                                 orientation,
                                 texture_map.get_tex_id(path).unwrap(),
-                                &self.perspective_camera,
-                                &mut self.shadow_map,
-                                self.shader_catalog.batch_basic(),
                                 mesh,
+                                self.shader_catalog.batch_basic(),
                             );
                             true
                         }
                         Colored(color) => {
-                            renderer.draw_color_mesh(
-                                position,
-                                scale,
-                                orientation,
-                                *color,
-                                &self.perspective_camera,
-                                &mut self.shadow_map,
-                                self.shader_catalog.batch_basic(),
-                                mesh,
-                            );
+                            renderer.draw_color_mesh(position, scale, orientation, *color, mesh);
                             true
                         }
                     };
@@ -241,16 +230,7 @@ impl RenderingSystem {
                 let mut renderer = BatchRenderer::new(mesh, self.shader_catalog.batch_basic());
                 match mesh_attr {
                     Colored(color) => {
-                        renderer.draw_color_mesh(
-                            position,
-                            scale,
-                            orientation,
-                            *color,
-                            &self.perspective_camera,
-                            &mut self.shadow_map,
-                            self.shader_catalog.batch_basic(),
-                            mesh,
-                        );
+                        renderer.draw_color_mesh(position, scale, orientation, *color, mesh);
                     }
                     Textured(path) => {
                         renderer.draw_tex_mesh(
@@ -258,14 +238,12 @@ impl RenderingSystem {
                             scale,
                             orientation,
                             texture_map.get_tex_id(path).unwrap(),
-                            &self.perspective_camera,
-                            &mut self.shadow_map,
-                            self.shader_catalog.batch_basic(),
                             mesh,
+                            self.shader_catalog.batch_basic(),
                         );
                     }
                 }
-                self.renderers.push(Batch(*mesh_type, renderer));
+                self.renderers.push(Batch(mesh_type.clone(), renderer));
             }
             _ => {
                 let mut renderer =
@@ -280,7 +258,7 @@ impl RenderingSystem {
                 }
                 renderer.add_position(position, scale, orientation, mesh);
                 self.renderers
-                    .push(Instance(*mesh_type, mesh_attr.clone(), renderer));
+                    .push(Instance(mesh_type.clone(), mesh_attr.clone(), renderer));
             }
         }
         self.used_renderer_indeces
@@ -345,10 +323,10 @@ pub(crate) enum RendererType {
 
 impl RendererType {
     /// yields the mesh type of a renderer type if present
-    pub(crate) fn mesh_type(&self) -> Option<MeshType> {
+    pub(crate) fn mesh_type(&self) -> Option<&MeshType> {
         match self {
-            Batch(mesh_type, _) => Some(*mesh_type),
-            Instance(mesh_type, _, _) => Some(*mesh_type),
+            Batch(mesh_type, _) => Some(mesh_type),
+            Instance(mesh_type, _, _) => Some(mesh_type),
             _ => None,
         }
     }

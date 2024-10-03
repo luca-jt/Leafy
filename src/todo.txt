@@ -17,4 +17,3 @@ sprite renderer
 physics (+ friction + collision detection)
 multiple light sources for the rendering system
 change rendering system behavior based on render distance
-rendering shadows between batches does not work correctly -> change batch size dynamically? (-> only one batch in the end? -> what if not enough texture slots?)

@@ -20,13 +20,13 @@ pub(crate) struct InstanceRenderer {
     pos_idx: usize,
     pub(crate) color: Color32,
     pub(crate) tex_id: GLuint,
-    num_instances: usize,
+    max_num_instances: usize,
 }
 
 impl InstanceRenderer {
     /// creates a new instance renderer
     pub(crate) fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
-        let num_instances: usize = 10;
+        let max_num_instances: usize = 10;
 
         let mut vao = 0; // vertex array
         let mut pbo = 0; // positions
@@ -35,7 +35,7 @@ impl InstanceRenderer {
         let mut mbo = 0; // models (includes offsets)
         let mut ibo = 0; // indeces
         let mut white_texture = 0;
-        let models = vec![glm::Mat4::identity(); num_instances];
+        let models = vec![glm::Mat4::identity(); max_num_instances];
 
         unsafe {
             // GENERATE BUFFERS
@@ -104,7 +104,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, mbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (num_instances * size_of::<glm::Mat4>()) as GLsizeiptr,
+                (max_num_instances * size_of::<glm::Mat4>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -195,19 +195,20 @@ impl InstanceRenderer {
             pos_idx: 0,
             color: Color32::WHITE,
             tex_id: white_texture,
-            num_instances,
+            max_num_instances,
         }
     }
 
-    /// resizes the internal offset buffer to the specified number of elements (erases all positions added prior to this call)
-    fn resize_buffer(&mut self, add_size: usize) {
-        self.num_instances += add_size;
+    /// resizes the internal buffer to hold more instances (erases all positions confirmed prior to this call)
+    fn resize_buffer(&mut self) {
+        let add_size: usize = self.max_num_instances * 2;
+        self.max_num_instances += add_size;
         self.models.reserve_exact(add_size);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (self.num_instances * size_of::<glm::Mat4>()) as GLsizeiptr,
+                (self.max_num_instances * size_of::<glm::Mat4>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -222,8 +223,8 @@ impl InstanceRenderer {
         orientation: &Orientation,
         mesh: &Mesh,
     ) {
-        if self.pos_idx == self.num_instances {
-            self.resize_buffer(self.num_instances * 2);
+        if self.pos_idx == self.max_num_instances {
+            self.resize_buffer();
         }
         self.models[self.pos_idx] = calc_model_matrix(position, scale, orientation);
         self.index_count += mesh.num_indeces() as GLsizei;

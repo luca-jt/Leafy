@@ -362,14 +362,14 @@ impl Default for Color32 {
 }
 
 /// all of the known mesh types
-#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialOrd, PartialEq, Hash, Eq)]
 pub enum MeshType {
     Triangle,
     Plane,
     Cube,
     Sphere,
     Cylinder,
-    Custom(&'static str),
+    Custom(PathBuf),
 }
 
 /// represents all texture types with path data

@@ -37,7 +37,7 @@ impl EntityManager {
         if components.contains_component::<MeshType>() {
             // following unwrap is safe because of contains check
             let mesh_type = components.component_data::<MeshType>().unwrap();
-            self.try_add_mesh(*mesh_type);
+            self.try_add_mesh(mesh_type);
             if let Some(MeshAttribute::Textured(file)) =
                 components.component_data::<MeshAttribute>()
             {
@@ -107,7 +107,7 @@ impl EntityManager {
     /// adds a component to an existing entity
     pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) {
         if let Some(mesh_type) = (&component as &dyn Any).downcast_ref::<MeshType>() {
-            self.try_add_mesh(*mesh_type);
+            self.try_add_mesh(mesh_type);
         }
         self.ecs.add_component::<T>(entity, component)
     }
@@ -150,8 +150,8 @@ impl EntityManager {
     }
 
     /// makes mesh data available for a given mesh type
-    pub fn asset_from_type(&self, mesh_type: MeshType) -> Option<&Mesh> {
-        self.asset_register.get(&mesh_type)
+    pub fn asset_from_type(&self, mesh_type: &MeshType) -> Option<&Mesh> {
+        self.asset_register.get(mesh_type)
     }
 
     /// iterate over all of the stored entities
@@ -160,8 +160,8 @@ impl EntityManager {
     }
 
     /// adds a new mesh to the asset register if necessary
-    fn try_add_mesh(&mut self, mesh_type: MeshType) {
-        if !self.asset_register.keys().any(|t| *t == mesh_type) {
+    fn try_add_mesh(&mut self, mesh_type: &MeshType) {
+        if !self.asset_register.keys().any(|t| t == mesh_type) {
             let mesh = match mesh_type {
                 MeshType::Triangle => Mesh::new(get_model_path("triangle.obj")),
                 MeshType::Plane => Mesh::new(get_model_path("plane.obj")),
@@ -170,7 +170,7 @@ impl EntityManager {
                 MeshType::Cylinder => Mesh::new(get_model_path("cylinder.obj")),
                 MeshType::Custom(path) => Mesh::new(path),
             };
-            self.asset_register.insert(mesh_type, mesh);
+            self.asset_register.insert(mesh_type.clone(), mesh);
         }
     }
 }

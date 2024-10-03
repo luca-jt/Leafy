@@ -5,34 +5,200 @@ use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
 use gl::types::*;
+use std::ops::Range;
 use std::{mem, ptr};
 
 /// batch renderer for the 3D rendering option
 pub(crate) struct BatchRenderer {
-    vao: GLuint,
-    vbo: GLuint,
-    ibo: GLuint,
-    white_texture: GLuint,
-    index_count: GLsizei,
-    obj_buffer: Vec<Vertex>,
-    obj_buffer_ptr: usize,
+    batches: Vec<Batch>,
+    current_batch_index: usize,
     tex_slots: Vec<GLuint>,
-    tex_slot_index: GLuint,
-    max_num_meshes: usize,
+    white_texture: GLuint,
     samplers: [i32; MAX_TEXTURE_COUNT - 1],
 }
 
 impl BatchRenderer {
     /// creates a new batch renderer
     pub(crate) fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
+        let mut white_texture = 0;
+        let mut tex_slots: Vec<GLuint> = vec![0; MAX_TEXTURE_COUNT - 2];
+
+        unsafe {
+            // 1x1 WHITE TEXTURE
+            gl::GenTextures(1, &mut white_texture);
+            gl::BindTexture(gl::TEXTURE_2D, white_texture);
+            let white_color_data: Vec<u8> = vec![255, 255, 255, 255];
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA8 as GLint,
+                1,
+                1,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                white_color_data.as_ptr() as *const GLvoid,
+            );
+        }
+        // TEXTURE SAMPLERS
+        let mut samplers: [GLint; MAX_TEXTURE_COUNT - 1] = [0; MAX_TEXTURE_COUNT - 1];
+        for (i, sampler) in samplers.iter_mut().enumerate() {
+            *sampler = i as GLint + 1;
+        }
+
+        Self {
+            batches: vec![Batch::new(mesh, program, 0)],
+            current_batch_index: 0,
+            tex_slots,
+            white_texture,
+            samplers,
+        }
+    }
+
+    /// begin the first render batch
+    pub(crate) fn begin_first_batch(&mut self) {
+        debug_assert!(self.current_batch_index == 0);
+        self.batches
+            .get_mut(self.current_batch_index)
+            .unwrap()
+            .begin();
+    }
+
+    /// end render batch
+    pub(crate) fn end_batches(&self) {
+        self.batches.get(self.current_batch_index).unwrap().end();
+    }
+
+    /// renders to the shadow map
+    pub(crate) fn render_shadows(&self, shadow_map: &ShadowMap) {
+        unsafe {
+            gl::Uniform1i(shadow_map.program.get_unif("use_input_model"), 0);
+        }
+        for batch in self.batches.iter() {
+            batch.render_shadows();
+        }
+    }
+
+    /// send data to GPU and reset
+    pub(crate) fn flush(
+        &mut self,
+        camera: &impl Camera,
+        shadow_map: &ShadowMap,
+        program: &ShaderProgram,
+    ) {
+        unsafe {
+            // bind shader, textures, uniforms
+            gl::UseProgram(program.id);
+            // bind uniforms
+            gl::UniformMatrix4fv(
+                program.get_unif("projection"),
+                1,
+                gl::FALSE,
+                &camera.projection()[0],
+            );
+            gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view()[0]);
+            gl::UniformMatrix4fv(
+                program.get_unif("light_matrix"),
+                1,
+                gl::FALSE,
+                &shadow_map.light_matrix[0],
+            );
+            gl::Uniform3fv(program.get_unif("light_pos"), 1, &shadow_map.light_src[0]);
+            gl::Uniform1i(program.get_unif("shadow_map"), 0);
+            gl::Uniform1iv(
+                program.get_unif("tex_sampler"),
+                MAX_TEXTURE_COUNT as GLsizei - 1,
+                &self.samplers[0],
+            );
+        }
+        for batch in self.batches.iter_mut() {
+            batch.flush(shadow_map, &self.tex_slots, self.white_texture);
+        }
+        self.current_batch_index = 0;
+    }
+
+    /// draws a mesh with a texture
+    pub(crate) fn draw_tex_mesh(
+        &mut self,
+        position: &Position,
+        scale: &Scale,
+        orientation: &Orientation,
+        tex_id: GLuint,
+        mesh: &Mesh,
+        program: &ShaderProgram,
+    ) {
+        for batch in self.batches.iter_mut() {
+            if batch.try_add_tex_mesh(
+                position,
+                scale,
+                orientation,
+                tex_id,
+                mesh,
+                &mut self.tex_slots,
+            ) {
+                return;
+            }
+        }
+        // add new batch
+        let last_tex_idx = self.batches.last().unwrap().tex_slot_range.end;
+        let mut new_batch = Batch::new(mesh, program, last_tex_idx);
+        let res = new_batch.try_add_tex_mesh(
+            position,
+            scale,
+            orientation,
+            tex_id,
+            mesh,
+            &mut self.tex_slots,
+        );
+        debug_assert!(res);
+        self.batches.push(new_batch);
+    }
+
+    /// draws a mesh with a color
+    pub(crate) fn draw_color_mesh(
+        &mut self,
+        position: &Position,
+        scale: &Scale,
+        orientation: &Orientation,
+        color: Color32,
+        mesh: &Mesh,
+    ) {
+        self.batches
+            .first_mut()
+            .unwrap()
+            .add_color_mesh(position, scale, orientation, color, mesh);
+    }
+}
+
+impl Drop for BatchRenderer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(1, &self.white_texture);
+        }
+    }
+}
+
+/// a single render batch
+struct Batch {
+    vao: GLuint,
+    vbo: GLuint,
+    ibo: GLuint,
+    index_count: GLsizei,
+    obj_buffer: Vec<Vertex>,
+    obj_buffer_ptr: usize,
+    tex_slot_range: Range<usize>,
+    max_num_meshes: usize,
+}
+
+impl Batch {
+    /// creates a new batch with default size
+    fn new(mesh: &Mesh, program: &ShaderProgram, start_tex_idx: usize) -> Self {
         let max_num_meshes: usize = 10;
         // init the data ids
         let obj_buffer: Vec<Vertex> = vec![Vertex::default(); mesh.num_verteces() * max_num_meshes];
         let mut vao = 0;
         let mut vbo = 0;
         let mut ibo = 0;
-        let mut white_texture = 0;
-        let mut tex_slots: Vec<GLuint> = vec![0; MAX_TEXTURE_COUNT - 1];
 
         unsafe {
             // GENERATE BUFFERS
@@ -109,29 +275,7 @@ impl BatchRenderer {
                 gl::STATIC_DRAW,
             );
 
-            // 1x1 WHITE TEXTURE
-            gl::GenTextures(1, &mut white_texture);
-            gl::BindTexture(gl::TEXTURE_2D, white_texture);
-            let white_color_data: Vec<u8> = vec![255, 255, 255, 255];
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGBA8 as GLint,
-                1,
-                1,
-                0,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                white_color_data.as_ptr() as *const GLvoid,
-            );
-            tex_slots[0] = white_texture;
-
             gl::BindVertexArray(0);
-        }
-        // TEXTURE SAMPLERS
-        let mut samplers: [GLint; MAX_TEXTURE_COUNT - 1] = [0; MAX_TEXTURE_COUNT - 1];
-        for (i, sampler) in samplers.iter_mut().enumerate() {
-            *sampler = i as GLint + 1;
         }
 
         Self {
@@ -141,21 +285,46 @@ impl BatchRenderer {
             index_count: 0,
             obj_buffer,
             obj_buffer_ptr: 0,
-            tex_slots,
-            tex_slot_index: 1,
-            white_texture,
+            tex_slot_range: start_tex_idx..start_tex_idx,
             max_num_meshes,
-            samplers,
         }
     }
 
-    /// begin render batch
-    pub(crate) fn begin_batch(&mut self) {
+    /// resize the buffer for more mesh data
+    fn resize_buffer(&mut self, mesh: &Mesh) {
+        let add_size: usize = self.max_num_meshes * 2;
+        self.max_num_meshes += add_size;
+        self.obj_buffer.reserve_exact(add_size);
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (mesh.num_verteces() * self.max_num_meshes * size_of::<Vertex>()) as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
+            let mut indeces: Vec<GLuint> = vec![0; mesh.num_indeces() * self.max_num_meshes];
+            for i in 0..mesh.num_indeces() * self.max_num_meshes {
+                indeces[i] = mesh.indeces[i % mesh.num_indeces()]
+                    + mesh.num_verteces() as GLuint * (i as GLuint / mesh.num_indeces() as GLuint);
+            }
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (mesh.num_indeces() * self.max_num_meshes * size_of::<GLuint>()) as GLsizeiptr,
+                indeces.as_ptr() as *const GLvoid,
+                gl::STATIC_DRAW,
+            );
+        }
+    }
+
+    /// begin the render batch
+    fn begin(&mut self) {
         self.obj_buffer_ptr = 0;
     }
 
-    /// end render batch
-    pub(crate) fn end_batch(&mut self) {
+    /// end the render batch
+    fn end(&self) {
         // dynamically copy the the drawn mesh vertex data from object buffer into the vertex buffer on the gpu
         unsafe {
             let verteces_size: GLsizeiptr =
@@ -170,10 +339,9 @@ impl BatchRenderer {
         }
     }
 
-    /// renders to the shadow map
-    pub(crate) fn render_shadows(&self, shadow_map: &ShadowMap) {
+    /// renders this batch to the shadow map (has to be binded before)
+    fn render_shadows(&self) {
         unsafe {
-            gl::Uniform1i(shadow_map.program.get_unif("use_input_model"), 0);
             // draw the triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
             gl::DrawElements(
@@ -186,43 +354,14 @@ impl BatchRenderer {
         }
     }
 
-    /// send data to GPU and reset
-    pub(crate) fn flush(
-        &mut self,
-        camera: &impl Camera,
-        shadow_map: &ShadowMap,
-        program: &ShaderProgram,
-    ) {
+    fn flush(&mut self, shadow_map: &ShadowMap, tex_slots: &Vec<GLuint>, white_texture: GLuint) {
         unsafe {
-            // bind shader, textures, uniforms
-            gl::UseProgram(program.id);
             // bind textures
             shadow_map.bind_reading(0);
-            for i in 0..self.tex_slot_index {
-                gl::BindTextureUnit(i + 1, *self.tex_slots.get(i as usize).unwrap());
+            gl::BindTextureUnit(1, white_texture);
+            for (unit, tex_slot) in self.tex_slot_range.clone().enumerate() {
+                gl::BindTextureUnit((unit + 2) as GLuint, *tex_slots.get(tex_slot).unwrap());
             }
-            // bind uniforms
-            gl::UniformMatrix4fv(
-                program.get_unif("projection"),
-                1,
-                gl::FALSE,
-                &camera.projection()[0],
-            );
-            gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view()[0]);
-            gl::UniformMatrix4fv(
-                program.get_unif("light_matrix"),
-                1,
-                gl::FALSE,
-                &shadow_map.light_matrix[0],
-            );
-            gl::Uniform3fv(program.get_unif("light_pos"), 1, &shadow_map.light_src[0]);
-            gl::Uniform1i(program.get_unif("shadow_map"), 0);
-            gl::Uniform1iv(
-                program.get_unif("tex_sampler"),
-                MAX_TEXTURE_COUNT as GLsizei - 1,
-                &self.samplers[0],
-            );
-
             // draw the triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
             gl::DrawElements(
@@ -234,50 +373,40 @@ impl BatchRenderer {
             gl::BindVertexArray(0);
         }
         self.index_count = 0;
-        self.tex_slot_index = 1;
     }
 
-    /// draws a mesh with a texture
-    pub(crate) fn draw_tex_mesh(
+    /// adds a mesh with a texture to the batch
+    fn try_add_tex_mesh(
         &mut self,
         position: &Position,
         scale: &Scale,
         orientation: &Orientation,
         tex_id: GLuint,
-        camera: &impl Camera,
-        shadow_map: &mut ShadowMap,
-        program: &ShaderProgram,
         mesh: &Mesh,
-    ) {
-        if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes
-            || self.tex_slot_index as usize > MAX_TEXTURE_COUNT - 1
-        {
-            // start a new batch if batch size exceeded or ran out of texture slots
-            self.end_batch();
-            shadow_map.bind_writing();
-            self.render_shadows(shadow_map);
-            shadow_map.unbind_writing();
-            self.flush(camera, shadow_map, program);
-            self.begin_batch();
-        }
-
+        tex_slots: &mut Vec<GLuint>,
+    ) -> bool {
         // determine texture index
-        let mut tex_index: GLfloat = 0.0;
-        for i in 0..self.tex_slot_index {
-            if *self.tex_slots.get(i as usize).unwrap() == tex_id {
-                tex_index = i as GLfloat;
+        let mut tex_index: GLfloat = -1.0;
+        for i in self.tex_slot_range.clone() {
+            if *tex_slots.get(i).unwrap() == tex_id {
+                tex_index = (i + 1) as GLfloat;
                 break;
             }
         }
-        if tex_index == 0.0 {
-            tex_index = self.tex_slot_index as GLfloat;
-            *self
-                .tex_slots
-                .get_mut(self.tex_slot_index as usize)
-                .unwrap() = tex_id;
-            self.tex_slot_index += 1;
+        if tex_index == -1.0 {
+            if self.tex_slot_range.len() >= MAX_TEXTURE_COUNT - 2 {
+                // start a new batch if out of texture slots
+                tex_slots.reserve(MAX_TEXTURE_COUNT - 2);
+                return false;
+            }
+            tex_index = (self.tex_slot_range.end % (MAX_TEXTURE_COUNT - 2)) as GLfloat;
+            *tex_slots.get_mut(self.tex_slot_range.end).unwrap() = tex_id;
+            self.tex_slot_range.end += 1;
         }
-
+        if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes {
+            // resize current batch if batch size exceeded
+            self.resize_buffer(mesh);
+        }
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_verteces() {
             let trafo = calc_model_matrix(position, scale, orientation);
@@ -293,28 +422,21 @@ impl BatchRenderer {
             self.obj_buffer_ptr += 1;
         }
         self.index_count += mesh.num_indeces() as GLsizei;
+        true
     }
 
-    /// draws a mesh with a color
-    pub(crate) fn draw_color_mesh(
+    /// adds a mesh with a color to the batch
+    fn add_color_mesh(
         &mut self,
         position: &Position,
         scale: &Scale,
         orientation: &Orientation,
         color: Color32,
-        camera: &impl Camera,
-        shadow_map: &mut ShadowMap,
-        program: &ShaderProgram,
         mesh: &Mesh,
     ) {
         if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes {
-            // start a new batch if batch size exceeded
-            self.end_batch();
-            shadow_map.bind_writing();
-            self.render_shadows(shadow_map);
-            shadow_map.unbind_writing();
-            self.flush(camera, shadow_map, program);
-            self.begin_batch();
+            // resize current batch if batch size exceeded
+            self.resize_buffer(mesh);
         }
 
         let tex_index: GLfloat = 0.0; // white texture
@@ -337,12 +459,11 @@ impl BatchRenderer {
     }
 }
 
-impl Drop for BatchRenderer {
+impl Drop for Batch {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteBuffers(1, &self.ibo);
-            gl::DeleteTextures(1, &self.white_texture);
             gl::DeleteVertexArrays(1, &self.vao);
         }
     }
