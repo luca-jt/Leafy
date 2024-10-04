@@ -61,7 +61,8 @@ impl EntityManager {
             mesh_attribute,
             Velocity::zero(),
             Acceleration::zero(),
-            TouchTime::now()
+            TouchTime::now(),
+            Hitbox
         ))
     }
 

@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::hash::{BuildHasher, Hash};
+use std::ops::{Add, Div, Mul, Sub};
 use std::rc::{Rc, Weak};
 
 /// alias for a Rc<RefCell>
@@ -21,6 +22,17 @@ pub type WeakPtr<T> = Weak<RefCell<T>>;
 /// creates a new WeakPtr<T> from a SharedPtr<T>
 pub fn weak_ptr<T>(shared_ptr: &SharedPtr<T>) -> WeakPtr<T> {
     Rc::downgrade(shared_ptr)
+}
+
+/// maps numeric ranges
+pub fn map_range<
+    T: Sub<Output = T> + Copy + Mul<Output = T> + Div<Output = T> + Add<Output = T>,
+>(
+    from_range: (T, T),
+    to_range: (T, T),
+    s: T,
+) -> T {
+    to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
 }
 
 /// Error returned from get*_mut functions

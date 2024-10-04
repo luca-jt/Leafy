@@ -422,6 +422,13 @@ impl Default for MeshAttribute {
     }
 }
 
+/// represents all material types with path data
+#[derive(Debug, PartialOrd, PartialEq, Clone)]
+pub enum Material {
+    Reflective,
+    Custom(PathBuf),
+}
+
 /// component wrapper struct for `std::time::Instant` to track physics time
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct TouchTime(Instant);
@@ -461,56 +468,14 @@ pub struct SoundController {
     pub(crate) id: SoundHandleID,
 }
 
+/// marker for an entity (enables collision physics)
+pub struct Hitbox;
+
 /// responsible for entity collision checking
-#[derive(Debug, Clone, PartialEq)]
-pub enum Hitbox {
-    Quad {
-        position: glm::Vec3,
-        orientation: Orientation,
-        width: f32,
-        height: f32,
-        link: Box<Hitbox>,
-    },
-    Cube {
-        position: glm::Vec3,
-        orientation: Orientation,
-        width: f32,
-        height: f32,
-        depth: f32,
-        link: Box<Hitbox>,
-    },
-    Sphere {
-        position: glm::Vec3,
-        radius: f32,
-        link: Box<Hitbox>,
-    },
-    None,
+#[derive(Debug, Clone)]
+pub(crate) enum HitboxType {
+    Triangle(Option<Box<HitboxType>>),
+    Quad(Option<Box<HitboxType>>),
+    Cube(Option<Box<HitboxType>>),
+    Sphere,
 }
-/*
-impl Hitbox {
-    /// checks wether or not a hitbox is touching another hitbox
-    pub fn hit_by(&self, other: &Hitbox) -> bool {
-        match self {
-            Hitbox::Quad(h1) => match other {
-                Hitbox::Quad(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
-                Hitbox::Cube(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
-                Hitbox::Sphere(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
-                Hitbox::None => false,
-            },
-            Hitbox::Cube(h1) => match other {
-                Hitbox::Quad(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
-                Hitbox::Cube(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
-                Hitbox::Sphere(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
-                Hitbox::None => false,
-            },
-            Hitbox::Sphere(h1) => match other {
-                Hitbox::Quad(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
-                Hitbox::Cube(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
-                Hitbox::Sphere(h2) => true || self.hit_by(h2) || h1.hit_by(h2),
-                Hitbox::None => false,
-            },
-            Hitbox::None => false,
-        }
-    }
-}
-*/
