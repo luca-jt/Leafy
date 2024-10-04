@@ -41,6 +41,7 @@ impl<A: FallingLeafApp> Engine<A> {
         event_system.add_listener::<WindowResize>(&video_system);
         event_system.add_listener::<CamPositionChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&audio_system);
+        event_system.add_listener::<EngineModeChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&animation_system);
         event_system.add_listener::<EngineModeChange>(&animation_system);
 
@@ -122,9 +123,6 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
         self.rendering_system = Some(shared_ptr(RenderingSystem::new()));
-
-        self.event_system()
-            .add_listener::<EngineModeChange>(self.rendering_system.as_ref().unwrap());
         self.event_system()
             .add_listener::<CamPositionChange>(self.rendering_system.as_ref().unwrap());
 
@@ -172,4 +170,5 @@ pub trait FallingLeafApp: Sized + 'static {
 pub enum EngineMode {
     Running,
     Paused,
+    Editor,
 }

@@ -1,6 +1,7 @@
 use crate::ecs::component::{Position, SoundController};
 use crate::ecs::entity_manager::EntityManager;
-use crate::systems::event_system::events::{AnimationSpeedChange, CamPositionChange};
+use crate::engine::EngineMode;
+use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::file::get_audio_path;
 use fyrox_resource::io::FsResourceIo;
@@ -34,6 +35,7 @@ pub struct AudioSystem {
     background_music: Option<Handle<SoundSource>>,
     next_handle_id: SoundHandleID,
     sound_register: HashMap<SoundHandleID, Vec<Handle<SoundSource>>>,
+    pitch_on_speed_change: bool,
 }
 
 impl AudioSystem {
@@ -52,6 +54,7 @@ impl AudioSystem {
             background_music: None,
             next_handle_id: 0,
             sound_register: HashMap::new(),
+            pitch_on_speed_change: true,
         }
     }
 
@@ -223,6 +226,11 @@ impl AudioSystem {
         }
     }
 
+    /// enables/disbles the pitch change on animation speed change (default is true)
+    pub fn enable_pitch_on_speed_change(&mut self, flag: bool) {
+        self.pitch_on_speed_change = flag;
+    }
+
     /// calculate the total resulting volume for either the sfx or music
     fn calc_absolute_volume(&self, volume: VolumeType) -> f32 {
         match volume {
@@ -251,9 +259,30 @@ impl EventObserver<CamPositionChange> for AudioSystem {
 
 impl EventObserver<AnimationSpeedChange> for AudioSystem {
     fn on_event(&mut self, event: &AnimationSpeedChange) {
-        let mut state = self.sound_context.state();
-        for source in state.sources_mut().iter_mut() {
-            source.set_pitch(event.new_animation_speed as f64);
+        if self.pitch_on_speed_change {
+            let mut state = self.sound_context.state();
+            for source in state.sources_mut().iter_mut() {
+                source.set_pitch(event.new_animation_speed as f64);
+            }
+        }
+    }
+}
+
+impl EventObserver<EngineModeChange> for AudioSystem {
+    fn on_event(&mut self, event: &EngineModeChange) {
+        match event.new_mode {
+            EngineMode::Running | EngineMode::Editor => {
+                let mut state = self.sound_context.state();
+                for source in state.sources_mut().iter_mut() {
+                    source.play();
+                }
+            }
+            EngineMode::Paused => {
+                let mut state = self.sound_context.state();
+                for source in state.sources_mut().iter_mut() {
+                    source.pause();
+                }
+            }
         }
     }
 }

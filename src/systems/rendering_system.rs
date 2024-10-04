@@ -2,7 +2,6 @@ use crate::ecs::component::MeshAttribute::*;
 use crate::ecs::component::{Color32, MeshAttribute, MeshType, Orientation, Position, Scale};
 use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
-use crate::engine::EngineMode;
 use crate::glm;
 use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
@@ -11,14 +10,13 @@ use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::ShaderCatalog;
 use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
-use crate::systems::event_system::events::{CamPositionChange, EngineModeChange};
+use crate::systems::event_system::events::CamPositionChange;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{ORIGIN, Z_AXIS};
 use RendererType::*;
 
 /// responsible for the automated rendering of all entities
 pub struct RenderingSystem {
-    current_mode: EngineMode,
     shadow_map: ShadowMap,
     renderers: Vec<RendererType>,
     perspective_camera: PerspectiveCamera,
@@ -44,7 +42,6 @@ impl RenderingSystem {
         let start_cam_pos = glm::Vec3::new(0.0, 1.0, -2.0);
 
         Self {
-            current_mode: EngineMode::Running,
             shadow_map: ShadowMap::new(2048, 2048, glm::Vec3::new(1.0, 8.0, 1.0)),
             renderers: Vec::new(),
             perspective_camera: PerspectiveCamera::new(start_cam_pos, ORIGIN),
@@ -80,28 +77,24 @@ impl RenderingSystem {
                 Some(dist) => (pos.data() - cam_pos).norm() <= dist,
             })
         {
-            let mesh = entity_manager.asset_from_type(mesh_type).unwrap();
+            let default_attr = Colored(Color32::WHITE);
+            let default_scale = Scale::default();
+            let default_orient = Orientation::default();
 
-            let is_added = self.try_add_data(
-                position,
-                mesh_type,
-                mesh_attr.unwrap_or(&Colored(Color32::WHITE)),
-                scale.unwrap_or(&Scale::default()),
-                orientation.unwrap_or(&Orientation::default()),
-                mesh,
-                &entity_manager.texture_map,
-            );
+            let render_data = RenderData {
+                pos: position,
+                m_type: mesh_type,
+                m_attr: mesh_attr.unwrap_or(&default_attr),
+                scale: scale.unwrap_or(&default_scale),
+                orient: orientation.unwrap_or(&default_orient),
+                mesh: entity_manager.asset_from_type(mesh_type).unwrap(),
+                tex_map: &entity_manager.texture_map,
+            };
+
+            let is_added = self.try_add_data(&render_data);
             // add new renderer if needed
             if !is_added {
-                self.add_new_renderer(
-                    position,
-                    mesh_type,
-                    mesh_attr.unwrap_or(&Colored(Color32::WHITE)),
-                    scale.unwrap_or(&Scale::default()),
-                    orientation.unwrap_or(&Orientation::default()),
-                    mesh,
-                    &entity_manager.texture_map,
-                );
+                self.add_new_renderer(&render_data);
             }
         }
         self.render_shadows();
@@ -166,51 +159,42 @@ impl RenderingSystem {
     }
 
     /// try to add the render data to an existing renderer
-    fn try_add_data(
-        &mut self,
-        position: &Position,
-        mesh_type: &MeshType,
-        mesh_attr: &MeshAttribute,
-        scale: &Scale,
-        orientation: &Orientation,
-        mesh: &Mesh,
-        texture_map: &TextureMap,
-    ) -> bool {
+    fn try_add_data(&mut self, rd: &RenderData) -> bool {
         for (i, r_type) in self.renderers.iter_mut().enumerate() {
             if let Batch(m_type, renderer) = r_type {
-                if m_type == mesh_type {
+                if m_type == rd.m_type {
                     self.used_renderer_indeces.push(i);
-                    return match mesh_attr {
+                    return match rd.m_attr {
                         Textured(path) => {
                             renderer.draw_tex_mesh(
-                                position,
-                                scale,
-                                orientation,
-                                texture_map.get_tex_id(path).unwrap(),
-                                mesh,
+                                rd.pos,
+                                rd.scale,
+                                rd.orient,
+                                rd.tex_map.get_tex_id(path).unwrap(),
+                                rd.mesh,
                                 self.shader_catalog.batch_basic(),
                             );
                             true
                         }
                         Colored(color) => {
-                            renderer.draw_color_mesh(position, scale, orientation, *color, mesh);
+                            renderer.draw_color_mesh(rd.pos, rd.scale, rd.orient, *color, rd.mesh);
                             true
                         }
                     };
                 }
             } else if let Instance(m_type, m_attr, renderer) = r_type {
-                if m_type == mesh_type && m_attr == mesh_attr {
-                    match mesh_attr {
+                if m_type == rd.m_type && m_attr == rd.m_attr {
+                    match rd.m_attr {
                         Textured(path) => {
-                            if texture_map.get_tex_id(path).unwrap() == renderer.tex_id {
-                                renderer.add_position(position, scale, orientation, mesh);
+                            if rd.tex_map.get_tex_id(path).unwrap() == renderer.tex_id {
+                                renderer.add_position(rd.pos, rd.scale, rd.orient, rd.mesh);
                                 self.used_renderer_indeces.push(i);
                                 return true;
                             }
                         }
                         Colored(color) => {
                             if *color == renderer.color {
-                                renderer.add_position(position, scale, orientation, mesh);
+                                renderer.add_position(rd.pos, rd.scale, rd.orient, rd.mesh);
                                 self.used_renderer_indeces.push(i);
                                 return true;
                             }
@@ -223,50 +207,41 @@ impl RenderingSystem {
     }
 
     /// add a new renderer to the system and add the render data to it
-    fn add_new_renderer(
-        &mut self,
-        position: &Position,
-        mesh_type: &MeshType,
-        mesh_attr: &MeshAttribute,
-        scale: &Scale,
-        orientation: &Orientation,
-        mesh: &Mesh,
-        texture_map: &TextureMap,
-    ) {
-        match mesh_type {
+    fn add_new_renderer(&mut self, rd: &RenderData) {
+        match rd.m_type {
             MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
-                let mut renderer = BatchRenderer::new(mesh, self.shader_catalog.batch_basic());
-                match mesh_attr {
+                let mut renderer = BatchRenderer::new(rd.mesh, self.shader_catalog.batch_basic());
+                match rd.m_attr {
                     Colored(color) => {
-                        renderer.draw_color_mesh(position, scale, orientation, *color, mesh);
+                        renderer.draw_color_mesh(rd.pos, rd.scale, rd.orient, *color, rd.mesh);
                     }
                     Textured(path) => {
                         renderer.draw_tex_mesh(
-                            position,
-                            scale,
-                            orientation,
-                            texture_map.get_tex_id(path).unwrap(),
-                            mesh,
+                            rd.pos,
+                            rd.scale,
+                            rd.orient,
+                            rd.tex_map.get_tex_id(path).unwrap(),
+                            rd.mesh,
                             self.shader_catalog.batch_basic(),
                         );
                     }
                 }
-                self.renderers.push(Batch(mesh_type.clone(), renderer));
+                self.renderers.push(Batch(rd.m_type.clone(), renderer));
             }
             _ => {
                 let mut renderer =
-                    InstanceRenderer::new(mesh, self.shader_catalog.instance_basic());
-                match mesh_attr {
+                    InstanceRenderer::new(rd.mesh, self.shader_catalog.instance_basic());
+                match rd.m_attr {
                     Textured(path) => {
-                        renderer.tex_id = texture_map.get_tex_id(path).unwrap();
+                        renderer.tex_id = rd.tex_map.get_tex_id(path).unwrap();
                     }
                     Colored(color) => {
                         renderer.color = *color;
                     }
                 }
-                renderer.add_position(position, scale, orientation, mesh);
+                renderer.add_position(rd.pos, rd.scale, rd.orient, rd.mesh);
                 self.renderers
-                    .push(Instance(mesh_type.clone(), mesh_attr.clone(), renderer));
+                    .push(Instance(rd.m_type.clone(), rd.m_attr.clone(), renderer));
             }
         }
         self.used_renderer_indeces
@@ -308,12 +283,6 @@ impl RenderingSystem {
     }
 }
 
-impl EventObserver<EngineModeChange> for RenderingSystem {
-    fn on_event(&mut self, event: &EngineModeChange) {
-        self.current_mode = event.new_mode;
-    }
-}
-
 impl EventObserver<CamPositionChange> for RenderingSystem {
     fn on_event(&mut self, event: &CamPositionChange) {
         self.perspective_camera
@@ -323,22 +292,22 @@ impl EventObserver<CamPositionChange> for RenderingSystem {
 }
 
 /// stores the renderer type with rendered entity type + renderer
-pub(crate) enum RendererType {
+enum RendererType {
     Batch(MeshType, BatchRenderer),
     Instance(MeshType, MeshAttribute, InstanceRenderer),
     Sprite(SpriteRenderer),
     Voxel(VoxelRenderer),
 }
 
-impl RendererType {
-    /// yields the mesh type of a renderer type if present
-    pub(crate) fn mesh_type(&self) -> Option<&MeshType> {
-        match self {
-            Batch(mesh_type, _) => Some(mesh_type),
-            Instance(mesh_type, _, _) => Some(mesh_type),
-            _ => None,
-        }
-    }
+/// data bundle for rendering
+struct RenderData<'a> {
+    pos: &'a Position,
+    m_type: &'a MeshType,
+    m_attr: &'a MeshAttribute,
+    scale: &'a Scale,
+    orient: &'a Orientation,
+    mesh: &'a Mesh,
+    tex_map: &'a TextureMap,
 }
 
 /// clears the opengl viewport
