@@ -1,3 +1,4 @@
+use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::systems::audio_system::SoundHandleID;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
@@ -479,3 +480,10 @@ pub(crate) enum HitboxType {
     Cube(Option<Box<HitboxType>>),
     Sphere,
 }
+
+/// marker for an entity (alight source for the rendering system)
+#[derive(Debug, Clone, Copy)]
+pub struct LightSource;
+
+/// identifier for a light source
+pub(crate) struct LightSrcID(pub(crate) EntityID);

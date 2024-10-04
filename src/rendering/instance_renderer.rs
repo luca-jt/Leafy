@@ -1,6 +1,7 @@
 use super::data::{calc_model_matrix, Camera, ShadowMap};
 use super::shader::ShaderProgram;
 use crate::ecs::component::{Color32, Orientation, Position, Scale};
+use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use gl::types::*;
@@ -267,7 +268,7 @@ impl InstanceRenderer {
     pub(crate) fn draw_all(
         &mut self,
         camera: &impl Camera,
-        shadow_map: &ShadowMap,
+        light_sources: &Vec<(EntityID, ShadowMap)>,
         program: &ShaderProgram,
     ) {
         unsafe {

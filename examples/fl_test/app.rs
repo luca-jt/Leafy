@@ -33,6 +33,7 @@ impl FallingLeafApp for App {
         engine.audio_system().set_volume(VolumeType::Master, 0.5);
 
         let mut entity_manager = engine.entity_manager();
+        entity_manager.add_light_src(Position::new(1.0, 8.0, 1.0));
         let _floor = entity_manager.create_entity(components!(
             Position::origin(),
             Scale::from_factor(5.0),

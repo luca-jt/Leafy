@@ -1,12 +1,14 @@
-voxel renderer
 controller events
 intergrate certain settings inside a file
-include asset files in binary if needed
 sampled animations from files
+voxel renderer
+include asset files in binary if needed
 cascaded shadow mapping -> map resolution setting
 shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
+variable ambient light strength
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
+render light sources as visible things
 immutable event observer? + immutable engine field access functions?
 dpi scale factor event handling
 ui basics + font rendering + events for ui struct
@@ -15,4 +17,3 @@ sprite renderer -> depth layers configurable
 on collision event functions for entities
 physics -> friction
 collision -> https://youtu.be/byP6cA71Cgw | generate hitboxes for mesh type (voxelization for custom) -> no need for double position/scale/orientation data, etc for hitboxes as they will be linked to entities
-multiple light sources for the rendering system

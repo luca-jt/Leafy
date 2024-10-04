@@ -75,6 +75,9 @@ impl<A: FallingLeafApp> Engine<A> {
             .update(self.entity_manager().deref_mut());
 
         self.rendering_system()
+            .update_light_sources(self.entity_manager().deref());
+
+        self.rendering_system()
             .render(self.entity_manager().deref());
 
         self.app().on_frame_update(self);

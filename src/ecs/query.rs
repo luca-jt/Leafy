@@ -13,7 +13,7 @@ pub trait QueryFilter {
 
 /// a query filter that requires components to be included in an entity
 #[derive(Debug, Clone)]
-pub struct IncludeFilter(pub(crate) Vec<TypeId>);
+pub struct IncludeFilter(pub Vec<TypeId>);
 
 impl QueryFilter for IncludeFilter {
     fn matches(&self, archetype: &Archetype) -> bool {
@@ -27,13 +27,13 @@ impl QueryFilter for IncludeFilter {
 #[macro_export]
 macro_rules! include_filter {
     ($($T:ty),+) => {
-        Box::new($crate::ecs::query::IncludeFilter(vec![$(TypeId::of<$T>()), +]))
+        Box::new($crate::ecs::query::IncludeFilter(vec![$(std::any::TypeId::of::<$T>()), +]))
     };
 }
 
 /// a query filter that requires components to be excluded from an entity
 #[derive(Debug, Clone)]
-pub struct ExcludeFilter(pub(crate) Vec<TypeId>);
+pub struct ExcludeFilter(pub Vec<TypeId>);
 
 impl QueryFilter for ExcludeFilter {
     fn matches(&self, archetype: &Archetype) -> bool {
@@ -47,7 +47,7 @@ impl QueryFilter for ExcludeFilter {
 #[macro_export]
 macro_rules! exclude_filter {
     ($($T:ty),+) => {
-        Box::new($crate::ecs::query::ExcludeFilter(vec![$(TypeId::of<$T>()), +]))
+        Box::new($crate::ecs::query::ExcludeFilter(vec![$(std::any::TypeId::of::<$T>()), +]))
     };
 }
 
@@ -67,7 +67,7 @@ macro_rules! verify_types {
     ($t:ident) => { true };
 
     ($first:ident, $($rest:ident), +) => {
-        $(TypeId::of::<$first>() != TypeId::of::<$rest>()) && + && verify_types!($($rest), +)
+        $(std::any::TypeId::of::<$first>() != std::any::TypeId::of::<$rest>()) && + && verify_types!($($rest), +)
     };
 }
 

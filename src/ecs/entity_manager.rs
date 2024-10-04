@@ -66,6 +66,13 @@ impl EntityManager {
         ))
     }
 
+    /// creates a new light source for the rendering system wihtout other components attached
+    pub fn add_light_src(&mut self, position: Position) -> EntityID {
+        let light = self.create_entity(components!(position, LightSource));
+        self.add_component(light, LightSrcID(light));
+        light
+    }
+
     /// deletes an entity from the register by id and returns the removed entity
     pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), ()> {
         if let Some(mesh_type) = self.ecs.get_component::<MeshType>(entity) {
@@ -110,6 +117,9 @@ impl EntityManager {
         if let Some(mesh_type) = (&component as &dyn Any).downcast_ref::<MeshType>() {
             self.try_add_mesh(mesh_type);
         }
+        if TypeId::of::<T>() == TypeId::of::<LightSource>() {
+            self.add_component(entity, LightSrcID(entity));
+        }
         self.ecs.add_component::<T>(entity, component)
     }
 
@@ -139,6 +149,12 @@ impl EntityManager {
                 {
                     self.texture_map.delete_texture(path);
                 }
+            }
+            if (component as &dyn Any)
+                .downcast_ref::<LightSource>()
+                .is_some()
+            {
+                self.remove_component::<LightSrcID>(entity);
             }
         }
         removed

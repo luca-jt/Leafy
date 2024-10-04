@@ -1,6 +1,7 @@
 use super::data::{calc_model_matrix, Camera, ShadowMap, Vertex};
 use super::shader::ShaderProgram;
 use crate::ecs::component::{Color32, Orientation, Position, Scale};
+use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
@@ -83,7 +84,7 @@ impl BatchRenderer {
     pub(crate) fn flush(
         &mut self,
         camera: &impl Camera,
-        shadow_map: &ShadowMap,
+        light_sources: &Vec<(EntityID, ShadowMap)>,
         program: &ShaderProgram,
     ) {
         unsafe {
@@ -112,7 +113,7 @@ impl BatchRenderer {
             );
         }
         for batch in self.batches.iter_mut() {
-            batch.flush(shadow_map, &self.tex_slots, self.white_texture);
+            batch.flush(light_sources, &self.tex_slots, self.white_texture);
         }
         self.current_batch_index = 0;
     }
@@ -354,7 +355,12 @@ impl Batch {
         }
     }
 
-    fn flush(&mut self, shadow_map: &ShadowMap, tex_slots: &Vec<GLuint>, white_texture: GLuint) {
+    fn flush(
+        &mut self,
+        light_sources: &Vec<(EntityID, ShadowMap)>,
+        tex_slots: &Vec<GLuint>,
+        white_texture: GLuint,
+    ) {
         unsafe {
             // bind textures
             shadow_map.bind_reading(0);

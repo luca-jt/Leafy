@@ -1,8 +1,7 @@
 use crate::ecs::component::MeshAttribute::*;
-use crate::ecs::component::{Color32, MeshAttribute, MeshType, Orientation, Position, Scale};
+use crate::ecs::component::*;
 use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
-use crate::glm;
 use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
 use crate::rendering::instance_renderer::InstanceRenderer;
@@ -12,19 +11,19 @@ use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::rendering::voxel_renderer::VoxelRenderer;
 use crate::systems::event_system::events::CamPositionChange;
 use crate::systems::event_system::EventObserver;
-use crate::utils::constants::{ORIGIN, Z_AXIS};
+use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
+use crate::{glm, include_filter};
 use RendererType::*;
 
 /// responsible for the automated rendering of all entities
 pub struct RenderingSystem {
-    shadow_map: ShadowMap,
+    light_sources: Vec<(EntityID, ShadowMap)>,
     renderers: Vec<RendererType>,
     perspective_camera: PerspectiveCamera,
     ortho_camera: OrthoCamera,
     shader_catalog: ShaderCatalog,
     used_renderer_indeces: Vec<usize>,
     cam_position_link: Option<EntityID>,
-    render_shadows: bool,
     clear_color: Color32,
     render_distance: Option<f32>,
     current_cam_pos: glm::Vec3,
@@ -42,17 +41,42 @@ impl RenderingSystem {
         let start_cam_pos = glm::Vec3::new(0.0, 1.0, -2.0);
 
         Self {
-            shadow_map: ShadowMap::new(2048, 2048, glm::Vec3::new(1.0, 8.0, 1.0)),
+            light_sources: Vec::new(),
             renderers: Vec::new(),
             perspective_camera: PerspectiveCamera::new(start_cam_pos, ORIGIN),
             ortho_camera: OrthoCamera::from_size(1.0),
             shader_catalog: ShaderCatalog::new(),
             used_renderer_indeces: Vec::new(),
             cam_position_link: None,
-            render_shadows: true,
             clear_color: Color32::WHITE,
             render_distance: None,
             current_cam_pos: start_cam_pos,
+        }
+    }
+
+    /// adds and removes light sources according to entity data
+    pub(crate) fn update_light_sources(&mut self, entity_manager: &EntityManager) {
+        let lights = entity_manager
+            .query2::<Position, LightSrcID>(vec![include_filter!(LightSource)])
+            .map(|(p, l)| (p, l.0))
+            .collect::<Vec<_>>();
+        // remove deleted shadow maps
+        self.light_sources
+            .retain(|src| lights.iter().any(|(_, id)| *id == src.0));
+        // add new light sources
+        let new_lights = lights
+            .into_iter()
+            .filter(|&(_, LightSrcID(entity))| {
+                !self.light_sources.iter().any(|(id, _)| entity == *id)
+            })
+            .collect::<Vec<_>>();
+
+        for (pos, entity) in new_lights {
+            if self.light_sources.len() == MAX_LIGHT_SRC_COUNT {
+                panic!("no more light source slots available (max is 10)");
+            }
+            self.light_sources
+                .push((entity, ShadowMap::new(2048, 2048, *pos.data())));
         }
     }
 
@@ -97,6 +121,7 @@ impl RenderingSystem {
                 self.add_new_renderer(&render_data);
             }
         }
+        self.confirm_data();
         self.render_shadows();
         self.render_geometry();
         self.cleanup_renderers();
@@ -114,6 +139,21 @@ impl RenderingSystem {
         }
     }
 
+    /// confirms all of the added data in the renderers
+    fn confirm_data(&mut self) {
+        for renderer_type in self.renderers.iter_mut() {
+            match renderer_type {
+                Batch(_, renderer) => {
+                    renderer.end_batches();
+                }
+                Instance(_, _, renderer) => {
+                    renderer.confirm_positions();
+                }
+                _ => {}
+            }
+        }
+    }
+
     /// render all the geometry data stored in the renderers
     fn render_geometry(&mut self) {
         for renderer_type in self.renderers.iter_mut() {
@@ -121,14 +161,14 @@ impl RenderingSystem {
                 Batch(_, renderer) => {
                     renderer.flush(
                         &self.perspective_camera,
-                        &self.shadow_map,
+                        &self.light_sources,
                         self.shader_catalog.batch_basic(),
                     );
                 }
                 Instance(_, _, renderer) => {
                     renderer.draw_all(
                         &self.perspective_camera,
-                        &self.shadow_map,
+                        &self.light_sources,
                         self.shader_catalog.instance_basic(),
                     );
                 }
@@ -140,22 +180,22 @@ impl RenderingSystem {
 
     /// renders the shadows to the shadow map
     fn render_shadows(&mut self) {
-        self.shadow_map.bind_writing();
-        for renderer_type in self.renderers.iter_mut() {
-            match renderer_type {
-                Batch(_, renderer) => {
-                    renderer.end_batches();
-                    renderer.render_shadows(&self.shadow_map);
+        for (_, shadow_map) in self.light_sources.iter_mut() {
+            shadow_map.bind_writing();
+            for renderer_type in self.renderers.iter_mut() {
+                match renderer_type {
+                    Batch(_, renderer) => {
+                        renderer.render_shadows(shadow_map);
+                    }
+                    Instance(_, _, renderer) => {
+                        renderer.render_shadows(shadow_map);
+                    }
+                    _ => {}
                 }
-                Instance(_, _, renderer) => {
-                    renderer.confirm_positions();
-                    renderer.render_shadows(&self.shadow_map);
-                }
-                _ => {}
             }
+            shadow_map.unbind_writing();
+            shadow_map.depth_buffer_cleared = false;
         }
-        self.shadow_map.unbind_writing();
-        self.shadow_map.depth_buffer_cleared = false;
     }
 
     /// try to add the render data to an existing renderer
@@ -260,11 +300,6 @@ impl RenderingSystem {
     /// change OpenGL's background clear color
     pub fn set_gl_clearcolor(&mut self, color: Color32) {
         self.clear_color = color;
-    }
-
-    /// engables/dislables the shadow rendering of all entities for 3D rendering
-    pub fn enable_shadows(&mut self, flag: bool) {
-        self.render_shadows = flag;
     }
 
     /// set the FOV for 3D rendering (in degrees)
