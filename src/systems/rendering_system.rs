@@ -66,9 +66,7 @@ impl RenderingSystem {
         // add new light sources
         let new_lights = lights
             .into_iter()
-            .filter(|&(_, LightSrcID(entity))| {
-                !self.light_sources.iter().any(|(id, _)| entity == *id)
-            })
+            .filter(|&(_, entity)| !self.light_sources.iter().any(|(id, _)| entity == *id))
             .collect::<Vec<_>>();
 
         for (pos, entity) in new_lights {

@@ -1,4 +1,4 @@
-use crate::ecs::component::{Orientation, Position, Scale, Texture};
+use crate::ecs::component::*;
 use crate::glm;
 use crate::rendering::shader::ShaderProgram;
 use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, ORIGIN, Z_AXIS};
@@ -288,8 +288,22 @@ impl ShadowMap {
 
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_S,
+                gl::CLAMP_TO_BORDER as GLint,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_T,
+                gl::CLAMP_TO_BORDER as GLint,
+            );
+            let border_color = Color32::WHITE;
+            gl::TexParameterfv(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_BORDER_COLOR,
+                border_color.to_vec4().as_ptr(),
+            );
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, dbo);
             gl::FramebufferTexture2D(

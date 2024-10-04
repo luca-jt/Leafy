@@ -31,6 +31,10 @@ float shadow_calc(vec4 fpl) {
     }
     shadow /= float(pow(filter_size, 2));
 
+    if (proj_coords.z > 1.0) {
+        shadow = 0.0;
+    }
+
     return shadow;
 }
 
