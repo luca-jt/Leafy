@@ -284,6 +284,8 @@ impl ECS {
         if self.has_component::<T>(entity) {
             return;
         }
+        let mut new_entity_type = self.get_entity_type(entity);
+        new_entity_type.add_component::<T>();
         let record = self.entity_index.get(&entity).unwrap();
         let old_archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
         let old_arch_id = old_archetype.id;
@@ -298,12 +300,9 @@ impl ECS {
         // remove the old archetype if there are no more components in it
         if old_archetype.components.values().nth(0).unwrap().is_empty() {
             self.archetypes.remove(&record.archetype_id);
+        } else {
+            self.shift_rows(old_arch_id, record.row);
         }
-
-        self.shift_rows(old_arch_id, record.row);
-
-        let mut new_entity_type = self.get_entity_type(entity);
-        new_entity_type.add_component::<T>();
 
         // Find or create the new archetype
         let new_archetype_id = self.get_arch_id(&new_entity_type);
@@ -347,6 +346,8 @@ impl ECS {
         if !self.has_component::<T>(entity) {
             return None;
         }
+        let mut new_entity_type = self.get_entity_type(entity);
+        new_entity_type.rm_component::<T>();
         let record = self.entity_index.get(&entity).unwrap();
         let old_archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
         let old_arch_id = old_archetype.id;
@@ -361,19 +362,25 @@ impl ECS {
         // remove the old archetype if there are no more components in it
         if old_archetype.components.values().nth(0).unwrap().is_empty() {
             self.archetypes.remove(&record.archetype_id);
+        } else {
+            self.shift_rows(old_arch_id, record.row);
         }
 
         // Remove the specific component
         let index_to_remove = old_components
             .iter()
             .position(|c| (**c).type_id() == TypeId::of::<T>())?;
-        let component = old_components.remove(index_to_remove);
-
-        self.shift_rows(old_arch_id, record.row);
+        let component = old_components
+            .remove(index_to_remove)
+            .downcast::<T>()
+            .ok()
+            .map(|b| *b);
+        if old_components.is_empty() {
+            self.entity_index.remove(&entity).unwrap();
+            return component;
+        }
 
         // Find or create the new archetype
-        let mut new_entity_type = self.get_entity_type(entity);
-        new_entity_type.rm_component::<T>();
         let new_archetype_id = self.get_arch_id(&new_entity_type);
 
         let new_archetype = self.archetypes.get_mut(&new_archetype_id).unwrap();
@@ -393,7 +400,7 @@ impl ECS {
         record.archetype_id = new_archetype_id;
         record.row = new_row;
 
-        component.downcast::<T>().ok().map(|b| *b)
+        component
     }
 
     /// gets the archetype id of an entity type and creates a new archetype if necessary

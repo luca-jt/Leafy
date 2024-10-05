@@ -1,9 +1,9 @@
 use super::data::{calc_model_matrix, Camera, ShadowMap};
 use super::shader::ShaderProgram;
 use crate::ecs::component::{Color32, Orientation, Position, Scale};
-use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
+use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
 use gl::types::*;
 use std::ptr;
 
@@ -22,6 +22,7 @@ pub(crate) struct InstanceRenderer {
     pub(crate) color: Color32,
     pub(crate) tex_id: GLuint,
     max_num_instances: usize,
+    shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT],
 }
 
 impl InstanceRenderer {
@@ -182,6 +183,11 @@ impl InstanceRenderer {
 
             gl::BindVertexArray(0);
         }
+        // SHADOW SAMPLERS
+        let mut shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT] = [0; MAX_LIGHT_SRC_COUNT];
+        for (i, sampler) in shadow_samplers.iter_mut().enumerate() {
+            *sampler = i as GLint + 1;
+        }
 
         Self {
             vao,
@@ -197,6 +203,7 @@ impl InstanceRenderer {
             color: Color32::WHITE,
             tex_id: white_texture,
             max_num_instances,
+            shadow_samplers,
         }
     }
 
@@ -268,7 +275,7 @@ impl InstanceRenderer {
     pub(crate) fn draw_all(
         &mut self,
         camera: &impl Camera,
-        light_sources: &Vec<(EntityID, ShadowMap)>,
+        shadow_maps: &Vec<&ShadowMap>,
         program: &ShaderProgram,
     ) {
         unsafe {
@@ -276,7 +283,9 @@ impl InstanceRenderer {
             gl::UseProgram(program.id);
             // bind texture
             gl::BindTextureUnit(0, self.tex_id);
-            shadow_map.bind_reading(1);
+            for (i, shadow_map) in shadow_maps.iter().enumerate() {
+                shadow_map.bind_reading(i as GLuint + 1);
+            }
             // bind uniforms
             gl::UniformMatrix4fv(
                 program.get_unif("projection"),
@@ -285,15 +294,13 @@ impl InstanceRenderer {
                 &camera.projection()[0],
             );
             gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view()[0]);
-            gl::UniformMatrix4fv(
-                program.get_unif("light_matrix"),
-                1,
-                gl::FALSE,
-                &shadow_map.light_matrix[0],
+            gl::Uniform1i(program.get_unif("num_lights"), shadow_maps.len() as GLsizei);
+            gl::Uniform1iv(
+                program.get_unif("shadow_sampler"),
+                MAX_LIGHT_SRC_COUNT as GLsizei,
+                &self.shadow_samplers[0],
             );
-            gl::Uniform3fv(program.get_unif("light_pos"), 1, &shadow_map.light_src[0]);
             gl::Uniform1i(program.get_unif("tex_sampler"), 0);
-            gl::Uniform1i(program.get_unif("shadow_map"), 1);
             gl::Uniform4fv(program.get_unif("color"), 1, &self.color.to_vec4()[0]);
 
             // draw the instanced triangles corresponding to the index buffer

@@ -3,7 +3,7 @@ use crate::ecs::component::*;
 use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
 use crate::rendering::batch_renderer::BatchRenderer;
-use crate::rendering::data::{OrthoCamera, PerspectiveCamera, ShadowMap, TextureMap};
+use crate::rendering::data::*;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::ShaderCatalog;
@@ -13,6 +13,7 @@ use crate::systems::event_system::events::CamPositionChange;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
 use crate::{glm, include_filter};
+use gl::types::*;
 use RendererType::*;
 
 /// responsible for the automated rendering of all entities
@@ -26,6 +27,7 @@ pub struct RenderingSystem {
     cam_position_link: Option<EntityID>,
     clear_color: Color32,
     render_distance: Option<f32>,
+    shadow_resolution: ShadowResolution,
     current_cam_pos: glm::Vec3,
 }
 
@@ -38,19 +40,19 @@ impl RenderingSystem {
             gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::SCISSOR_TEST);
         }
-        let start_cam_pos = glm::Vec3::new(0.0, 1.0, -2.0);
 
         Self {
             light_sources: Vec::new(),
             renderers: Vec::new(),
-            perspective_camera: PerspectiveCamera::new(start_cam_pos, ORIGIN),
+            perspective_camera: PerspectiveCamera::new(-Z_AXIS, ORIGIN),
             ortho_camera: OrthoCamera::from_size(1.0),
             shader_catalog: ShaderCatalog::new(),
             used_renderer_indeces: Vec::new(),
             cam_position_link: None,
             clear_color: Color32::WHITE,
             render_distance: None,
-            current_cam_pos: start_cam_pos,
+            shadow_resolution: ShadowResolution::Normal,
+            current_cam_pos: -Z_AXIS,
         }
     }
 
@@ -63,6 +65,10 @@ impl RenderingSystem {
         // remove deleted shadow maps
         self.light_sources
             .retain(|src| lights.iter().any(|(_, id)| *id == src.0));
+        // update positions of existing ones
+        self.light_sources.iter_mut().for_each(|(entity, map)| {
+            map.update_light_pos(lights.iter().find(|(_, id)| id == entity).unwrap().0.data())
+        });
         // add new light sources
         let new_lights = lights
             .into_iter()
@@ -71,10 +77,15 @@ impl RenderingSystem {
 
         for (pos, entity) in new_lights {
             if self.light_sources.len() == MAX_LIGHT_SRC_COUNT {
-                panic!("no more light source slots available (max is 10)");
+                panic!(
+                    "no more light source slots available (max is {})",
+                    MAX_LIGHT_SRC_COUNT
+                );
             }
-            self.light_sources
-                .push((entity, ShadowMap::new(2048, 2048, *pos.data())));
+            self.light_sources.push((
+                entity,
+                ShadowMap::new(self.shadow_resolution.map_res(), *pos.data()),
+            ));
         }
     }
 
@@ -154,19 +165,34 @@ impl RenderingSystem {
 
     /// render all the geometry data stored in the renderers
     fn render_geometry(&mut self) {
+        let light_data = self
+            .light_sources
+            .iter()
+            .map(|(_, map)| LightData {
+                light_src: map.light_src,
+                light_matrix: map.light_matrix,
+            })
+            .collect::<Vec<_>>();
+        self.shader_catalog.light_buffer.upload_data(light_data);
+        let shadow_maps = self
+            .light_sources
+            .iter()
+            .map(|(_, map)| map)
+            .collect::<Vec<_>>();
+
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
                 Batch(_, renderer) => {
                     renderer.flush(
                         &self.perspective_camera,
-                        &self.light_sources,
+                        &shadow_maps,
                         self.shader_catalog.batch_basic(),
                     );
                 }
                 Instance(_, _, renderer) => {
                     renderer.draw_all(
                         &self.perspective_camera,
-                        &self.light_sources,
+                        &shadow_maps,
                         self.shader_catalog.instance_basic(),
                     );
                 }
@@ -314,6 +340,14 @@ impl RenderingSystem {
     pub fn set_render_distance(&mut self, distance: Option<f32>) {
         self.render_distance = distance;
     }
+
+    /// changes the shadow map resolution
+    pub fn set_shadow_resolution(&mut self, resolution: ShadowResolution) {
+        self.shadow_resolution = resolution;
+        self.light_sources.iter_mut().for_each(|(_, map)| {
+            *map = ShadowMap::new(self.shadow_resolution.map_res(), map.light_src)
+        });
+    }
 }
 
 impl EventObserver<CamPositionChange> for RenderingSystem {
@@ -341,6 +375,24 @@ struct RenderData<'a> {
     orient: &'a Orientation,
     mesh: &'a Mesh,
     tex_map: &'a TextureMap,
+}
+
+/// all possible settings for shadow map resolution
+pub enum ShadowResolution {
+    High,
+    Normal,
+    Low,
+}
+
+impl ShadowResolution {
+    /// yields the actual corresponding map resolution to the setting
+    fn map_res(&self) -> (GLsizei, GLsizei) {
+        match self {
+            ShadowResolution::High => (4096, 4096),
+            ShadowResolution::Normal => (2048, 2048),
+            ShadowResolution::Low => (1024, 1024),
+        }
+    }
 }
 
 /// clears the opengl viewport

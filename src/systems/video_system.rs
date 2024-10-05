@@ -4,7 +4,8 @@ use crate::systems::event_system::EventObserver;
 use gl::types::GLsizei;
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{
-    ContextApi, ContextAttributesBuilder, NotCurrentContext, PossiblyCurrentContext, Version,
+    ContextApi, ContextAttributesBuilder, GlProfile, NotCurrentContext, PossiblyCurrentContext,
+    Version,
 };
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
@@ -84,7 +85,10 @@ impl VideoSystem {
 
         let gl_display = gl_config.display();
 
-        let context_attributes = ContextAttributesBuilder::new().build(raw_window_handle);
+        let context_attributes = ContextAttributesBuilder::new()
+            .with_profile(GlProfile::Core)
+            .with_context_api(ContextApi::OpenGl(None))
+            .build(raw_window_handle);
 
         let fallback_context_attributes = ContextAttributesBuilder::new()
             .with_context_api(ContextApi::Gles(None))

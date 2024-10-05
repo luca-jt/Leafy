@@ -1,10 +1,9 @@
 use super::data::{calc_model_matrix, Camera, ShadowMap, Vertex};
 use super::shader::ShaderProgram;
 use crate::ecs::component::{Color32, Orientation, Position, Scale};
-use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
-use crate::utils::constants::MAX_TEXTURE_COUNT;
+use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, MAX_TEXTURE_COUNT};
 use gl::types::*;
 use std::ops::Range;
 use std::{mem, ptr};
@@ -15,14 +14,15 @@ pub(crate) struct BatchRenderer {
     current_batch_index: usize,
     tex_slots: Vec<GLuint>,
     white_texture: GLuint,
-    samplers: [i32; MAX_TEXTURE_COUNT - 1],
+    samplers: [GLint; MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT],
+    shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT],
 }
 
 impl BatchRenderer {
     /// creates a new batch renderer
     pub(crate) fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
         let mut white_texture = 0;
-        let tex_slots: Vec<GLuint> = vec![0; MAX_TEXTURE_COUNT - 2];
+        let tex_slots: Vec<GLuint> = vec![0; MAX_TEXTURE_COUNT - 1 - MAX_LIGHT_SRC_COUNT];
 
         unsafe {
             // 1x1 WHITE TEXTURE
@@ -42,9 +42,15 @@ impl BatchRenderer {
             );
         }
         // TEXTURE SAMPLERS
-        let mut samplers: [GLint; MAX_TEXTURE_COUNT - 1] = [0; MAX_TEXTURE_COUNT - 1];
+        let mut samplers: [GLint; MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT] =
+            [0; MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT];
         for (i, sampler) in samplers.iter_mut().enumerate() {
-            *sampler = i as GLint + 1;
+            *sampler = (i + MAX_LIGHT_SRC_COUNT) as GLint;
+        }
+        // SHADOW SAMPLERS
+        let mut shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT] = [0; MAX_LIGHT_SRC_COUNT];
+        for (i, sampler) in shadow_samplers.iter_mut().enumerate() {
+            *sampler = i as GLint;
         }
 
         Self {
@@ -53,6 +59,7 @@ impl BatchRenderer {
             tex_slots,
             white_texture,
             samplers,
+            shadow_samplers,
         }
     }
 
@@ -84,7 +91,7 @@ impl BatchRenderer {
     pub(crate) fn flush(
         &mut self,
         camera: &impl Camera,
-        light_sources: &Vec<(EntityID, ShadowMap)>,
+        shadow_maps: &Vec<&ShadowMap>,
         program: &ShaderProgram,
     ) {
         unsafe {
@@ -98,22 +105,20 @@ impl BatchRenderer {
                 &camera.projection()[0],
             );
             gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view()[0]);
-            gl::UniformMatrix4fv(
-                program.get_unif("light_matrix"),
-                1,
-                gl::FALSE,
-                &shadow_map.light_matrix[0],
-            );
-            gl::Uniform3fv(program.get_unif("light_pos"), 1, &shadow_map.light_src[0]);
-            gl::Uniform1i(program.get_unif("shadow_map"), 0);
+            gl::Uniform1i(program.get_unif("num_lights"), shadow_maps.len() as GLsizei);
             gl::Uniform1iv(
                 program.get_unif("tex_sampler"),
-                MAX_TEXTURE_COUNT as GLsizei - 1,
+                (MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT) as GLsizei,
                 &self.samplers[0],
+            );
+            gl::Uniform1iv(
+                program.get_unif("shadow_sampler"),
+                MAX_LIGHT_SRC_COUNT as GLsizei,
+                &self.shadow_samplers[0],
             );
         }
         for batch in self.batches.iter_mut() {
-            batch.flush(light_sources, &self.tex_slots, self.white_texture);
+            batch.flush(&shadow_maps, &self.tex_slots, self.white_texture);
         }
         self.current_batch_index = 0;
     }
@@ -141,8 +146,9 @@ impl BatchRenderer {
             }
         }
         // add new batch
-        let last_tex_idx = self.batches.last().unwrap().tex_slot_range.end;
-        let mut new_batch = Batch::new(mesh, program, last_tex_idx);
+        let last_batch = self.batches.last().unwrap();
+        last_batch.end();
+        let mut new_batch = Batch::new(mesh, program, last_batch.tex_slot_range.end);
         let res = new_batch.try_add_tex_mesh(
             position,
             scale,
@@ -357,16 +363,21 @@ impl Batch {
 
     fn flush(
         &mut self,
-        light_sources: &Vec<(EntityID, ShadowMap)>,
+        shadow_maps: &Vec<&ShadowMap>,
         tex_slots: &Vec<GLuint>,
         white_texture: GLuint,
     ) {
         unsafe {
             // bind textures
-            shadow_map.bind_reading(0);
-            gl::BindTextureUnit(1, white_texture);
+            for (i, shadow_map) in shadow_maps.iter().enumerate() {
+                shadow_map.bind_reading(i as GLuint);
+            }
+            gl::BindTextureUnit(MAX_LIGHT_SRC_COUNT as GLuint, white_texture);
             for (unit, tex_slot) in self.tex_slot_range.clone().enumerate() {
-                gl::BindTextureUnit((unit + 2) as GLuint, *tex_slots.get(tex_slot).unwrap());
+                gl::BindTextureUnit(
+                    (unit + 1 + MAX_LIGHT_SRC_COUNT) as GLuint,
+                    *tex_slots.get(tex_slot).unwrap(),
+                );
             }
             // draw the triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
@@ -400,12 +411,13 @@ impl Batch {
             }
         }
         if tex_index == -1.0 {
-            if self.tex_slot_range.len() >= MAX_TEXTURE_COUNT - 2 {
+            if self.tex_slot_range.len() >= MAX_TEXTURE_COUNT - 1 - MAX_LIGHT_SRC_COUNT {
                 // start a new batch if out of texture slots
-                tex_slots.reserve(MAX_TEXTURE_COUNT - 2);
+                tex_slots.reserve(MAX_TEXTURE_COUNT - 1 - MAX_LIGHT_SRC_COUNT);
                 return false;
             }
-            tex_index = (self.tex_slot_range.end % (MAX_TEXTURE_COUNT - 2)) as GLfloat;
+            tex_index = (self.tex_slot_range.end % (MAX_TEXTURE_COUNT - 1 - MAX_LIGHT_SRC_COUNT))
+                as GLfloat;
             *tex_slots.get_mut(self.tex_slot_range.end).unwrap() = tex_id;
             self.tex_slot_range.end += 1;
         }

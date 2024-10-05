@@ -11,11 +11,20 @@ out vec2 v_uv;
 out vec3 v_normal;
 out float v_tex_idx;
 out vec3 frag_pos;
-out vec4 frag_pos_light;
+out vec4 frag_pos_light[5];
+
+struct LightData {
+    vec3 light_pos;
+    mat4 light_matrix;
+};
+
+layout (std140) uniform light_data {
+    LightData lights[5];
+};
 
 uniform mat4 projection;
 uniform mat4 view;
-uniform mat4 light_matrix;
+uniform int num_lights;
 
 void main() {
     gl_Position = projection * view * vec4(position, 1.0); // model matrix is already calculated in
@@ -24,5 +33,8 @@ void main() {
     v_normal = normal;
     v_tex_idx = tex_idx;
     frag_pos = position;
-    frag_pos_light = light_matrix * vec4(frag_pos, 1.0);
+    frag_pos_light = vec4[5](vec4(0), vec4(0), vec4(0), vec4(0), vec4(0));
+    for (int i = 0; i < num_lights; i++) {
+        frag_pos_light[i] = lights[i].light_matrix * vec4(frag_pos, 1.0);
+    }
 }

@@ -1,11 +1,12 @@
 use crate::ecs::component::*;
 use crate::glm;
 use crate::rendering::shader::ShaderProgram;
-use crate::utils::constants::{MIN_WIN_HEIGHT, MIN_WIN_WIDTH, ORIGIN, Z_AXIS};
+use crate::utils::constants::*;
 use crate::utils::file::get_texture_path;
 use gl::types::*;
 use stb_image::image::{Image, LoadResult};
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::ptr;
 
@@ -247,8 +248,7 @@ impl Camera for OrthoCamera {
 pub(crate) struct ShadowMap {
     dbo: GLuint,
     shadow_map: GLuint,
-    width: GLsizei,
-    height: GLsizei,
+    size: (GLsizei, GLsizei),
     pub(crate) light_matrix: glm::Mat4,
     pub(crate) light_src: glm::Vec3,
     pub(crate) program: ShaderProgram,
@@ -257,8 +257,8 @@ pub(crate) struct ShadowMap {
 }
 
 impl ShadowMap {
-    /// creates a new shadow map with given size
-    pub(crate) fn new(width: GLsizei, height: GLsizei, light_src: glm::Vec3) -> Self {
+    /// creates a new shadow map with given size (width, height)
+    pub(crate) fn new(size: (GLsizei, GLsizei), light_src: glm::Vec3) -> Self {
         let mut dbo = 0;
         let mut shadow_map = 0;
         let mut program = ShaderProgram::new("shadow_vs.glsl", "shadow_fs.glsl");
@@ -278,8 +278,8 @@ impl ShadowMap {
                 gl::TEXTURE_2D,
                 0,
                 gl::DEPTH_COMPONENT as GLint,
-                width,
-                height,
+                size.0,
+                size.1,
                 0,
                 gl::DEPTH_COMPONENT,
                 gl::FLOAT,
@@ -322,10 +322,9 @@ impl ShadowMap {
         Self {
             dbo,
             shadow_map,
-            width,
-            height,
+            size,
             light_matrix: glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
-                * glm::look_at(&light_src, &glm::Vec3::zeros(), &glm::Vec3::y_axis()),
+                * glm::look_at(&light_src, &glm::Vec3::zeros(), &Y_AXIS),
             light_src,
             program,
             tmp_viewport: [0; 4],
@@ -337,8 +336,8 @@ impl ShadowMap {
     pub(crate) fn bind_writing(&mut self) {
         unsafe {
             gl::GetIntegerv(gl::VIEWPORT, &mut self.tmp_viewport[0]);
-            gl::Viewport(0, 0, self.width, self.height);
-            gl::Scissor(0, 0, self.width, self.height);
+            gl::Viewport(0, 0, self.size.0, self.size.1);
+            gl::Scissor(0, 0, self.size.0, self.size.1);
             gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.dbo);
             gl::UseProgram(self.program.id);
             gl::UniformMatrix4fv(
@@ -381,6 +380,13 @@ impl ShadowMap {
     pub(crate) unsafe fn bind_reading(&self, texture_unit: GLuint) {
         gl::BindTextureUnit(texture_unit, self.shadow_map);
     }
+
+    /// updates the shadow map according to a new light position
+    pub(crate) fn update_light_pos(&mut self, pos: &glm::Vec3) {
+        self.light_src = *pos;
+        self.light_matrix = glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
+            * glm::look_at(pos, &glm::Vec3::zeros(), &Y_AXIS);
+    }
 }
 
 impl Drop for ShadowMap {
@@ -388,6 +394,65 @@ impl Drop for ShadowMap {
         unsafe {
             gl::DeleteTextures(1, &self.shadow_map);
             gl::DeleteFramebuffers(1, &self.dbo);
+        }
+    }
+}
+
+/// one light data block for uniform buffer use
+#[repr(C)]
+pub(crate) struct LightData {
+    pub(crate) light_src: glm::Vec3,
+    pub(crate) light_matrix: glm::Mat4,
+}
+
+/// uniform buffer wrapper
+pub(crate) struct UniformBuffer<T> {
+    pub(crate) ubo: GLuint,
+    size: usize,
+    phantom: PhantomData<T>,
+}
+
+impl<T> UniformBuffer<T> {
+    /// creates a new uniform buffer
+    pub(crate) fn new(size: usize) -> Self {
+        let mut ubo = 0;
+        unsafe {
+            gl::GenBuffers(1, &mut ubo);
+            gl::BindBuffer(gl::UNIFORM_BUFFER, ubo);
+            gl::BufferData(
+                gl::UNIFORM_BUFFER,
+                (size * size_of::<T>()) as GLsizeiptr,
+                ptr::null(),
+                gl::STATIC_DRAW,
+            );
+            gl::BindBuffer(gl::UNIFORM_BUFFER, 0);
+        }
+        Self {
+            ubo,
+            size,
+            phantom: PhantomData,
+        }
+    }
+
+    /// uploads data to the buffer
+    pub(crate) fn upload_data(&self, data: Vec<T>) {
+        unsafe {
+            gl::BindBuffer(gl::UNIFORM_BUFFER, self.ubo);
+            gl::BufferSubData(
+                gl::UNIFORM_BUFFER,
+                0,
+                (self.size * size_of::<T>()) as GLsizeiptr,
+                data.as_ptr() as *const GLvoid,
+            );
+            gl::BindBuffer(gl::UNIFORM_BUFFER, 0);
+        }
+    }
+}
+
+impl<T> Drop for UniformBuffer<T> {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, &self.ubo);
         }
     }
 }

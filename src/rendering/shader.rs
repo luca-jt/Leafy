@@ -1,3 +1,5 @@
+use crate::rendering::data::{LightData, UniformBuffer};
+use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
 use crate::utils::file::get_shader_path;
 use gl::types::*;
 use std::collections::HashMap;
@@ -54,6 +56,16 @@ impl ShaderProgram {
         unsafe {
             let attr = gl::GetAttribLocation(self.id, c_name.as_ptr());
             self.attrib_locations.insert(name.to_string(), attr);
+        }
+    }
+
+    /// binds a new uniform buffer
+    pub(crate) fn add_unif_buffer<T>(&self, name: &str, buffer: &UniformBuffer<T>, index: GLuint) {
+        let c_name = CString::new(name).unwrap();
+        unsafe {
+            let block_index = gl::GetUniformBlockIndex(self.id, c_name.as_ptr());
+            gl::UniformBlockBinding(self.id, block_index, index);
+            gl::BindBufferBase(gl::UNIFORM_BUFFER, index, buffer.ubo);
         }
     }
 
@@ -158,6 +170,7 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 
 /// holds all the shader data and loads them if needed
 pub struct ShaderCatalog {
+    pub(crate) light_buffer: UniformBuffer<LightData>,
     batch_basic: Option<ShaderProgram>,
     instance_basic: Option<ShaderProgram>,
 }
@@ -166,6 +179,7 @@ impl ShaderCatalog {
     /// creates a new shader catalog
     pub fn new() -> Self {
         Self {
+            light_buffer: UniformBuffer::new(MAX_LIGHT_SRC_COUNT),
             batch_basic: None,
             instance_basic: None,
         }
@@ -194,9 +208,10 @@ impl ShaderCatalog {
         program.add_unif_location("projection");
         program.add_unif_location("view");
         program.add_unif_location("tex_sampler");
-        program.add_unif_location("shadow_map");
-        program.add_unif_location("light_pos");
-        program.add_unif_location("light_matrix");
+        program.add_unif_location("num_lights");
+        program.add_unif_location("shadow_sampler");
+
+        program.add_unif_buffer("light_data", &self.light_buffer, 0);
 
         program.add_attr_location("position");
         program.add_attr_location("color");
@@ -214,10 +229,11 @@ impl ShaderCatalog {
         program.add_unif_location("projection");
         program.add_unif_location("view");
         program.add_unif_location("tex_sampler");
-        program.add_unif_location("shadow_map");
-        program.add_unif_location("light_pos");
         program.add_unif_location("color");
-        program.add_unif_location("light_matrix");
+        program.add_unif_location("num_lights");
+        program.add_unif_location("shadow_sampler");
+
+        program.add_unif_buffer("light_data", &self.light_buffer, 0);
 
         program.add_attr_location("position");
         program.add_attr_location("uv");
