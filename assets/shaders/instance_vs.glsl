@@ -16,7 +16,7 @@ struct LightData {
     mat4 light_matrix;
 };
 
-layout (std140) uniform light_data {
+layout (std140, binding = 0) uniform light_data {
     LightData lights[5];
 };
 

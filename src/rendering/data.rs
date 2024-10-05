@@ -253,7 +253,6 @@ pub(crate) struct ShadowMap {
     pub(crate) light_src: glm::Vec3,
     pub(crate) program: ShaderProgram,
     tmp_viewport: [GLint; 4],
-    pub(crate) depth_buffer_cleared: bool,
 }
 
 impl ShadowMap {
@@ -324,11 +323,10 @@ impl ShadowMap {
             shadow_map,
             size,
             light_matrix: glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
-                * glm::look_at(&light_src, &glm::Vec3::zeros(), &Y_AXIS),
+                * glm::look_at(&light_src, &ORIGIN, &Y_AXIS),
             light_src,
             program,
             tmp_viewport: [0; 4],
-            depth_buffer_cleared: false,
         }
     }
 
@@ -346,13 +344,8 @@ impl ShadowMap {
                 gl::FALSE,
                 &self.light_matrix[0],
             );
-        }
-        // clear the depth buffer bit of the shadow map if not already done
-        if !self.depth_buffer_cleared {
-            unsafe {
-                gl::Clear(gl::DEPTH_BUFFER_BIT);
-            }
-            self.depth_buffer_cleared = true;
+            // clear the depth buffer bit
+            gl::Clear(gl::DEPTH_BUFFER_BIT);
         }
     }
 
@@ -384,8 +377,8 @@ impl ShadowMap {
     /// updates the shadow map according to a new light position
     pub(crate) fn update_light_pos(&mut self, pos: &glm::Vec3) {
         self.light_src = *pos;
-        self.light_matrix = glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
-            * glm::look_at(pos, &glm::Vec3::zeros(), &Y_AXIS);
+        self.light_matrix =
+            glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0) * glm::look_at(pos, &ORIGIN, &Y_AXIS);
     }
 }
 
@@ -405,14 +398,14 @@ pub(crate) struct LightData {
     pub(crate) light_matrix: glm::Mat4,
 }
 
-/// uniform buffer wrapper
-pub(crate) struct UniformBuffer<T> {
+/// uniform buffer wrapper for one array of uniforms
+pub(crate) struct UnifBufArray<T> {
     pub(crate) ubo: GLuint,
     size: usize,
     phantom: PhantomData<T>,
 }
 
-impl<T> UniformBuffer<T> {
+impl<T> UnifBufArray<T> {
     /// creates a new uniform buffer
     pub(crate) fn new(size: usize) -> Self {
         let mut ubo = 0;
@@ -449,7 +442,7 @@ impl<T> UniformBuffer<T> {
     }
 }
 
-impl<T> Drop for UniformBuffer<T> {
+impl<T> Drop for UnifBufArray<T> {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteBuffers(1, &self.ubo);

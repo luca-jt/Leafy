@@ -1,4 +1,4 @@
-use crate::rendering::data::{LightData, UniformBuffer};
+use crate::rendering::data::{LightData, UnifBufArray};
 use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
 use crate::utils::file::get_shader_path;
 use gl::types::*;
@@ -60,7 +60,7 @@ impl ShaderProgram {
     }
 
     /// binds a new uniform buffer
-    pub(crate) fn add_unif_buffer<T>(&self, name: &str, buffer: &UniformBuffer<T>, index: GLuint) {
+    pub(crate) fn add_unif_buffer<T>(&self, name: &str, buffer: &UnifBufArray<T>, index: GLuint) {
         let c_name = CString::new(name).unwrap();
         unsafe {
             let block_index = gl::GetUniformBlockIndex(self.id, c_name.as_ptr());
@@ -170,7 +170,7 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 
 /// holds all the shader data and loads them if needed
 pub struct ShaderCatalog {
-    pub(crate) light_buffer: UniformBuffer<LightData>,
+    pub(crate) light_buffer: UnifBufArray<LightData>,
     batch_basic: Option<ShaderProgram>,
     instance_basic: Option<ShaderProgram>,
 }
@@ -179,7 +179,7 @@ impl ShaderCatalog {
     /// creates a new shader catalog
     pub fn new() -> Self {
         Self {
-            light_buffer: UniformBuffer::new(MAX_LIGHT_SRC_COUNT),
+            light_buffer: UnifBufArray::new(MAX_LIGHT_SRC_COUNT),
             batch_basic: None,
             instance_basic: None,
         }

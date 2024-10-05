@@ -8,7 +8,6 @@ use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::ShaderCatalog;
 use crate::rendering::sprite_renderer::SpriteRenderer;
-use crate::rendering::voxel_renderer::VoxelRenderer;
 use crate::systems::event_system::events::CamPositionChange;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
@@ -142,7 +141,6 @@ impl RenderingSystem {
             match renderer_type {
                 Batch(_, renderer) => renderer.begin_first_batch(),
                 Instance(..) => {}
-                Voxel(renderer) => renderer.init(),
                 _ => {}
             }
         }
@@ -197,7 +195,6 @@ impl RenderingSystem {
                     );
                 }
                 Sprite(renderer) => renderer.end(),
-                Voxel(renderer) => renderer.end(),
             }
         }
     }
@@ -218,7 +215,6 @@ impl RenderingSystem {
                 }
             }
             shadow_map.unbind_writing();
-            shadow_map.depth_buffer_cleared = false;
         }
     }
 
@@ -363,7 +359,6 @@ enum RendererType {
     Batch(MeshType, BatchRenderer),
     Instance(MeshType, MeshAttribute, InstanceRenderer),
     Sprite(SpriteRenderer),
-    Voxel(VoxelRenderer),
 }
 
 /// data bundle for rendering

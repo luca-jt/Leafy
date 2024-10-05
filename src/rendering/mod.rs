@@ -4,4 +4,3 @@ pub mod instance_renderer;
 pub mod mesh;
 pub mod shader;
 pub mod sprite_renderer;
-pub mod voxel_renderer;
