@@ -1,6 +1,6 @@
-use super::data::{calc_model_matrix, Camera, ShadowMap};
+use super::data::{Camera, ShadowMap};
 use super::shader::ShaderProgram;
-use crate::ecs::component::{Color32, Orientation, Position, Scale};
+use crate::ecs::component::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
@@ -224,17 +224,11 @@ impl InstanceRenderer {
     }
 
     /// adds a position where the mesh shall be rendered
-    pub(crate) fn add_position(
-        &mut self,
-        position: &Position,
-        scale: &Scale,
-        orientation: &Orientation,
-        mesh: &Mesh,
-    ) {
+    pub(crate) fn add_position(&mut self, trafo: &glm::Mat4, mesh: &Mesh) {
         if self.pos_idx == self.max_num_instances {
             self.resize_buffer();
         }
-        self.models[self.pos_idx] = calc_model_matrix(position, scale, orientation);
+        self.models[self.pos_idx] = *trafo;
         self.index_count += mesh.num_indeces() as GLsizei;
         self.pos_idx += 1;
     }

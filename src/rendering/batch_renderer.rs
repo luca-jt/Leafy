@@ -1,6 +1,6 @@
-use super::data::{calc_model_matrix, Camera, ShadowMap, Vertex};
+use super::data::{Camera, ShadowMap, Vertex};
 use super::shader::ShaderProgram;
-use crate::ecs::component::{Color32, Orientation, Position, Scale};
+use crate::ecs::component::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, MAX_TEXTURE_COUNT};
@@ -116,9 +116,14 @@ impl BatchRenderer {
                 MAX_LIGHT_SRC_COUNT as GLsizei,
                 &self.shadow_samplers[0],
             );
+            // bind textures
+            for (i, shadow_map) in shadow_maps.iter().enumerate() {
+                shadow_map.bind_reading(i as GLuint);
+            }
+            gl::BindTextureUnit(MAX_LIGHT_SRC_COUNT as GLuint, self.white_texture);
         }
         for batch in self.batches.iter_mut() {
-            batch.flush(&shadow_maps, &self.tex_slots, self.white_texture);
+            batch.flush(&self.tex_slots);
         }
         self.current_batch_index = 0;
     }
@@ -126,22 +131,13 @@ impl BatchRenderer {
     /// draws a mesh with a texture
     pub(crate) fn draw_tex_mesh(
         &mut self,
-        position: &Position,
-        scale: &Scale,
-        orientation: &Orientation,
+        trafo: &glm::Mat4,
         tex_id: GLuint,
         mesh: &Mesh,
         program: &ShaderProgram,
     ) {
         for batch in self.batches.iter_mut() {
-            if batch.try_add_tex_mesh(
-                position,
-                scale,
-                orientation,
-                tex_id,
-                mesh,
-                &mut self.tex_slots,
-            ) {
+            if batch.try_add_tex_mesh(trafo, tex_id, mesh, &mut self.tex_slots) {
                 return;
             }
         }
@@ -149,31 +145,17 @@ impl BatchRenderer {
         let last_batch = self.batches.last().unwrap();
         last_batch.end();
         let mut new_batch = Batch::new(mesh, program, last_batch.tex_slot_range.end);
-        let res = new_batch.try_add_tex_mesh(
-            position,
-            scale,
-            orientation,
-            tex_id,
-            mesh,
-            &mut self.tex_slots,
-        );
+        let res = new_batch.try_add_tex_mesh(trafo, tex_id, mesh, &mut self.tex_slots);
         debug_assert!(res);
         self.batches.push(new_batch);
     }
 
     /// draws a mesh with a color
-    pub(crate) fn draw_color_mesh(
-        &mut self,
-        position: &Position,
-        scale: &Scale,
-        orientation: &Orientation,
-        color: Color32,
-        mesh: &Mesh,
-    ) {
+    pub(crate) fn draw_color_mesh(&mut self, trafo: &glm::Mat4, color: Color32, mesh: &Mesh) {
         self.batches
             .first_mut()
             .unwrap()
-            .add_color_mesh(position, scale, orientation, color, mesh);
+            .add_color_mesh(trafo, color, mesh);
     }
 }
 
@@ -361,18 +343,10 @@ impl Batch {
         }
     }
 
-    fn flush(
-        &mut self,
-        shadow_maps: &Vec<&ShadowMap>,
-        tex_slots: &Vec<GLuint>,
-        white_texture: GLuint,
-    ) {
+    /// flushes this batch and renders the stored geometry
+    fn flush(&mut self, tex_slots: &Vec<GLuint>) {
         unsafe {
             // bind textures
-            for (i, shadow_map) in shadow_maps.iter().enumerate() {
-                shadow_map.bind_reading(i as GLuint);
-            }
-            gl::BindTextureUnit(MAX_LIGHT_SRC_COUNT as GLuint, white_texture);
             for (unit, tex_slot) in self.tex_slot_range.clone().enumerate() {
                 gl::BindTextureUnit(
                     (unit + 1 + MAX_LIGHT_SRC_COUNT) as GLuint,
@@ -395,9 +369,7 @@ impl Batch {
     /// adds a mesh with a texture to the batch
     fn try_add_tex_mesh(
         &mut self,
-        position: &Position,
-        scale: &Scale,
-        orientation: &Orientation,
+        trafo: &glm::Mat4,
         tex_id: GLuint,
         mesh: &Mesh,
         tex_slots: &mut Vec<GLuint>,
@@ -427,7 +399,6 @@ impl Batch {
         }
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_verteces() {
-            let trafo = calc_model_matrix(position, scale, orientation);
             let vertex_pos = mesh.positions[i];
             let new_pos = trafo * glm::Vec4::new(vertex_pos.x, vertex_pos.y, vertex_pos.z, 1.0);
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
@@ -444,14 +415,7 @@ impl Batch {
     }
 
     /// adds a mesh with a color to the batch
-    fn add_color_mesh(
-        &mut self,
-        position: &Position,
-        scale: &Scale,
-        orientation: &Orientation,
-        color: Color32,
-        mesh: &Mesh,
-    ) {
+    fn add_color_mesh(&mut self, trafo: &glm::Mat4, color: Color32, mesh: &Mesh) {
         if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes {
             // resize current batch if batch size exceeded
             self.resize_buffer(mesh);
@@ -461,7 +425,6 @@ impl Batch {
 
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_verteces() {
-            let trafo = calc_model_matrix(position, scale, orientation);
             let vertex_pos = mesh.positions[i];
             let new_pos = trafo * glm::Vec4::new(vertex_pos.x, vertex_pos.y, vertex_pos.z, 1.0);
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {

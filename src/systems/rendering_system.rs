@@ -90,13 +90,7 @@ impl RenderingSystem {
 
     /// start the 3D rendering for all renderers
     pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
-        if let Some(entity) = self.cam_position_link {
-            let pos = entity_manager
-                .get_component::<Position>(entity)
-                .expect("entity has no position");
-            self.perspective_camera
-                .update_cam(pos.data(), &(pos.data() + Z_AXIS));
-        }
+        self.update_entity_cam(entity_manager);
         self.used_renderer_indeces.clear();
         clear_gl_screen(self.clear_color);
         self.init_renderers();
@@ -110,15 +104,16 @@ impl RenderingSystem {
             })
         {
             let default_attr = Colored(Color32::WHITE);
-            let default_scale = Scale::default();
-            let default_orient = Orientation::default();
+            let trafo = calc_model_matrix(
+                position,
+                scale.unwrap_or(&Scale::default()),
+                orientation.unwrap_or(&Orientation::default()),
+            );
 
             let render_data = RenderData {
-                pos: position,
+                trafo: &trafo,
                 m_type: mesh_type,
                 m_attr: mesh_attr.unwrap_or(&default_attr),
-                scale: scale.unwrap_or(&default_scale),
-                orient: orientation.unwrap_or(&default_orient),
                 mesh: entity_manager.asset_from_type(mesh_type).unwrap(),
                 tex_map: &entity_manager.texture_map,
             };
@@ -227,9 +222,7 @@ impl RenderingSystem {
                     return match rd.m_attr {
                         Textured(path) => {
                             renderer.draw_tex_mesh(
-                                rd.pos,
-                                rd.scale,
-                                rd.orient,
+                                rd.trafo,
                                 rd.tex_map.get_tex_id(path).unwrap(),
                                 rd.mesh,
                                 self.shader_catalog.batch_basic(),
@@ -237,7 +230,7 @@ impl RenderingSystem {
                             true
                         }
                         Colored(color) => {
-                            renderer.draw_color_mesh(rd.pos, rd.scale, rd.orient, *color, rd.mesh);
+                            renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
                             true
                         }
                     };
@@ -247,14 +240,14 @@ impl RenderingSystem {
                     match rd.m_attr {
                         Textured(path) => {
                             if rd.tex_map.get_tex_id(path).unwrap() == renderer.tex_id {
-                                renderer.add_position(rd.pos, rd.scale, rd.orient, rd.mesh);
+                                renderer.add_position(rd.trafo, rd.mesh);
                                 self.used_renderer_indeces.push(i);
                                 return true;
                             }
                         }
                         Colored(color) => {
                             if *color == renderer.color {
-                                renderer.add_position(rd.pos, rd.scale, rd.orient, rd.mesh);
+                                renderer.add_position(rd.trafo, rd.mesh);
                                 self.used_renderer_indeces.push(i);
                                 return true;
                             }
@@ -273,13 +266,11 @@ impl RenderingSystem {
                 let mut renderer = BatchRenderer::new(rd.mesh, self.shader_catalog.batch_basic());
                 match rd.m_attr {
                     Colored(color) => {
-                        renderer.draw_color_mesh(rd.pos, rd.scale, rd.orient, *color, rd.mesh);
+                        renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
                     }
                     Textured(path) => {
                         renderer.draw_tex_mesh(
-                            rd.pos,
-                            rd.scale,
-                            rd.orient,
+                            rd.trafo,
                             rd.tex_map.get_tex_id(path).unwrap(),
                             rd.mesh,
                             self.shader_catalog.batch_basic(),
@@ -299,13 +290,24 @@ impl RenderingSystem {
                         renderer.color = *color;
                     }
                 }
-                renderer.add_position(rd.pos, rd.scale, rd.orient, rd.mesh);
+                renderer.add_position(rd.trafo, rd.mesh);
                 self.renderers
                     .push(Instance(rd.m_type.clone(), rd.m_attr.clone(), renderer));
             }
         }
         self.used_renderer_indeces
             .push(self.used_renderer_indeces.len());
+    }
+
+    /// updates the camera if it is attached to an entity
+    fn update_entity_cam(&mut self, entity_manager: &EntityManager) {
+        if let Some(entity) = self.cam_position_link {
+            let pos = entity_manager
+                .get_component::<Position>(entity)
+                .expect("entity has no position");
+            self.perspective_camera
+                .update_cam(pos.data(), &(pos.data() + Z_AXIS));
+        }
     }
 
     /// drop renderers that are not used anymore
@@ -363,11 +365,9 @@ enum RendererType {
 
 /// data bundle for rendering
 struct RenderData<'a> {
-    pos: &'a Position,
+    trafo: &'a glm::Mat4,
     m_type: &'a MeshType,
     m_attr: &'a MeshAttribute,
-    scale: &'a Scale,
-    orient: &'a Orientation,
     mesh: &'a Mesh,
     tex_map: &'a TextureMap,
 }
