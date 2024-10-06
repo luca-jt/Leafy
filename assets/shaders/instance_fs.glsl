@@ -9,11 +9,11 @@ in vec4 frag_pos_light[5];
 out vec4 out_color;
 
 struct LightData {
-    vec3 light_pos;
+    vec4 light_pos;
     mat4 light_matrix;
 };
 
-layout (std140, binding = 0) uniform light_data {
+layout (std140, binding = 0, column_major) uniform light_data {
     LightData lights[5];
 };
 
@@ -54,10 +54,11 @@ void main() {
 
     float light_strength = 0.0;
     for (int i = 0; i < num_lights; i++) {
-        vec3 light_dir = normalize(lights[i].light_pos - frag_pos);
+        vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
         float diff = max(dot(norm, light_dir), 0.0);
         light_strength += min(1.2, ambient_light + diff * (1.0 - shadow_calc(frag_pos_light[i]))) / float(num_lights);
     }
+    light_strength = light_strength > 0.0 ? light_strength : ambient_light;
 
     vec4 textured = texture(tex_sampler, v_uv).rgba * v_color;
     out_color = vec4(textured.rgb * light_strength, textured.a);

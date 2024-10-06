@@ -72,8 +72,8 @@ impl BatchRenderer {
             .begin();
     }
 
-    /// end render batch
-    pub(crate) fn end_batches(&self) {
+    /// ends the last render batch
+    pub(crate) fn end_batch(&self) {
         self.batches.get(self.current_batch_index).unwrap().end();
     }
 
@@ -323,7 +323,7 @@ impl Batch {
                 gl::ARRAY_BUFFER,
                 0,
                 verteces_size,
-                mem::transmute(self.obj_buffer.first().unwrap()),
+                self.obj_buffer.as_ptr() as *const GLvoid,
             );
         }
     }

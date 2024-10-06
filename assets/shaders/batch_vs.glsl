@@ -14,11 +14,11 @@ out vec3 frag_pos;
 out vec4 frag_pos_light[5];
 
 struct LightData {
-    vec3 light_pos;
+    vec4 light_pos;
     mat4 light_matrix;
 };
 
-layout (std140, binding = 0) uniform light_data {
+layout (std140, binding = 0, column_major) uniform light_data {
     LightData lights[5];
 };
 

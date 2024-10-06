@@ -146,7 +146,7 @@ impl RenderingSystem {
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
                 Batch(_, renderer) => {
-                    renderer.end_batches();
+                    renderer.end_batch();
                 }
                 Instance(_, _, renderer) => {
                     renderer.confirm_positions();
@@ -162,7 +162,7 @@ impl RenderingSystem {
             .light_sources
             .iter()
             .map(|(_, map)| LightData {
-                light_src: map.light_src,
+                light_src: glm::Vec4::new(map.light_src.x, map.light_src.y, map.light_src.z, 1.0),
                 light_matrix: map.light_matrix,
             })
             .collect::<Vec<_>>();
@@ -319,12 +319,12 @@ impl RenderingSystem {
         }
     }
 
-    /// change OpenGL's background clear color
+    /// change OpenGL's background clear color (default is white)
     pub fn set_gl_clearcolor(&mut self, color: Color32) {
         self.clear_color = color;
     }
 
-    /// set the FOV for 3D rendering (in degrees)
+    /// set the FOV for 3D rendering in degrees (default is 45°)
     pub fn set_fov(&mut self, fov: f32) {
         self.perspective_camera.update_fov(fov);
     }
@@ -339,7 +339,7 @@ impl RenderingSystem {
         self.render_distance = distance;
     }
 
-    /// changes the shadow map resolution
+    /// changes the shadow map resolution (default is normal)
     pub fn set_shadow_resolution(&mut self, resolution: ShadowResolution) {
         self.shadow_resolution = resolution;
         self.light_sources.iter_mut().for_each(|(_, map)| {

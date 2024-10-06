@@ -297,11 +297,11 @@ impl ShadowMap {
                 gl::TEXTURE_WRAP_T,
                 gl::CLAMP_TO_BORDER as GLint,
             );
-            let border_color = Color32::WHITE;
+            let border_color = Color32::WHITE.to_vec4();
             gl::TexParameterfv(
                 gl::TEXTURE_2D,
                 gl::TEXTURE_BORDER_COLOR,
-                border_color.to_vec4().as_ptr(),
+                border_color.as_ptr(),
             );
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, dbo);
@@ -365,7 +365,6 @@ impl ShadowMap {
                 self.tmp_viewport[2] as GLsizei,
                 self.tmp_viewport[3] as GLsizei,
             );
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
     }
 
@@ -394,7 +393,7 @@ impl Drop for ShadowMap {
 /// one light data block for uniform buffer use
 #[repr(C)]
 pub(crate) struct LightData {
-    pub(crate) light_src: glm::Vec3,
+    pub(crate) light_src: glm::Vec4,
     pub(crate) light_matrix: glm::Mat4,
 }
 
