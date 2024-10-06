@@ -328,11 +328,13 @@ impl RenderingSystem {
             size_of::<LightConfig>(),
             &ambient_config as *const LightConfig as *const GLvoid,
         );
-        self.shader_catalog.light_buffer.upload_data(
-            size_of::<LightConfig>() + padding::<LightConfig>(),
-            MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
-            light_data.as_ptr() as *const GLvoid,
-        );
+        if !light_data.is_empty() {
+            self.shader_catalog.light_buffer.upload_data(
+                size_of::<LightConfig>() + padding::<LightConfig>(),
+                MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
+                light_data.as_ptr() as *const GLvoid,
+            );
+        }
     }
 
     /// drop renderers that are not used anymore
