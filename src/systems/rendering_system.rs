@@ -77,6 +77,7 @@ impl RenderingSystem {
                 correct_light.0.data(),
                 &correct_light.1.color,
                 correct_light.1.intensity,
+                &self.current_cam_pos,
             );
         });
         // add new light sources
@@ -99,6 +100,7 @@ impl RenderingSystem {
                     *pos.data(),
                     &src.color,
                     src.intensity,
+                    &self.current_cam_pos,
                 ),
             ));
         }
@@ -184,18 +186,10 @@ impl RenderingSystem {
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
                 Batch(_, renderer) => {
-                    renderer.flush(
-                        &self.perspective_camera,
-                        &shadow_maps,
-                        self.shader_catalog.batch_basic(),
-                    );
+                    renderer.flush(&shadow_maps, self.shader_catalog.batch_basic());
                 }
                 Instance(_, _, renderer) => {
-                    renderer.draw_all(
-                        &self.perspective_camera,
-                        &shadow_maps,
-                        self.shader_catalog.instance_basic(),
-                    );
+                    renderer.draw_all(&shadow_maps, self.shader_catalog.instance_basic());
                 }
                 Sprite(renderer) => renderer.end(),
             }
@@ -320,6 +314,17 @@ impl RenderingSystem {
 
     /// updates all the uniform buffers
     fn update_uniform_buffers(&self) {
+        self.shader_catalog.matrix_buffer.upload_data(
+            0,
+            size_of::<glm::Mat4>(),
+            self.perspective_camera.projection() as *const glm::Mat4 as *const GLvoid,
+        );
+        self.shader_catalog.matrix_buffer.upload_data(
+            size_of::<glm::Mat4>(),
+            size_of::<glm::Mat4>(),
+            self.perspective_camera.view() as *const glm::Mat4 as *const GLvoid,
+        );
+
         let light_data = self
             .light_sources
             .iter()
@@ -388,6 +393,7 @@ impl RenderingSystem {
                 map.light_pos,
                 &map.light_color,
                 map.light_intensity,
+                &self.current_cam_pos,
             )
         });
     }

@@ -1,4 +1,4 @@
-use super::data::{Camera, ShadowMap};
+use super::data::ShadowMap;
 use super::shader::ShaderProgram;
 use crate::ecs::component::Color32;
 use crate::glm;
@@ -266,12 +266,7 @@ impl InstanceRenderer {
     }
 
     /// draws the mesh at all the positions specified until the call of this and clears the positions
-    pub(crate) fn draw_all(
-        &mut self,
-        camera: &impl Camera,
-        shadow_maps: &Vec<&ShadowMap>,
-        program: &ShaderProgram,
-    ) {
+    pub(crate) fn draw_all(&mut self, shadow_maps: &Vec<&ShadowMap>, program: &ShaderProgram) {
         unsafe {
             // bind shader, textures, uniforms
             gl::UseProgram(program.id);
@@ -281,13 +276,6 @@ impl InstanceRenderer {
                 shadow_map.bind_reading(i as GLuint + 1);
             }
             // bind uniforms
-            gl::UniformMatrix4fv(
-                program.get_unif("projection"),
-                1,
-                gl::FALSE,
-                &camera.projection()[0],
-            );
-            gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view()[0]);
             gl::Uniform1i(program.get_unif("num_lights"), shadow_maps.len() as GLsizei);
             gl::Uniform1iv(
                 program.get_unif("shadow_sampler"),

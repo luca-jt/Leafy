@@ -30,8 +30,11 @@ layout (std140, binding = 0, column_major) uniform light_data {
     LightData lights[5];
 };
 
-uniform mat4 projection;
-uniform mat4 view;
+layout (std140, binding = 1, column_major) uniform matrix_block {
+    mat4 projection;
+    mat4 view;
+};
+
 uniform int num_lights;
 
 void main() {

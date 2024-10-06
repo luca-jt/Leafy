@@ -263,6 +263,7 @@ impl ShadowMap {
         light_pos: glm::Vec3,
         color: &Color32,
         intensity: GLfloat,
+        cam_pos: &glm::Vec3,
     ) -> Self {
         let mut dbo = 0;
         let mut shadow_map = 0;
@@ -323,13 +324,17 @@ impl ShadowMap {
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
+        let mut light_focus = *cam_pos;
+        if light_focus.y > 0.0 {
+            light_focus.y = 0.0;
+        }
 
         Self {
             dbo,
             shadow_map,
             size,
             light_matrix: glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
-                * glm::look_at(&light_pos, &ORIGIN, &Y_AXIS),
+                * glm::look_at(&light_pos, &light_focus, &Y_AXIS),
             light_pos,
             light_color: *color,
             light_intensity: intensity,
@@ -382,12 +387,22 @@ impl ShadowMap {
     }
 
     /// updates the shadow map according to a new light data
-    pub(crate) fn update_light(&mut self, pos: &glm::Vec3, color: &Color32, intensity: GLfloat) {
+    pub(crate) fn update_light(
+        &mut self,
+        pos: &glm::Vec3,
+        color: &Color32,
+        intensity: GLfloat,
+        cam_pos: &glm::Vec3,
+    ) {
         self.light_pos = *pos;
         self.light_color = *color;
         self.light_intensity = intensity;
-        self.light_matrix =
-            glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0) * glm::look_at(pos, &ORIGIN, &Y_AXIS);
+        let mut light_focus = *cam_pos;
+        if light_focus.y > 0.0 {
+            light_focus.y = 0.0;
+        }
+        self.light_matrix = glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
+            * glm::look_at(pos, &light_focus, &Y_AXIS);
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::glm;
 use crate::rendering::data::{LightConfig, LightData, UniformBuffer};
 use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
 use crate::utils::file::get_shader_path;
@@ -172,6 +173,7 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 /// holds all the shader data and loads them if needed
 pub struct ShaderCatalog {
     pub(crate) light_buffer: UniformBuffer,
+    pub(crate) matrix_buffer: UniformBuffer,
     batch_basic: Option<ShaderProgram>,
     instance_basic: Option<ShaderProgram>,
 }
@@ -185,6 +187,7 @@ impl ShaderCatalog {
                     + padding::<LightConfig>()
                     + MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
             ),
+            matrix_buffer: UniformBuffer::new(size_of::<glm::Mat4>() * 2),
             batch_basic: None,
             instance_basic: None,
         }
@@ -210,13 +213,12 @@ impl ShaderCatalog {
     fn create_batch_basic(&mut self) {
         let mut program = ShaderProgram::new("batch_vs.glsl", "batch_fs.glsl");
 
-        program.add_unif_location("projection");
-        program.add_unif_location("view");
         program.add_unif_location("tex_sampler");
         program.add_unif_location("num_lights");
         program.add_unif_location("shadow_sampler");
 
         program.add_unif_buffer("light_data", &self.light_buffer, 0);
+        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
 
         program.add_attr_location("position");
         program.add_attr_location("color");
@@ -231,14 +233,13 @@ impl ShaderCatalog {
     fn create_instance_basic(&mut self) {
         let mut program = ShaderProgram::new("instance_vs.glsl", "instance_fs.glsl");
 
-        program.add_unif_location("projection");
-        program.add_unif_location("view");
         program.add_unif_location("tex_sampler");
         program.add_unif_location("color");
         program.add_unif_location("num_lights");
         program.add_unif_location("shadow_sampler");
 
         program.add_unif_buffer("light_data", &self.light_buffer, 0);
+        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
 
         program.add_attr_location("position");
         program.add_attr_location("uv");

@@ -1,4 +1,4 @@
-use super::data::{Camera, ShadowMap, Vertex};
+use super::data::{ShadowMap, Vertex};
 use super::shader::ShaderProgram;
 use crate::ecs::component::Color32;
 use crate::glm;
@@ -88,23 +88,11 @@ impl BatchRenderer {
     }
 
     /// send data to GPU and reset
-    pub(crate) fn flush(
-        &mut self,
-        camera: &impl Camera,
-        shadow_maps: &Vec<&ShadowMap>,
-        program: &ShaderProgram,
-    ) {
+    pub(crate) fn flush(&mut self, shadow_maps: &Vec<&ShadowMap>, program: &ShaderProgram) {
         unsafe {
             // bind shader, textures, uniforms
             gl::UseProgram(program.id);
             // bind uniforms
-            gl::UniformMatrix4fv(
-                program.get_unif("projection"),
-                1,
-                gl::FALSE,
-                &camera.projection()[0],
-            );
-            gl::UniformMatrix4fv(program.get_unif("view"), 1, gl::FALSE, &camera.view()[0]);
             gl::Uniform1i(program.get_unif("num_lights"), shadow_maps.len() as GLsizei);
             gl::Uniform1iv(
                 program.get_unif("tex_sampler"),

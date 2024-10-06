@@ -16,4 +16,3 @@ sprite renderer -> depth layers configurable
 on collision event functions for entities
 physics -> friction
 collision -> https://youtu.be/byP6cA71Cgw | generate hitboxes for mesh type (voxelization for custom) -> no need for double position/scale/orientation data, etc for hitboxes as they will be linked to entities
-update light pos according to player pos
