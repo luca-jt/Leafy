@@ -35,6 +35,11 @@ pub fn map_range<
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
 }
 
+/// calculates the padding necessary for offsets in uniform buffers (multiple of 16)
+pub(crate) fn padding<T>() -> usize {
+    16 - (size_of::<T>() % 16)
+}
+
 /// Error returned from get*_mut functions
 #[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Debug)]
 pub enum SplitMutError {

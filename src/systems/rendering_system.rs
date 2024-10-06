@@ -11,6 +11,7 @@ use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::systems::event_system::events::CamPositionChange;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
+use crate::utils::tools::padding;
 use crate::{glm, include_filter};
 use gl::types::*;
 use RendererType::*;
@@ -328,7 +329,7 @@ impl RenderingSystem {
             &ambient_config as *const LightConfig as *const GLvoid,
         );
         self.shader_catalog.light_buffer.upload_data(
-            size_of::<LightConfig>() + 12,
+            size_of::<LightConfig>() + padding::<LightConfig>(),
             MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
             light_data.as_ptr() as *const GLvoid,
         );

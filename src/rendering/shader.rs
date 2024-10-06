@@ -1,6 +1,7 @@
 use crate::rendering::data::{LightConfig, LightData, UniformBuffer};
 use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
 use crate::utils::file::get_shader_path;
+use crate::utils::tools::padding;
 use gl::types::*;
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -180,7 +181,9 @@ impl ShaderCatalog {
     pub fn new() -> Self {
         Self {
             light_buffer: UniformBuffer::new(
-                MAX_LIGHT_SRC_COUNT * size_of::<LightData>() + size_of::<LightConfig>() + 12,
+                size_of::<LightConfig>()
+                    + padding::<LightConfig>()
+                    + MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
             ),
             batch_basic: None,
             instance_basic: None,

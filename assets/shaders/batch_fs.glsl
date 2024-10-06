@@ -68,5 +68,5 @@ void main() {
     light_strength = light_strength > 0.0 ? light_strength : ambient_light.intensity;
 
     vec4 textured = texture(tex_sampler[sampler_idx], v_uv).rgba * v_color;
-    out_color = vec4(textured.rgb * light_strength, textured.a);
+    out_color = vec4(textured.rgb * light_strength * ambient_light.color.rgb, textured.a);
 }
