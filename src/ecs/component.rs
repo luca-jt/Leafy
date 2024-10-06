@@ -1,6 +1,7 @@
 use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::systems::audio_system::SoundHandleID;
+use gl::types::GLfloat;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -483,7 +484,19 @@ pub(crate) enum HitboxType {
 
 /// marker for an entity (alight source for the rendering system)
 #[derive(Debug, Clone, Copy)]
-pub struct LightSource;
+pub struct LightSource {
+    pub color: Color32,
+    pub intensity: GLfloat,
+}
+
+impl Default for LightSource {
+    fn default() -> Self {
+        Self {
+            color: Color32::WHITE,
+            intensity: 1.0,
+        }
+    }
+}
 
 /// identifier for a light source
 pub(crate) struct LightSrcID(pub(crate) EntityID);

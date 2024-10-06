@@ -66,9 +66,9 @@ impl EntityManager {
         ))
     }
 
-    /// creates a new light source for the rendering system wihtout other components attached
+    /// creates a new default light source for the rendering system wihtout other components attached
     pub fn add_light_src(&mut self, position: Position) -> EntityID {
-        let light = self.create_entity(components!(position, LightSource));
+        let light = self.create_entity(components!(position, LightSource::default()));
         self.add_component(light, LightSrcID(light));
         light
     }

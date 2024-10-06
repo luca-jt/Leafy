@@ -18,7 +18,13 @@ struct LightData {
     mat4 light_matrix;
 };
 
+struct LightConfig {
+    vec4 color;
+    float intensity;
+};
+
 layout (std140, binding = 0, column_major) uniform light_data {
+    LightConfig ambient_light;
     LightData lights[5];
 };
 

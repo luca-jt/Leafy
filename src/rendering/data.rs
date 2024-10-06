@@ -6,7 +6,6 @@ use crate::utils::file::get_texture_path;
 use gl::types::*;
 use stb_image::image::{Image, LoadResult};
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::path::Path;
 use std::ptr;
 
@@ -397,15 +396,20 @@ pub(crate) struct LightData {
     pub(crate) light_matrix: glm::Mat4,
 }
 
-/// uniform buffer wrapper for one array of uniforms
-pub(crate) struct UnifBufArray<T> {
-    pub(crate) ubo: GLuint,
-    size: usize,
-    phantom: PhantomData<T>,
+/// light source data for uniform buffer use
+#[repr(C)]
+pub(crate) struct LightConfig {
+    pub(crate) color: glm::Vec4,
+    pub(crate) intensity: GLfloat,
 }
 
-impl<T> UnifBufArray<T> {
-    /// creates a new uniform buffer
+/// uniform buffer wrapper for one array of uniforms
+pub(crate) struct UniformBuffer {
+    pub(crate) ubo: GLuint,
+}
+
+impl UniformBuffer {
+    /// creates a new uniform buffer with 'size' bytes
     pub(crate) fn new(size: usize) -> Self {
         let mut ubo = 0;
         unsafe {
@@ -413,35 +417,31 @@ impl<T> UnifBufArray<T> {
             gl::BindBuffer(gl::UNIFORM_BUFFER, ubo);
             gl::BufferData(
                 gl::UNIFORM_BUFFER,
-                (size * size_of::<T>()) as GLsizeiptr,
+                size as GLsizeiptr,
                 ptr::null(),
                 gl::STATIC_DRAW,
             );
             gl::BindBuffer(gl::UNIFORM_BUFFER, 0);
         }
-        Self {
-            ubo,
-            size,
-            phantom: PhantomData,
-        }
+        Self { ubo }
     }
 
     /// uploads data to the buffer
-    pub(crate) fn upload_data(&self, data: Vec<T>) {
+    pub(crate) fn upload_data(&self, offset: usize, size: usize, ptr: *const GLvoid) {
         unsafe {
             gl::BindBuffer(gl::UNIFORM_BUFFER, self.ubo);
             gl::BufferSubData(
                 gl::UNIFORM_BUFFER,
-                0,
-                (self.size * size_of::<T>()) as GLsizeiptr,
-                data.as_ptr() as *const GLvoid,
+                offset as GLsizeiptr,
+                size as GLsizeiptr,
+                ptr,
             );
             gl::BindBuffer(gl::UNIFORM_BUFFER, 0);
         }
     }
 }
 
-impl<T> Drop for UnifBufArray<T> {
+impl Drop for UniformBuffer {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteBuffers(1, &self.ubo);

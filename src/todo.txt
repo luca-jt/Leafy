@@ -2,7 +2,6 @@ controller events
 intergrate certain settings inside a file
 sampled animations from files
 voxel renderer
-colored lights + light intensity?
 include asset files in binary if needed
 cascaded shadow mapping
 shadow anti-aliasing -> pcss
@@ -19,4 +18,4 @@ physics -> friction
 collision -> https://youtu.be/byP6cA71Cgw | generate hitboxes for mesh type (voxelization for custom) -> no need for double position/scale/orientation data, etc for hitboxes as they will be linked to entities
 uniform block for matrices
 update light pos according to player pos
-ambient light strength setting
+colored lights + light intensity

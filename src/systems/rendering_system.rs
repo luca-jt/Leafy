@@ -28,6 +28,7 @@ pub struct RenderingSystem {
     render_distance: Option<f32>,
     shadow_resolution: ShadowResolution,
     current_cam_pos: glm::Vec3,
+    ambient_light: LightSource,
 }
 
 impl RenderingSystem {
@@ -52,6 +53,10 @@ impl RenderingSystem {
             render_distance: None,
             shadow_resolution: ShadowResolution::Normal,
             current_cam_pos: -Z_AXIS,
+            ambient_light: LightSource {
+                color: Color32::WHITE,
+                intensity: 0.3,
+            },
         }
     }
 
@@ -158,15 +163,7 @@ impl RenderingSystem {
 
     /// render all the geometry data stored in the renderers
     fn render_geometry(&mut self) {
-        let light_data = self
-            .light_sources
-            .iter()
-            .map(|(_, map)| LightData {
-                light_src: glm::Vec4::new(map.light_src.x, map.light_src.y, map.light_src.z, 1.0),
-                light_matrix: map.light_matrix,
-            })
-            .collect::<Vec<_>>();
-        self.shader_catalog.light_buffer.upload_data(light_data);
+        self.update_uniform_buffers();
         let shadow_maps = self
             .light_sources
             .iter()
@@ -310,6 +307,33 @@ impl RenderingSystem {
         }
     }
 
+    /// updates all the uniform buffers
+    fn update_uniform_buffers(&self) {
+        let light_data = self
+            .light_sources
+            .iter()
+            .map(|(_, map)| LightData {
+                light_src: glm::Vec4::new(map.light_src.x, map.light_src.y, map.light_src.z, 1.0),
+                light_matrix: map.light_matrix,
+            })
+            .collect::<Vec<_>>();
+
+        let ambient_config = LightConfig {
+            color: self.ambient_light.color.to_vec4(),
+            intensity: self.ambient_light.intensity,
+        };
+        self.shader_catalog.light_buffer.upload_data(
+            0,
+            size_of::<LightConfig>(),
+            &ambient_config as *const LightConfig as *const GLvoid,
+        );
+        self.shader_catalog.light_buffer.upload_data(
+            size_of::<LightConfig>() + 12,
+            MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
+            light_data.as_ptr() as *const GLvoid,
+        );
+    }
+
     /// drop renderers that are not used anymore
     fn cleanup_renderers(&mut self) {
         for i in 0..self.renderers.len() {
@@ -345,6 +369,11 @@ impl RenderingSystem {
         self.light_sources.iter_mut().for_each(|(_, map)| {
             *map = ShadowMap::new(self.shadow_resolution.map_res(), map.light_src)
         });
+    }
+
+    /// changes the ambient light (default is white and 0.3)
+    pub fn set_ambient_light(&mut self, light: LightSource) {
+        self.ambient_light = light;
     }
 }
 

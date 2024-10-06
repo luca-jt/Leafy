@@ -14,7 +14,13 @@ struct LightData {
     mat4 light_matrix;
 };
 
+struct LightConfig {
+    vec4 color;
+    float intensity;
+};
+
 layout (std140, binding = 0, column_major) uniform light_data {
+    LightConfig ambient_light;
     LightData lights[5];
 };
 
@@ -51,17 +57,15 @@ float shadow_calc(vec4 fpl) {
 
 void main() {
     int sampler_idx = int(round(v_tex_idx));
-
-    float ambient_light = 0.3;
     vec3 norm = normalize(v_normal);
 
     float light_strength = 0.0;
     for (int i = 0; i < num_lights; i++) {
         vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
         float diff = max(dot(norm, light_dir), 0.0);
-        light_strength += min(1.2, ambient_light + diff * (1.0 - shadow_calc(frag_pos_light[i]))) / float(num_lights);
+        light_strength += (ambient_light.intensity + diff * (1.0 - shadow_calc(frag_pos_light[i]))) / float(num_lights);
     }
-    light_strength = light_strength > 0.0 ? light_strength : ambient_light;
+    light_strength = light_strength > 0.0 ? light_strength : ambient_light.intensity;
 
     vec4 textured = texture(tex_sampler[sampler_idx], v_uv).rgba * v_color;
     out_color = vec4(textured.rgb * light_strength, textured.a);
