@@ -2,6 +2,7 @@ use crate::ecs::component::MeshAttribute::*;
 use crate::ecs::component::*;
 use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
+use crate::glm;
 use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::*;
 use crate::rendering::instance_renderer::InstanceRenderer;
@@ -12,7 +13,6 @@ use crate::systems::event_system::events::CamPositionChange;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
 use crate::utils::tools::padding;
-use crate::{glm, include_filter};
 use gl::types::*;
 use RendererType::*;
 
@@ -64,23 +64,28 @@ impl RenderingSystem {
     /// adds and removes light sources according to entity data
     pub(crate) fn update_light_sources(&mut self, entity_manager: &EntityManager) {
         let lights = entity_manager
-            .query2::<Position, LightSrcID>(vec![include_filter!(LightSource)])
-            .map(|(p, l)| (p, l.0))
+            .query3_opt1::<Position, LightSource, LightSrcID>(vec![])
+            .map(|(p, s, l)| (p, s, l.unwrap().0))
             .collect::<Vec<_>>();
         // remove deleted shadow maps
         self.light_sources
-            .retain(|src| lights.iter().any(|(_, id)| *id == src.0));
+            .retain(|src| lights.iter().any(|(_, _, id)| *id == src.0));
         // update positions of existing ones
         self.light_sources.iter_mut().for_each(|(entity, map)| {
-            map.update_light_pos(lights.iter().find(|(_, id)| id == entity).unwrap().0.data())
+            let correct_light = lights.iter().find(|(_, _, id)| id == entity).unwrap();
+            map.update_light(
+                correct_light.0.data(),
+                &correct_light.1.color,
+                correct_light.1.intensity,
+            );
         });
         // add new light sources
         let new_lights = lights
             .into_iter()
-            .filter(|&(_, entity)| !self.light_sources.iter().any(|(id, _)| entity == *id))
+            .filter(|&(_, _, entity)| !self.light_sources.iter().any(|(id, _)| entity == *id))
             .collect::<Vec<_>>();
 
-        for (pos, entity) in new_lights {
+        for (pos, src, entity) in new_lights {
             if self.light_sources.len() == MAX_LIGHT_SRC_COUNT {
                 panic!(
                     "no more light source slots available (max is {})",
@@ -89,7 +94,12 @@ impl RenderingSystem {
             }
             self.light_sources.push((
                 entity,
-                ShadowMap::new(self.shadow_resolution.map_res(), *pos.data()),
+                ShadowMap::new(
+                    self.shadow_resolution.map_res(),
+                    *pos.data(),
+                    &src.color,
+                    src.intensity,
+                ),
             ));
         }
     }
@@ -314,8 +324,11 @@ impl RenderingSystem {
             .light_sources
             .iter()
             .map(|(_, map)| LightData {
-                light_src: glm::Vec4::new(map.light_src.x, map.light_src.y, map.light_src.z, 1.0),
+                light_src: glm::Vec4::new(map.light_pos.x, map.light_pos.y, map.light_pos.z, 1.0),
                 light_matrix: map.light_matrix,
+                color: map.light_color.to_vec4(),
+                intensity: map.light_intensity,
+                padding_12bytes: Default::default(),
             })
             .collect::<Vec<_>>();
 
@@ -370,7 +383,12 @@ impl RenderingSystem {
     pub fn set_shadow_resolution(&mut self, resolution: ShadowResolution) {
         self.shadow_resolution = resolution;
         self.light_sources.iter_mut().for_each(|(_, map)| {
-            *map = ShadowMap::new(self.shadow_resolution.map_res(), map.light_src)
+            *map = ShadowMap::new(
+                self.shadow_resolution.map_res(),
+                map.light_pos,
+                &map.light_color,
+                map.light_intensity,
+            )
         });
     }
 

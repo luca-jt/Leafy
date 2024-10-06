@@ -482,7 +482,7 @@ pub(crate) enum HitboxType {
     Sphere,
 }
 
-/// marker for an entity (alight source for the rendering system)
+/// marker for an entity (a light source for the rendering system, needs a position attached to work)
 #[derive(Debug, Clone, Copy)]
 pub struct LightSource {
     pub color: Color32,

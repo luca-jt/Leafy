@@ -249,14 +249,21 @@ pub(crate) struct ShadowMap {
     shadow_map: GLuint,
     size: (GLsizei, GLsizei),
     pub(crate) light_matrix: glm::Mat4,
-    pub(crate) light_src: glm::Vec3,
+    pub(crate) light_pos: glm::Vec3,
+    pub(crate) light_color: Color32,
+    pub(crate) light_intensity: GLfloat,
     pub(crate) program: ShaderProgram,
     tmp_viewport: [GLint; 4],
 }
 
 impl ShadowMap {
     /// creates a new shadow map with given size (width, height)
-    pub(crate) fn new(size: (GLsizei, GLsizei), light_src: glm::Vec3) -> Self {
+    pub(crate) fn new(
+        size: (GLsizei, GLsizei),
+        light_pos: glm::Vec3,
+        color: &Color32,
+        intensity: GLfloat,
+    ) -> Self {
         let mut dbo = 0;
         let mut shadow_map = 0;
         let mut program = ShaderProgram::new("shadow_vs.glsl", "shadow_fs.glsl");
@@ -322,8 +329,10 @@ impl ShadowMap {
             shadow_map,
             size,
             light_matrix: glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
-                * glm::look_at(&light_src, &ORIGIN, &Y_AXIS),
-            light_src,
+                * glm::look_at(&light_pos, &ORIGIN, &Y_AXIS),
+            light_pos,
+            light_color: *color,
+            light_intensity: intensity,
             program,
             tmp_viewport: [0; 4],
         }
@@ -372,9 +381,11 @@ impl ShadowMap {
         gl::BindTextureUnit(texture_unit, self.shadow_map);
     }
 
-    /// updates the shadow map according to a new light position
-    pub(crate) fn update_light_pos(&mut self, pos: &glm::Vec3) {
-        self.light_src = *pos;
+    /// updates the shadow map according to a new light data
+    pub(crate) fn update_light(&mut self, pos: &glm::Vec3, color: &Color32, intensity: GLfloat) {
+        self.light_pos = *pos;
+        self.light_color = *color;
+        self.light_intensity = intensity;
         self.light_matrix =
             glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0) * glm::look_at(pos, &ORIGIN, &Y_AXIS);
     }
@@ -394,6 +405,9 @@ impl Drop for ShadowMap {
 pub(crate) struct LightData {
     pub(crate) light_src: glm::Vec4,
     pub(crate) light_matrix: glm::Mat4,
+    pub(crate) color: glm::Vec4,
+    pub(crate) intensity: GLfloat,
+    pub(crate) padding_12bytes: glm::Vec3,
 }
 
 /// light source data for uniform buffer use

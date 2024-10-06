@@ -12,6 +12,8 @@ out vec4 out_color;
 struct LightData {
     vec4 light_pos;
     mat4 light_matrix;
+    vec4 color;
+    float intensity;
 };
 
 struct LightConfig {
@@ -36,7 +38,6 @@ float shadow_calc(vec4 fpl) {
     int filter_size = 2;
 
     float shadow = 0.0;
-
     for (int i = 0; i < num_lights; i++) {
         for (int y = -filter_size / 2; y < filter_size / 2; ++y) {
             for (int x = -filter_size / 2; x < filter_size / 2; ++x) {
@@ -59,14 +60,15 @@ void main() {
     int sampler_idx = int(round(v_tex_idx));
     vec3 norm = normalize(v_normal);
 
-    float light_strength = 0.0;
+    vec3 final_light = vec3(0.0);
     for (int i = 0; i < num_lights; i++) {
         vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
         float diff = max(dot(norm, light_dir), 0.0);
-        light_strength += (ambient_light.intensity + diff * (1.0 - shadow_calc(frag_pos_light[i]))) / float(num_lights);
+        vec3 src_light = vec3(diff * (1.0 - shadow_calc(frag_pos_light[i]))) * lights[i].color.rgb * lights[i].intensity;
+        final_light += (vec3(ambient_light.intensity) + src_light) / float(num_lights);
     }
-    light_strength = light_strength > 0.0 ? light_strength : ambient_light.intensity;
+    final_light = length(final_light) > 0.0 ? final_light : vec3(ambient_light.intensity);
 
     vec4 textured = texture(tex_sampler[sampler_idx], v_uv).rgba * v_color;
-    out_color = vec4(textured.rgb * light_strength * ambient_light.color.rgb, textured.a);
+    out_color = vec4(textured.rgb * final_light * ambient_light.color.rgb, textured.a);
 }

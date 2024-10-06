@@ -8,7 +8,7 @@ pub type EntityID = u64;
 
 /// defines a type an entity can have
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
-pub(crate) struct EntityType(pub(crate) Vec<TypeId>);
+pub(crate) struct EntityType(Vec<TypeId>);
 
 impl EntityType {
     /// wrapper for the `iter()` function of the stored Vec
@@ -39,6 +39,13 @@ impl From<&Vec<Box<dyn Any>>> for EntityType {
         let mut converted: Vec<_> = value.iter().map(|c| (**c).type_id()).collect();
         converted.sort();
         EntityType(converted)
+    }
+}
+
+impl From<Vec<TypeId>> for EntityType {
+    fn from(mut value: Vec<TypeId>) -> Self {
+        value.sort();
+        EntityType(value)
     }
 }
 

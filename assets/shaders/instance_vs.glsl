@@ -14,6 +14,8 @@ out vec4 frag_pos_light[5];
 struct LightData {
     vec4 light_pos;
     mat4 light_matrix;
+    vec4 color;
+    float intensity;
 };
 
 struct LightConfig {
