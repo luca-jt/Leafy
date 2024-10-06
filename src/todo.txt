@@ -8,7 +8,7 @@ shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 render light sources as visible things if wanted -> other light source type (not point) with creation function
-immutable event observer? + immutable engine field access functions?
+immutable event observer?
 dpi scale factor event handling
 ui basics + font rendering + events for ui struct
 particle system https://youtu.be/GK0jHlv3e3w
@@ -16,3 +16,4 @@ sprite renderer -> depth layers configurable
 on collision event functions for entities
 physics -> friction
 collision -> https://youtu.be/byP6cA71Cgw | generate hitboxes for mesh type (voxelization for custom) -> no need for double position/scale/orientation data, etc for hitboxes as they will be linked to entities
+fix shadow glitches

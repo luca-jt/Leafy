@@ -30,9 +30,11 @@ impl FallingLeafApp for App {
             new_pos: glm::Vec3::new(0.0, 5.0, -5.0),
             new_focus: glm::Vec3::zeros(),
         });
-        engine.audio_system().set_volume(VolumeType::Master, 0.5);
+        engine
+            .audio_system_mut()
+            .set_volume(VolumeType::Master, 0.5);
 
-        let mut entity_manager = engine.entity_manager();
+        let mut entity_manager = engine.entity_manager_mut();
         entity_manager.add_light_src(Position::new(1.0, 8.0, 1.0));
         entity_manager.add_light_src(Position::new(-1.0, 8.0, -1.0));
         let _floor = entity_manager.create_entity(components!(
@@ -49,10 +51,10 @@ impl FallingLeafApp for App {
         );
         *entity_manager.get_component_mut::<Scale>(player).unwrap() = Scale::from_factor(0.2);
 
-        let sound = engine.audio_system().new_sound_controller();
+        let sound = engine.audio_system_mut().new_sound_controller();
         let heli_position = Position::new(0.0, 1.0, 1.0);
 
-        engine.audio_system().play_sfx_at(
+        engine.audio_system_mut().play_sfx_at(
             "examples/fl_test/helicopter.wav",
             true,
             &sound,
@@ -69,10 +71,10 @@ impl FallingLeafApp for App {
             TouchTime::now()
         ));
 
-        engine.event_system().add_modifier(jump);
+        engine.event_system_mut().add_modifier(controls);
         engine.audio_system().enable_hrtf();
         engine
-            .audio_system()
+            .audio_system_mut()
             .play_background_music("examples/fl_test/drop.wav");
 
         self.cube = Some(cube);
@@ -80,7 +82,7 @@ impl FallingLeafApp for App {
     }
 
     fn on_frame_update(&mut self, engine: &Engine<Self>) {
-        let mut entity_manager = engine.entity_manager();
+        let mut entity_manager = engine.entity_manager_mut();
         let secs = entity_manager
             .get_component_mut::<TouchTime>(self.cube.unwrap())
             .unwrap()
@@ -94,11 +96,19 @@ impl FallingLeafApp for App {
     }
 }
 
-fn jump(event: &KeyPress, app: &mut App, entity_manager: &mut EntityManager) {
-    if event.key == KeyCode::Space {
+fn controls(event: &KeyPress, app: &mut App, entity_manager: &mut EntityManager) {
+    if event.key == KeyCode::KeyE {
         let v_ref = entity_manager
             .get_component_mut::<Velocity>(app.player.unwrap())
             .unwrap();
         *v_ref = Velocity::new(0.0, 3.0, 0.0);
+    }
+    if event.is_repeat {
+        if event.key == KeyCode::ShiftLeft {}
+        if event.key == KeyCode::Space {}
+        if event.key == KeyCode::KeyW {}
+        if event.key == KeyCode::KeyA {}
+        if event.key == KeyCode::KeyS {}
+        if event.key == KeyCode::KeyD {}
     }
 }

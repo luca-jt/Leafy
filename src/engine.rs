@@ -7,7 +7,7 @@ use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
 use crate::systems::video_system::VideoSystem;
 use crate::utils::tools::{shared_ptr, weak_ptr, SharedPtr};
-use std::cell::{RefCell, RefMut};
+use std::cell::{Ref, RefCell, RefMut};
 use std::error::Error;
 use std::ops::{Deref, DerefMut};
 use winit::application::ApplicationHandler;
@@ -60,7 +60,7 @@ impl<A: FallingLeafApp> Engine<A> {
     /// runs the main loop
     pub fn run(&mut self, app: A) -> Result<(), Box<dyn Error>> {
         self.app = Some(shared_ptr(app));
-        self.event_system().app = Some(weak_ptr(self.app.as_ref().unwrap()));
+        self.event_system_mut().app = Some(weak_ptr(self.app.as_ref().unwrap()));
         let event_loop = EventLoop::new().unwrap();
         event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run_app(self)?;
@@ -69,67 +69,108 @@ impl<A: FallingLeafApp> Engine<A> {
 
     /// gets called every frame and contains the main app logic
     fn on_frame_redraw(&mut self) {
-        self.audio_system().update(self.entity_manager().deref());
+        self.audio_system_mut()
+            .update(self.entity_manager().deref());
 
         self.animation_system()
-            .update(self.entity_manager().deref_mut());
+            .update(self.entity_manager_mut().deref_mut());
 
-        self.rendering_system()
+        self.rendering_system_mut()
             .update_light_sources(self.entity_manager().deref());
 
-        self.rendering_system()
+        self.rendering_system_mut()
             .render(self.entity_manager().deref());
 
-        self.app().on_frame_update(self);
+        self.app_mut().on_frame_update(self);
 
-        self.video_system.borrow().swap_window();
-        self.video_system.borrow_mut().try_cap_fps();
+        self.video_system().swap_window();
+        self.video_system_mut().try_cap_fps();
     }
 
     /// access to the stored app
-    fn app(&self) -> RefMut<A> {
+    fn app(&self) -> Ref<A> {
+        self.app.as_ref().unwrap().borrow()
+    }
+
+    /// mutable access to the stored app
+    fn app_mut(&self) -> RefMut<A> {
         self.app.as_ref().unwrap().borrow_mut()
     }
 
     /// access to the engines animation system
-    pub fn animation_system(&self) -> RefMut<AnimationSystem> {
+    pub fn animation_system(&self) -> Ref<AnimationSystem> {
+        self.animation_system.borrow()
+    }
+
+    /// mutable access to the engines animation system
+    pub fn animation_system_mut(&self) -> RefMut<AnimationSystem> {
         self.animation_system.borrow_mut()
     }
 
     /// access to the engines rendering system
-    pub fn rendering_system(&self) -> RefMut<RenderingSystem> {
+    pub fn rendering_system(&self) -> Ref<RenderingSystem> {
+        self.rendering_system.as_ref().unwrap().borrow()
+    }
+
+    /// mutable access to the engines rendering system
+    pub fn rendering_system_mut(&self) -> RefMut<RenderingSystem> {
         self.rendering_system.as_ref().unwrap().borrow_mut()
     }
 
     /// access to the engines audio system
-    pub fn audio_system(&self) -> RefMut<AudioSystem> {
+    pub fn audio_system(&self) -> Ref<AudioSystem> {
+        self.audio_system.borrow()
+    }
+
+    /// mutable access to the engines audio system
+    pub fn audio_system_mut(&self) -> RefMut<AudioSystem> {
         self.audio_system.borrow_mut()
     }
 
     /// access to the engines video system
-    pub fn video_system(&self) -> RefMut<VideoSystem> {
+    pub fn video_system(&self) -> Ref<VideoSystem> {
+        self.video_system.borrow()
+    }
+
+    /// mutable access to the engines video system
+    pub fn video_system_mut(&self) -> RefMut<VideoSystem> {
         self.video_system.borrow_mut()
     }
 
     /// access to the engines event system
-    pub fn event_system(&self) -> RefMut<EventSystem<A>> {
+    pub fn event_system(&self) -> Ref<EventSystem<A>> {
+        self.event_system.borrow()
+    }
+
+    /// mutable access to the engines event system
+    pub fn event_system_mut(&self) -> RefMut<EventSystem<A>> {
         self.event_system.borrow_mut()
     }
 
     /// access to the engines entity manager
-    pub fn entity_manager(&self) -> RefMut<EntityManager> {
+    pub fn entity_manager(&self) -> Ref<EntityManager> {
+        self.entity_manager.borrow()
+    }
+
+    /// mutable access to the engines entity manager
+    pub fn entity_manager_mut(&self) -> RefMut<EntityManager> {
         self.entity_manager.borrow_mut()
     }
+
+    /*/// trigger an event in the event system and call all relevant functions/listeners
+    pub fn trigger_event<T: Any>(&self, event: T) {
+        self.event_system().trigger(event, self);
+    }*/
 }
 
 impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
         self.rendering_system = Some(shared_ptr(RenderingSystem::new()));
-        self.event_system()
+        self.event_system_mut()
             .add_listener::<CamPositionChange>(self.rendering_system.as_ref().unwrap());
 
-        self.app().init(self);
+        self.app_mut().init(self);
     }
 
     fn window_event(
@@ -141,7 +182,7 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::RedrawRequested => self.on_frame_redraw(),
-            _ => self.event_system().parse_winit_window_event(event),
+            _ => self.event_system_mut().parse_winit_window_event(event),
         }
     }
 
@@ -151,7 +192,7 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
         device_id: DeviceId,
         event: DeviceEvent,
     ) {
-        self.event_system()
+        self.event_system_mut()
             .parse_winit_device_event(device_id, event);
     }
 
