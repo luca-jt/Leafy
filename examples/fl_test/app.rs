@@ -50,6 +50,7 @@ impl FallingLeafApp for App {
             new_pos: glm::Vec3::new(0.0, 5.0, -5.0),
             new_focus: ORIGIN,
         });
+        engine.video_system_mut().set_mouse_cam_control(Some(0.01));
         engine
             .audio_system_mut()
             .set_volume(VolumeType::Master, 0.5);
@@ -95,6 +96,7 @@ impl FallingLeafApp for App {
         engine.event_system_mut().add_modifier(jump);
         engine.event_system_mut().add_modifier(move_cam);
         engine.event_system_mut().add_modifier(stop_cam);
+        engine.event_system_mut().add_modifier(quit_app);
 
         engine.audio_system().enable_hrtf();
         engine
@@ -192,5 +194,11 @@ fn stop_cam(event: &KeyRelease, engine: &Engine<App>) {
     }
     if event.key == KeyCode::KeyD {
         engine.app_mut().cam_move_direction -= right_dir;
+    }
+}
+
+fn quit_app(event: &KeyPress, engine: &Engine<App>) {
+    if event.key == KeyCode::Escape {
+        engine.quit();
     }
 }

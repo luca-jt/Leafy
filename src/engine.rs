@@ -5,7 +5,7 @@ use crate::systems::audio_system::AudioSystem;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
-use crate::systems::video_system::VideoSystem;
+use crate::systems::video_system::{mouse_move_cam, VideoSystem};
 use crate::utils::tools::{shared_ptr, SharedPtr};
 use std::any::Any;
 use std::cell::{Ref, RefCell, RefMut};
@@ -46,6 +46,7 @@ impl<A: FallingLeafApp> Engine<A> {
         event_system.add_listener::<EngineModeChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&animation_system);
         event_system.add_listener::<EngineModeChange>(&animation_system);
+        event_system.add_modifier(mouse_move_cam);
 
         Self {
             app: None,

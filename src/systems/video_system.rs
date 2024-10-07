@@ -1,6 +1,9 @@
+use crate::engine::{Engine, FallingLeafApp};
 use crate::engine_builder::EngineAttributes;
-use crate::systems::event_system::events::{KeyPress, WindowResize};
+use crate::glm;
+use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
+use crate::utils::constants::{X_AXIS, Y_AXIS};
 use gl::types::GLsizei;
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{
@@ -32,6 +35,7 @@ pub struct VideoSystem {
     frame_start_time: Instant,
     fps_cap: Option<f64>,
     stored_config: EngineAttributes,
+    mouse_cam_sens: Option<f32>,
 }
 
 impl VideoSystem {
@@ -56,6 +60,7 @@ impl VideoSystem {
             frame_start_time: Instant::now(),
             fps_cap: config.fps_cap,
             stored_config: config,
+            mouse_cam_sens: None,
         }
     }
 
@@ -260,7 +265,7 @@ impl VideoSystem {
     }
 
     /// enables/disables the grab mode for the cursor (makes it unable to leave the window)
-    pub fn set_cursor_grab_mode(&self, flag: bool) {
+    pub fn set_cursor_confined(&self, flag: bool) {
         if let Some(window) = self.window.as_ref() {
             if flag {
                 window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
@@ -286,6 +291,21 @@ impl VideoSystem {
         if let Some(window) = self.window.as_ref() {
             window.set_cursor_visible(flag);
         }
+    }
+
+    /// enables/disables the link to the 3D camera control for the mouse with some senstivity (default is None)
+    pub fn set_mouse_cam_control(&mut self, sensitivity: Option<f32>) {
+        match sensitivity {
+            None => {
+                self.set_cursor_visible(true);
+                self.set_cursor_confined(false);
+            }
+            Some(_) => {
+                self.set_cursor_visible(false);
+                self.set_cursor_confined(true);
+            }
+        }
+        self.mouse_cam_sens = sensitivity;
     }
 }
 
@@ -378,5 +398,26 @@ fn get_gl_string(variant: gl::types::GLenum) -> Option<&'static CStr> {
     unsafe {
         let s = gl::GetString(variant);
         (!s.is_null()).then(|| CStr::from_ptr(s.cast()))
+    }
+}
+
+/// enables 3D camera control with the mouse if the required setting is enabled
+pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: &Engine<T>) {
+    if let Some(sens) = engine.video_system().mouse_cam_sens {
+        let cam_config = engine.rendering_system().current_cam_config();
+
+        let look_dir = (cam_config.1 - cam_config.0).normalize(); // new -z
+        let from_view_up = -(Y_AXIS - look_dir.dot(&Y_AXIS) * Y_AXIS).normalize(); // new y
+        let right_dir = -look_dir.cross(&from_view_up).normalize(); // new x
+        let basis_trafo = glm::Mat3::from_columns(&[right_dir, from_view_up, -look_dir]);
+
+        let hori_diff = sens * event.delta_x as f32 * X_AXIS;
+        let vert_diff = sens * event.delta_y as f32 * Y_AXIS;
+        let new_focus = cam_config.1 + basis_trafo * hori_diff + basis_trafo * vert_diff;
+
+        engine.trigger_event(CamPositionChange {
+            new_pos: cam_config.0,
+            new_focus,
+        });
     }
 }
