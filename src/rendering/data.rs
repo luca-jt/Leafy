@@ -266,7 +266,7 @@ impl ShadowMap {
     ) -> Self {
         let mut dbo = 0;
         let mut shadow_map = 0;
-        let mut program = ShaderProgram::new("shadow_vs.glsl", "shadow_fs.glsl");
+        let mut program = ShaderProgram::new("shadow.vert", "shadow.frag");
 
         unsafe {
             program.add_attr_location("position");

@@ -7,7 +7,8 @@ cascaded shadow mapping
 shadow anti-aliasing -> pcss
 scene files and loading of them in the rendering system
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
-render light sources as visible things if wanted -> other light source type (not point) with creation function
+other light source type (not point) with creation function
+render light sources as visible things if wanted -> when render component attached
 immutable event observer?
 dpi scale factor event handling
 ui basics + font rendering + events for ui struct

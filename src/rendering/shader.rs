@@ -176,6 +176,8 @@ pub struct ShaderCatalog {
     pub(crate) matrix_buffer: UniformBuffer,
     batch_basic: Option<ShaderProgram>,
     instance_basic: Option<ShaderProgram>,
+    batch_passthrough: Option<ShaderProgram>,
+    instance_passthrough: Option<ShaderProgram>,
 }
 
 impl ShaderCatalog {
@@ -190,10 +192,12 @@ impl ShaderCatalog {
             matrix_buffer: UniformBuffer::new(size_of::<glm::Mat4>() * 2),
             batch_basic: None,
             instance_basic: None,
+            batch_passthrough: None,
+            instance_passthrough: None,
         }
     }
 
-    /// returns a reference to the basic shader for the batch renderer
+    /// returns a reference to the basic shader for batch renderers
     pub(crate) fn batch_basic(&mut self) -> &ShaderProgram {
         if self.batch_basic.is_none() {
             self.create_batch_basic();
@@ -201,7 +205,7 @@ impl ShaderCatalog {
         self.batch_basic.as_ref().unwrap()
     }
 
-    /// returns a reference to the basic shader for the instance renderer
+    /// returns a reference to the basic shader for instance renderers
     pub(crate) fn instance_basic(&mut self) -> &ShaderProgram {
         if self.instance_basic.is_none() {
             self.create_instance_basic();
@@ -209,9 +213,25 @@ impl ShaderCatalog {
         self.instance_basic.as_ref().unwrap()
     }
 
+    /// returns a reference to the passthrough shader for batch renderers
+    pub(crate) fn batch_passthrough(&mut self) -> &ShaderProgram {
+        if self.batch_passthrough.is_none() {
+            self.create_batch_passthrough();
+        }
+        self.batch_passthrough.as_ref().unwrap()
+    }
+
+    /// returns a reference to the passthrough shader for instance renderers
+    pub(crate) fn instance_passthrough(&mut self) -> &ShaderProgram {
+        if self.instance_passthrough.is_none() {
+            self.create_instance_passthrough();
+        }
+        self.instance_passthrough.as_ref().unwrap()
+    }
+
     /// creates a new basic batch renderer shader
     fn create_batch_basic(&mut self) {
-        let mut program = ShaderProgram::new("batch_vs.glsl", "batch_fs.glsl");
+        let mut program = ShaderProgram::new("batch_basic.vert", "batch_basic.frag");
 
         program.add_unif_location("tex_sampler");
         program.add_unif_location("num_lights");
@@ -231,7 +251,7 @@ impl ShaderCatalog {
 
     /// creates a new basic instance renderer shader
     fn create_instance_basic(&mut self) {
-        let mut program = ShaderProgram::new("instance_vs.glsl", "instance_fs.glsl");
+        let mut program = ShaderProgram::new("instance_basic.vert", "instance_basic.frag");
 
         program.add_unif_location("tex_sampler");
         program.add_unif_location("color");
@@ -247,5 +267,17 @@ impl ShaderCatalog {
         program.add_attr_location("model");
 
         self.instance_basic = Some(program);
+    }
+
+    /// creates a new passthrough instance renderer shader
+    fn create_instance_passthrough(&mut self) {
+        let program = ShaderProgram::new("instance_passthrough.vert", "instance_passthrough.frag");
+        self.instance_passthrough = Some(program);
+    }
+
+    /// creates a new passthrough batch renderer shader
+    fn create_batch_passthrough(&mut self) {
+        let program = ShaderProgram::new("batch_passthrough.vert", "batch_passthrough.frag");
+        self.batch_passthrough = Some(program);
     }
 }
