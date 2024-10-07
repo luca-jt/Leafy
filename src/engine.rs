@@ -6,7 +6,8 @@ use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventSystem;
 use crate::systems::rendering_system::RenderingSystem;
 use crate::systems::video_system::VideoSystem;
-use crate::utils::tools::{shared_ptr, weak_ptr, SharedPtr};
+use crate::utils::tools::{shared_ptr, SharedPtr};
+use std::any::Any;
 use std::cell::{Ref, RefCell, RefMut};
 use std::error::Error;
 use std::ops::{Deref, DerefMut};
@@ -20,6 +21,7 @@ use winit::window::WindowId;
 pub struct Engine<A: FallingLeafApp> {
     app: Option<SharedPtr<A>>,
     exit_state: Option<Result<(), Box<dyn Error>>>,
+    should_quit: RefCell<bool>,
     rendering_system: Option<SharedPtr<RenderingSystem>>,
     audio_system: SharedPtr<AudioSystem>,
     event_system: RefCell<EventSystem<A>>,
@@ -35,7 +37,7 @@ impl<A: FallingLeafApp> Engine<A> {
         let audio_system = shared_ptr(AudioSystem::new());
         let animation_system = shared_ptr(AnimationSystem::new());
         let entity_manager = shared_ptr(EntityManager::new());
-        let mut event_system = EventSystem::new(&entity_manager);
+        let mut event_system = EventSystem::new();
 
         event_system.add_listener::<KeyPress>(&video_system);
         event_system.add_listener::<WindowResize>(&video_system);
@@ -48,6 +50,7 @@ impl<A: FallingLeafApp> Engine<A> {
         Self {
             app: None,
             exit_state: Some(Ok(())),
+            should_quit: RefCell::new(false),
             rendering_system: None,
             audio_system,
             event_system: RefCell::new(event_system),
@@ -60,7 +63,6 @@ impl<A: FallingLeafApp> Engine<A> {
     /// runs the main loop
     pub fn run(&mut self, app: A) -> Result<(), Box<dyn Error>> {
         self.app = Some(shared_ptr(app));
-        self.event_system_mut().app = Some(weak_ptr(self.app.as_ref().unwrap()));
         let event_loop = EventLoop::new().unwrap();
         event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run_app(self)?;
@@ -68,7 +70,7 @@ impl<A: FallingLeafApp> Engine<A> {
     }
 
     /// gets called every frame and contains the main app logic
-    fn on_frame_redraw(&mut self) {
+    fn on_frame_redraw(&mut self, event_loop: &ActiveEventLoop) {
         self.audio_system_mut()
             .update(self.entity_manager().deref());
 
@@ -85,15 +87,19 @@ impl<A: FallingLeafApp> Engine<A> {
 
         self.video_system().swap_window();
         self.video_system_mut().try_cap_fps();
+
+        if *self.should_quit.borrow() {
+            event_loop.exit();
+        }
     }
 
     /// access to the stored app
-    fn app(&self) -> Ref<A> {
+    pub fn app(&self) -> Ref<A> {
         self.app.as_ref().unwrap().borrow()
     }
 
     /// mutable access to the stored app
-    fn app_mut(&self) -> RefMut<A> {
+    pub fn app_mut(&self) -> RefMut<A> {
         self.app.as_ref().unwrap().borrow_mut()
     }
 
@@ -157,10 +163,15 @@ impl<A: FallingLeafApp> Engine<A> {
         self.entity_manager.borrow_mut()
     }
 
-    /*/// trigger an event in the event system and call all relevant functions/listeners
+    /// quits the running engine and exit the event loop
+    pub fn quit(&self) {
+        *self.should_quit.borrow_mut() = true;
+    }
+
+    /// triggers an engine-wide event in the event system and call all relevant functions/listeners
     pub fn trigger_event<T: Any>(&self, event: T) {
         self.event_system().trigger(event, self);
-    }*/
+    }
 }
 
 impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
@@ -181,8 +192,8 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
     ) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::RedrawRequested => self.on_frame_redraw(),
-            _ => self.event_system_mut().parse_winit_window_event(event),
+            WindowEvent::RedrawRequested => self.on_frame_redraw(event_loop),
+            _ => self.event_system().parse_winit_window_event(event, self),
         }
     }
 
@@ -192,12 +203,12 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
         device_id: DeviceId,
         event: DeviceEvent,
     ) {
-        self.event_system_mut()
-            .parse_winit_device_event(device_id, event);
+        self.event_system()
+            .parse_winit_device_event(device_id, event, self);
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
-        self.video_system.borrow_mut().on_suspended();
+        self.video_system_mut().on_suspended();
     }
 }
 

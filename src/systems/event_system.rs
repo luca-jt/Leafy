@@ -1,27 +1,24 @@
-use crate::ecs::entity_manager::EntityManager;
-use crate::engine::FallingLeafApp;
+use crate::engine::{Engine, FallingLeafApp};
 use crate::systems::event_system::events::*;
 use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::ops::DerefMut;
+use std::marker::PhantomData;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
 
 /// system managing the events
 pub struct EventSystem<A: FallingLeafApp> {
-    pub(crate) app: Option<WeakPtr<A>>,
-    entity_manager: WeakPtr<EntityManager>,
+    phantom: PhantomData<A>,
     listeners: HashMap<TypeId, Vec<Box<dyn Any>>>,
     entity_modifiers: HashMap<TypeId, Vec<Box<dyn Any>>>,
 }
 
 impl<A: FallingLeafApp> EventSystem<A> {
     /// creates a new event system
-    pub(crate) fn new(entity_manager: &SharedPtr<EntityManager>) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            app: None,
-            entity_manager: weak_ptr(entity_manager),
+            phantom: PhantomData,
             listeners: HashMap::new(),
             entity_modifiers: HashMap::new(),
         }
@@ -34,14 +31,14 @@ impl<A: FallingLeafApp> EventSystem<A> {
     }
 
     /// add a entity system modifier for a specific event type to the system
-    pub fn add_modifier<T: Any>(&mut self, modifier: fn(&T, &mut A, &mut EntityManager)) {
+    pub fn add_modifier<T: Any>(&mut self, modifier: fn(&T, &Engine<A>)) {
         let wrapper = EventFunction { f: modifier };
         let modifiers = self.entity_modifiers.entry(TypeId::of::<T>()).or_default();
         modifiers.push(Box::new(wrapper));
     }
 
-    /// trigger an event and call all relevant functions of listeners
-    pub fn trigger<T: Any>(&self, event: T) {
+    /// trigger an event and call all relevant functions/listeners
+    pub(crate) fn trigger<T: Any>(&self, event: T, engine: &Engine<A>) {
         if let Some(handlers) = self.listeners.get(&TypeId::of::<T>()) {
             for handler in handlers {
                 let casted_handler = handler
@@ -53,26 +50,16 @@ impl<A: FallingLeafApp> EventSystem<A> {
                 }
             }
         }
-        if let (Some(modifiers), Some(weak_app), Some(entity_manager)) = (
-            self.entity_modifiers.get(&TypeId::of::<T>()),
-            self.app.as_ref(),
-            self.entity_manager.upgrade(),
-        ) {
-            if let Some(app) = weak_app.upgrade() {
-                for modifier in modifiers {
-                    let casted = modifier.downcast_ref::<EventFunction<T, A>>().unwrap();
-                    (casted.f)(
-                        &event,
-                        app.borrow_mut().deref_mut(),
-                        entity_manager.borrow_mut().deref_mut(),
-                    );
-                }
+        if let Some(modifiers) = self.entity_modifiers.get(&TypeId::of::<T>()) {
+            for modifier in modifiers {
+                let casted = modifier.downcast_ref::<EventFunction<T, A>>().unwrap();
+                (casted.f)(&event, engine);
             }
         }
     }
 
     /// process all the winit window events
-    pub(crate) fn parse_winit_window_event(&mut self, event: WindowEvent) {
+    pub(crate) fn parse_winit_window_event(&self, event: WindowEvent, engine: &Engine<A>) {
         match event {
             WindowEvent::KeyboardInput {
                 device_id: _,
@@ -81,34 +68,36 @@ impl<A: FallingLeafApp> EventSystem<A> {
             } => match event.state {
                 ElementState::Pressed => {
                     if let PhysicalKey::Code(key) = event.physical_key {
-                        self.trigger(KeyPress {
-                            key,
-                            is_synthetic,
-                            is_repeat: event.repeat,
-                        });
+                        self.trigger(
+                            KeyPress {
+                                key,
+                                is_synthetic,
+                                is_repeat: event.repeat,
+                            },
+                            engine,
+                        );
                     }
                 }
                 ElementState::Released => {
                     if let PhysicalKey::Code(key) = event.physical_key {
-                        self.trigger(KeyRelease {
-                            key,
-                            is_synthetic,
-                            is_repeat: event.repeat,
-                        });
+                        self.trigger(KeyRelease { key, is_synthetic }, engine);
                     }
                 }
             },
             WindowEvent::Resized(size) => {
-                self.trigger(WindowResize {
-                    width: size.width,
-                    height: size.height,
-                });
+                self.trigger(
+                    WindowResize {
+                        width: size.width,
+                        height: size.height,
+                    },
+                    engine,
+                );
             }
             WindowEvent::Focused(gained) => {
                 if gained {
-                    self.trigger(WindowGainedFocus);
+                    self.trigger(WindowGainedFocus, engine);
                 } else {
-                    self.trigger(WindowLostFocus);
+                    self.trigger(WindowLostFocus, engine);
                 }
             }
             WindowEvent::MouseInput {
@@ -117,82 +106,105 @@ impl<A: FallingLeafApp> EventSystem<A> {
                 button,
             } => match state {
                 ElementState::Pressed => {
-                    self.trigger(MouseClick { button });
+                    self.trigger(MouseClick { button }, engine);
                 }
                 ElementState::Released => {
-                    self.trigger(MouseRelease { button });
+                    self.trigger(MouseRelease { button }, engine);
                 }
             },
             WindowEvent::CursorMoved {
                 device_id: _,
                 position,
             } => {
-                self.trigger(MouseMove {
-                    to_x: position.x,
-                    to_y: position.y,
-                });
+                self.trigger(
+                    MouseMove {
+                        to_x: position.x,
+                        to_y: position.y,
+                    },
+                    engine,
+                );
             }
             WindowEvent::MouseWheel {
                 device_id: _,
                 delta: MouseScrollDelta::LineDelta(hori, vert),
                 phase,
             } => {
-                self.trigger(MouseScroll {
-                    vertical_lines: vert,
-                    horizontal_lines: hori,
-                    phase,
-                });
+                self.trigger(
+                    MouseScroll {
+                        vertical_lines: vert,
+                        horizontal_lines: hori,
+                        phase,
+                    },
+                    engine,
+                );
             }
             WindowEvent::Moved(position) => {
-                self.trigger(WindowMoved {
-                    to_x: position.x as u32,
-                    to_y: position.y as u32,
-                });
+                self.trigger(
+                    WindowMoved {
+                        to_x: position.x as u32,
+                        to_y: position.y as u32,
+                    },
+                    engine,
+                );
             }
             WindowEvent::DroppedFile(path) => {
-                self.trigger(FileDropped { path });
+                self.trigger(FileDropped { path }, engine);
             }
             WindowEvent::HoveredFile(path) => {
-                self.trigger(FileHovered { path });
+                self.trigger(FileHovered { path }, engine);
             }
             WindowEvent::HoveredFileCancelled => {
-                self.trigger(FileHoverCancelled);
+                self.trigger(FileHoverCancelled, engine);
             }
             WindowEvent::ScaleFactorChanged {
                 scale_factor,
                 inner_size_writer,
             } => {
-                self.trigger(DPIScaleFactorChanged {
-                    scale_factor,
-                    size_writer: inner_size_writer,
-                });
+                self.trigger(
+                    DPIScaleFactorChanged {
+                        scale_factor,
+                        size_writer: inner_size_writer,
+                    },
+                    engine,
+                );
             }
             _ => (),
         }
     }
 
     /// process all the winit raw device events (e.g. for game controlls)
-    pub(crate) fn parse_winit_device_event(&mut self, device_id: DeviceId, event: DeviceEvent) {
+    pub(crate) fn parse_winit_device_event(
+        &self,
+        device_id: DeviceId,
+        event: DeviceEvent,
+        engine: &Engine<A>,
+    ) {
         match event {
             DeviceEvent::Added => {
-                self.trigger(RawDeviceAdded { device_id });
+                self.trigger(RawDeviceAdded { device_id }, engine);
             }
             DeviceEvent::Removed => {
-                self.trigger(RawDeviceRemoved { device_id });
+                self.trigger(RawDeviceRemoved { device_id }, engine);
             }
             DeviceEvent::MouseMotion { delta } => {
-                self.trigger(RawMouseMotion {
-                    delta_x: delta.0,
-                    delta_y: delta.1,
-                });
+                self.trigger(
+                    RawMouseMotion {
+                        delta_x: delta.0,
+                        delta_y: delta.1,
+                    },
+                    engine,
+                );
             }
             DeviceEvent::MouseWheel {
                 delta: MouseScrollDelta::LineDelta(hori, vert),
             } => {
-                self.trigger(RawMouseScroll {
-                    vertical_delta: vert,
-                    horizontal_delta: hori,
-                });
+                self.trigger(
+                    RawMouseScroll {
+                        vertical_delta: vert,
+                        horizontal_delta: hori,
+                    },
+                    engine,
+                );
             }
             _ => (),
         }
@@ -208,7 +220,7 @@ pub trait EventObserver<T: Any> {
 
 /// holds the function pointer to the entity system event function
 struct EventFunction<T: Any, A: FallingLeafApp> {
-    pub(crate) f: fn(&T, &mut A, &mut EntityManager),
+    pub(crate) f: fn(&T, &Engine<A>),
 }
 
 pub mod events {
@@ -231,7 +243,6 @@ pub mod events {
     pub struct KeyRelease {
         pub key: KeyCode,
         pub is_synthetic: bool,
-        pub is_repeat: bool,
     }
 
     /// mouse move event data (not for 3D camera control)

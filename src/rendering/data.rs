@@ -178,8 +178,7 @@ impl PerspectiveCamera {
             0.1,
             100.0,
         );
-        let up = glm::Vec3::y_axis();
-        let view = glm::look_at::<f32>(&position, &focus, &up);
+        let view = glm::look_at::<f32>(&position, &focus, &Y_AXIS);
 
         Self { projection, view }
     }
@@ -196,7 +195,7 @@ impl PerspectiveCamera {
 
     /// updates the camera for given camera position and focus
     pub(crate) fn update_cam(&mut self, position: &glm::Vec3, focus: &glm::Vec3) {
-        self.view = glm::look_at(position, focus, &glm::Vec3::y_axis());
+        self.view = glm::look_at(position, focus, &Y_AXIS);
     }
 }
 

@@ -28,7 +28,7 @@ pub struct RenderingSystem {
     clear_color: Color32,
     render_distance: Option<f32>,
     shadow_resolution: ShadowResolution,
-    current_cam_pos: glm::Vec3,
+    current_cam_config: (glm::Vec3, glm::Vec3),
     ambient_light: LightSource,
 }
 
@@ -53,7 +53,7 @@ impl RenderingSystem {
             clear_color: Color32::WHITE,
             render_distance: None,
             shadow_resolution: ShadowResolution::Normal,
-            current_cam_pos: -Z_AXIS,
+            current_cam_config: (-Z_AXIS, ORIGIN),
             ambient_light: LightSource {
                 color: Color32::WHITE,
                 intensity: 0.3,
@@ -77,7 +77,7 @@ impl RenderingSystem {
                 correct_light.0.data(),
                 &correct_light.1.color,
                 correct_light.1.intensity,
-                &self.current_cam_pos,
+                &self.current_cam_config.0,
             );
         });
         // add new light sources
@@ -100,7 +100,7 @@ impl RenderingSystem {
                     *pos.data(),
                     &src.color,
                     src.intensity,
-                    &self.current_cam_pos,
+                    &self.current_cam_config.0,
                 ),
             ));
         }
@@ -113,7 +113,7 @@ impl RenderingSystem {
         clear_gl_screen(self.clear_color);
         self.init_renderers();
         // add entity data
-        let (render_dist, cam_pos) = (self.render_distance, self.current_cam_pos);
+        let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
         for (position, mesh_type, mesh_attr, scale, orientation) in entity_manager
             .query5_opt3::<Position, MeshType, MeshAttribute, Scale, Orientation>(vec![])
             .filter(|(pos, ..)| match render_dist {
@@ -364,6 +364,11 @@ impl RenderingSystem {
         }
     }
 
+    /// gets the current camera position and focus
+    pub fn current_cam_config(&self) -> (glm::Vec3, glm::Vec3) {
+        self.current_cam_config
+    }
+
     /// change OpenGL's background clear color (default is white)
     pub fn set_gl_clearcolor(&mut self, color: Color32) {
         self.clear_color = color;
@@ -393,7 +398,7 @@ impl RenderingSystem {
                 map.light_pos,
                 &map.light_color,
                 map.light_intensity,
-                &self.current_cam_pos,
+                &self.current_cam_config.0,
             )
         });
     }
@@ -408,7 +413,7 @@ impl EventObserver<CamPositionChange> for RenderingSystem {
     fn on_event(&mut self, event: &CamPositionChange) {
         self.perspective_camera
             .update_cam(&event.new_pos, &event.new_focus);
-        self.current_cam_pos = event.new_pos;
+        self.current_cam_config = (event.new_pos, event.new_focus);
     }
 }
 
