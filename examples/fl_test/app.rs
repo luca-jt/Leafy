@@ -9,10 +9,14 @@ use fl_core::utils::constants::{ORIGIN, Y_AXIS};
 use fl_core::winit::keyboard::KeyCode;
 use std::f32::consts::PI;
 
+pub const CAM_MOVE_SPEED: f32 = 2.5;
+
 /// example app
 pub struct App {
     player: Option<EntityID>,
     cube: Option<EntityID>,
+    cam_move_direction: glm::Vec3,
+    time_since_cam_update: TouchTime,
 }
 
 impl App {
@@ -20,7 +24,23 @@ impl App {
         Self {
             player: None,
             cube: None,
+            cam_move_direction: glm::Vec3::zeros(),
+            time_since_cam_update: TouchTime::now(),
         }
+    }
+
+    fn update_cam_veloctiy(&mut self, engine: &Engine<Self>) {
+        let cam_config = engine.rendering_system().current_cam_config();
+        let cam_pos = cam_config.0;
+        let focus = cam_config.1;
+        let elapsed = self.time_since_cam_update.delta_time();
+        self.time_since_cam_update.reset();
+        let changed = self.cam_move_direction * elapsed.0 * CAM_MOVE_SPEED;
+
+        engine.trigger_event(CamPositionChange {
+            new_pos: cam_pos + changed,
+            new_focus: focus + changed,
+        });
     }
 }
 
@@ -37,6 +57,7 @@ impl FallingLeafApp for App {
         let mut entity_manager = engine.entity_manager_mut();
         entity_manager.add_light_src(Position::new(1.0, 8.0, 1.0));
         entity_manager.add_light_src(Position::new(-1.0, 8.0, -1.0));
+
         let _floor = entity_manager.create_entity(components!(
             Position::origin(),
             Scale::from_factor(5.0),
@@ -72,7 +93,9 @@ impl FallingLeafApp for App {
         ));
 
         engine.event_system_mut().add_modifier(jump);
-        engine.event_system_mut().add_modifier(controls);
+        engine.event_system_mut().add_modifier(move_cam);
+        engine.event_system_mut().add_modifier(stop_cam);
+
         engine.audio_system().enable_hrtf();
         engine
             .audio_system_mut()
@@ -83,6 +106,7 @@ impl FallingLeafApp for App {
     }
 
     fn on_frame_update(&mut self, engine: &Engine<Self>) {
+        self.update_cam_veloctiy(engine);
         let mut entity_manager = engine.entity_manager_mut();
         let secs = entity_manager
             .get_component_mut::<TouchTime>(self.cube.unwrap())
@@ -107,7 +131,10 @@ fn jump(event: &KeyPress, engine: &Engine<App>) {
     }
 }
 
-fn controls(event: &KeyPress, engine: &Engine<App>) {
+fn move_cam(event: &KeyPress, engine: &Engine<App>) {
+    if event.is_repeat {
+        return;
+    }
     let cam_config = engine.rendering_system().current_cam_config();
     let old_cam_pos = cam_config.0;
     let old_focus = cam_config.1;
@@ -115,42 +142,55 @@ fn controls(event: &KeyPress, engine: &Engine<App>) {
     forward_dir.y = 0.0;
     forward_dir = forward_dir.normalize();
     let right_dir = forward_dir.cross(&Y_AXIS).normalize();
-    let speed = 0.2;
 
     if event.key == KeyCode::ShiftLeft {
-        engine.trigger_event(CamPositionChange {
-            new_pos: old_cam_pos - Y_AXIS * speed,
-            new_focus: old_focus - Y_AXIS * speed,
-        });
+        engine.app_mut().cam_move_direction.y -= 1.0;
     }
     if event.key == KeyCode::Space {
-        engine.trigger_event(CamPositionChange {
-            new_pos: old_cam_pos + Y_AXIS * speed,
-            new_focus: old_focus + Y_AXIS * speed,
-        });
+        engine.app_mut().cam_move_direction.y += 1.0;
     }
     if event.key == KeyCode::KeyW {
-        engine.trigger_event(CamPositionChange {
-            new_pos: old_cam_pos + forward_dir * speed,
-            new_focus: old_focus + forward_dir * speed,
-        });
+        engine.app_mut().cam_move_direction += forward_dir;
     }
     if event.key == KeyCode::KeyA {
-        engine.trigger_event(CamPositionChange {
-            new_pos: old_cam_pos - right_dir * speed,
-            new_focus: old_focus - right_dir * speed,
-        });
+        engine.app_mut().cam_move_direction -= right_dir;
     }
     if event.key == KeyCode::KeyS {
-        engine.trigger_event(CamPositionChange {
-            new_pos: old_cam_pos - forward_dir * speed,
-            new_focus: old_focus - forward_dir * speed,
-        });
+        engine.app_mut().cam_move_direction -= forward_dir;
     }
     if event.key == KeyCode::KeyD {
-        engine.trigger_event(CamPositionChange {
-            new_pos: old_cam_pos + right_dir * speed,
-            new_focus: old_focus + right_dir * speed,
-        });
+        engine.app_mut().cam_move_direction += right_dir;
+    }
+}
+
+fn stop_cam(event: &KeyRelease, engine: &Engine<App>) {
+    if event.is_repeat {
+        return;
+    }
+    let cam_config = engine.rendering_system().current_cam_config();
+    let old_cam_pos = cam_config.0;
+    let old_focus = cam_config.1;
+    let mut forward_dir = old_focus - old_cam_pos;
+    forward_dir.y = 0.0;
+    forward_dir = forward_dir.normalize();
+    let right_dir = forward_dir.cross(&Y_AXIS).normalize();
+
+    if event.key == KeyCode::ShiftLeft {
+        engine.app_mut().cam_move_direction.y += 1.0;
+    }
+    if event.key == KeyCode::Space {
+        engine.app_mut().cam_move_direction.y -= 1.0;
+    }
+    if event.key == KeyCode::KeyW {
+        engine.app_mut().cam_move_direction -= forward_dir;
+    }
+    if event.key == KeyCode::KeyA {
+        engine.app_mut().cam_move_direction += right_dir;
+    }
+    if event.key == KeyCode::KeyS {
+        engine.app_mut().cam_move_direction += forward_dir;
+    }
+    if event.key == KeyCode::KeyD {
+        engine.app_mut().cam_move_direction -= right_dir;
     }
 }

@@ -80,7 +80,14 @@ impl<A: FallingLeafApp> EventSystem<A> {
                 }
                 ElementState::Released => {
                     if let PhysicalKey::Code(key) = event.physical_key {
-                        self.trigger(KeyRelease { key, is_synthetic }, engine);
+                        self.trigger(
+                            KeyRelease {
+                                key,
+                                is_synthetic,
+                                is_repeat: event.repeat,
+                            },
+                            engine,
+                        );
                     }
                 }
             },
@@ -243,6 +250,7 @@ pub mod events {
     pub struct KeyRelease {
         pub key: KeyCode,
         pub is_synthetic: bool,
+        pub is_repeat: bool,
     }
 
     /// mouse move event data (not for 3D camera control)
