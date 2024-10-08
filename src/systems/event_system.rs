@@ -357,11 +357,11 @@ pub mod events {
         pub new_mode: EngineMode,
     }
 
-    /// change of the users camera position used for rendering and audio processing
+    /// change of the users camera position and look direction vector used for rendering and audio processing
     #[derive(Debug, Clone, PartialEq)]
     pub struct CamPositionChange {
         pub new_pos: glm::Vec3,
-        pub new_focus: glm::Vec3,
+        pub new_look: glm::Vec3,
     }
 
     /// changes the animation speed of the rendering system

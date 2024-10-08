@@ -247,8 +247,10 @@ impl EventObserver<CamPositionChange> for AudioSystem {
     fn on_event(&mut self, event: &CamPositionChange) {
         let mut state = self.sound_context.state();
         let listener = state.listener_mut();
-        let look = event.new_focus - event.new_pos;
-        listener.set_orientation_lh(Vector3::new(look.x, look.y, look.z), *Vector3::y_axis());
+        listener.set_orientation_lh(
+            Vector3::new(event.new_look.x, event.new_look.y, event.new_look.z),
+            *Vector3::y_axis(),
+        );
         listener.set_position(Vector3::new(
             event.new_pos.x,
             event.new_pos.y,

@@ -53,7 +53,7 @@ impl RenderingSystem {
             clear_color: Color32::WHITE,
             render_distance: None,
             shadow_resolution: ShadowResolution::Normal,
-            current_cam_config: (-Z_AXIS, ORIGIN),
+            current_cam_config: (-Z_AXIS, Z_AXIS),
             ambient_light: LightSource {
                 color: Color32::WHITE,
                 intensity: 0.3,
@@ -364,7 +364,7 @@ impl RenderingSystem {
         }
     }
 
-    /// gets the current camera position and focus
+    /// gets the current camera position and look direction vector
     pub fn current_cam_config(&self) -> (glm::Vec3, glm::Vec3) {
         self.current_cam_config
     }
@@ -411,9 +411,10 @@ impl RenderingSystem {
 
 impl EventObserver<CamPositionChange> for RenderingSystem {
     fn on_event(&mut self, event: &CamPositionChange) {
+        let new_focus = event.new_pos + event.new_look;
         self.perspective_camera
-            .update_cam(&event.new_pos, &event.new_focus);
-        self.current_cam_config = (event.new_pos, event.new_focus);
+            .update_cam(&event.new_pos, &new_focus);
+        self.current_cam_config = (event.new_pos, event.new_look);
     }
 }
 

@@ -406,18 +406,18 @@ pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: 
     if let Some(sens) = engine.video_system().mouse_cam_sens {
         let cam_config = engine.rendering_system().current_cam_config();
 
-        let look_dir = (cam_config.1 - cam_config.0).normalize(); // new -z
+        let look_dir = cam_config.1.normalize(); // new -z
         let from_view_up = -(Y_AXIS - look_dir.dot(&Y_AXIS) * Y_AXIS).normalize(); // new y
         let right_dir = -look_dir.cross(&from_view_up).normalize(); // new x
         let basis_trafo = glm::Mat3::from_columns(&[right_dir, from_view_up, -look_dir]);
 
         let hori_diff = sens * event.delta_x as f32 * X_AXIS;
         let vert_diff = sens * event.delta_y as f32 * Y_AXIS;
-        let new_focus = cam_config.1 + basis_trafo * hori_diff + basis_trafo * vert_diff;
+        let new_look = cam_config.1 + basis_trafo * hori_diff + basis_trafo * vert_diff;
 
         engine.trigger_event(CamPositionChange {
             new_pos: cam_config.0,
-            new_focus,
+            new_look: new_look.normalize(),
         });
     }
 }
