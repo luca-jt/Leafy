@@ -30,24 +30,22 @@ uniform sampler2D shadow_sampler[5];
 uniform sampler2D tex_sampler[27];
 uniform int num_lights;
 
-float shadow_calc(vec4 fpl) {
+float shadow_calc(vec4 fpl, int i) {
     vec3 proj_coords = fpl.xyz / fpl.w;
     proj_coords = proj_coords * 0.5 + 0.5;
 
     int filter_size = 2;
     float shadow = 0.0;
-    for (int i = 0; i < num_lights; i++) {
-        vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
-        float bias = max(0.005 * (1.0 - dot(normalize(v_normal), light_dir)), 0.001);
-        for (int y = -filter_size / 2; y < filter_size / 2; ++y) {
-            for (int x = -filter_size / 2; x < filter_size / 2; ++x) {
-                vec2 offset = vec2(x, y) / textureSize(shadow_sampler[i], 0);
-                float depth = texture(shadow_sampler[i], proj_coords.xy + offset).x;
-                shadow += proj_coords.z > depth + bias ? 1.0 : 0.0;
-            }
+    vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
+    float bias = max(0.005 * (1.0 - dot(normalize(v_normal), light_dir)), 0.001);
+    for (int y = -filter_size / 2; y < filter_size / 2; ++y) {
+        for (int x = -filter_size / 2; x < filter_size / 2; ++x) {
+            vec2 offset = vec2(x, y) / textureSize(shadow_sampler[i], 0);
+            float depth = texture(shadow_sampler[i], proj_coords.xy + offset).x;
+            shadow += proj_coords.z > depth + bias ? 1.0 : 0.0;
         }
     }
-    shadow /= float(pow(filter_size, 2) * num_lights);
+    shadow /= float(pow(filter_size, 2));
 
     if (proj_coords.z > 1.0) {
         shadow = 0.0;
@@ -64,7 +62,7 @@ void main() {
     for (int i = 0; i < num_lights; i++) {
         vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
         float diff = max(dot(norm, light_dir), 0.0);
-        vec3 src_light = vec3(diff * (1.0 - shadow_calc(frag_pos_light[i]))) * lights[i].color.rgb * lights[i].intensity;
+        vec3 src_light = vec3(diff * (1.0 - shadow_calc(frag_pos_light[i], i))) * lights[i].color.rgb * lights[i].intensity;
         final_light += (vec3(ambient_light.intensity) + src_light) / float(num_lights);
     }
     final_light = num_lights > 0 ? final_light : vec3(ambient_light.intensity);
