@@ -34,10 +34,11 @@ float shadow_calc(vec4 fpl, int i) {
     vec3 proj_coords = fpl.xyz / fpl.w;
     proj_coords = proj_coords * 0.5 + 0.5;
 
+    vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
+    float bias = max(0.005 * (1.0 - dot(normalize(v_normal), light_dir)), 0.0002);
+
     int filter_size = 2;
     float shadow = 0.0;
-    vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
-    float bias = max(0.005 * (1.0 - dot(normalize(v_normal), light_dir)), 0.001);
     for (int y = -filter_size / 2; y < filter_size / 2; ++y) {
         for (int x = -filter_size / 2; x < filter_size / 2; ++x) {
             vec2 offset = vec2(x, y) / textureSize(shadow_sampler[i], 0);

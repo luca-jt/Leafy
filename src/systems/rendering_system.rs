@@ -77,7 +77,6 @@ impl RenderingSystem {
                 correct_light.0.data(),
                 &correct_light.1.color,
                 correct_light.1.intensity,
-                &self.current_cam_config.0,
             );
         });
         // add new light sources
@@ -100,7 +99,6 @@ impl RenderingSystem {
                     *pos.data(),
                     &src.color,
                     src.intensity,
-                    &self.current_cam_config.0,
                 ),
             ));
         }
@@ -398,7 +396,6 @@ impl RenderingSystem {
                 map.light_pos,
                 &map.light_color,
                 map.light_intensity,
-                &self.current_cam_config.0,
             )
         });
     }

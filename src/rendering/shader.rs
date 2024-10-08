@@ -269,15 +269,38 @@ impl ShaderCatalog {
         self.instance_basic = Some(program);
     }
 
-    /// creates a new passthrough instance renderer shader
-    fn create_instance_passthrough(&mut self) {
-        let program = ShaderProgram::new("instance_passthrough.vert", "instance_passthrough.frag");
-        self.instance_passthrough = Some(program);
-    }
-
     /// creates a new passthrough batch renderer shader
     fn create_batch_passthrough(&mut self) {
-        let program = ShaderProgram::new("batch_passthrough.vert", "batch_passthrough.frag");
+        let mut program = ShaderProgram::new("batch_passthrough.vert", "batch_passthrough.frag");
+
+        program.add_unif_location("tex_sampler");
+
+        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 0);
+
+        program.add_attr_location("position");
+        program.add_attr_location("color");
+        program.add_attr_location("uv");
+        program.add_attr_location("normal");
+        program.add_attr_location("tex_idx");
+
         self.batch_passthrough = Some(program);
+    }
+
+    /// creates a new passthrough instance renderer shader
+    fn create_instance_passthrough(&mut self) {
+        let mut program =
+            ShaderProgram::new("instance_passthrough.vert", "instance_passthrough.frag");
+
+        program.add_unif_location("tex_sampler");
+        program.add_unif_location("color");
+
+        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 0);
+
+        program.add_attr_location("position");
+        program.add_attr_location("uv");
+        program.add_attr_location("normal");
+        program.add_attr_location("model");
+
+        self.instance_passthrough = Some(program);
     }
 }
