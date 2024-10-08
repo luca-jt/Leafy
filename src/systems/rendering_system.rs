@@ -52,7 +52,7 @@ impl RenderingSystem {
             cam_position_link: None,
             clear_color: Color32::WHITE,
             render_distance: None,
-            shadow_resolution: ShadowResolution::Normal,
+            shadow_resolution: ShadowResolution::High,
             current_cam_config: (-Z_AXIS, Z_AXIS),
             ambient_light: LightSource {
                 color: Color32::WHITE,
@@ -436,6 +436,7 @@ struct RenderData<'a> {
 
 /// all possible settings for shadow map resolution
 pub enum ShadowResolution {
+    Ultra,
     High,
     Normal,
     Low,
@@ -445,9 +446,10 @@ impl ShadowResolution {
     /// yields the actual corresponding map resolution to the setting
     fn map_res(&self) -> (GLsizei, GLsizei) {
         match self {
-            ShadowResolution::High => (4096, 4096),
-            ShadowResolution::Normal => (2048, 2048),
-            ShadowResolution::Low => (1024, 1024),
+            ShadowResolution::Ultra => (4096, 4096),
+            ShadowResolution::High => (2048, 2048),
+            ShadowResolution::Normal => (1024, 1024),
+            ShadowResolution::Low => (512, 512),
         }
     }
 }

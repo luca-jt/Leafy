@@ -33,11 +33,11 @@ float shadow_calc(vec4 fpl) {
     vec3 proj_coords = fpl.xyz / fpl.w;
     proj_coords = proj_coords * 0.5 + 0.5;
 
-    float bias = 0.001;
     int filter_size = 2;
-
     float shadow = 0.0;
     for (int i = 0; i < num_lights; i++) {
+        vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
+        float bias = max(0.005 * (1.0 - dot(normalize(v_normal), light_dir)), 0.001);
         for (int y = -filter_size / 2; y < filter_size / 2; ++y) {
             for (int x = -filter_size / 2; x < filter_size / 2; ++x) {
                 vec2 offset = vec2(x, y) / textureSize(shadow_sampler[i], 0);
@@ -65,7 +65,7 @@ void main() {
         vec3 src_light = vec3(diff * (1.0 - shadow_calc(frag_pos_light[i]))) * lights[i].color.rgb * lights[i].intensity;
         final_light += (vec3(ambient_light.intensity) + src_light) / float(num_lights);
     }
-    final_light = length(final_light) > 0.0 ? final_light : vec3(ambient_light.intensity);
+    final_light = num_lights > 0 ? final_light : vec3(ambient_light.intensity);
 
     vec4 textured = texture(tex_sampler, v_uv).rgba * v_color;
     out_color = vec4(textured.rgb * final_light * ambient_light.color.rgb, textured.a);

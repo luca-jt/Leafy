@@ -421,7 +421,7 @@ pub(crate) struct LightData {
     pub(crate) light_matrix: glm::Mat4,
     pub(crate) color: glm::Vec4,
     pub(crate) intensity: GLfloat,
-    pub(crate) padding_12bytes: glm::Vec3,
+    pub(crate) padding_12bytes: glm::Vec3, // necessary for std140 uniform buffer layout padding
 }
 
 /// light source data for uniform buffer use
