@@ -14,4 +14,3 @@ on collision event functions for entities?
 physics -> friction
 collision -> https://youtu.be/byP6cA71Cgw | generate hitboxes for mesh type (voxelization for custom) -> no need for double position/scale/orientation data, etc for hitboxes as they will be linked to entities
 render light sources as visible things if wanted -> when render component attached
-shadow map direction is specified in component

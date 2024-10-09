@@ -2,7 +2,7 @@
 
 #define PI 3.141592653589
 #define MAX_LIGHT_SRC_COUNT 5
-#define POINT_LIGHT_STRENGTH 250
+#define POINT_LIGHT_STRENGTH 300
 
 in vec4 v_color;
 in vec2 v_uv;

@@ -1,6 +1,7 @@
 use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::systems::audio_system::SoundHandleID;
+use crate::utils::constants::Y_AXIS;
 use gl::types::GLfloat;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 use std::path::{Path, PathBuf};
@@ -474,7 +475,7 @@ pub struct SoundController {
 pub struct Hitbox;
 
 /// responsible for entity collision checking
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum HitboxType {
     Triangle(Option<Box<HitboxType>>),
     Quad(Option<Box<HitboxType>>),
@@ -482,21 +483,24 @@ pub(crate) enum HitboxType {
     Sphere,
 }
 
-/// marker for an entity (a light source for the rendering system, needs a position attached to work)
-#[derive(Debug, Clone, Copy)]
-pub struct LightSource {
+/// marks an entity as a point light source for the rendering system, needs a position attached to work
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PointLight {
     pub color: Color32,
     pub intensity: GLfloat,
+    pub direction: glm::Vec3,
 }
 
-impl Default for LightSource {
+impl Default for PointLight {
     fn default() -> Self {
         Self {
             color: Color32::WHITE,
             intensity: 1.0,
+            direction: -Y_AXIS,
         }
     }
 }
 
-/// identifier for a light source
+/// identifier for a light source (used internally)
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct LightSrcID(pub(crate) EntityID);

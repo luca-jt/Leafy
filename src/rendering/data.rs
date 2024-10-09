@@ -249,20 +249,14 @@ pub(crate) struct ShadowMap {
     size: (GLsizei, GLsizei),
     pub(crate) light_matrix: glm::Mat4,
     pub(crate) light_pos: glm::Vec3,
-    pub(crate) light_color: Color32,
-    pub(crate) light_intensity: GLfloat,
+    pub(crate) light: PointLight,
     pub(crate) program: ShaderProgram,
     tmp_viewport: [GLint; 4],
 }
 
 impl ShadowMap {
     /// creates a new shadow map with given size (width, height)
-    pub(crate) fn new(
-        size: (GLsizei, GLsizei),
-        light_pos: glm::Vec3,
-        color: &Color32,
-        intensity: GLfloat,
-    ) -> Self {
+    pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &PointLight) -> Self {
         let mut dbo = 0;
         let mut shadow_map = 0;
         let mut program = ShaderProgram::new("shadow.vert", "shadow.frag");
@@ -322,16 +316,21 @@ impl ShadowMap {
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
+        let dot = light.direction.normalize().dot(&Y_AXIS);
+        let from_view_up = if dot.abs() == 1.0 {
+            Z_AXIS
+        } else {
+            (Y_AXIS - dot * Y_AXIS).normalize()
+        };
 
         Self {
             dbo,
             shadow_map,
             size,
             light_matrix: glm::perspective::<f32>(1.0, 90f32.to_radians(), 0.1, 100.0)
-                * glm::look_at(&light_pos, &(light_pos - Y_AXIS), &Z_AXIS),
+                * glm::look_at(&light_pos, &(light_pos + light.direction), &from_view_up),
             light_pos,
-            light_color: *color,
-            light_intensity: intensity,
+            light: *light,
             program,
             tmp_viewport: [0; 4],
         }
@@ -381,13 +380,19 @@ impl ShadowMap {
     }
 
     /// updates the shadow map according to a new light data
-    pub(crate) fn update_light(&mut self, pos: &glm::Vec3, color: &Color32, intensity: GLfloat) {
+    pub(crate) fn update_light(&mut self, pos: &glm::Vec3, light: &PointLight) {
         self.light_pos = *pos;
-        self.light_color = *color;
-        self.light_intensity = intensity;
+        self.light = *light;
+
+        let dot = light.direction.normalize().dot(&Y_AXIS);
+        let from_view_up = if dot.abs() == 1.0 {
+            Z_AXIS
+        } else {
+            (Y_AXIS - dot * Y_AXIS).normalize()
+        };
 
         self.light_matrix = glm::perspective::<f32>(1.0, 90f32.to_radians(), 0.1, 100.0)
-            * glm::look_at(pos, &(pos - Y_AXIS), &Z_AXIS);
+            * glm::look_at(pos, &(pos + light.direction), &from_view_up);
     }
 }
 

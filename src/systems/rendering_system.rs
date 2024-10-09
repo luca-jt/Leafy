@@ -29,7 +29,7 @@ pub struct RenderingSystem {
     render_distance: Option<f32>,
     shadow_resolution: ShadowResolution,
     current_cam_config: (glm::Vec3, glm::Vec3),
-    ambient_light: LightSource,
+    ambient_light: (Color32, f32),
 }
 
 impl RenderingSystem {
@@ -54,17 +54,14 @@ impl RenderingSystem {
             render_distance: None,
             shadow_resolution: ShadowResolution::High,
             current_cam_config: (-Z_AXIS, Z_AXIS),
-            ambient_light: LightSource {
-                color: Color32::WHITE,
-                intensity: 0.3,
-            },
+            ambient_light: (Color32::WHITE, 0.3),
         }
     }
 
     /// adds and removes light sources according to entity data
     pub(crate) fn update_light_sources(&mut self, entity_manager: &EntityManager) {
         let lights = entity_manager
-            .query3_opt1::<Position, LightSource, LightSrcID>(vec![])
+            .query3_opt1::<Position, PointLight, LightSrcID>(vec![])
             .map(|(p, s, l)| (p, s, l.unwrap().0))
             .collect::<Vec<_>>();
         // remove deleted shadow maps
@@ -73,11 +70,7 @@ impl RenderingSystem {
         // update positions of existing ones
         self.light_sources.iter_mut().for_each(|(entity, map)| {
             let correct_light = lights.iter().find(|(_, _, id)| id == entity).unwrap();
-            map.update_light(
-                correct_light.0.data(),
-                &correct_light.1.color,
-                correct_light.1.intensity,
-            );
+            map.update_light(correct_light.0.data(), &correct_light.1);
         });
         // add new light sources
         let new_lights = lights
@@ -94,12 +87,7 @@ impl RenderingSystem {
             }
             self.light_sources.push((
                 entity,
-                ShadowMap::new(
-                    self.shadow_resolution.map_res(),
-                    *pos.data(),
-                    &src.color,
-                    src.intensity,
-                ),
+                ShadowMap::new(self.shadow_resolution.map_res(), *pos.data(), &src),
             ));
         }
     }
@@ -329,15 +317,15 @@ impl RenderingSystem {
             .map(|(_, map)| LightData {
                 light_src: glm::Vec4::new(map.light_pos.x, map.light_pos.y, map.light_pos.z, 1.0),
                 light_matrix: map.light_matrix,
-                color: map.light_color.to_vec4(),
-                intensity: map.light_intensity,
+                color: map.light.color.to_vec4(),
+                intensity: map.light.intensity,
                 padding_12bytes: Default::default(),
             })
             .collect::<Vec<_>>();
 
         let ambient_config = LightConfig {
-            color: self.ambient_light.color.to_vec4(),
-            intensity: self.ambient_light.intensity,
+            color: self.ambient_light.0.to_vec4(),
+            intensity: self.ambient_light.1,
         };
         self.shader_catalog.light_buffer.upload_data(
             0,
@@ -391,18 +379,13 @@ impl RenderingSystem {
     pub fn set_shadow_resolution(&mut self, resolution: ShadowResolution) {
         self.shadow_resolution = resolution;
         self.light_sources.iter_mut().for_each(|(_, map)| {
-            *map = ShadowMap::new(
-                self.shadow_resolution.map_res(),
-                map.light_pos,
-                &map.light_color,
-                map.light_intensity,
-            )
+            *map = ShadowMap::new(self.shadow_resolution.map_res(), map.light_pos, &map.light)
         });
     }
 
     /// changes the ambient light (default is white and 0.3)
-    pub fn set_ambient_light(&mut self, light: LightSource) {
-        self.ambient_light = light;
+    pub fn set_ambient_light(&mut self, color: Color32, intensity: f32) {
+        self.ambient_light = (color, intensity);
     }
 }
 

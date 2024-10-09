@@ -68,7 +68,7 @@ impl EntityManager {
 
     /// creates a new default light source for the rendering system wihtout other components attached
     pub fn add_light_src(&mut self, position: Position) -> EntityID {
-        let light = self.create_entity(components!(position, LightSource::default()));
+        let light = self.create_entity(components!(position, PointLight::default()));
         self.add_component(light, LightSrcID(light));
         light
     }
@@ -117,7 +117,7 @@ impl EntityManager {
         if let Some(mesh_type) = (&component as &dyn Any).downcast_ref::<MeshType>() {
             self.try_add_mesh(mesh_type);
         }
-        if TypeId::of::<T>() == TypeId::of::<LightSource>() {
+        if TypeId::of::<T>() == TypeId::of::<PointLight>() {
             self.add_component(entity, LightSrcID(entity));
         }
         self.ecs.add_component::<T>(entity, component)
@@ -151,7 +151,7 @@ impl EntityManager {
                 }
             }
             if (component as &dyn Any)
-                .downcast_ref::<LightSource>()
+                .downcast_ref::<PointLight>()
                 .is_some()
             {
                 self.remove_component::<LightSrcID>(entity);
