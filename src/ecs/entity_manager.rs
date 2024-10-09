@@ -66,9 +66,22 @@ impl EntityManager {
         ))
     }
 
-    /// creates a new default light source for the rendering system wihtout other components attached
-    pub fn add_light_src(&mut self, position: Position) -> EntityID {
+    /// creates a new default point light source for the rendering system without other components attached (invisible)
+    pub fn create_point_light(&mut self, position: Position) -> EntityID {
         let light = self.create_entity(components!(position, PointLight::default()));
+        self.add_component(light, LightSrcID(light));
+        light
+    }
+
+    /// creates a new default point light source for the rendering system without other components attached (visible)
+    pub fn create_point_light_visible(&mut self, position: Position) -> EntityID {
+        let light = self.create_entity(components!(
+            position,
+            PointLight::default(),
+            MeshType::Cube,
+            MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
+            Scale::from_factor(0.1)
+        ));
         self.add_component(light, LightSrcID(light));
         light
     }

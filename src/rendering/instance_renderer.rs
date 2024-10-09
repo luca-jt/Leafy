@@ -268,7 +268,7 @@ impl InstanceRenderer {
     /// draws the mesh at all the positions specified until the call of this and clears the positions
     pub(crate) fn draw_all(&mut self, shadow_maps: &Vec<&ShadowMap>, program: &ShaderProgram) {
         unsafe {
-            // bind shader, textures, uniforms
+            // bind shader
             gl::UseProgram(program.id);
             // bind texture
             gl::BindTextureUnit(0, self.tex_id);

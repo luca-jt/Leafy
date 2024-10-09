@@ -274,6 +274,8 @@ impl ShaderCatalog {
         let mut program = ShaderProgram::new("batch_passthrough.vert", "batch_passthrough.frag");
 
         program.add_unif_location("tex_sampler");
+        program.add_unif_location("num_lights");
+        program.add_unif_location("shadow_sampler");
 
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 0);
 
@@ -293,6 +295,8 @@ impl ShaderCatalog {
 
         program.add_unif_location("tex_sampler");
         program.add_unif_location("color");
+        program.add_unif_location("num_lights");
+        program.add_unif_location("shadow_sampler");
 
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 0);
 
@@ -303,4 +307,11 @@ impl ShaderCatalog {
 
         self.instance_passthrough = Some(program);
     }
+}
+
+/// all shader variants for entity rendering
+#[derive(Debug, Clone, PartialOrd, PartialEq, Hash, Eq)]
+pub(crate) enum ShaderType {
+    Passthrough,
+    Basic,
 }

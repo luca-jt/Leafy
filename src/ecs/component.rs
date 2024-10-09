@@ -504,3 +504,7 @@ impl Default for PointLight {
 /// identifier for a light source (used internally)
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct LightSrcID(pub(crate) EntityID);
+
+/// holds data for sprite rendering
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Sprite;

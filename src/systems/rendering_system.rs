@@ -7,8 +7,7 @@ use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::*;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::mesh::Mesh;
-use crate::rendering::shader::ShaderCatalog;
-use crate::rendering::sprite_renderer::SpriteRenderer;
+use crate::rendering::shader::{ShaderCatalog, ShaderType};
 use crate::systems::event_system::events::CamPositionChange;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
@@ -100,8 +99,10 @@ impl RenderingSystem {
         self.init_renderers();
         // add entity data
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        for (position, mesh_type, mesh_attr, scale, orientation) in entity_manager
-            .query5_opt3::<Position, MeshType, MeshAttribute, Scale, Orientation>(vec![])
+        for (position, mesh_type, mesh_attr, scale, orientation, light) in entity_manager
+            .query6_opt4::<Position, MeshType, MeshAttribute, Scale, Orientation, PointLight>(
+                vec![],
+            )
             .filter(|(pos, ..)| match render_dist {
                 None => true,
                 Some(dist) => (pos.data() - cam_pos).norm() <= dist,
@@ -113,10 +114,17 @@ impl RenderingSystem {
                 scale.unwrap_or(&Scale::default()),
                 orientation.unwrap_or(&Orientation::default()),
             );
+            let shader_type = match light {
+                None => ShaderType::Basic,
+                Some(_) => ShaderType::Passthrough,
+            };
 
             let render_data = RenderData {
+                spec: RenderSpec {
+                    mesh_type: mesh_type.clone(),
+                    shader_type,
+                },
                 trafo: &trafo,
-                m_type: mesh_type,
                 m_attr: mesh_attr.unwrap_or(&default_attr),
                 mesh: entity_manager.asset_from_type(mesh_type).unwrap(),
                 tex_map: &entity_manager.texture_map,
@@ -140,7 +148,6 @@ impl RenderingSystem {
             match renderer_type {
                 Batch(_, renderer) => renderer.begin_first_batch(),
                 Instance(..) => {}
-                _ => {}
             }
         }
     }
@@ -155,7 +162,6 @@ impl RenderingSystem {
                 Instance(_, _, renderer) => {
                     renderer.confirm_positions();
                 }
-                _ => {}
             }
         }
     }
@@ -171,13 +177,20 @@ impl RenderingSystem {
 
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                Batch(_, renderer) => {
-                    renderer.flush(&shadow_maps, self.shader_catalog.batch_basic());
+                Batch(spec, renderer) => {
+                    let shader_program = match spec.shader_type {
+                        ShaderType::Passthrough => self.shader_catalog.batch_passthrough(),
+                        ShaderType::Basic => self.shader_catalog.batch_basic(),
+                    };
+                    renderer.flush(&shadow_maps, shader_program);
                 }
-                Instance(_, _, renderer) => {
-                    renderer.draw_all(&shadow_maps, self.shader_catalog.instance_basic());
+                Instance(spec, _, renderer) => {
+                    let shader_program = match spec.shader_type {
+                        ShaderType::Passthrough => self.shader_catalog.instance_passthrough(),
+                        ShaderType::Basic => self.shader_catalog.instance_basic(),
+                    };
+                    renderer.draw_all(&shadow_maps, shader_program);
                 }
-                Sprite(renderer) => renderer.end(),
             }
         }
     }
@@ -194,7 +207,6 @@ impl RenderingSystem {
                     Instance(_, _, renderer) => {
                         renderer.render_shadows(shadow_map);
                     }
-                    _ => {}
                 }
             }
             shadow_map.unbind_writing();
@@ -204,16 +216,20 @@ impl RenderingSystem {
     /// try to add the render data to an existing renderer
     fn try_add_data(&mut self, rd: &RenderData) -> bool {
         for (i, r_type) in self.renderers.iter_mut().enumerate() {
-            if let Batch(m_type, renderer) = r_type {
-                if m_type == rd.m_type {
+            if let Batch(spec, renderer) = r_type {
+                if *spec == rd.spec {
                     self.used_renderer_indeces.push(i);
                     return match rd.m_attr {
                         Textured(path) => {
+                            let shader_program = match spec.shader_type {
+                                ShaderType::Passthrough => self.shader_catalog.batch_passthrough(),
+                                ShaderType::Basic => self.shader_catalog.batch_basic(),
+                            };
                             renderer.draw_tex_mesh(
                                 rd.trafo,
                                 rd.tex_map.get_tex_id(path).unwrap(),
                                 rd.mesh,
-                                self.shader_catalog.batch_basic(),
+                                shader_program,
                             );
                             true
                         }
@@ -223,8 +239,8 @@ impl RenderingSystem {
                         }
                     };
                 }
-            } else if let Instance(m_type, m_attr, renderer) = r_type {
-                if m_type == rd.m_type && m_attr == rd.m_attr {
+            } else if let Instance(spec, m_attr, renderer) = r_type {
+                if *spec == rd.spec && m_attr == rd.m_attr {
                     match rd.m_attr {
                         Textured(path) => {
                             if rd.tex_map.get_tex_id(path).unwrap() == renderer.tex_id {
@@ -249,9 +265,13 @@ impl RenderingSystem {
 
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
-        match rd.m_type {
+        match rd.spec.mesh_type {
             MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
-                let mut renderer = BatchRenderer::new(rd.mesh, self.shader_catalog.batch_basic());
+                let shader_program = match rd.spec.shader_type {
+                    ShaderType::Passthrough => self.shader_catalog.batch_passthrough(),
+                    ShaderType::Basic => self.shader_catalog.batch_basic(),
+                };
+                let mut renderer = BatchRenderer::new(rd.mesh, shader_program);
                 match rd.m_attr {
                     Colored(color) => {
                         renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
@@ -261,15 +281,18 @@ impl RenderingSystem {
                             rd.trafo,
                             rd.tex_map.get_tex_id(path).unwrap(),
                             rd.mesh,
-                            self.shader_catalog.batch_basic(),
+                            shader_program,
                         );
                     }
                 }
-                self.renderers.push(Batch(rd.m_type.clone(), renderer));
+                self.renderers.push(Batch(rd.spec.clone(), renderer));
             }
             _ => {
-                let mut renderer =
-                    InstanceRenderer::new(rd.mesh, self.shader_catalog.instance_basic());
+                let shader_program = match rd.spec.shader_type {
+                    ShaderType::Passthrough => self.shader_catalog.instance_passthrough(),
+                    ShaderType::Basic => self.shader_catalog.instance_basic(),
+                };
+                let mut renderer = InstanceRenderer::new(rd.mesh, shader_program);
                 match rd.m_attr {
                     Textured(path) => {
                         renderer.tex_id = rd.tex_map.get_tex_id(path).unwrap();
@@ -280,7 +303,7 @@ impl RenderingSystem {
                 }
                 renderer.add_position(rd.trafo, rd.mesh);
                 self.renderers
-                    .push(Instance(rd.m_type.clone(), rd.m_attr.clone(), renderer));
+                    .push(Instance(rd.spec.clone(), rd.m_attr.clone(), renderer));
             }
         }
         self.used_renderer_indeces
@@ -398,17 +421,23 @@ impl EventObserver<CamPositionChange> for RenderingSystem {
     }
 }
 
+/// specifies what renderer to use for rendering an entity
+#[derive(Debug, Clone, PartialOrd, PartialEq, Hash, Eq)]
+struct RenderSpec {
+    mesh_type: MeshType,
+    shader_type: ShaderType,
+}
+
 /// stores the renderer type with rendered entity type + renderer
 enum RendererType {
-    Batch(MeshType, BatchRenderer),
-    Instance(MeshType, MeshAttribute, InstanceRenderer),
-    Sprite(SpriteRenderer),
+    Batch(RenderSpec, BatchRenderer),
+    Instance(RenderSpec, MeshAttribute, InstanceRenderer),
 }
 
 /// data bundle for rendering
 struct RenderData<'a> {
+    spec: RenderSpec,
     trafo: &'a glm::Mat4,
-    m_type: &'a MeshType,
     m_attr: &'a MeshAttribute,
     mesh: &'a Mesh,
     tex_map: &'a TextureMap,

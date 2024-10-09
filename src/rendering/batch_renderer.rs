@@ -90,7 +90,7 @@ impl BatchRenderer {
     /// send data to GPU and reset
     pub(crate) fn flush(&mut self, shadow_maps: &Vec<&ShadowMap>, program: &ShaderProgram) {
         unsafe {
-            // bind shader, textures, uniforms
+            // bind shader
             gl::UseProgram(program.id);
             // bind uniforms
             gl::Uniform1i(program.get_unif("num_lights"), shadow_maps.len() as GLsizei);
