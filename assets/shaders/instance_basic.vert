@@ -1,5 +1,7 @@
 #version 450 core
 
+#define MAX_LIGHT_SRC_COUNT 5
+
 in vec3 position;
 in vec2 uv;
 in vec3 normal;
@@ -9,7 +11,7 @@ out vec4 v_color;
 out vec2 v_uv;
 out vec3 v_normal;
 out vec3 frag_pos;
-out vec4 frag_pos_light[5];
+out vec4 frag_pos_light[MAX_LIGHT_SRC_COUNT];
 
 struct LightData {
     vec4 light_pos;
@@ -25,7 +27,7 @@ struct LightConfig {
 
 layout (std140, binding = 0, column_major) uniform light_data {
     LightConfig ambient_light;
-    LightData lights[5];
+    LightData lights[MAX_LIGHT_SRC_COUNT];
 };
 
 layout (std140, binding = 1, column_major) uniform matrix_block {
