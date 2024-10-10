@@ -5,7 +5,7 @@
 in vec4 v_color;
 in vec2 v_uv;
 in vec3 v_normal;
-in float v_tex_idx;
+flat in float v_tex_idx;
 
 out vec4 out_color;
 

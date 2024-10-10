@@ -11,7 +11,7 @@ in float tex_idx;
 out vec4 v_color;
 out vec2 v_uv;
 out vec3 v_normal;
-out float v_tex_idx;
+flat out float v_tex_idx;
 out vec3 frag_pos;
 out vec4 frag_pos_light[MAX_LIGHT_SRC_COUNT];
 

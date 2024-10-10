@@ -270,7 +270,6 @@ impl ShadowMap {
 
             gl::GenFramebuffers(1, &mut dbo);
             gl::GenTextures(1, &mut shadow_map);
-
             gl::BindTexture(gl::TEXTURE_2D, shadow_map);
             gl::TexImage2D(
                 gl::TEXTURE_2D,

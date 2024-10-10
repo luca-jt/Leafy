@@ -7,7 +7,7 @@
 in vec4 v_color;
 in vec2 v_uv;
 in vec3 v_normal;
-in float v_tex_idx;
+flat in float v_tex_idx;
 in vec3 frag_pos;
 in vec4 frag_pos_light[MAX_LIGHT_SRC_COUNT];
 

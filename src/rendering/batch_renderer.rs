@@ -5,14 +5,11 @@ use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, MAX_TEXTURE_COUNT};
 use gl::types::*;
-use std::ops::Range;
 use std::{mem, ptr};
 
 /// batch renderer for the 3D rendering option
 pub(crate) struct BatchRenderer {
     batches: Vec<Batch>,
-    current_batch_index: usize,
-    tex_slots: Vec<GLuint>,
     white_texture: GLuint,
     samplers: [GLint; MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT],
     shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT],
@@ -22,7 +19,6 @@ impl BatchRenderer {
     /// creates a new batch renderer
     pub(crate) fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
         let mut white_texture = 0;
-        let tex_slots: Vec<GLuint> = vec![0; MAX_TEXTURE_COUNT - 1 - MAX_LIGHT_SRC_COUNT];
 
         unsafe {
             // 1x1 WHITE TEXTURE
@@ -54,9 +50,7 @@ impl BatchRenderer {
         }
 
         Self {
-            batches: vec![Batch::new(mesh, program, 0)],
-            current_batch_index: 0,
-            tex_slots,
+            batches: vec![Batch::new(mesh, program)],
             white_texture,
             samplers,
             shadow_samplers,
@@ -65,16 +59,12 @@ impl BatchRenderer {
 
     /// begin the first render batch
     pub(crate) fn begin_first_batch(&mut self) {
-        debug_assert!(self.current_batch_index == 0);
-        self.batches
-            .get_mut(self.current_batch_index)
-            .unwrap()
-            .begin();
+        self.batches.first_mut().unwrap().begin();
     }
 
     /// ends the last render batch
     pub(crate) fn end_batch(&self) {
-        self.batches.get(self.current_batch_index).unwrap().end();
+        self.batches.last().unwrap().end();
     }
 
     /// renders to the shadow map
@@ -111,9 +101,8 @@ impl BatchRenderer {
             gl::BindTextureUnit(MAX_LIGHT_SRC_COUNT as GLuint, self.white_texture);
         }
         for batch in self.batches.iter_mut() {
-            batch.flush(&self.tex_slots);
+            batch.flush();
         }
-        self.current_batch_index = 0;
     }
 
     /// draws a mesh with a texture
@@ -125,15 +114,15 @@ impl BatchRenderer {
         program: &ShaderProgram,
     ) {
         for batch in self.batches.iter_mut() {
-            if batch.try_add_tex_mesh(trafo, tex_id, mesh, &mut self.tex_slots) {
+            if batch.try_add_tex_mesh(trafo, tex_id, mesh) {
                 return;
             }
         }
         // add new batch
         let last_batch = self.batches.last().unwrap();
         last_batch.end();
-        let mut new_batch = Batch::new(mesh, program, last_batch.tex_slot_range.end);
-        let res = new_batch.try_add_tex_mesh(trafo, tex_id, mesh, &mut self.tex_slots);
+        let mut new_batch = Batch::new(mesh, program);
+        let res = new_batch.try_add_tex_mesh(trafo, tex_id, mesh);
         debug_assert!(res);
         self.batches.push(new_batch);
     }
@@ -163,13 +152,13 @@ struct Batch {
     index_count: GLsizei,
     obj_buffer: Vec<Vertex>,
     obj_buffer_ptr: usize,
-    tex_slot_range: Range<usize>,
+    all_tex_ids: Vec<GLuint>,
     max_num_meshes: usize,
 }
 
 impl Batch {
     /// creates a new batch with default size
-    fn new(mesh: &Mesh, program: &ShaderProgram, start_tex_idx: usize) -> Self {
+    fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
         let max_num_meshes: usize = 10;
         // init the data ids
         let obj_buffer: Vec<Vertex> = vec![Vertex::default(); mesh.num_verteces() * max_num_meshes];
@@ -262,7 +251,7 @@ impl Batch {
             index_count: 0,
             obj_buffer,
             obj_buffer_ptr: 0,
-            tex_slot_range: start_tex_idx..start_tex_idx,
+            all_tex_ids: Vec::new(),
             max_num_meshes,
         }
     }
@@ -332,14 +321,11 @@ impl Batch {
     }
 
     /// flushes this batch and renders the stored geometry
-    fn flush(&mut self, tex_slots: &Vec<GLuint>) {
+    fn flush(&mut self) {
         unsafe {
             // bind textures
-            for (unit, tex_slot) in self.tex_slot_range.clone().enumerate() {
-                gl::BindTextureUnit(
-                    (unit + 1 + MAX_LIGHT_SRC_COUNT) as GLuint,
-                    *tex_slots.get(tex_slot).unwrap(),
-                );
+            for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
+                gl::BindTextureUnit((unit + 1 + MAX_LIGHT_SRC_COUNT) as GLuint, *tex_id);
             }
             // draw the triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
@@ -355,31 +341,22 @@ impl Batch {
     }
 
     /// adds a mesh with a texture to the batch
-    fn try_add_tex_mesh(
-        &mut self,
-        trafo: &glm::Mat4,
-        tex_id: GLuint,
-        mesh: &Mesh,
-        tex_slots: &mut Vec<GLuint>,
-    ) -> bool {
+    fn try_add_tex_mesh(&mut self, trafo: &glm::Mat4, tex_id: GLuint, mesh: &Mesh) -> bool {
         // determine texture index
         let mut tex_index: GLfloat = -1.0;
-        for i in self.tex_slot_range.clone() {
-            if *tex_slots.get(i).unwrap() == tex_id {
+        for (i, id) in self.all_tex_ids.iter().enumerate() {
+            if *id == tex_id {
                 tex_index = (i + 1) as GLfloat;
                 break;
             }
         }
         if tex_index == -1.0 {
-            if self.tex_slot_range.len() >= MAX_TEXTURE_COUNT - 1 - MAX_LIGHT_SRC_COUNT {
+            if self.all_tex_ids.len() >= MAX_TEXTURE_COUNT - 1 - MAX_LIGHT_SRC_COUNT {
                 // start a new batch if out of texture slots
-                tex_slots.reserve(MAX_TEXTURE_COUNT - 1 - MAX_LIGHT_SRC_COUNT);
                 return false;
             }
-            tex_index = (self.tex_slot_range.end % (MAX_TEXTURE_COUNT - 1 - MAX_LIGHT_SRC_COUNT))
-                as GLfloat;
-            *tex_slots.get_mut(self.tex_slot_range.end).unwrap() = tex_id;
-            self.tex_slot_range.end += 1;
+            tex_index = (self.all_tex_ids.len() + 1) as GLfloat;
+            self.all_tex_ids.push(tex_id);
         }
         if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes {
             // resize current batch if batch size exceeded
