@@ -30,9 +30,9 @@ layout (std140, binding = 0, column_major) uniform light_data {
     LightData lights[MAX_LIGHT_SRC_COUNT];
 };
 
-uniform sampler2D shadow_sampler[MAX_LIGHT_SRC_COUNT];
-uniform sampler2D tex_sampler[32 - MAX_LIGHT_SRC_COUNT];
-uniform int num_lights;
+layout(location = 0) uniform int num_lights;
+layout(location = 1) uniform sampler2D shadow_sampler[MAX_LIGHT_SRC_COUNT];
+layout(location = 6) uniform sampler2D tex_sampler[32 - MAX_LIGHT_SRC_COUNT];
 
 float shadow_calc(vec4 fpl, int i) {
     vec3 proj_coords = fpl.xyz / fpl.w;

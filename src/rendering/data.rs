@@ -49,7 +49,7 @@ pub fn load_texture(file_path: impl AsRef<Path>) -> GLuint {
 }
 
 /// data for a single vertex
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Copy, Debug)]
 #[repr(C)]
 pub struct Vertex {
     pub position: glm::Vec3,
@@ -259,15 +259,9 @@ impl ShadowMap {
     pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &PointLight) -> Self {
         let mut dbo = 0;
         let mut shadow_map = 0;
-        let mut program = ShaderProgram::new("shadow.vert", "shadow.frag");
+        let program = ShaderProgram::new("shadow.vert", "shadow.frag");
 
         unsafe {
-            program.add_attr_location("position");
-            program.add_attr_location("model");
-
-            program.add_unif_location("light_matrix");
-            program.add_unif_location("use_input_model");
-
             gl::GenFramebuffers(1, &mut dbo);
             gl::GenTextures(1, &mut shadow_map);
             gl::BindTexture(gl::TEXTURE_2D, shadow_map);
@@ -343,12 +337,7 @@ impl ShadowMap {
             gl::Scissor(0, 0, self.size.0, self.size.1);
             gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.dbo);
             gl::UseProgram(self.program.id);
-            gl::UniformMatrix4fv(
-                self.program.get_unif("light_matrix"),
-                1,
-                gl::FALSE,
-                &self.light_matrix[0],
-            );
+            gl::UniformMatrix4fv(33, 1, gl::FALSE, &self.light_matrix[0]);
             // clear the depth buffer bit
             gl::Clear(gl::DEPTH_BUFFER_BIT);
         }

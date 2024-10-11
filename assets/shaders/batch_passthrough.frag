@@ -4,14 +4,11 @@
 
 in vec4 v_color;
 in vec2 v_uv;
-in vec3 v_normal;
 flat in float v_tex_idx;
 
 out vec4 out_color;
 
-uniform sampler2D shadow_sampler[MAX_LIGHT_SRC_COUNT];
-uniform sampler2D tex_sampler[32 - MAX_LIGHT_SRC_COUNT];
-uniform int num_lights;
+layout(location = 6) uniform sampler2D tex_sampler[32 - MAX_LIGHT_SRC_COUNT];
 
 void main() {
     int sampler_idx = int(round(v_tex_idx));

@@ -15,3 +15,5 @@ physics -> friction
 collision -> https://youtu.be/byP6cA71Cgw | generate hitboxes for mesh type (voxelization for custom) -> no need for double position/scale/orientation data, etc for hitboxes as they will be linked to entities
 calculate entity cam look dir
 clean up batches if not used anymore
+avoid redundant gl::UseProgram() calls -> sort renderers by program used
+reduce unnecessary uniforms (texture samplers)

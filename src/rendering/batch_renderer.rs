@@ -1,11 +1,11 @@
 use super::data::{ShadowMap, Vertex};
-use super::shader::ShaderProgram;
+use super::shader::{bind_batch_attribs, ShaderType};
 use crate::ecs::component::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, MAX_TEXTURE_COUNT};
 use gl::types::*;
-use std::{mem, ptr};
+use std::ptr;
 
 /// batch renderer for the 3D rendering option
 pub(crate) struct BatchRenderer {
@@ -17,7 +17,7 @@ pub(crate) struct BatchRenderer {
 
 impl BatchRenderer {
     /// creates a new batch renderer
-    pub(crate) fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
+    pub(crate) fn new(mesh: &Mesh, shader_type: ShaderType) -> Self {
         let mut white_texture = 0;
 
         unsafe {
@@ -50,7 +50,7 @@ impl BatchRenderer {
         }
 
         Self {
-            batches: vec![Batch::new(mesh, program)],
+            batches: vec![Batch::new(mesh, shader_type)],
             white_texture,
             samplers,
             shadow_samplers,
@@ -68,9 +68,9 @@ impl BatchRenderer {
     }
 
     /// renders to the shadow map
-    pub(crate) fn render_shadows(&self, shadow_map: &ShadowMap) {
+    pub(crate) fn render_shadows(&self) {
         unsafe {
-            gl::Uniform1i(shadow_map.program.get_unif("use_input_model"), 0);
+            gl::Uniform1i(34, 0);
         }
         for batch in self.batches.iter() {
             batch.render_shadows();
@@ -78,21 +78,17 @@ impl BatchRenderer {
     }
 
     /// send data to GPU and reset
-    pub(crate) fn flush(&mut self, shadow_maps: &Vec<&ShadowMap>, program: &ShaderProgram) {
+    pub(crate) fn flush(&mut self, shadow_maps: &Vec<&ShadowMap>, shader_type: ShaderType) {
         unsafe {
-            // bind shader
-            gl::UseProgram(program.id);
             // bind uniforms
-            gl::Uniform1i(program.get_unif("num_lights"), shadow_maps.len() as GLsizei);
+            if shader_type != ShaderType::Passthrough {
+                gl::Uniform1i(0, shadow_maps.len() as GLsizei);
+                gl::Uniform1iv(1, MAX_LIGHT_SRC_COUNT as GLsizei, &self.shadow_samplers[0]);
+            }
             gl::Uniform1iv(
-                program.get_unif("tex_sampler"),
+                6,
                 (MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT) as GLsizei,
                 &self.samplers[0],
-            );
-            gl::Uniform1iv(
-                program.get_unif("shadow_sampler"),
-                MAX_LIGHT_SRC_COUNT as GLsizei,
-                &self.shadow_samplers[0],
             );
             // bind textures
             for (i, shadow_map) in shadow_maps.iter().enumerate() {
@@ -111,7 +107,7 @@ impl BatchRenderer {
         trafo: &glm::Mat4,
         tex_id: GLuint,
         mesh: &Mesh,
-        program: &ShaderProgram,
+        shader_type: ShaderType,
     ) {
         for batch in self.batches.iter_mut() {
             if batch.try_add_tex_mesh(trafo, tex_id, mesh) {
@@ -121,7 +117,7 @@ impl BatchRenderer {
         // add new batch
         let last_batch = self.batches.last().unwrap();
         last_batch.end();
-        let mut new_batch = Batch::new(mesh, program);
+        let mut new_batch = Batch::new(mesh, shader_type);
         let res = new_batch.try_add_tex_mesh(trafo, tex_id, mesh);
         debug_assert!(res);
         self.batches.push(new_batch);
@@ -158,7 +154,7 @@ struct Batch {
 
 impl Batch {
     /// creates a new batch with default size
-    fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
+    fn new(mesh: &Mesh, shader_type: ShaderType) -> Self {
         let max_num_meshes: usize = 10;
         // init the data ids
         let obj_buffer: Vec<Vertex> = vec![Vertex::default(); mesh.num_verteces() * max_num_meshes];
@@ -180,51 +176,7 @@ impl Batch {
             );
 
             // BIND ATTRIB POINTERS
-            gl::EnableVertexAttribArray(program.get_attr("position") as GLuint);
-            gl::VertexAttribPointer(
-                program.get_attr("position") as GLuint,
-                3,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                size_of::<Vertex>() as GLsizei,
-                mem::offset_of!(Vertex, position) as *const GLvoid,
-            );
-            gl::EnableVertexAttribArray(program.get_attr("color") as GLuint);
-            gl::VertexAttribPointer(
-                program.get_attr("color") as GLuint,
-                4,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                size_of::<Vertex>() as GLsizei,
-                mem::offset_of!(Vertex, color) as *const GLvoid,
-            );
-            gl::EnableVertexAttribArray(program.get_attr("uv") as GLuint);
-            gl::VertexAttribPointer(
-                program.get_attr("uv") as GLuint,
-                2,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                size_of::<Vertex>() as GLsizei,
-                mem::offset_of!(Vertex, uv_coords) as *const GLvoid,
-            );
-            gl::EnableVertexAttribArray(program.get_attr("normal") as GLuint);
-            gl::VertexAttribPointer(
-                program.get_attr("normal") as GLuint,
-                3,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                size_of::<Vertex>() as GLsizei,
-                mem::offset_of!(Vertex, normal) as *const GLvoid,
-            );
-            gl::EnableVertexAttribArray(program.get_attr("tex_idx") as GLuint);
-            gl::VertexAttribPointer(
-                program.get_attr("tex_idx") as GLuint,
-                1,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                size_of::<Vertex>() as GLsizei,
-                mem::offset_of!(Vertex, tex_index) as *const GLvoid,
-            );
+            bind_batch_attribs(shader_type);
 
             // INDECES
             let mut indeces: Vec<GLuint> = vec![0; mesh.num_indeces() * max_num_meshes];

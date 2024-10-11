@@ -35,8 +35,6 @@ impl RenderingSystem {
     /// creates a new rendering system with initial cam data
     pub(crate) fn new() -> Self {
         unsafe {
-            gl::Enable(gl::DEPTH_TEST);
-            gl::DepthFunc(gl::LESS);
             gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::SCISSOR_TEST);
         }
@@ -96,7 +94,9 @@ impl RenderingSystem {
         self.update_entity_cam(entity_manager);
         self.used_renderer_indeces.clear();
         clear_gl_screen(self.clear_color);
+        enable_3d_gl_modes();
         self.init_renderers();
+
         // add entity data
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
         for (position, mesh_type, mesh_attr, scale, orientation, light) in entity_manager
@@ -140,6 +140,7 @@ impl RenderingSystem {
         self.render_shadows();
         self.render_geometry();
         self.cleanup_renderers();
+        disable_3d_gl_modes();
     }
 
     /// initialize all the stored renderers
@@ -178,18 +179,26 @@ impl RenderingSystem {
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
                 Batch(spec, renderer) => {
-                    let shader_program = match spec.shader_type {
-                        ShaderType::Passthrough => self.shader_catalog.batch_passthrough(),
-                        ShaderType::Basic => self.shader_catalog.batch_basic(),
-                    };
-                    renderer.flush(&shadow_maps, shader_program);
+                    match spec.shader_type {
+                        ShaderType::Passthrough => {
+                            self.shader_catalog.batch_passthrough().use_program();
+                        }
+                        ShaderType::Basic => {
+                            self.shader_catalog.batch_basic().use_program();
+                        }
+                    }
+                    renderer.flush(&shadow_maps, spec.shader_type);
                 }
                 Instance(spec, _, renderer) => {
-                    let shader_program = match spec.shader_type {
-                        ShaderType::Passthrough => self.shader_catalog.instance_passthrough(),
-                        ShaderType::Basic => self.shader_catalog.instance_basic(),
-                    };
-                    renderer.draw_all(&shadow_maps, shader_program);
+                    match spec.shader_type {
+                        ShaderType::Passthrough => {
+                            self.shader_catalog.instance_passthrough().use_program();
+                        }
+                        ShaderType::Basic => {
+                            self.shader_catalog.instance_basic().use_program();
+                        }
+                    }
+                    renderer.draw_all(&shadow_maps, spec.shader_type);
                 }
             }
         }
@@ -202,10 +211,10 @@ impl RenderingSystem {
             for renderer_type in self.renderers.iter_mut() {
                 match renderer_type {
                     Batch(_, renderer) => {
-                        renderer.render_shadows(shadow_map);
+                        renderer.render_shadows();
                     }
                     Instance(_, _, renderer) => {
-                        renderer.render_shadows(shadow_map);
+                        renderer.render_shadows();
                     }
                 }
             }
@@ -221,15 +230,11 @@ impl RenderingSystem {
                     self.used_renderer_indeces.push(i);
                     return match rd.m_attr {
                         Textured(path) => {
-                            let shader_program = match spec.shader_type {
-                                ShaderType::Passthrough => self.shader_catalog.batch_passthrough(),
-                                ShaderType::Basic => self.shader_catalog.batch_basic(),
-                            };
                             renderer.draw_tex_mesh(
                                 rd.trafo,
                                 rd.tex_map.get_tex_id(path).unwrap(),
                                 rd.mesh,
-                                shader_program,
+                                spec.shader_type,
                             );
                             true
                         }
@@ -267,11 +272,7 @@ impl RenderingSystem {
     fn add_new_renderer(&mut self, rd: &RenderData) {
         match rd.spec.mesh_type {
             MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
-                let shader_program = match rd.spec.shader_type {
-                    ShaderType::Passthrough => self.shader_catalog.batch_passthrough(),
-                    ShaderType::Basic => self.shader_catalog.batch_basic(),
-                };
-                let mut renderer = BatchRenderer::new(rd.mesh, shader_program);
+                let mut renderer = BatchRenderer::new(rd.mesh, rd.spec.shader_type);
                 match rd.m_attr {
                     Colored(color) => {
                         renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
@@ -281,18 +282,14 @@ impl RenderingSystem {
                             rd.trafo,
                             rd.tex_map.get_tex_id(path).unwrap(),
                             rd.mesh,
-                            shader_program,
+                            rd.spec.shader_type,
                         );
                     }
                 }
                 self.renderers.push(Batch(rd.spec.clone(), renderer));
             }
             _ => {
-                let shader_program = match rd.spec.shader_type {
-                    ShaderType::Passthrough => self.shader_catalog.instance_passthrough(),
-                    ShaderType::Basic => self.shader_catalog.instance_basic(),
-                };
-                let mut renderer = InstanceRenderer::new(rd.mesh, shader_program);
+                let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.shader_type);
                 match rd.m_attr {
                     Textured(path) => {
                         renderer.tex_id = rd.tex_map.get_tex_id(path).unwrap();
@@ -358,7 +355,7 @@ impl RenderingSystem {
         if !light_data.is_empty() {
             self.shader_catalog.light_buffer.upload_data(
                 size_of::<LightConfig>() + padding::<LightConfig>(),
-                MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
+                light_data.len() * size_of::<LightData>(),
                 light_data.as_ptr() as *const GLvoid,
             );
         }
@@ -422,7 +419,7 @@ impl EventObserver<CamPositionChange> for RenderingSystem {
 }
 
 /// specifies what renderer to use for rendering an entity
-#[derive(Debug, Clone, PartialOrd, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 struct RenderSpec {
     mesh_type: MeshType,
     shader_type: ShaderType,
@@ -469,5 +466,20 @@ fn clear_gl_screen(color: Color32) {
     unsafe {
         gl::ClearColor(float_color.x, float_color.y, float_color.z, float_color.w);
         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+    }
+}
+
+/// enables all opengl state modes for 3D rendering
+fn enable_3d_gl_modes() {
+    unsafe {
+        gl::Enable(gl::DEPTH_TEST);
+        gl::DepthFunc(gl::LESS);
+    }
+}
+
+/// disables all opengl state modes for 3D rendering
+fn disable_3d_gl_modes() {
+    unsafe {
+        gl::Disable(gl::DEPTH_TEST);
     }
 }

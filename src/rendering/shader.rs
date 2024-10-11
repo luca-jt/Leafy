@@ -1,100 +1,12 @@
 use crate::glm;
-use crate::rendering::data::{LightConfig, LightData, UniformBuffer};
+use crate::rendering::data::{LightConfig, LightData, UniformBuffer, Vertex};
 use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
 use crate::utils::file::get_shader_path;
 use crate::utils::tools::padding;
 use gl::types::*;
-use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs::read_to_string;
-use std::ptr;
-
-/// shader program to use to render
-pub(crate) struct ShaderProgram {
-    pub(crate) id: GLuint,
-    uniform_locations: HashMap<String, GLint>,
-    attrib_locations: HashMap<String, GLint>,
-}
-
-impl ShaderProgram {
-    /// creates new shader program
-    pub(crate) fn new(vertex_file: &str, fragment_file: &str) -> Self {
-        // compile and link shader program
-        let vs_file =
-            read_to_string(get_shader_path(vertex_file)).expect("could not find vertex shader");
-        let fs_file =
-            read_to_string(get_shader_path(fragment_file)).expect("could not find fragment shader");
-        let vs = compile_shader(vs_file.as_str(), gl::VERTEX_SHADER);
-        let fs = compile_shader(fs_file.as_str(), gl::FRAGMENT_SHADER);
-        let id = link_program(vs, fs);
-
-        let uniform_locations = HashMap::new();
-        let attrib_locations = HashMap::new();
-
-        let c_out_color = CString::new("out_color").unwrap();
-        unsafe {
-            gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()); // maybe do this generically
-        }
-
-        Self {
-            id,
-            uniform_locations,
-            attrib_locations,
-        }
-    }
-
-    /// sets an uniform location
-    pub(crate) fn add_unif_location(&mut self, name: &str) {
-        let c_name = CString::new(name).unwrap();
-        unsafe {
-            let unif = gl::GetUniformLocation(self.id, c_name.as_ptr());
-            self.uniform_locations.insert(name.to_string(), unif);
-        }
-    }
-
-    /// sets an attrib location
-    pub(crate) fn add_attr_location(&mut self, name: &str) {
-        let c_name = CString::new(name).unwrap();
-        unsafe {
-            let attr = gl::GetAttribLocation(self.id, c_name.as_ptr());
-            self.attrib_locations.insert(name.to_string(), attr);
-        }
-    }
-
-    /// binds a new uniform buffer
-    pub(crate) fn add_unif_buffer(&self, name: &str, buffer: &UniformBuffer, index: GLuint) {
-        let c_name = CString::new(name).unwrap();
-        unsafe {
-            let block_index = gl::GetUniformBlockIndex(self.id, c_name.as_ptr());
-            gl::UniformBlockBinding(self.id, block_index, index);
-            gl::BindBufferBase(gl::UNIFORM_BUFFER, index, buffer.ubo);
-        }
-    }
-
-    /// gets an uniform location
-    pub(crate) fn get_unif(&self, name: &str) -> GLint {
-        *self
-            .uniform_locations
-            .get(name)
-            .expect("uniform location not found")
-    }
-
-    /// gets an attrib location
-    pub(crate) fn get_attr(&self, name: &str) -> GLint {
-        *self
-            .attrib_locations
-            .get(name)
-            .expect("attribute location not found")
-    }
-}
-
-impl Drop for ShaderProgram {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteProgram(self.id);
-        }
-    }
-}
+use std::{mem, ptr};
 
 /// compiles a gl shader
 fn compile_shader(src: &str, ty: GLenum) -> GLuint {
@@ -170,6 +82,57 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
     }
 }
 
+/// shader program to use to render
+pub(crate) struct ShaderProgram {
+    pub(crate) id: GLuint,
+}
+
+impl ShaderProgram {
+    /// creates new shader program
+    pub(crate) fn new(vertex_file: &str, fragment_file: &str) -> Self {
+        // compile and link shader program
+        let vs_file =
+            read_to_string(get_shader_path(vertex_file)).expect("could not find vertex shader");
+        let fs_file =
+            read_to_string(get_shader_path(fragment_file)).expect("could not find fragment shader");
+        let vs = compile_shader(vs_file.as_str(), gl::VERTEX_SHADER);
+        let fs = compile_shader(fs_file.as_str(), gl::FRAGMENT_SHADER);
+        let id = link_program(vs, fs);
+
+        let c_out_color = CString::new("out_color").unwrap();
+        unsafe {
+            gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()); // maybe do this generically
+        }
+
+        Self { id }
+    }
+
+    /// binds the shader program
+    pub(crate) fn use_program(&self) {
+        unsafe {
+            gl::UseProgram(self.id);
+        }
+    }
+
+    /// binds a new uniform buffer
+    pub(crate) fn add_unif_buffer(&self, name: &str, buffer: &UniformBuffer, index: GLuint) {
+        let c_name = CString::new(name).unwrap();
+        unsafe {
+            let block_index = gl::GetUniformBlockIndex(self.id, c_name.as_ptr());
+            gl::UniformBlockBinding(self.id, block_index, index);
+            gl::BindBufferBase(gl::UNIFORM_BUFFER, index, buffer.ubo);
+        }
+    }
+}
+
+impl Drop for ShaderProgram {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteProgram(self.id);
+        }
+    }
+}
+
 /// holds all the shader data and loads them if needed
 pub struct ShaderCatalog {
     pub(crate) light_buffer: UniformBuffer,
@@ -231,87 +194,167 @@ impl ShaderCatalog {
 
     /// creates a new basic batch renderer shader
     fn create_batch_basic(&mut self) {
-        let mut program = ShaderProgram::new("batch_basic.vert", "batch_basic.frag");
-
-        program.add_unif_location("tex_sampler");
-        program.add_unif_location("num_lights");
-        program.add_unif_location("shadow_sampler");
+        let program = ShaderProgram::new("batch_basic.vert", "batch_basic.frag");
 
         program.add_unif_buffer("light_data", &self.light_buffer, 0);
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
-
-        program.add_attr_location("position");
-        program.add_attr_location("color");
-        program.add_attr_location("uv");
-        program.add_attr_location("normal");
-        program.add_attr_location("tex_idx");
 
         self.batch_basic = Some(program);
     }
 
     /// creates a new basic instance renderer shader
     fn create_instance_basic(&mut self) {
-        let mut program = ShaderProgram::new("instance_basic.vert", "instance_basic.frag");
-
-        program.add_unif_location("tex_sampler");
-        program.add_unif_location("color");
-        program.add_unif_location("num_lights");
-        program.add_unif_location("shadow_sampler");
+        let program = ShaderProgram::new("instance_basic.vert", "instance_basic.frag");
 
         program.add_unif_buffer("light_data", &self.light_buffer, 0);
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
-
-        program.add_attr_location("position");
-        program.add_attr_location("uv");
-        program.add_attr_location("normal");
-        program.add_attr_location("model");
 
         self.instance_basic = Some(program);
     }
 
     /// creates a new passthrough batch renderer shader
     fn create_batch_passthrough(&mut self) {
-        let mut program = ShaderProgram::new("batch_passthrough.vert", "batch_passthrough.frag");
-
-        program.add_unif_location("tex_sampler");
-        program.add_unif_location("num_lights");
-        program.add_unif_location("shadow_sampler");
+        let program = ShaderProgram::new("batch_passthrough.vert", "batch_passthrough.frag");
 
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 0);
-
-        program.add_attr_location("position");
-        program.add_attr_location("color");
-        program.add_attr_location("uv");
-        program.add_attr_location("normal");
-        program.add_attr_location("tex_idx");
 
         self.batch_passthrough = Some(program);
     }
 
     /// creates a new passthrough instance renderer shader
     fn create_instance_passthrough(&mut self) {
-        let mut program =
-            ShaderProgram::new("instance_passthrough.vert", "instance_passthrough.frag");
-
-        program.add_unif_location("tex_sampler");
-        program.add_unif_location("color");
-        program.add_unif_location("num_lights");
-        program.add_unif_location("shadow_sampler");
+        let program = ShaderProgram::new("instance_passthrough.vert", "instance_passthrough.frag");
 
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 0);
-
-        program.add_attr_location("position");
-        program.add_attr_location("uv");
-        program.add_attr_location("normal");
-        program.add_attr_location("model");
 
         self.instance_passthrough = Some(program);
     }
 }
 
 /// all shader variants for entity rendering
-#[derive(Debug, Clone, PartialOrd, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub(crate) enum ShaderType {
     Passthrough,
     Basic,
+}
+
+/// binds all necessary vertex attrib pointers for the batch renderer depending on the program
+pub(crate) unsafe fn bind_batch_attribs(shader_type: ShaderType) {
+    gl::EnableVertexAttribArray(0);
+    gl::VertexAttribPointer(
+        0,
+        3,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        size_of::<Vertex>() as GLsizei,
+        mem::offset_of!(Vertex, position) as *const GLvoid,
+    );
+
+    gl::EnableVertexAttribArray(1);
+    gl::VertexAttribPointer(
+        1,
+        4,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        size_of::<Vertex>() as GLsizei,
+        mem::offset_of!(Vertex, color) as *const GLvoid,
+    );
+
+    gl::EnableVertexAttribArray(2);
+    gl::VertexAttribPointer(
+        2,
+        2,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        size_of::<Vertex>() as GLsizei,
+        mem::offset_of!(Vertex, uv_coords) as *const GLvoid,
+    );
+
+    if shader_type != ShaderType::Passthrough {
+        gl::EnableVertexAttribArray(3);
+        gl::VertexAttribPointer(
+            3,
+            3,
+            gl::FLOAT,
+            gl::FALSE as GLboolean,
+            size_of::<Vertex>() as GLsizei,
+            mem::offset_of!(Vertex, normal) as *const GLvoid,
+        );
+    }
+
+    gl::EnableVertexAttribArray(4);
+    gl::VertexAttribPointer(
+        4,
+        1,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        size_of::<Vertex>() as GLsizei,
+        mem::offset_of!(Vertex, tex_index) as *const GLvoid,
+    );
+}
+
+/// binds the pbo attrib pointer for the instance renderer
+pub(crate) unsafe fn bind_instance_pbo() {
+    gl::EnableVertexAttribArray(0);
+    gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
+}
+
+/// binds the tbo attrib pointer for the instance renderer
+pub(crate) unsafe fn bind_instance_tbo() {
+    gl::EnableVertexAttribArray(1);
+    gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
+}
+
+/// binds the nbo attrib pointer for the instance renderer
+pub(crate) unsafe fn bind_instance_nbo() {
+    gl::EnableVertexAttribArray(2);
+    gl::VertexAttribPointer(2, 3, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
+}
+
+/// binds the mbo attrib pointer for the instance renderer
+pub(crate) unsafe fn bind_instance_mbo() {
+    let pos1 = 5;
+    let pos2 = pos1 + 1;
+    let pos3 = pos1 + 2;
+    let pos4 = pos1 + 3;
+    gl::EnableVertexAttribArray(pos1);
+    gl::EnableVertexAttribArray(pos2);
+    gl::EnableVertexAttribArray(pos3);
+    gl::EnableVertexAttribArray(pos4);
+    gl::VertexAttribPointer(
+        pos1,
+        4,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        (size_of::<GLfloat>() * 4 * 4) as GLsizei,
+        ptr::null(),
+    );
+    gl::VertexAttribPointer(
+        pos2,
+        4,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        (size_of::<GLfloat>() * 4 * 4) as GLsizei,
+        (size_of::<GLfloat>() * 4) as *const GLvoid,
+    );
+    gl::VertexAttribPointer(
+        pos3,
+        4,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        (size_of::<GLfloat>() * 4 * 4) as GLsizei,
+        (size_of::<GLfloat>() * 8) as *const GLvoid,
+    );
+    gl::VertexAttribPointer(
+        pos4,
+        4,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        (size_of::<GLfloat>() * 4 * 4) as GLsizei,
+        (size_of::<GLfloat>() * 12) as *const GLvoid,
+    );
+    gl::VertexAttribDivisor(pos1, 1);
+    gl::VertexAttribDivisor(pos2, 1);
+    gl::VertexAttribDivisor(pos3, 1);
+    gl::VertexAttribDivisor(pos4, 1);
 }

@@ -1,5 +1,5 @@
 use super::data::ShadowMap;
-use super::shader::ShaderProgram;
+use super::shader::*;
 use crate::ecs::component::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
@@ -27,7 +27,7 @@ pub(crate) struct InstanceRenderer {
 
 impl InstanceRenderer {
     /// creates a new instance renderer
-    pub(crate) fn new(mesh: &Mesh, program: &ShaderProgram) -> Self {
+    pub(crate) fn new(mesh: &Mesh, shader_type: ShaderType) -> Self {
         let max_num_instances: usize = 10;
 
         let mut vao = 0; // vertex array
@@ -53,15 +53,7 @@ impl InstanceRenderer {
                 mesh.positions.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
-            gl::EnableVertexAttribArray(program.get_attr("position") as GLuint);
-            gl::VertexAttribPointer(
-                program.get_attr("position") as GLuint,
-                3,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                0,
-                ptr::null(),
-            );
+            bind_instance_pbo();
 
             // uv coord buffer
             gl::CreateBuffers(1, &mut tbo);
@@ -72,15 +64,7 @@ impl InstanceRenderer {
                 mesh.texture_coords.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
-            gl::EnableVertexAttribArray(program.get_attr("uv") as GLuint);
-            gl::VertexAttribPointer(
-                program.get_attr("uv") as GLuint,
-                2,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                0,
-                ptr::null(),
-            );
+            bind_instance_tbo();
 
             // normal vector buffer
             gl::CreateBuffers(1, &mut nbo);
@@ -91,15 +75,9 @@ impl InstanceRenderer {
                 mesh.normals.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
-            gl::EnableVertexAttribArray(program.get_attr("normal") as GLuint);
-            gl::VertexAttribPointer(
-                program.get_attr("normal") as GLuint,
-                3,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                0,
-                ptr::null(),
-            );
+            if shader_type != ShaderType::Passthrough {
+                bind_instance_nbo();
+            }
 
             // model buffer
             gl::CreateBuffers(1, &mut mbo);
@@ -110,50 +88,7 @@ impl InstanceRenderer {
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
-            let pos1 = program.get_attr("model") as GLuint;
-            let pos2 = pos1 + 1;
-            let pos3 = pos1 + 2;
-            let pos4 = pos1 + 3;
-            gl::EnableVertexAttribArray(pos1);
-            gl::EnableVertexAttribArray(pos2);
-            gl::EnableVertexAttribArray(pos3);
-            gl::EnableVertexAttribArray(pos4);
-            gl::VertexAttribPointer(
-                pos1,
-                4,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                (size_of::<GLfloat>() * 4 * 4) as GLsizei,
-                ptr::null(),
-            );
-            gl::VertexAttribPointer(
-                pos2,
-                4,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                (size_of::<GLfloat>() * 4 * 4) as GLsizei,
-                (size_of::<GLfloat>() * 4) as *const GLvoid,
-            );
-            gl::VertexAttribPointer(
-                pos3,
-                4,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                (size_of::<GLfloat>() * 4 * 4) as GLsizei,
-                (size_of::<GLfloat>() * 8) as *const GLvoid,
-            );
-            gl::VertexAttribPointer(
-                pos4,
-                4,
-                gl::FLOAT,
-                gl::FALSE as GLboolean,
-                (size_of::<GLfloat>() * 4 * 4) as GLsizei,
-                (size_of::<GLfloat>() * 12) as *const GLvoid,
-            );
-            gl::VertexAttribDivisor(pos1, 1);
-            gl::VertexAttribDivisor(pos2, 1);
-            gl::VertexAttribDivisor(pos3, 1);
-            gl::VertexAttribDivisor(pos4, 1);
+            bind_instance_mbo();
 
             // INDECES
             gl::GenBuffers(1, &mut ibo);
@@ -249,9 +184,9 @@ impl InstanceRenderer {
     }
 
     /// renders to the shadow map
-    pub(crate) fn render_shadows(&self, shadow_map: &ShadowMap) {
+    pub(crate) fn render_shadows(&self) {
         unsafe {
-            gl::Uniform1i(shadow_map.program.get_unif("use_input_model"), 1);
+            gl::Uniform1i(34, 1);
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
             gl::DrawElementsInstanced(
@@ -266,25 +201,21 @@ impl InstanceRenderer {
     }
 
     /// draws the mesh at all the positions specified until the call of this and clears the positions
-    pub(crate) fn draw_all(&mut self, shadow_maps: &Vec<&ShadowMap>, program: &ShaderProgram) {
+    pub(crate) fn draw_all(&mut self, shadow_maps: &Vec<&ShadowMap>, shader_type: ShaderType) {
         unsafe {
-            // bind shader
-            gl::UseProgram(program.id);
             // bind texture
             gl::BindTextureUnit(0, self.tex_id);
             for (i, shadow_map) in shadow_maps.iter().enumerate() {
                 shadow_map.bind_reading(i as GLuint + 1);
             }
             // bind uniforms
-            gl::Uniform1i(program.get_unif("num_lights"), shadow_maps.len() as GLsizei);
-            gl::Uniform1iv(
-                program.get_unif("shadow_sampler"),
-                MAX_LIGHT_SRC_COUNT as GLsizei,
-                &self.shadow_samplers[0],
-            );
-            gl::Uniform1i(program.get_unif("tex_sampler"), 0);
+            if shader_type != ShaderType::Passthrough {
+                gl::Uniform1i(0, shadow_maps.len() as GLsizei);
+                gl::Uniform1iv(2, MAX_LIGHT_SRC_COUNT as GLsizei, &self.shadow_samplers[0]);
+            }
+            gl::Uniform1i(7, 0);
             let color_vec = self.color.to_vec4();
-            gl::Uniform4fv(program.get_unif("color"), 1, &color_vec[0]);
+            gl::Uniform4fv(1, 1, &color_vec[0]);
 
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
