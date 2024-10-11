@@ -20,6 +20,10 @@ path = "examples/fl_test/main.rs"
 name = "2d"
 path = "examples/2d/main.rs"
 
+[[test]]
+name = "ecs"
+path = "tests/ecs_test.rs"
+
 [dependencies]
 glutin = "0.32.0"
 glutin-winit = "0.5.0"
