@@ -7,6 +7,10 @@ keywords = ["game", "engine", "gamedev"]
 license = "MIT"
 rust-version = "1.81.0"
 build = "build.rs"
+description = "A mini Game Engine written in Rust."
+readme = "README.md"
+repository = "https://github.com/luca-jt/Falling-Leaf"
+exclude = ["tests"]
 
 [lib]
 name = "fl_core"

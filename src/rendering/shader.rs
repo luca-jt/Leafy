@@ -216,7 +216,7 @@ impl ShaderCatalog {
     fn create_batch_passthrough(&mut self) {
         let program = ShaderProgram::new("batch_passthrough.vert", "batch_passthrough.frag");
 
-        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 0);
+        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
 
         self.batch_passthrough = Some(program);
     }
@@ -225,7 +225,7 @@ impl ShaderCatalog {
     fn create_instance_passthrough(&mut self) {
         let program = ShaderProgram::new("instance_passthrough.vert", "instance_passthrough.frag");
 
-        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 0);
+        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
 
         self.instance_passthrough = Some(program);
     }

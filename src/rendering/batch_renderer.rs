@@ -5,11 +5,13 @@ use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, MAX_TEXTURE_COUNT};
 use gl::types::*;
+use std::collections::HashSet;
 use std::ptr;
 
 /// batch renderer for the 3D rendering option
 pub(crate) struct BatchRenderer {
     batches: Vec<Batch>,
+    used_batch_indeces: HashSet<usize>,
     white_texture: GLuint,
     samplers: [GLint; MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT],
     shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT],
@@ -51,6 +53,7 @@ impl BatchRenderer {
 
         Self {
             batches: vec![Batch::new(mesh, shader_type)],
+            used_batch_indeces: HashSet::new(),
             white_texture,
             samplers,
             shadow_samplers,
@@ -59,6 +62,7 @@ impl BatchRenderer {
 
     /// begin the first render batch
     pub(crate) fn begin_first_batch(&mut self) {
+        self.used_batch_indeces.clear();
         self.batches.first_mut().unwrap().begin();
     }
 
@@ -99,6 +103,12 @@ impl BatchRenderer {
         for batch in self.batches.iter_mut() {
             batch.flush();
         }
+        // clean up unused batches
+        for index in 0..self.batches.len() {
+            if !self.used_batch_indeces.contains(&index) {
+                self.batches.remove(index);
+            }
+        }
     }
 
     /// draws a mesh with a texture
@@ -109,8 +119,9 @@ impl BatchRenderer {
         mesh: &Mesh,
         shader_type: ShaderType,
     ) {
-        for batch in self.batches.iter_mut() {
+        for (i, batch) in self.batches.iter_mut().enumerate() {
             if batch.try_add_tex_mesh(trafo, tex_id, mesh) {
+                self.used_batch_indeces.insert(i);
                 return;
             }
         }
@@ -120,11 +131,13 @@ impl BatchRenderer {
         let mut new_batch = Batch::new(mesh, shader_type);
         let res = new_batch.try_add_tex_mesh(trafo, tex_id, mesh);
         debug_assert!(res);
+        self.used_batch_indeces.insert(self.batches.len());
         self.batches.push(new_batch);
     }
 
     /// draws a mesh with a color
     pub(crate) fn draw_color_mesh(&mut self, trafo: &glm::Mat4, color: Color32, mesh: &Mesh) {
+        self.used_batch_indeces.insert(0);
         self.batches
             .first_mut()
             .unwrap()

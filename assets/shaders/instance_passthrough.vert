@@ -7,7 +7,7 @@ layout (location = 5) in mat4 model; // takes up 4 attribute locations
 out vec4 v_color;
 out vec2 v_uv;
 
-layout (std140, binding = 0, column_major) uniform matrix_block {
+layout (std140, binding = 1, column_major) uniform matrix_block {
     mat4 projection;
     mat4 view;
 };
