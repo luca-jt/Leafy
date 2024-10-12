@@ -22,7 +22,6 @@ pub struct RenderingSystem {
     perspective_camera: PerspectiveCamera,
     ortho_camera: OrthoCamera,
     shader_catalog: ShaderCatalog,
-    used_renderer_indeces: Vec<usize>,
     cam_position_link: Option<EntityID>,
     clear_color: Color32,
     render_distance: Option<f32>,
@@ -45,7 +44,6 @@ impl RenderingSystem {
             perspective_camera: PerspectiveCamera::new(-Z_AXIS, ORIGIN),
             ortho_camera: OrthoCamera::from_size(1.0),
             shader_catalog: ShaderCatalog::new(),
-            used_renderer_indeces: Vec::new(),
             cam_position_link: None,
             clear_color: Color32::WHITE,
             render_distance: None,
@@ -92,7 +90,7 @@ impl RenderingSystem {
     /// start the 3D rendering for all renderers
     pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
         self.update_entity_cam(entity_manager);
-        self.used_renderer_indeces.clear();
+        self.reset_renderer_usage();
         clear_gl_screen(self.clear_color);
         enable_3d_gl_modes();
         self.init_renderers();
@@ -147,7 +145,7 @@ impl RenderingSystem {
     fn init_renderers(&mut self) {
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                Batch(_, renderer) => renderer.begin_first_batch(),
+                Batch(_, renderer, _) => renderer.begin_first_batch(),
                 Instance(..) => {}
             }
         }
@@ -157,10 +155,10 @@ impl RenderingSystem {
     fn confirm_data(&mut self) {
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                Batch(_, renderer) => {
+                Batch(_, renderer, _) => {
                     renderer.end_batch();
                 }
-                Instance(_, _, renderer) => {
+                Instance(_, _, renderer, _) => {
                     renderer.confirm_positions();
                 }
             }
@@ -178,7 +176,7 @@ impl RenderingSystem {
 
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                Batch(spec, renderer) => {
+                Batch(spec, renderer, _) => {
                     match spec.shader_type {
                         ShaderType::Passthrough => {
                             self.shader_catalog.batch_passthrough().use_program();
@@ -189,7 +187,7 @@ impl RenderingSystem {
                     }
                     renderer.flush(&shadow_maps, spec.shader_type);
                 }
-                Instance(spec, _, renderer) => {
+                Instance(spec, _, renderer, _) => {
                     match spec.shader_type {
                         ShaderType::Passthrough => {
                             self.shader_catalog.instance_passthrough().use_program();
@@ -210,10 +208,10 @@ impl RenderingSystem {
             shadow_map.bind_writing();
             for renderer_type in self.renderers.iter_mut() {
                 match renderer_type {
-                    Batch(_, renderer) => {
+                    Batch(_, renderer, _) => {
                         renderer.render_shadows();
                     }
-                    Instance(_, _, renderer) => {
+                    Instance(_, _, renderer, _) => {
                         renderer.render_shadows();
                     }
                 }
@@ -224,10 +222,10 @@ impl RenderingSystem {
 
     /// try to add the render data to an existing renderer
     fn try_add_data(&mut self, rd: &RenderData) -> bool {
-        for (i, r_type) in self.renderers.iter_mut().enumerate() {
-            if let Batch(spec, renderer) = r_type {
+        for r_type in self.renderers.iter_mut() {
+            if let Batch(spec, renderer, used) = r_type {
                 if *spec == rd.spec {
-                    self.used_renderer_indeces.push(i);
+                    *used = true;
                     return match rd.m_attr {
                         Textured(path) => {
                             renderer.draw_tex_mesh(
@@ -244,20 +242,20 @@ impl RenderingSystem {
                         }
                     };
                 }
-            } else if let Instance(spec, m_attr, renderer) = r_type {
+            } else if let Instance(spec, m_attr, renderer, used) = r_type {
                 if *spec == rd.spec && m_attr == rd.m_attr {
                     match rd.m_attr {
                         Textured(path) => {
                             if rd.tex_map.get_tex_id(path).unwrap() == renderer.tex_id {
                                 renderer.add_position(rd.trafo, rd.mesh);
-                                self.used_renderer_indeces.push(i);
+                                *used = true;
                                 return true;
                             }
                         }
                         Colored(color) => {
                             if *color == renderer.color {
                                 renderer.add_position(rd.trafo, rd.mesh);
-                                self.used_renderer_indeces.push(i);
+                                *used = true;
                                 return true;
                             }
                         }
@@ -286,7 +284,7 @@ impl RenderingSystem {
                         );
                     }
                 }
-                self.renderers.push(Batch(rd.spec.clone(), renderer));
+                self.renderers.push(Batch(rd.spec.clone(), renderer, true));
             }
             _ => {
                 let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.shader_type);
@@ -300,11 +298,9 @@ impl RenderingSystem {
                 }
                 renderer.add_position(rd.trafo, rd.mesh);
                 self.renderers
-                    .push(Instance(rd.spec.clone(), rd.m_attr.clone(), renderer));
+                    .push(Instance(rd.spec.clone(), rd.m_attr.clone(), renderer, true));
             }
         }
-        self.used_renderer_indeces
-            .push(self.used_renderer_indeces.len());
     }
 
     /// updates the camera if it is attached to an entity
@@ -313,8 +309,14 @@ impl RenderingSystem {
             let pos = entity_manager
                 .get_component::<Position>(entity)
                 .expect("entity has no position");
+            let default_orient = Orientation::default();
+            let orientation = entity_manager
+                .get_component::<Orientation>(entity)
+                .unwrap_or(&default_orient);
+            let look_dir =
+                (orientation.rotation_matrix() * glm::Vec4::new(0.0, 0.0, -1.0, 0.0)).xyz();
             self.perspective_camera
-                .update_cam(pos.data(), &(pos.data() + Z_AXIS));
+                .update_cam(pos.data(), &(pos.data() + look_dir));
         }
     }
 
@@ -363,10 +365,13 @@ impl RenderingSystem {
 
     /// drop renderers that are not used anymore
     fn cleanup_renderers(&mut self) {
-        for i in 0..self.renderers.len() {
-            if !self.used_renderer_indeces.contains(&i) {
-                self.renderers.remove(i);
-            }
+        self.renderers.retain(|r_type| r_type.used());
+    }
+
+    /// resets the usage flags of all renderers to false
+    fn reset_renderer_usage(&mut self) {
+        for renderer in self.renderers.iter_mut() {
+            renderer.mark_unused();
         }
     }
 
@@ -427,8 +432,30 @@ struct RenderSpec {
 
 /// stores the renderer type with rendered entity type + renderer
 enum RendererType {
-    Batch(RenderSpec, BatchRenderer),
-    Instance(RenderSpec, MeshAttribute, InstanceRenderer),
+    Batch(RenderSpec, BatchRenderer, bool),
+    Instance(RenderSpec, MeshAttribute, InstanceRenderer, bool),
+}
+
+impl RendererType {
+    /// returns the value of the renderers use flag
+    fn used(&self) -> bool {
+        match self {
+            Batch(_, _, used) => *used,
+            Instance(_, _, _, used) => *used,
+        }
+    }
+
+    /// marks the renderer as unused
+    fn mark_unused(&mut self) {
+        match self {
+            Batch(_, _, used) => {
+                *used = false;
+            }
+            Instance(_, _, _, used) => {
+                *used = false;
+            }
+        }
+    }
 }
 
 /// data bundle for rendering
