@@ -60,6 +60,7 @@ impl EntityManager {
             mesh_type,
             mesh_attribute,
             Velocity::zero(),
+            AngularVelocity::zero(),
             Acceleration::zero(),
             TouchTime::now(),
             Hitbox

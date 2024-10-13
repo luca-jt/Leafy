@@ -1,6 +1,7 @@
-use crate::ecs::component::{Acceleration, Position, TouchTime, Velocity};
+use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
+use crate::include_filter;
 use crate::systems::event_system::events::{AnimationSpeedChange, EngineModeChange};
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::G;
@@ -8,6 +9,7 @@ use crate::utils::constants::G;
 pub struct AnimationSystem {
     current_mode: EngineMode,
     animation_speed: f32,
+    time_step_size: TimeDuration,
 }
 
 impl AnimationSystem {
@@ -16,12 +18,31 @@ impl AnimationSystem {
         Self {
             current_mode: EngineMode::Running,
             animation_speed: 1.0,
+            time_step_size: TimeDuration(0.001),
         }
     }
 
     /// applys all of the physics to all of the entities
     pub(crate) fn update(&self, entity_manager: &mut EntityManager) {
-        // apply physics
+        self.apply_physics(entity_manager);
+        self.handle_collisions(entity_manager);
+    }
+
+    /// checks for collision between entities with hitboxes and resolves them
+    fn handle_collisions(&self, entity_manager: &mut EntityManager) {
+        let objects = entity_manager
+            .query4_mut_opt3::<Position, Velocity, AngularVelocity, MeshType>(vec![
+                include_filter!(Hitbox),
+            ])
+            .collect::<Vec<_>>();
+        // two collision cases: two edges touching or one vertex anywhere on a side
+        // compute center of mass and hitboxes in mesh constructor
+        // use steps for animations, not only delta time
+        // angular velocity (+ operations) -> use also in apply_physics()
+    }
+
+    /// performs all relevant physics calculations on entity data
+    fn apply_physics(&self, entity_manager: &mut EntityManager) {
         for (p, t, v, a_opt) in
             entity_manager.query4_mut_opt1::<Position, TouchTime, Velocity, Acceleration>(vec![])
         {

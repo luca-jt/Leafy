@@ -3,7 +3,7 @@ use crate::glm;
 use crate::systems::audio_system::SoundHandleID;
 use crate::utils::constants::Y_AXIS;
 use gl::types::GLfloat;
-use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use MeshAttribute::*;
@@ -141,6 +141,20 @@ impl MulAssign<f32> for Position {
     }
 }
 
+impl Div<f32> for Position {
+    type Output = Position;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Position(self.0 / rhs)
+    }
+}
+
+impl DivAssign<f32> for Position {
+    fn div_assign(&mut self, rhs: f32) {
+        self.0 /= rhs;
+    }
+}
+
 impl Default for Position {
     fn default() -> Self {
         Position::origin()
@@ -220,6 +234,20 @@ impl Mul<f32> for Velocity {
 impl MulAssign<f32> for Velocity {
     fn mul_assign(&mut self, rhs: f32) {
         self.0 *= rhs;
+    }
+}
+
+impl Div<f32> for Velocity {
+    type Output = Velocity;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Velocity(self.0 / rhs)
+    }
+}
+
+impl DivAssign<f32> for Velocity {
+    fn div_assign(&mut self, rhs: f32) {
+        self.0 /= rhs;
     }
 }
 
@@ -305,9 +333,49 @@ impl MulAssign<f32> for Acceleration {
     }
 }
 
+impl Div<f32> for Acceleration {
+    type Output = Acceleration;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Acceleration(self.0 / rhs)
+    }
+}
+
+impl DivAssign<f32> for Acceleration {
+    fn div_assign(&mut self, rhs: f32) {
+        self.0 /= rhs;
+    }
+}
+
 impl Default for Acceleration {
     fn default() -> Self {
         Acceleration::zero()
+    }
+}
+
+/// describes an angular velocity by the rotational axis (rhs rotaion) and its length (velocity value)
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub struct AngularVelocity(glm::Vec3);
+
+impl AngularVelocity {
+    /// creates a new angular velocity
+    pub const fn new(rx: f32, ry: f32, rz: f32) -> Self {
+        Self(glm::Vec3::new(rx, ry, rz))
+    }
+
+    /// grants immutable access to the stored data
+    pub fn data(&self) -> &glm::Vec3 {
+        &self.0
+    }
+
+    /// grants mutable access to the stored data
+    pub fn data_mut(&mut self) -> &mut glm::Vec3 {
+        &mut self.0
+    }
+
+    /// creates a new angular velocity filled with zeros
+    pub const fn zero() -> Self {
+        Self(glm::Vec3::new(0.0, 0.0, 0.0))
     }
 }
 
@@ -462,6 +530,34 @@ impl Mul<f32> for TimeDuration {
 
     fn mul(self, rhs: f32) -> Self::Output {
         TimeDuration(self.0 * rhs)
+    }
+}
+
+impl MulAssign<f32> for TimeDuration {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.0 *= rhs;
+    }
+}
+
+impl Div<f32> for TimeDuration {
+    type Output = TimeDuration;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        TimeDuration(self.0 / rhs)
+    }
+}
+
+impl DivAssign<f32> for TimeDuration {
+    fn div_assign(&mut self, rhs: f32) {
+        self.0 /= rhs;
+    }
+}
+
+impl Div<TimeDuration> for TimeDuration {
+    type Output = f32;
+
+    fn div(self, rhs: TimeDuration) -> Self::Output {
+        self.0 / rhs.0
     }
 }
 
