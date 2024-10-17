@@ -17,7 +17,7 @@ pub struct EngineAttributes {
     pub(crate) fps_cap: Option<f64>,
     size: (u32, u32),
     min_size: Option<(u32, u32)>,
-    pub(crate) inv_ratio: Option<f32>,
+    pub(crate) enforced_ratio: Option<f32>,
     transparent: bool,
     blur: bool,
     icon: PathBuf,
@@ -37,7 +37,7 @@ impl EngineAttributes {
             fps_cap: Some(300f64),
             size: (MIN_WIN_WIDTH, MIN_WIN_HEIGHT),
             min_size: None,
-            inv_ratio: Some(INV_WIN_RATIO),
+            enforced_ratio: None,
             transparent: false,
             blur: false,
             icon: PathBuf::from(get_image_path("icon.ico")),
@@ -62,9 +62,9 @@ impl EngineAttributes {
         self
     }
 
-    /// sets the width and height for the window (default is 800 x 450)
-    pub fn with_size(mut self, size: (u32, u32)) -> Self {
-        self.size = size;
+    /// sets the width and height for the window (default is 800 x 450) (logical pixels)
+    pub fn with_size(mut self, width: u32, height: u32) -> Self {
+        self.size = (width, height);
         self
     }
 
@@ -74,9 +74,9 @@ impl EngineAttributes {
         self
     }
 
-    /// sets an optional window ratio (height/width) to keep at all times during resizes of the window (default is 9/16)
+    /// sets an optional window ratio (width/height) to keep at all times during resizes of the window (default is None)
     pub fn with_fixed_ratio(mut self, ratio: Option<f32>) -> Self {
-        self.inv_ratio = ratio;
+        self.enforced_ratio = ratio;
         self
     }
 

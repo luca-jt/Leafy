@@ -10,11 +10,13 @@ use fl_core::winit::keyboard::KeyCode;
 use std::f32::consts::PI;
 
 pub const CAM_MOVE_SPEED: f32 = 4.5;
+pub const CAM_MOUSE_SPEED: f32 = 0.001;
 
 /// example app
 pub struct App {
     player: Option<EntityID>,
     cube: Option<EntityID>,
+    using_mouse_control: bool,
 }
 
 impl App {
@@ -22,6 +24,7 @@ impl App {
         Self {
             player: None,
             cube: None,
+            using_mouse_control: true,
         }
     }
 }
@@ -33,7 +36,9 @@ impl FallingLeafApp for App {
             new_pos: start_pos,
             new_look: ORIGIN - start_pos,
         });
-        engine.video_system_mut().set_mouse_cam_control(Some(0.001));
+        engine
+            .video_system_mut()
+            .set_mouse_cam_control(Some(CAM_MOUSE_SPEED));
         engine
             .animation_system_mut()
             .set_flying_cam_movement(Some(CAM_MOVE_SPEED));
@@ -81,6 +86,7 @@ impl FallingLeafApp for App {
 
         engine.event_system_mut().add_modifier(jump);
         engine.event_system_mut().add_modifier(quit_app);
+        engine.event_system_mut().add_modifier(toggle_cursor);
 
         engine.audio_system().enable_hrtf();
         engine
@@ -119,5 +125,19 @@ fn jump(event: &KeyPress, engine: &Engine<App>) {
 fn quit_app(event: &KeyPress, engine: &Engine<App>) {
     if event.key == KeyCode::Escape {
         engine.quit();
+    }
+}
+
+fn toggle_cursor(event: &KeyPress, engine: &Engine<App>) {
+    if event.key == KeyCode::Tab {
+        if engine.app().using_mouse_control {
+            engine.video_system_mut().set_mouse_cam_control(None);
+            engine.app_mut().using_mouse_control = false;
+        } else {
+            engine
+                .video_system_mut()
+                .set_mouse_cam_control(Some(CAM_MOUSE_SPEED));
+            engine.app_mut().using_mouse_control = true;
+        }
     }
 }

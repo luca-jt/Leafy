@@ -19,6 +19,7 @@ use std::error::Error;
 use std::ffi::{CStr, CString};
 use std::num::NonZeroU32;
 use std::time::{Duration, Instant};
+use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::KeyCode;
 use winit::window::{CursorGrabMode, CursorIcon, Fullscreen, Window};
@@ -35,6 +36,7 @@ pub struct VideoSystem {
     frame_start_time: Instant,
     fps_cap: Option<f64>,
     stored_config: EngineAttributes,
+    skipped_first_resize: bool,
     mouse_cam_sens: Option<f32>,
 }
 
@@ -60,6 +62,7 @@ impl VideoSystem {
             frame_start_time: Instant::now(),
             fps_cap: config.fps_cap,
             stored_config: config,
+            skipped_first_resize: false,
             mouse_cam_sens: None,
         }
     }
@@ -329,7 +332,7 @@ impl EventObserver<WindowResize> for VideoSystem {
         // Some platforms like EGL require resizing GL surface to update the size.
         // Notable platforms here are Wayland and macOS, others don't require it.
         // It's wise to resize it for portability reasons.
-        if let (Some(gl_surface), Some(gl_context), Some(_window)) = (
+        if let (Some(gl_surface), Some(gl_context), Some(window)) = (
             self.gl_surface.as_ref(),
             self.gl_context.as_ref(),
             self.window.as_ref(),
@@ -337,28 +340,37 @@ impl EventObserver<WindowResize> for VideoSystem {
             if event.width == 0 || event.height == 0 {
                 return;
             }
-            /*let corrected_height = (event.width as f32 * INV_WIN_RATIO) as u32;
-            let final_size: (u32, u32);
 
-            if corrected_height != event.height {
-                let returned_size =
-                    window.request_inner_size(PhysicalSize::new(event.width, corrected_height));
-                if let Some(rs) = returned_size {
-                    final_size = (rs.width, rs.height);
+            let size_to_use = if let Some(enforced_ratio) = self.stored_config.enforced_ratio {
+                // enforce window side ratio
+                let corrected_height = (event.width as f32 / enforced_ratio) as u32;
+                let mut final_size = (event.width, event.height);
+                if self.skipped_first_resize {
+                    if corrected_height != event.height {
+                        let returned_size = window
+                            .request_inner_size(PhysicalSize::new(event.width, corrected_height));
+                        if let Some(rs) = returned_size {
+                            final_size = (rs.width, rs.height);
+                        } else {
+                            return;
+                        }
+                    }
                 } else {
-                    return;
+                    self.skipped_first_resize = true;
                 }
+                final_size
             } else {
-                final_size = (event.width, event.height);
-            }*/
+                (event.width, event.height)
+            };
+
             gl_surface.resize(
                 gl_context,
-                NonZeroU32::new(event.width).unwrap(),
-                NonZeroU32::new(event.height).unwrap(),
+                NonZeroU32::new(size_to_use.0).unwrap(),
+                NonZeroU32::new(size_to_use.1).unwrap(),
             );
             unsafe {
-                gl::Viewport(0, 0, event.width as GLsizei, event.height as GLsizei);
-                gl::Scissor(0, 0, event.width as GLsizei, event.height as GLsizei);
+                gl::Viewport(0, 0, size_to_use.0 as GLsizei, size_to_use.1 as GLsizei);
+                gl::Scissor(0, 0, size_to_use.0 as GLsizei, size_to_use.1 as GLsizei);
             }
         }
     }

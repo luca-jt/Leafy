@@ -9,7 +9,9 @@ mod app;
 fn main() -> Result<(), Box<dyn Error>> {
     let app = App::new();
     let mut engine = EngineAttributes::new()
+        .with_min_size(Some((400, 225)))
         .with_transparent(true)
+        .with_fixed_ratio(Some(16.0 / 9.0))
         .build_engine()
         .unwrap();
 
