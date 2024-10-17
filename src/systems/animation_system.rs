@@ -1,15 +1,19 @@
 use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
-use crate::engine::EngineMode;
-use crate::include_filter;
-use crate::systems::event_system::events::{AnimationSpeedChange, EngineModeChange};
+use crate::engine::{Engine, EngineMode, FallingLeafApp};
+use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
-use crate::utils::constants::G;
+use crate::utils::constants::{G, Y_AXIS};
+use crate::{glm, include_filter};
+use winit::keyboard::KeyCode;
 
 pub struct AnimationSystem {
     current_mode: EngineMode,
     animation_speed: f32,
     time_step_size: TimeDuration,
+    pub(crate) flying_cam_dir: Option<(glm::Vec3, f32)>,
+    pub(crate) flying_cam_keys: MovementKeys,
+    time_of_cam_move_update: TouchTime,
 }
 
 impl AnimationSystem {
@@ -19,6 +23,16 @@ impl AnimationSystem {
             current_mode: EngineMode::Running,
             animation_speed: 1.0,
             time_step_size: TimeDuration(0.001),
+            flying_cam_dir: None,
+            flying_cam_keys: MovementKeys {
+                up: KeyCode::Space,
+                down: KeyCode::ShiftLeft,
+                forward: KeyCode::KeyW,
+                backward: KeyCode::KeyS,
+                left: KeyCode::KeyA,
+                right: KeyCode::KeyD,
+            },
+            time_of_cam_move_update: TouchTime::now(),
         }
     }
 
@@ -59,6 +73,52 @@ impl AnimationSystem {
             t.reset();
         }
     }
+
+    /// updates the camera position based on the current movement key induced camera movement
+    pub(crate) fn update_cam<T: FallingLeafApp>(&mut self, engine: &Engine<T>) {
+        if let Some(cam_move_config) = self.flying_cam_dir {
+            let cam_config = engine.rendering_system().current_cam_config();
+            let elapsed = self.time_of_cam_move_update.delta_time();
+            self.time_of_cam_move_update.reset();
+
+            let move_vector = if cam_move_config.0 != glm::Vec3::zeros() {
+                cam_move_config.0.normalize()
+            } else {
+                cam_move_config.0
+            };
+            let changed = move_vector * elapsed.0 * cam_move_config.1;
+
+            let mut look_z = cam_config.1;
+            look_z.y = 0.0;
+            look_z.normalize_mut();
+            let look_x = look_z.cross(&Y_AXIS).normalize();
+            let look_space_matrix = glm::Mat3::from_columns(&[look_x, Y_AXIS, look_z]);
+
+            engine.trigger_event(CamPositionChange {
+                new_pos: cam_config.0 + look_space_matrix * changed,
+                new_look: cam_config.1,
+            });
+        }
+    }
+
+    /// enables/disables the built-in flying cam movement with a movement speed
+    /// to change the movement keys use ``define_movement_keys()``
+    pub fn set_flying_cam_movement(&mut self, speed: Option<f32>) {
+        match speed {
+            None => {
+                self.flying_cam_dir = None;
+            }
+            Some(s) => {
+                self.flying_cam_dir = Some((glm::Vec3::zeros(), s));
+            }
+        }
+    }
+
+    /// changes the movement keys used for the built-in flying camera movement
+    /// defaults: up - Space, down - LeftShift, directions - WASD
+    pub fn define_movement_keys(&mut self, keys: MovementKeys) {
+        self.flying_cam_keys = keys;
+    }
 }
 
 impl EventObserver<AnimationSpeedChange> for AnimationSystem {
@@ -70,6 +130,73 @@ impl EventObserver<AnimationSpeedChange> for AnimationSystem {
 impl EventObserver<EngineModeChange> for AnimationSystem {
     fn on_event(&mut self, event: &EngineModeChange) {
         self.current_mode = event.new_mode;
+    }
+}
+
+/// defines a set of movement keys for camera control
+#[derive(Debug, Copy, Clone)]
+pub struct MovementKeys {
+    pub up: KeyCode,
+    pub down: KeyCode,
+    pub forward: KeyCode,
+    pub backward: KeyCode,
+    pub left: KeyCode,
+    pub right: KeyCode,
+}
+
+/// starts moving the camera in the direction the key was pressed for
+pub(crate) fn move_cam<T: FallingLeafApp>(event: &KeyPress, engine: &Engine<T>) {
+    if event.is_repeat {
+        return;
+    }
+    let keys = engine.animation_system().flying_cam_keys;
+    if let Some((cam_move_direction, _)) = engine.animation_system_mut().flying_cam_dir.as_mut() {
+        if event.key == keys.down {
+            cam_move_direction.y -= 1.0;
+        }
+        if event.key == keys.up {
+            cam_move_direction.y += 1.0;
+        }
+        if event.key == keys.forward {
+            cam_move_direction.z += 1.0;
+        }
+        if event.key == keys.left {
+            cam_move_direction.x -= 1.0;
+        }
+        if event.key == keys.backward {
+            cam_move_direction.z -= 1.0;
+        }
+        if event.key == keys.right {
+            cam_move_direction.x += 1.0;
+        }
+    }
+}
+
+/// stops the cam form moving in the direction the key was released for
+pub(crate) fn stop_cam<T: FallingLeafApp>(event: &KeyRelease, engine: &Engine<T>) {
+    if event.is_repeat {
+        return;
+    }
+    let keys = engine.animation_system().flying_cam_keys;
+    if let Some((cam_move_direction, _)) = engine.animation_system_mut().flying_cam_dir.as_mut() {
+        if event.key == keys.down {
+            cam_move_direction.y += 1.0;
+        }
+        if event.key == keys.up {
+            cam_move_direction.y -= 1.0;
+        }
+        if event.key == keys.forward {
+            cam_move_direction.z -= 1.0;
+        }
+        if event.key == keys.left {
+            cam_move_direction.x += 1.0;
+        }
+        if event.key == keys.backward {
+            cam_move_direction.z += 1.0;
+        }
+        if event.key == keys.right {
+            cam_move_direction.x -= 1.0;
+        }
     }
 }
 

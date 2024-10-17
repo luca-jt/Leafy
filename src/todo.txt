@@ -13,3 +13,4 @@ sprite renderer -> depth layers configurable
 on collision event functions for entities?
 physics -> friction
 collision -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type (voxelization for custom?)
+force window side ratio

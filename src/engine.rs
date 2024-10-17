@@ -1,6 +1,6 @@
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine_builder::EngineAttributes;
-use crate::systems::animation_system::AnimationSystem;
+use crate::systems::animation_system::{move_cam, stop_cam, AnimationSystem};
 use crate::systems::audio_system::AudioSystem;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventSystem;
@@ -47,6 +47,8 @@ impl<A: FallingLeafApp> Engine<A> {
         event_system.add_listener::<AnimationSpeedChange>(&animation_system);
         event_system.add_listener::<EngineModeChange>(&animation_system);
         event_system.add_modifier(mouse_move_cam);
+        event_system.add_modifier(move_cam);
+        event_system.add_modifier(stop_cam);
 
         Self {
             app: None,
@@ -77,6 +79,8 @@ impl<A: FallingLeafApp> Engine<A> {
 
         self.animation_system()
             .update(self.entity_manager_mut().deref_mut());
+
+        self.animation_system_mut().update_cam(self);
 
         self.rendering_system_mut()
             .update_light_sources(self.entity_manager().deref());
