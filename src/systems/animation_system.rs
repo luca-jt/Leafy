@@ -10,6 +10,7 @@ use winit::keyboard::KeyCode;
 pub struct AnimationSystem {
     current_mode: EngineMode,
     animation_speed: f32,
+    gravity: Acceleration,
     time_step_size: TimeDuration,
     pub(crate) flying_cam_dir: Option<(glm::Vec3, f32)>,
     pub(crate) flying_cam_keys: MovementKeys,
@@ -22,6 +23,7 @@ impl AnimationSystem {
         Self {
             current_mode: EngineMode::Running,
             animation_speed: 1.0,
+            gravity: G,
             time_step_size: TimeDuration(0.001),
             flying_cam_dir: None,
             flying_cam_keys: MovementKeys {
@@ -38,14 +40,16 @@ impl AnimationSystem {
 
     /// applys all of the physics to all of the entities
     pub(crate) fn update(&self, entity_manager: &mut EntityManager) {
-        self.apply_physics(entity_manager);
-        self.handle_collisions(entity_manager);
+        if self.current_mode == EngineMode::Running {
+            self.apply_physics(entity_manager);
+            self.handle_collisions(entity_manager);
+        }
     }
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager) {
         let objects = entity_manager
-            .query4_mut_opt3::<Position, Velocity, AngularVelocity, MeshType>(vec![
+            .query5_mut_opt4::<Position, Velocity, AngularVelocity, MeshType, Scale>(vec![
                 include_filter!(Hitbox),
             ])
             .collect::<Vec<_>>();
@@ -57,18 +61,25 @@ impl AnimationSystem {
 
     /// performs all relevant physics calculations on entity data
     fn apply_physics(&self, entity_manager: &mut EntityManager) {
-        for (p, t, v, a_opt) in
-            entity_manager.query4_mut_opt1::<Position, TouchTime, Velocity, Acceleration>(vec![])
+        for (p, t, v, a_opt, m_opt, av_opt, md_opt, f_opt) in entity_manager
+            .query8_mut_opt5::<Position, TouchTime, Velocity, Acceleration, Mass, AngularVelocity, MassDistribution, Friction>(vec![])
         {
-            if self.current_mode == EngineMode::Running {
-                let dt = t.delta_time() * self.animation_speed;
+            let dt = t.delta_time() * self.animation_speed;
 
-                *p += *v * dt;
-                if let Some(a) = a_opt {
-                    *p += *a * dt * dt * 0.5;
-                    *v += *a * dt;
-                    *a = G; // ?
+            *p += *v * dt;
+            if let Some(a) = a_opt {
+                *p += *a * dt * dt * 0.5;
+                *v += *a * dt;
+                if m_opt.is_some() {
+                    *a = self.gravity;
                 }
+            }
+            if let Some(av) = av_opt {
+                let mut md_default = MassDistribution::default();
+                let mut f_default = Friction(0.0);
+                let md = md_opt.unwrap_or(&mut md_default);
+                let f = f_opt.unwrap_or(&mut f_default);
+                // TODO
             }
             t.reset();
         }
@@ -118,6 +129,11 @@ impl AnimationSystem {
     /// defaults: up - Space, down - LeftShift, directions - WASD
     pub fn define_movement_keys(&mut self, keys: MovementKeys) {
         self.flying_cam_keys = keys;
+    }
+
+    /// changes the gravity value used for physics computations (default is ``constants::G``)
+    pub fn set_gravity(&mut self, a: Acceleration) {
+        self.gravity = a;
     }
 }
 

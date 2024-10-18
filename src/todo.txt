@@ -13,6 +13,4 @@ ui basics + font rendering + events for ui struct
 particle system https://youtu.be/GK0jHlv3e3w
 sprite renderer -> depth layers configurable, sprite component
 on collision event functions for entities?
-physics -> friction
-collision -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type (voxelization for custom?)
-Gravity component that makes the velocity = G
+collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | https://youtu.be/GYc99lMdcFE | generate hitboxes for mesh type (voxelization for custom?)

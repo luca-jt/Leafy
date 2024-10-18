@@ -61,21 +61,9 @@ impl Mesh {
         self.indeces.len()
     }
 
-    /*pub fn generate_aos(&self, mesh_attribute: MeshAttribute) -> Vec<Vertex> {
-        self.positions
-            .iter()
-            .zip(self.texture_coords.iter())
-            .zip(self.normals.iter())
-            .map(|data| Vertex {
-                position: *data.0 .0,
-                color: mesh_attribute
-                    .color()
-                    .map(|color32| color32.to_vec4())
-                    .unwrap_or(Color32::WHITE.to_vec4()),
-                uv_coords: *data.0 .1,
-                normal: *data.1,
-                tex_index: 0.0,
-            })
-            .collect()
-    }*/
+    /// generates the inertia matrix for the mesh
+    pub(crate) fn generate_interita_matrix(&self) -> glm::Mat3 {
+        // TODO
+        glm::Mat3::identity()
+    }
 }

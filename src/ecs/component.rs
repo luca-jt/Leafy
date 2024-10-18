@@ -1,5 +1,6 @@
 use crate::ecs::entity::EntityID;
 use crate::glm;
+use crate::rendering::mesh::Mesh;
 use crate::systems::audio_system::SoundHandleID;
 use crate::utils::constants::Y_AXIS;
 use gl::types::GLfloat;
@@ -8,26 +9,96 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use MeshAttribute::*;
 
+macro_rules! impl_arithmetic_basics {
+    ($component:ident) => {
+        impl Add for $component {
+            type Output = $component;
+
+            fn add(self, rhs: $component) -> Self::Output {
+                $component(self.0 + rhs.0)
+            }
+        }
+
+        impl AddAssign for $component {
+            fn add_assign(&mut self, rhs: $component) {
+                self.0 += rhs.0;
+            }
+        }
+
+        impl Sub for $component {
+            type Output = $component;
+
+            fn sub(self, rhs: $component) -> Self::Output {
+                $component(self.0 - rhs.0)
+            }
+        }
+
+        impl SubAssign for $component {
+            fn sub_assign(&mut self, rhs: $component) {
+                self.0 -= rhs.0;
+            }
+        }
+
+        impl Mul<f32> for $component {
+            type Output = $component;
+
+            fn mul(self, rhs: f32) -> Self::Output {
+                $component(self.0 * rhs)
+            }
+        }
+
+        impl MulAssign<f32> for $component {
+            fn mul_assign(&mut self, rhs: f32) {
+                self.0 *= rhs;
+            }
+        }
+
+        impl Div<f32> for $component {
+            type Output = $component;
+
+            fn div(self, rhs: f32) -> Self::Output {
+                $component(self.0 / rhs)
+            }
+        }
+
+        impl DivAssign<f32> for $component {
+            fn div_assign(&mut self, rhs: f32) {
+                self.0 /= rhs;
+            }
+        }
+    };
+}
+
+macro_rules! impl_basic_vec_ops {
+    ($component:ident) => {
+        impl $component {
+            #[doc = "creates a new "]
+            #[doc = stringify!($component)]
+            #[doc = " for given input values"]
+            pub const fn new(x: f32, y: f32, z: f32) -> Self {
+                Self(glm::Vec3::new(x, y, z))
+            }
+
+            /// grants immutable access to the stored data
+            pub fn data(&self) -> &glm::Vec3 {
+                &self.0
+            }
+
+            /// grants mutable access to the stored data
+            pub fn data_mut(&mut self) -> &mut glm::Vec3 {
+                &mut self.0
+            }
+        }
+    };
+}
+
 /// wrapper struct for an object scaling
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct Scale(glm::Vec3);
 
+impl_basic_vec_ops!(Scale);
+
 impl Scale {
-    /// create a new scale for given input values
-    pub const fn new(x_scale: f32, y_scale: f32, z_scale: f32) -> Self {
-        Self(glm::Vec3::new(x_scale, y_scale, z_scale))
-    }
-
-    /// grants immutable access to the stored data
-    pub fn data(&self) -> &glm::Vec3 {
-        &self.0
-    }
-
-    /// grants mutable access to the stored data
-    pub fn data_mut(&mut self) -> &mut glm::Vec3 {
-        &mut self.0
-    }
-
     /// creates an even scaling with a given factor
     pub const fn from_factor(factor: f32) -> Self {
         Self::new(factor, factor, factor)
@@ -77,83 +148,16 @@ impl Default for Orientation {
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Position(glm::Vec3);
 
+impl_basic_vec_ops!(Position);
+
 impl Position {
-    /// creates a new position
-    pub const fn new(x: f32, y: f32, z: f32) -> Self {
-        Self(glm::Vec3::new(x, y, z))
-    }
-
-    /// grants immutable access to the stored data
-    pub fn data(&self) -> &glm::Vec3 {
-        &self.0
-    }
-
-    /// grants mutable access to the stored data
-    pub fn data_mut(&mut self) -> &mut glm::Vec3 {
-        &mut self.0
-    }
-
     /// creates a new position at the coordinate origin
     pub const fn origin() -> Self {
         Self(glm::Vec3::new(0.0, 0.0, 0.0))
     }
 }
 
-impl Add for Position {
-    type Output = Position;
-
-    fn add(self, rhs: Position) -> Self::Output {
-        Position(self.0 + rhs.0)
-    }
-}
-
-impl AddAssign for Position {
-    fn add_assign(&mut self, rhs: Position) {
-        self.0 += rhs.0;
-    }
-}
-
-impl Sub for Position {
-    type Output = Position;
-
-    fn sub(self, rhs: Position) -> Self::Output {
-        Position(self.0 - rhs.0)
-    }
-}
-
-impl SubAssign for Position {
-    fn sub_assign(&mut self, rhs: Position) {
-        self.0 -= rhs.0;
-    }
-}
-
-impl Mul<f32> for Position {
-    type Output = Position;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Position(self.0 * rhs)
-    }
-}
-
-impl MulAssign<f32> for Position {
-    fn mul_assign(&mut self, rhs: f32) {
-        self.0 *= rhs;
-    }
-}
-
-impl Div<f32> for Position {
-    type Output = Position;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Position(self.0 / rhs)
-    }
-}
-
-impl DivAssign<f32> for Position {
-    fn div_assign(&mut self, rhs: f32) {
-        self.0 /= rhs;
-    }
-}
+impl_arithmetic_basics!(Position);
 
 impl Default for Position {
     fn default() -> Self {
@@ -165,89 +169,22 @@ impl Default for Position {
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Velocity(glm::Vec3);
 
+impl_basic_vec_ops!(Velocity);
+
 impl Velocity {
-    /// creates a new velocity
-    pub const fn new(dx: f32, dy: f32, dz: f32) -> Self {
-        Self(glm::Vec3::new(dx, dy, dz))
-    }
-
-    /// grants immutable access to the stored data
-    pub fn data(&self) -> &glm::Vec3 {
-        &self.0
-    }
-
-    /// grants mutable access to the stored data
-    pub fn data_mut(&mut self) -> &mut glm::Vec3 {
-        &mut self.0
-    }
-
     /// creates a new velocity filled with zeros
     pub const fn zero() -> Self {
         Self(glm::Vec3::new(0.0, 0.0, 0.0))
     }
 }
 
-impl Add for Velocity {
-    type Output = Velocity;
-
-    fn add(self, rhs: Velocity) -> Self::Output {
-        Velocity(self.0 + rhs.0)
-    }
-}
-
-impl AddAssign for Velocity {
-    fn add_assign(&mut self, rhs: Velocity) {
-        self.0 += rhs.0;
-    }
-}
-
-impl Sub for Velocity {
-    type Output = Velocity;
-
-    fn sub(self, rhs: Velocity) -> Self::Output {
-        Velocity(self.0 - rhs.0)
-    }
-}
-
-impl SubAssign for Velocity {
-    fn sub_assign(&mut self, rhs: Velocity) {
-        self.0 -= rhs.0;
-    }
-}
+impl_arithmetic_basics!(Velocity);
 
 impl Mul<TimeDuration> for Velocity {
     type Output = Position;
 
     fn mul(self, rhs: TimeDuration) -> Self::Output {
         Position(self.0 * rhs.0)
-    }
-}
-
-impl Mul<f32> for Velocity {
-    type Output = Velocity;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Velocity(self.0 * rhs)
-    }
-}
-
-impl MulAssign<f32> for Velocity {
-    fn mul_assign(&mut self, rhs: f32) {
-        self.0 *= rhs;
-    }
-}
-
-impl Div<f32> for Velocity {
-    type Output = Velocity;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Velocity(self.0 / rhs)
-    }
-}
-
-impl DivAssign<f32> for Velocity {
-    fn div_assign(&mut self, rhs: f32) {
-        self.0 /= rhs;
     }
 }
 
@@ -261,89 +198,22 @@ impl Default for Velocity {
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Acceleration(glm::Vec3);
 
+impl_basic_vec_ops!(Acceleration);
+
 impl Acceleration {
-    /// creates a new acceleration
-    pub const fn new(ddx: f32, ddy: f32, ddz: f32) -> Self {
-        Self(glm::Vec3::new(ddx, ddy, ddz))
-    }
-
-    /// grants immutable access to the stored data
-    pub fn data(&self) -> &glm::Vec3 {
-        &self.0
-    }
-
-    /// grants mutable access to the stored data
-    pub fn data_mut(&mut self) -> &mut glm::Vec3 {
-        &mut self.0
-    }
-
     /// creates a new acceleration filled with zeros
     pub const fn zero() -> Self {
         Self(glm::Vec3::new(0.0, 0.0, 0.0))
     }
 }
 
-impl Add for Acceleration {
-    type Output = Acceleration;
-
-    fn add(self, rhs: Acceleration) -> Self::Output {
-        Acceleration(self.0 + rhs.0)
-    }
-}
-
-impl AddAssign for Acceleration {
-    fn add_assign(&mut self, rhs: Acceleration) {
-        self.0 += rhs.0;
-    }
-}
-
-impl Sub for Acceleration {
-    type Output = Acceleration;
-
-    fn sub(self, rhs: Acceleration) -> Self::Output {
-        Acceleration(self.0 - rhs.0)
-    }
-}
-
-impl SubAssign for Acceleration {
-    fn sub_assign(&mut self, rhs: Acceleration) {
-        self.0 -= rhs.0;
-    }
-}
+impl_arithmetic_basics!(Acceleration);
 
 impl Mul<TimeDuration> for Acceleration {
     type Output = Velocity;
 
     fn mul(self, rhs: TimeDuration) -> Self::Output {
         Velocity(self.0 * rhs.0)
-    }
-}
-
-impl Mul<f32> for Acceleration {
-    type Output = Acceleration;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Acceleration(self.0 * rhs)
-    }
-}
-
-impl MulAssign<f32> for Acceleration {
-    fn mul_assign(&mut self, rhs: f32) {
-        self.0 *= rhs;
-    }
-}
-
-impl Div<f32> for Acceleration {
-    type Output = Acceleration;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Acceleration(self.0 / rhs)
-    }
-}
-
-impl DivAssign<f32> for Acceleration {
-    fn div_assign(&mut self, rhs: f32) {
-        self.0 /= rhs;
     }
 }
 
@@ -357,25 +227,20 @@ impl Default for Acceleration {
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct AngularVelocity(glm::Vec3);
 
+impl_basic_vec_ops!(AngularVelocity);
+
 impl AngularVelocity {
-    /// creates a new angular velocity
-    pub const fn new(rx: f32, ry: f32, rz: f32) -> Self {
-        Self(glm::Vec3::new(rx, ry, rz))
-    }
-
-    /// grants immutable access to the stored data
-    pub fn data(&self) -> &glm::Vec3 {
-        &self.0
-    }
-
-    /// grants mutable access to the stored data
-    pub fn data_mut(&mut self) -> &mut glm::Vec3 {
-        &mut self.0
-    }
-
     /// creates a new angular velocity filled with zeros
     pub const fn zero() -> Self {
         Self(glm::Vec3::new(0.0, 0.0, 0.0))
+    }
+}
+
+impl_arithmetic_basics!(AngularVelocity);
+
+impl Default for AngularVelocity {
+    fn default() -> Self {
+        AngularVelocity::zero()
     }
 }
 
@@ -525,33 +390,7 @@ impl TouchTime {
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct TimeDuration(pub f32);
 
-impl Mul<f32> for TimeDuration {
-    type Output = TimeDuration;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        TimeDuration(self.0 * rhs)
-    }
-}
-
-impl MulAssign<f32> for TimeDuration {
-    fn mul_assign(&mut self, rhs: f32) {
-        self.0 *= rhs;
-    }
-}
-
-impl Div<f32> for TimeDuration {
-    type Output = TimeDuration;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        TimeDuration(self.0 / rhs)
-    }
-}
-
-impl DivAssign<f32> for TimeDuration {
-    fn div_assign(&mut self, rhs: f32) {
-        self.0 /= rhs;
-    }
-}
+impl_arithmetic_basics!(TimeDuration);
 
 impl Div<TimeDuration> for TimeDuration {
     type Output = f32;
@@ -561,6 +400,58 @@ impl Div<TimeDuration> for TimeDuration {
     }
 }
 
+/// enables gravity physics and is used for all computations involving forces
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Mass(pub f32);
+
+impl_arithmetic_basics!(Mass);
+
+impl Mul<Acceleration> for Mass {
+    type Output = Force;
+
+    fn mul(self, rhs: Acceleration) -> Self::Output {
+        Force(self.0 * rhs.0)
+    }
+}
+
+/// inertia tensor that enables motion computation effects involving momentum
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct MassDistribution(pub(crate) glm::Mat3);
+
+impl MassDistribution {
+    pub(crate) fn from_mesh(mesh: &Mesh) -> Self {
+        let inertia_matrix = mesh.generate_interita_matrix();
+        Self(inertia_matrix)
+    }
+}
+
+impl Default for MassDistribution {
+    fn default() -> Self {
+        MassDistribution(glm::Mat3::identity())
+    }
+}
+
+/// used for all computations involving friction
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Friction(pub f32);
+
+impl_arithmetic_basics!(Friction);
+
+/// force in 3D space
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub struct Force(glm::Vec3);
+
+impl_basic_vec_ops!(Force);
+
+impl Force {
+    /// creates a new force filled with zeros
+    pub const fn zero() -> Self {
+        Self(glm::Vec3::new(0.0, 0.0, 0.0))
+    }
+}
+
+impl_arithmetic_basics!(Force);
+
 /// stores all of the associated sound controller ids for an entity
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SoundController {
@@ -568,16 +459,8 @@ pub struct SoundController {
 }
 
 /// marker for an entity (enables collision physics)
+#[derive(Debug, Clone, Copy)]
 pub struct Hitbox;
-
-/// responsible for entity collision checking
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum HitboxType {
-    Triangle(Option<Box<HitboxType>>),
-    Quad(Option<Box<HitboxType>>),
-    Cube(Option<Box<HitboxType>>),
-    Sphere,
-}
 
 /// marks an entity as a point light source for the rendering system, needs a position attached to work
 #[derive(Debug, Clone, Copy, PartialEq)]

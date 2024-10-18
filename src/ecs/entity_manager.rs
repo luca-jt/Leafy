@@ -34,17 +34,21 @@ impl EntityManager {
 
     /// stores a new entity and returns the id of the new entity
     pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
-        if components.contains_component::<MeshType>() {
-            // following unwrap is safe because of contains check
-            let mesh_type = components.component_data::<MeshType>().unwrap();
+        let mut opt_mesh = None;
+        if let Some(mesh_type) = components.component_data::<MeshType>() {
             self.try_add_mesh(mesh_type);
             if let Some(MeshAttribute::Textured(file)) =
                 components.component_data::<MeshAttribute>()
             {
                 self.texture_map.add_texture(file);
             }
+            opt_mesh = Some(self.asset_register.get(mesh_type).unwrap());
         }
-        self.ecs.create_entity(components)
+        let entity = self.ecs.create_entity(components);
+        if let Some(mesh) = opt_mesh {
+            self.add_component(entity, MassDistribution::from_mesh(mesh));
+        }
+        entity
     }
 
     /// creates a new entity with all basic data needed for physics and rendering
@@ -63,7 +67,9 @@ impl EntityManager {
             AngularVelocity::zero(),
             Acceleration::zero(),
             TouchTime::now(),
-            Hitbox
+            Hitbox,
+            Mass(1.0),
+            Friction(0.5)
         ))
     }
 
@@ -130,6 +136,8 @@ impl EntityManager {
     pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) {
         if let Some(mesh_type) = (&component as &dyn Any).downcast_ref::<MeshType>() {
             self.try_add_mesh(mesh_type);
+            let mesh = self.asset_register.get(mesh_type).unwrap();
+            self.add_component(entity, MassDistribution::from_mesh(mesh));
         }
         if TypeId::of::<T>() == TypeId::of::<PointLight>() {
             self.add_component(entity, LightSrcID(entity));
@@ -153,6 +161,7 @@ impl EntityManager {
                 {
                     self.asset_register.remove(mesh_type);
                 }
+                self.remove_component::<MassDistribution>(entity);
             }
             if let Some(MeshAttribute::Textured(path)) =
                 (component as &dyn Any).downcast_ref::<MeshAttribute>()
