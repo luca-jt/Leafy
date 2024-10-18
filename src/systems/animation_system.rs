@@ -61,8 +61,8 @@ impl AnimationSystem {
 
     /// performs all relevant physics calculations on entity data
     fn apply_physics(&self, entity_manager: &mut EntityManager) {
-        for (p, t, v, a_opt, m_opt, av_opt, md_opt, f_opt) in entity_manager
-            .query8_mut_opt5::<Position, TouchTime, Velocity, Acceleration, Mass, AngularVelocity, MassDistribution, Friction>(vec![])
+        for (p, t, v, a_opt, m_opt, o_opt, av_opt, md_opt, f_opt) in entity_manager
+            .query9_mut_opt6::<Position, TouchTime, Velocity, Acceleration, Mass, Orientation, AngularVelocity, MassDistribution, Friction>(vec![])
         {
             let dt = t.delta_time() * self.animation_speed;
 
@@ -74,7 +74,7 @@ impl AnimationSystem {
                     *a = self.gravity;
                 }
             }
-            if let Some(av) = av_opt {
+            if let (Some(av), Some(o)) = (av_opt, o_opt) {
                 let mut md_default = MassDistribution::default();
                 let mut f_default = Friction(0.0);
                 let md = md_opt.unwrap_or(&mut md_default);

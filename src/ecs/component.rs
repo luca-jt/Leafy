@@ -132,9 +132,14 @@ impl Orientation {
         }
     }
 
+    /// generates the quaternion representation for the rotation
+    pub fn quaternion(&self) -> glm::Quat {
+        glm::quat_angle_axis(self.angle.to_radians(), &self.axis)
+    }
+
     /// generates the rotation matrix for the stored quaternion
     pub fn rotation_matrix(&self) -> glm::Mat4 {
-        glm::quat_to_mat4(&glm::quat_angle_axis(self.angle.to_radians(), &self.axis))
+        glm::quat_to_mat4(&self.quaternion())
     }
 }
 
