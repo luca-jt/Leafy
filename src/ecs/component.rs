@@ -405,6 +405,16 @@ impl Default for Density {
     }
 }
 
+/// contains an inertia tensor that is used for physics calculations
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct MassDistribution(pub(crate) glm::Mat3);
+
+impl Default for MassDistribution {
+    fn default() -> Self {
+        MassDistribution(glm::Mat3::identity())
+    }
+}
+
 /// used for all computations involving friction
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Friction(pub f32);

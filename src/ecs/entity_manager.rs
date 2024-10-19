@@ -34,6 +34,7 @@ impl EntityManager {
 
     /// stores a new entity and returns the id of the new entity
     pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
+        let mut opt_mesh = None;
         if let Some(mesh_type) = components.component_data::<MeshType>() {
             self.try_add_mesh(mesh_type);
             if let Some(MeshAttribute::Textured(file)) =
@@ -41,8 +42,24 @@ impl EntityManager {
             {
                 self.texture_map.add_texture(file);
             }
+            opt_mesh = Some(self.asset_from_type(mesh_type).unwrap());
         }
-        self.ecs.create_entity(components)
+        let mut opt_md = None;
+        if let (Some(mesh), Some(density)) = (opt_mesh, components.component_data::<Density>()) {
+            opt_md = Some(
+                mesh.intertia_tensor(
+                    density,
+                    components
+                        .component_data::<Scale>()
+                        .unwrap_or(&Scale::default()),
+                ),
+            );
+        }
+        let entity = self.ecs.create_entity(components);
+        if let Some(md) = opt_md {
+            self.add_component(entity, MassDistribution(md));
+        }
+        entity
     }
 
     /// creates a new entity with all basic data needed for physics and rendering
@@ -123,6 +140,20 @@ impl EntityManager {
 
     /// yields the mutable component data reference of an entity if present
     pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
+        if TypeId::of::<T>() == TypeId::of::<Density>()
+            || TypeId::of::<T>() == TypeId::of::<Scale>()
+            || TypeId::of::<T>() == TypeId::of::<MeshType>()
+        {
+            if let (Some(density), Some(mesh)) = (
+                self.get_component::<Density>(entity),
+                self.asset_from_id(entity),
+            ) {
+                let scale = self.get_component::<Scale>(entity);
+                *self.get_component_mut::<MassDistribution>(entity).unwrap() = MassDistribution(
+                    mesh.intertia_tensor(density, scale.unwrap_or(&Scale::default())),
+                );
+            }
+        }
         self.ecs.get_component_mut::<T>(entity)
     }
 
@@ -134,7 +165,21 @@ impl EntityManager {
         if TypeId::of::<T>() == TypeId::of::<PointLight>() {
             self.add_component(entity, LightSrcID(entity));
         }
-        self.ecs.add_component::<T>(entity, component)
+        self.ecs.add_component::<T>(entity, component);
+        if !self.has_component::<MassDistribution>(entity) {
+            if let (Some(mesh), Some(density)) = (
+                self.asset_from_id(entity),
+                self.get_component::<Density>(entity),
+            ) {
+                let scale = self.get_component::<Scale>(entity);
+                self.add_component(
+                    entity,
+                    MassDistribution(
+                        mesh.intertia_tensor(density, scale.unwrap_or(&Scale::default())),
+                    ),
+                );
+            }
+        }
     }
 
     /// checks wether or not an entity has a component of given type associated with it
@@ -146,6 +191,11 @@ impl EntityManager {
     pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
         let removed = self.ecs.remove_component::<T>(entity);
         if let Some(component) = removed.as_ref() {
+            if TypeId::of::<T>() == TypeId::of::<Density>()
+                || TypeId::of::<T>() == TypeId::of::<MeshType>()
+            {
+                self.remove_component::<MassDistribution>(entity);
+            }
             if let Some(mesh_type) = (component as &dyn Any).downcast_ref::<MeshType>() {
                 if !self
                     .query1::<MeshType>(vec![])

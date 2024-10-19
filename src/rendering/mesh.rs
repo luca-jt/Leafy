@@ -74,12 +74,12 @@ impl Mesh {
         let scale_matrix = scale.scale_matrix();
 
         for i in (0..self.indeces.len()).step_by(3) {
-            let pos1 = to_vec4(self.positions.get(i).unwrap());
-            let pos2 = to_vec4(self.positions.get(i + 1).unwrap());
-            let pos3 = to_vec4(self.positions.get(i + 2).unwrap());
-            let scaled1 = (scale_matrix * pos1).xyz();
-            let scaled2 = (scale_matrix * pos2).xyz();
-            let scaled3 = (scale_matrix * pos3).xyz();
+            let pos1 = self.positions[self.indeces[i] as usize];
+            let pos2 = self.positions[self.indeces[i + 1] as usize];
+            let pos3 = self.positions[self.indeces[i + 2] as usize];
+            let scaled1 = (scale_matrix * to_vec4(&pos1)).xyz();
+            let scaled2 = (scale_matrix * to_vec4(&pos2)).xyz();
+            let scaled3 = (scale_matrix * to_vec4(&pos3)).xyz();
             let triangle = (scaled1, scaled2, scaled3);
             let det_jacobi = triangle.0.dot(&triangle.1.cross(&triangle.2));
             let tet_volume = det_jacobi / 6.0;
