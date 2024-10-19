@@ -1,8 +1,17 @@
-# Falling Leaf
-This project is a Mini-Engine designed to be a great starting point for building games in Rust using OpenGL.\
-It is written in pure Rust and with minimal external dependecies.
+<div align="center">
+    <img src="assets/images/icon.png" width="300" height="300" alt="Leaf" />
+    <h1>Falling Leaf</h1>
+</div>
 
-![icon](https://github.com/luca-jt/Falling-Leaf/assets/82292985/c87b1c7c-119f-4934-9eb2-0854884bc3f5)
+[![License (MIT)](https://img.shields.io/crates/l/falling_leaf)](https://github.com/luca-jt/Falling-Leaf/blob/master/LICENSE)
+[![Dependency status](https://deps.rs/...)](https://deps.rs/...)
+[![docs.rs](https://img.shields.io/badge/docs-website-blue)](https://docs.rs/...)
+[![Lines of code](https://tokei.rs/...)](https://github.com/luca-jt/Falling-Leaf)
+
+___
+This project is a 3D and 2D Mini-Engine designed to be a great starting point for building games in Rust using OpenGL.\
+It is written in pure Rust and with minimal external dependecies.
+___
 
 So far the Falling Leaf Engine provides the following features out of the box:
 - A simple ECS (Entity Component System) for efficient game data storage
@@ -24,10 +33,11 @@ falling_leaf = "0.1.0"
 
 ## Examples
 - all examples are located in the `/examples` folder
+- clone the repository
 - run them with:
 ```sh
 # runs the "fl_test" example
-cargo run --example fl_test
+cargo run --release --example fl_test
 ```
 
 ## Overview

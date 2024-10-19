@@ -5,7 +5,7 @@ use fl_core::engine::{Engine, FallingLeafApp};
 use fl_core::glm;
 use fl_core::systems::audio_system::VolumeType;
 use fl_core::systems::event_system::events::*;
-use fl_core::utils::constants::ORIGIN;
+use fl_core::utils::constants::{ORIGIN, Y_AXIS};
 use fl_core::winit::keyboard::KeyCode;
 use std::f32::consts::PI;
 
@@ -77,7 +77,7 @@ impl FallingLeafApp for App {
         let cube = entity_manager.create_entity(components!(
             heli_position,
             Scale::from_factor(0.1),
-            Orientation::new(45.0, 0.0, 1.0, 0.0),
+            Orientation::new(45.0, &Y_AXIS),
             MeshType::Cube,
             MeshAttribute::Colored(Color32::BLUE),
             sound,

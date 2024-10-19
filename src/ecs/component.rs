@@ -2,7 +2,7 @@ use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::systems::audio_system::SoundHandleID;
-use crate::utils::constants::Y_AXIS;
+use crate::utils::constants::{X_AXIS, Y_AXIS};
 use gl::types::GLfloat;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::path::{Path, PathBuf};
@@ -118,34 +118,23 @@ impl Default for Scale {
 
 /// used for object orientation in 3D space
 #[derive(Debug, Clone, PartialEq, Copy)]
-pub struct Orientation {
-    pub angle: f32,
-    pub axis: glm::Vec3,
-}
+pub struct Orientation(pub glm::Quat);
 
 impl Orientation {
-    /// creates a new orientation with angle in degrees around axis (x, y, z)
-    pub const fn new(angle: f32, x: f32, y: f32, z: f32) -> Self {
-        Self {
-            angle,
-            axis: glm::Vec3::new(x, y, z),
-        }
-    }
-
-    /// generates the quaternion representation for the rotation
-    pub fn quaternion(&self) -> glm::Quat {
-        glm::quat_angle_axis(self.angle.to_radians(), &self.axis)
+    /// creates a new orientation with angle in degrees around axis
+    pub fn new(angle: f32, axis: &glm::Vec3) -> Self {
+        Self(glm::quat_angle_axis(angle.to_radians(), axis))
     }
 
     /// generates the rotation matrix for the stored quaternion
     pub fn rotation_matrix(&self) -> glm::Mat4 {
-        glm::quat_to_mat4(&self.quaternion())
+        glm::quat_to_mat4(&self.0)
     }
 }
 
 impl Default for Orientation {
     fn default() -> Self {
-        Self::new(0.0, 1.0, 0.0, 0.0)
+        Self::new(0.0, &X_AXIS)
     }
 }
 
