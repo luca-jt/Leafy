@@ -1,6 +1,5 @@
 use crate::ecs::entity::EntityID;
 use crate::glm;
-use crate::rendering::mesh::Mesh;
 use crate::systems::audio_system::SoundHandleID;
 use crate::utils::constants::{X_AXIS, Y_AXIS};
 use gl::types::GLfloat;
@@ -217,9 +216,9 @@ impl Default for Acceleration {
     }
 }
 
-/// describes an angular velocity by the rotational axis (rhs rotaion) and its length (velocity value)
+/// describes an angular velocity by the rotational axis (rhs rotaion) and its length (velocity in radiants per second)
 #[derive(Debug, Clone, PartialEq, Copy)]
-pub struct AngularVelocity(glm::Vec3);
+pub struct AngularVelocity(pub glm::Vec3);
 
 impl_basic_vec_ops!(AngularVelocity);
 
@@ -281,7 +280,7 @@ impl Color32 {
         let b = self.b() as f32 / 255.0;
         let a = self.a() as f32 / 255.0;
 
-        glm::Vec4::new(r, g, b, a)
+        glm::vec4(r, g, b, a)
     }
 }
 
@@ -396,32 +395,13 @@ impl Div<TimeDuration> for TimeDuration {
 
 /// enables gravity physics and is used for all computations involving forces
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Mass(pub f32);
+pub struct Density(pub f32);
 
-impl_arithmetic_basics!(Mass);
+impl_arithmetic_basics!(Density);
 
-impl Mul<Acceleration> for Mass {
-    type Output = Force;
-
-    fn mul(self, rhs: Acceleration) -> Self::Output {
-        Force(self.0 * rhs.0)
-    }
-}
-
-/// inertia tensor that enables motion computation effects involving momentum
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct MassDistribution(pub(crate) glm::Mat3);
-
-impl MassDistribution {
-    pub(crate) fn from_mesh(mesh: &Mesh) -> Self {
-        let inertia_matrix = mesh.generate_interita_matrix();
-        Self(inertia_matrix)
-    }
-}
-
-impl Default for MassDistribution {
+impl Default for Density {
     fn default() -> Self {
-        MassDistribution(glm::Mat3::identity())
+        Density(1.0)
     }
 }
 

@@ -11,7 +11,7 @@ use crate::rendering::shader::{ShaderCatalog, ShaderType};
 use crate::systems::event_system::events::CamPositionChange;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
-use crate::utils::tools::padding;
+use crate::utils::tools::{padding, to_vec4};
 use gl::types::*;
 use RendererType::*;
 
@@ -313,8 +313,7 @@ impl RenderingSystem {
             let orientation = entity_manager
                 .get_component::<Orientation>(entity)
                 .unwrap_or(&default_orient);
-            let look_dir =
-                (orientation.rotation_matrix() * glm::Vec4::new(0.0, 0.0, -1.0, 0.0)).xyz();
+            let look_dir = (orientation.rotation_matrix() * glm::vec4(0.0, 0.0, -1.0, 0.0)).xyz();
             self.perspective_camera
                 .update_cam(pos.data(), &(pos.data() + look_dir));
         }
@@ -337,7 +336,7 @@ impl RenderingSystem {
             .light_sources
             .iter()
             .map(|(_, map)| LightData {
-                light_src: glm::Vec4::new(map.light_pos.x, map.light_pos.y, map.light_pos.z, 1.0),
+                light_src: to_vec4(&map.light_pos),
                 light_matrix: map.light_matrix,
                 color: map.light.color.to_vec4(),
                 intensity: map.light.intensity,

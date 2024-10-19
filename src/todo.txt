@@ -14,3 +14,5 @@ particle system https://youtu.be/GK0jHlv3e3w
 sprite renderer -> depth layers configurable, sprite component
 on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | https://youtu.be/GYc99lMdcFE | generate hitboxes for mesh type (voxelization for custom?)
+compute inertia matrix only once for a mesh-component combi, store that in the asset register -> correct origin for the center of mass + prevent determinant from exploding
+reintroduce mass distribution component for inertia tensor and compute/insert every time relevant data is changed (mesh, scale, density, ...)

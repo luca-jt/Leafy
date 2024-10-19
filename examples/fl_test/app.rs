@@ -31,7 +31,7 @@ impl App {
 
 impl FallingLeafApp for App {
     fn init(&mut self, engine: &Engine<Self>) {
-        let start_pos = glm::Vec3::new(0.0, 5.0, -5.0);
+        let start_pos = glm::vec3(0.0, 5.0, -5.0);
         engine.trigger_event(CamPositionChange {
             new_pos: start_pos,
             new_look: ORIGIN - start_pos,

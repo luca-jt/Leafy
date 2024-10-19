@@ -3,7 +3,7 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine::{Engine, EngineMode, FallingLeafApp};
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
-use crate::utils::constants::{G, Y_AXIS};
+use crate::utils::constants::{G, ORIGIN, Y_AXIS};
 use crate::{glm, include_filter};
 use winit::keyboard::KeyCode;
 
@@ -61,8 +61,8 @@ impl AnimationSystem {
 
     /// performs all relevant physics calculations on entity data
     fn apply_physics(&self, entity_manager: &mut EntityManager) {
-        for (p, t, v, a_opt, m_opt, o_opt, av_opt, md_opt, f_opt) in entity_manager
-            .query9_mut_opt6::<Position, TouchTime, Velocity, Acceleration, Mass, Orientation, AngularVelocity, MassDistribution, Friction>(vec![])
+        for (p, t, v, a_opt, d_opt, o_opt, av_opt, mt_opt, f_opt, s_opt) in entity_manager
+            .query10_mut_opt7::<Position, TouchTime, Velocity, Acceleration, Density, Orientation, AngularVelocity, MeshType, Friction, Scale>(vec![])
         {
             let dt = t.delta_time() * self.animation_speed;
 
@@ -70,15 +70,23 @@ impl AnimationSystem {
             if let Some(a) = a_opt {
                 *p += *a * dt * dt * 0.5;
                 *v += *a * dt;
-                if m_opt.is_some() {
+                if d_opt.is_some() {
                     *a = self.gravity;
                 }
             }
             if let (Some(av), Some(o)) = (av_opt, o_opt) {
-                let mut md_default = MassDistribution::default();
-                let mut f_default = Friction(0.0);
-                let md = md_opt.unwrap_or(&mut md_default);
-                let f = f_opt.unwrap_or(&mut f_default);
+                let d = d_opt.copied().unwrap_or_default();
+                let s = s_opt.copied().unwrap_or_default();
+                let mt = mt_opt.cloned().unwrap_or(MeshType::Cube);
+                let inertia_mat = entity_manager.asset_from_type(&mt).unwrap().intertia_tensor(&d, &s);
+                let corrected_av = inertia_mat.try_inverse().unwrap() * av.0; // TODO
+
+                let rot_axis = if corrected_av.norm() > 0.0 { corrected_av.normalize() } else { ORIGIN };
+                let half_angle = 0.5 * corrected_av.norm() * dt.0;
+                let delta_rotation = glm::quat(half_angle.cos(), rot_axis.x * half_angle.sin(), rot_axis.y * half_angle.sin(), rot_axis.z * half_angle.sin());
+                *o = Orientation(glm::quat_cross(&delta_rotation, &o.0));
+
+                let f = f_opt.copied().unwrap_or(Friction(0.0));
                 // TODO
             }
             t.reset();

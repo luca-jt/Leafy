@@ -1,3 +1,4 @@
+use crate::glm;
 use std::any::Any;
 use std::borrow::Borrow;
 use std::cell::RefCell;
@@ -33,6 +34,11 @@ pub fn map_range<
     s: T,
 ) -> T {
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
+}
+
+/// converts a glm::Vec3 to a glm::Vec4 by adding a 1.0 in the w slot
+pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
+    glm::vec4(v.x, v.y, v.z, 1.0)
 }
 
 /// calculates the padding necessary for offsets in uniform buffers (multiple of 16)

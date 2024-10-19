@@ -4,6 +4,7 @@ use crate::ecs::component::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, MAX_TEXTURE_COUNT};
+use crate::utils::tools::to_vec4;
 use gl::types::*;
 use std::collections::HashSet;
 use std::ptr;
@@ -329,11 +330,10 @@ impl Batch {
         }
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_verteces() {
-            let vertex_pos = mesh.positions[i];
-            let new_pos = trafo * glm::Vec4::new(vertex_pos.x, vertex_pos.y, vertex_pos.z, 1.0);
+            let new_pos = trafo * to_vec4(&mesh.positions[i]);
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
                 position: new_pos.xyz(),
-                color: glm::Vec4::new(1.0, 1.0, 1.0, 1.0),
+                color: glm::vec4(1.0, 1.0, 1.0, 1.0),
                 uv_coords: mesh.texture_coords[i],
                 normal: mesh.normals[i],
                 tex_index,
@@ -355,8 +355,7 @@ impl Batch {
 
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_verteces() {
-            let vertex_pos = mesh.positions[i];
-            let new_pos = trafo * glm::Vec4::new(vertex_pos.x, vertex_pos.y, vertex_pos.z, 1.0);
+            let new_pos = trafo * to_vec4(&mesh.positions[i]);
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
                 position: new_pos.xyz(),
                 color: color.to_vec4(),
