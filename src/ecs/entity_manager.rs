@@ -75,6 +75,7 @@ impl EntityManager {
             mesh_type,
             mesh_attribute,
             Velocity::zero(),
+            Orientation::default(),
             AngularVelocity::zero(),
             Acceleration::zero(),
             Hitbox,
@@ -139,20 +140,6 @@ impl EntityManager {
 
     /// yields the mutable component data reference of an entity if present
     pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
-        /*if TypeId::of::<T>() == TypeId::of::<Density>()
-            || TypeId::of::<T>() == TypeId::of::<Scale>()
-            || TypeId::of::<T>() == TypeId::of::<MeshType>()
-        {
-            if let (Some(density), Some(mesh)) = (
-                self.get_component::<Density>(entity),
-                self.asset_from_id(entity),
-            ) {
-                let scale = self.get_component::<Scale>(entity);
-                *self.get_component_mut::<MassDistribution>(entity).unwrap() = MassDistribution(
-                    mesh.intertia_tensor(density, scale.unwrap_or(&Scale::default())),
-                );
-            }
-        }*/
         self.ecs.get_component_mut::<T>(entity)
     }
 
