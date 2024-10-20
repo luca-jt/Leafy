@@ -98,25 +98,22 @@ impl AnimationSystem {
     /// updates the camera position based on the current movement key induced camera movement
     fn update_cam<T: FallingLeafApp>(&mut self, engine: &Engine<T>, time_step: TimeDuration) {
         if let Some(cam_move_config) = self.flying_cam_dir {
-            let cam_config = engine.rendering_system().current_cam_config();
+            if cam_move_config.0 != glm::Vec3::zeros() {
+                let cam_config = engine.rendering_system().current_cam_config();
+                let move_vector = cam_move_config.0.normalize();
+                let changed = move_vector * time_step.0 * cam_move_config.1;
 
-            let move_vector = if cam_move_config.0 != glm::Vec3::zeros() {
-                cam_move_config.0.normalize()
-            } else {
-                cam_move_config.0
-            };
-            let changed = move_vector * time_step.0 * cam_move_config.1;
+                let mut look_z = cam_config.1;
+                look_z.y = 0.0;
+                look_z.normalize_mut();
+                let look_x = look_z.cross(&Y_AXIS).normalize();
+                let look_space_matrix = glm::Mat3::from_columns(&[look_x, Y_AXIS, look_z]);
 
-            let mut look_z = cam_config.1;
-            look_z.y = 0.0;
-            look_z.normalize_mut();
-            let look_x = look_z.cross(&Y_AXIS).normalize();
-            let look_space_matrix = glm::Mat3::from_columns(&[look_x, Y_AXIS, look_z]);
-
-            engine.trigger_event(CamPositionChange {
-                new_pos: cam_config.0 + look_space_matrix * changed,
-                new_look: cam_config.1,
-            });
+                engine.trigger_event(CamPositionChange {
+                    new_pos: cam_config.0 + look_space_matrix * changed,
+                    new_look: cam_config.1,
+                });
+            }
         }
     }
 
