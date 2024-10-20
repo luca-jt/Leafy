@@ -77,7 +77,6 @@ impl EntityManager {
             Velocity::zero(),
             AngularVelocity::zero(),
             Acceleration::zero(),
-            TouchTime::now(),
             Hitbox,
             Density::default(),
             Friction(0.5)

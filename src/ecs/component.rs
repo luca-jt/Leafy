@@ -158,7 +158,7 @@ impl Default for Position {
     }
 }
 
-/// velocity in 3D space
+/// velocity in 3D space, enables physics system effects
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Velocity(glm::Vec3);
 
@@ -379,7 +379,7 @@ impl TouchTime {
     }
 }
 
-/// time duration unit for physics computations
+/// time duration unit in seconds used for physics computations
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct TimeDuration(pub f32);
 

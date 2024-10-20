@@ -118,7 +118,7 @@ fn jump(event: &KeyPress, engine: &Engine<App>) {
         let v_ref = entity_manager
             .get_component_mut::<Velocity>(engine.app().player.unwrap())
             .unwrap();
-        *v_ref = Velocity::new(0.0, 3.0, 0.0);
+        *v_ref = Velocity::new(0.0, 5.0, 0.0);
     }
 }
 

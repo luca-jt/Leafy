@@ -1,3 +1,4 @@
+use crate::ecs::component::TouchTime;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine_builder::EngineAttributes;
 use crate::systems::animation_system::{move_cam, stop_cam, AnimationSystem};
@@ -10,7 +11,7 @@ use crate::utils::tools::{shared_ptr, SharedPtr};
 use std::any::Any;
 use std::cell::{Ref, RefCell, RefMut};
 use std::error::Error;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -77,10 +78,7 @@ impl<A: FallingLeafApp> Engine<A> {
         self.audio_system_mut()
             .update(self.entity_manager().deref());
 
-        self.animation_system()
-            .update(self.entity_manager_mut().deref_mut());
-
-        self.animation_system_mut().update_cam(self);
+        self.animation_system_mut().update(self);
 
         self.rendering_system_mut()
             .update_light_sources(self.entity_manager().deref());
@@ -187,6 +185,7 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
             .add_listener::<CamPositionChange>(self.rendering_system.as_ref().unwrap());
 
         self.app_mut().init(self);
+        self.animation_system_mut().time_of_last_sim = TouchTime::now();
     }
 
     fn window_event(

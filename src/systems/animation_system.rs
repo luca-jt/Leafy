@@ -5,6 +5,7 @@ use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{G, ORIGIN, Y_AXIS};
 use crate::{glm, include_filter};
+use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
 
 pub struct AnimationSystem {
@@ -12,9 +13,10 @@ pub struct AnimationSystem {
     animation_speed: f32,
     gravity: Acceleration,
     time_step_size: TimeDuration,
+    time_accumulated: TimeDuration,
+    pub(crate) time_of_last_sim: TouchTime,
     pub(crate) flying_cam_dir: Option<(glm::Vec3, f32)>,
     pub(crate) flying_cam_keys: MovementKeys,
-    time_of_cam_move_update: TouchTime,
 }
 
 impl AnimationSystem {
@@ -25,6 +27,8 @@ impl AnimationSystem {
             animation_speed: 1.0,
             gravity: G,
             time_step_size: TimeDuration(0.001),
+            time_accumulated: TimeDuration(0.0),
+            time_of_last_sim: TouchTime::now(),
             flying_cam_dir: None,
             flying_cam_keys: MovementKeys {
                 up: KeyCode::Space,
@@ -34,20 +38,31 @@ impl AnimationSystem {
                 left: KeyCode::KeyA,
                 right: KeyCode::KeyD,
             },
-            time_of_cam_move_update: TouchTime::now(),
         }
     }
 
     /// applys all of the physics to all of the entities
-    pub(crate) fn update(&self, entity_manager: &mut EntityManager) {
-        if self.current_mode == EngineMode::Running {
-            self.apply_physics(entity_manager);
-            self.handle_collisions(entity_manager);
+    pub(crate) fn update<T: FallingLeafApp>(&mut self, engine: &Engine<T>) {
+        let dt = self.time_of_last_sim.delta_time() * self.animation_speed;
+        self.time_accumulated += dt;
+        while self.time_accumulated >= self.time_step_size {
+            self.simulate_timestep(engine);
+            self.time_accumulated -= self.time_step_size;
         }
+        self.time_of_last_sim.reset();
+    }
+
+    /// simulate one full time step in the system
+    fn simulate_timestep<T: FallingLeafApp>(&mut self, engine: &Engine<T>) {
+        if self.current_mode == EngineMode::Running {
+            self.apply_physics(engine.entity_manager_mut().deref_mut(), self.time_step_size);
+            self.handle_collisions(engine.entity_manager_mut().deref_mut(), self.time_step_size);
+        }
+        self.update_cam(engine, self.time_step_size);
     }
 
     /// checks for collision between entities with hitboxes and resolves them
-    fn handle_collisions(&self, entity_manager: &mut EntityManager) {
+    fn handle_collisions(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
         let objects = entity_manager
             .query5_mut_opt4::<Position, Velocity, AngularVelocity, MeshType, Scale>(vec![
                 include_filter!(Hitbox),
@@ -60,47 +75,43 @@ impl AnimationSystem {
     }
 
     /// performs all relevant physics calculations on entity data
-    fn apply_physics(&self, entity_manager: &mut EntityManager) {
-        for (p, t, v, a_opt, md_opt, o_opt, av_opt, f_opt) in entity_manager
-            .query8_mut_opt5::<Position, TouchTime, Velocity, Acceleration, MassDistribution, Orientation, AngularVelocity, Friction>(vec![])
+    fn apply_physics(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
+        for (p, v, a_opt, md_opt, o_opt, av_opt, f_opt) in entity_manager
+            .query7_mut_opt5::<Position, Velocity, Acceleration, MassDistribution, Orientation, AngularVelocity, Friction>(vec![])
         {
-            let dt = t.delta_time() * self.animation_speed;
-            *p += *v * dt;
             if let Some(a) = a_opt {
-                *p += *a * dt * dt * 0.5;
-                *v += *a * dt;
+                *v += *a * time_step;
                 if md_opt.is_some() {
-                    *a = self.gravity;
+                    *a = self.gravity; // ?
                 }
             }
+            *p += *v * time_step;
+
             if let (Some(av), Some(o)) = (av_opt, o_opt) {
                 let inertia_mat = md_opt.copied().unwrap_or_default().0;
                 let corrected_av = inertia_mat.try_inverse().unwrap() * av.0; // TODO
                 let rot_axis = if corrected_av.norm() > 0.0 { corrected_av.normalize() } else { ORIGIN };
-                let half_angle = 0.5 * corrected_av.norm() * dt.0;
+                let half_angle = 0.5 * corrected_av.norm() * time_step.0;
                 let delta_rotation = glm::quat(half_angle.cos(), rot_axis.x * half_angle.sin(), rot_axis.y * half_angle.sin(), rot_axis.z * half_angle.sin());
                 *o = Orientation(glm::quat_cross(&delta_rotation, &o.0));
 
                 let f = f_opt.copied().unwrap_or(Friction(0.0));
                 // TODO
             }
-            t.reset();
         }
     }
 
     /// updates the camera position based on the current movement key induced camera movement
-    pub(crate) fn update_cam<T: FallingLeafApp>(&mut self, engine: &Engine<T>) {
+    fn update_cam<T: FallingLeafApp>(&mut self, engine: &Engine<T>, time_step: TimeDuration) {
         if let Some(cam_move_config) = self.flying_cam_dir {
             let cam_config = engine.rendering_system().current_cam_config();
-            let elapsed = self.time_of_cam_move_update.delta_time();
-            self.time_of_cam_move_update.reset();
 
             let move_vector = if cam_move_config.0 != glm::Vec3::zeros() {
                 cam_move_config.0.normalize()
             } else {
                 cam_move_config.0
             };
-            let changed = move_vector * elapsed.0 * cam_move_config.1;
+            let changed = move_vector * time_step.0 * cam_move_config.1;
 
             let mut look_z = cam_config.1;
             look_z.y = 0.0;
