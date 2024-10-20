@@ -139,7 +139,7 @@ impl EntityManager {
 
     /// yields the mutable component data reference of an entity if present
     pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
-        if TypeId::of::<T>() == TypeId::of::<Density>()
+        /*if TypeId::of::<T>() == TypeId::of::<Density>()
             || TypeId::of::<T>() == TypeId::of::<Scale>()
             || TypeId::of::<T>() == TypeId::of::<MeshType>()
         {
@@ -152,7 +152,7 @@ impl EntityManager {
                     mesh.intertia_tensor(density, scale.unwrap_or(&Scale::default())),
                 );
             }
-        }
+        }*/
         self.ecs.get_component_mut::<T>(entity)
     }
 
