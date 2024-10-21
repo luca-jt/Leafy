@@ -86,11 +86,11 @@ impl AnimationSystem {
 
             if let (Some(av), Some(o)) = (av_opt, o_opt) {
                 let inertia_mat = md_opt.copied().unwrap_or_default().0;
-                let corrected_av = inertia_mat.try_inverse().unwrap() * av.0; // TODO?
-                let rot_axis = if corrected_av.norm() > 0.0 { corrected_av.normalize() } else { ORIGIN };
+                let corrected_av = inertia_mat.try_inverse().unwrap() * av.0;
+                let rot_axis = corrected_av.try_normalize(0.0).unwrap_or(ORIGIN);
                 let half_angle = 0.5 * corrected_av.norm() * time_step.0;
                 let delta_rotation = glm::quat(half_angle.cos(), rot_axis.x * half_angle.sin(), rot_axis.y * half_angle.sin(), rot_axis.z * half_angle.sin());
-                *o = Orientation(glm::quat_cross(&delta_rotation, &o.0));
+                o.0 *= delta_rotation;
             }
         }
     }

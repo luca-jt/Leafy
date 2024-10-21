@@ -97,9 +97,12 @@ impl Mesh {
             mass += tet_mass;
         }
         mass_center /= mass;
-        ia = density.0 * ia / 60.0 - mass * (mass_center.y.sqrt() + mass_center.z.sqrt());
-        ib = density.0 * ib / 60.0 - mass * (mass_center.x.sqrt() + mass_center.z.sqrt());
-        ic = density.0 * ic / 60.0 - mass * (mass_center.x.sqrt() + mass_center.y.sqrt());
+        ia = density.0 * ia / 60.0
+            - mass * (mass_center.y * mass_center.y + mass_center.z * mass_center.z);
+        ib = density.0 * ib / 60.0
+            - mass * (mass_center.x * mass_center.x + mass_center.z * mass_center.z);
+        ic = density.0 * ic / 60.0
+            - mass * (mass_center.x * mass_center.x + mass_center.y * mass_center.y);
         iap = density.0 * ia / 120.0 - mass * mass_center.y * mass_center.z;
         ibp = density.0 * ia / 120.0 - mass * mass_center.x * mass_center.y;
         icp = density.0 * ia / 120.0 - mass * mass_center.x * mass_center.z;
@@ -114,11 +117,11 @@ impl Mesh {
 
 /// computes the inertia moment for a given traingle and index
 fn inertia_moment(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize) -> f32 {
-    triangle.0[i].sqrt()
+    triangle.0[i] * triangle.0[i]
         + triangle.1[i] * triangle.2[i]
-        + triangle.1[i].sqrt()
+        + triangle.1[i] * triangle.1[i]
         + triangle.0[i] * triangle.2[i]
-        + triangle.2[i].sqrt()
+        + triangle.2[i] * triangle.2[i]
         + triangle.0[i] * triangle.1[i]
 }
 

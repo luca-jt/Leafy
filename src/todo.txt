@@ -15,4 +15,5 @@ sprite renderer -> depth layers configurable, sprite component
 on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type (voxelization for custom?)
 inertia matrix: correct origin for the center of mass + prevent determinant from exploding
-recalculate inertia tensor when needed + fix inertia function calculations with NaN -> sqrt of negative number
+recalculate inertia tensor when needed
+fix orientation update
