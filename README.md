@@ -36,8 +36,8 @@ falling_leaf = "0.1.0"
 - clone the repository
 - run them with:
 ```sh
-# runs the "fl_test" example
-cargo run --release --example fl_test
+# runs the "3D" example
+cargo run --release --example 3D
 ```
 
 ## Overview

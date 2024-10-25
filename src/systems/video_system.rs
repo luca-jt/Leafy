@@ -84,7 +84,7 @@ impl VideoSystem {
             }
         };
 
-        println!("Picked a config with {} samples", gl_config.num_samples());
+        log::info!("Picked a config with {} samples", gl_config.num_samples());
 
         let raw_window_handle = window
             .as_ref()
@@ -174,7 +174,7 @@ impl VideoSystem {
     /// called when the engine application is suspended
     pub(crate) fn on_suspended(&mut self) {
         // this event is only raised on Android, where the backing NativeWindow for a GL Surface can appear and disappear at any moment
-        println!("Android window removed");
+        log::info!("Android window removed");
 
         // destroy the GL Surface and un-current the GL Context before ndk-glue releases the window back to the system
         let gl_context = self.gl_context.take().unwrap();
@@ -189,6 +189,7 @@ impl VideoSystem {
 
     /// enables vsync for opengl
     pub fn enable_vsync(&mut self) -> Result<(), String> {
+        log::trace!("enabled vsync");
         if let (Some(gl_surface), Some(gl_context)) =
             (self.gl_surface.as_ref(), self.gl_context.as_ref())
         {
@@ -201,6 +202,7 @@ impl VideoSystem {
 
     /// disables vsync for opengl
     pub fn disable_vsync(&mut self) -> Result<(), String> {
+        log::trace!("disabled vsync");
         if let (Some(gl_surface), Some(gl_context)) =
             (self.gl_surface.as_ref(), self.gl_context.as_ref())
         {
@@ -243,6 +245,7 @@ impl VideoSystem {
 
     /// set the optional fps cap value for the rendering process
     pub fn set_fps_cap(&mut self, new_cap: Option<f64>) {
+        log::trace!("set fps cap: {:?}", new_cap);
         self.fps_cap = new_cap;
     }
 
@@ -269,6 +272,7 @@ impl VideoSystem {
 
     /// enables/disables the grab mode for the cursor (makes it unable to leave the window)
     pub fn set_cursor_confined(&self, flag: bool) {
+        log::trace!("set cursor confined: {:?}", flag);
         if let Some(window) = self.window.as_ref() {
             if flag {
                 window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
@@ -280,6 +284,7 @@ impl VideoSystem {
 
     /// enables/disables fullscreen for the window
     pub fn set_fullscreen(&self, flag: bool) {
+        log::trace!("set fullscreen: {:?}", flag);
         if let Some(window) = self.window.as_ref() {
             if flag {
                 window.set_fullscreen(Some(Fullscreen::Borderless(None)));
@@ -291,6 +296,7 @@ impl VideoSystem {
 
     /// makes the cursor visible/invisible
     pub fn set_cursor_visible(&self, flag: bool) {
+        log::trace!("set cursor visibility: {:?}", flag);
         if let Some(window) = self.window.as_ref() {
             window.set_cursor_visible(flag);
         }
@@ -298,6 +304,7 @@ impl VideoSystem {
 
     /// enables/disables the link to the 3D camera control for the mouse with some senstivity (default is None)
     pub fn set_mouse_cam_control(&mut self, sensitivity: Option<f32>) {
+        log::trace!("set mouse cam control: {:?}", sensitivity);
         match sensitivity {
             None => {
                 self.set_cursor_visible(true);
@@ -379,13 +386,13 @@ impl EventObserver<WindowResize> for VideoSystem {
 /// prints info about the used gl renderer
 fn log_gl_config() {
     if let Some(renderer) = get_gl_string(gl::RENDERER) {
-        println!("Running on {}", renderer.to_string_lossy());
+        log::info!("Running on {}", renderer.to_string_lossy());
     }
     if let Some(version) = get_gl_string(gl::VERSION) {
-        println!("OpenGL Version {}", version.to_string_lossy());
+        log::info!("OpenGL Version {}", version.to_string_lossy());
     }
     if let Some(shaders_version) = get_gl_string(gl::SHADING_LANGUAGE_VERSION) {
-        println!("Shaders version on {}", shaders_version.to_string_lossy());
+        log::info!("Shaders version on {}", shaders_version.to_string_lossy());
     }
 }
 

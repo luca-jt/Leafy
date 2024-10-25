@@ -68,7 +68,7 @@ impl FallingLeafApp for App {
         let heli_position = Position::new(0.0, 1.0, 1.0);
 
         engine.audio_system_mut().play_sfx_at(
-            "examples/fl_test/helicopter.wav",
+            "examples/3D/helicopter.wav",
             true,
             &sound,
             &heli_position,
@@ -91,7 +91,7 @@ impl FallingLeafApp for App {
         engine.audio_system().enable_hrtf();
         engine
             .audio_system_mut()
-            .play_background_music("examples/fl_test/drop.wav");
+            .play_background_music("examples/3D/drop.wav");
 
         self.cube = Some(cube);
         self.player = Some(player);

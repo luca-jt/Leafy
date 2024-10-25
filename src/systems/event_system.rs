@@ -3,6 +3,7 @@ use crate::systems::event_system::events::*;
 use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
@@ -38,7 +39,8 @@ impl<A: FallingLeafApp> EventSystem<A> {
     }
 
     /// trigger an event and call all relevant functions/listeners
-    pub(crate) fn trigger<T: Any>(&self, event: T, engine: &Engine<A>) {
+    pub(crate) fn trigger<T: Any + Debug>(&self, event: T, engine: &Engine<A>) {
+        log::debug!("triggered event: {:?}", event);
         if let Some(handlers) = self.listeners.get(&TypeId::of::<T>()) {
             for handler in handlers {
                 let casted_handler = handler

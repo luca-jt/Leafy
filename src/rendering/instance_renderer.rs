@@ -147,6 +147,7 @@ impl InstanceRenderer {
         let add_size: usize = self.max_num_instances * 2;
         self.max_num_instances += add_size;
         self.models.reserve_exact(add_size);
+        log::debug!("resized instance renderer to: {:?}", self.max_num_instances);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
             gl::BufferData(
@@ -236,6 +237,7 @@ impl InstanceRenderer {
 
 impl Drop for InstanceRenderer {
     fn drop(&mut self) {
+        log::debug!("dropped instance renderer");
         unsafe {
             gl::DeleteBuffers(1, &self.pbo);
             gl::DeleteBuffers(1, &self.tbo);

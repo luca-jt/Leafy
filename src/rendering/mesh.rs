@@ -43,6 +43,7 @@ impl Mesh {
             .collect();
 
         let indeces: Vec<GLuint> = model.indices;
+        assert_eq!(indeces.len() % 3, 0, "mesh has to be triangulated");
 
         Self {
             positions,

@@ -11,6 +11,7 @@ use crate::utils::tools::{shared_ptr, SharedPtr};
 use std::any::Any;
 use std::cell::{Ref, RefCell, RefMut};
 use std::error::Error;
+use std::fmt::Debug;
 use std::ops::Deref;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, DeviceId, WindowEvent};
@@ -172,7 +173,7 @@ impl<A: FallingLeafApp> Engine<A> {
     }
 
     /// triggers an engine-wide event in the event system and call all relevant functions/listeners
-    pub fn trigger_event<T: Any>(&self, event: T) {
+    pub fn trigger_event<T: Any + Debug>(&self, event: T) {
         self.event_system().trigger(event, self);
     }
 }

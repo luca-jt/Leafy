@@ -268,6 +268,7 @@ impl RenderingSystem {
 
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
+        log::debug!("added new renderer for: {:?}", rd.spec.mesh_type);
         match rd.spec.mesh_type {
             MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
                 let mut renderer = BatchRenderer::new(rd.mesh, rd.spec.shader_type);
@@ -381,26 +382,31 @@ impl RenderingSystem {
 
     /// change OpenGL's background clear color (default is white)
     pub fn set_gl_clearcolor(&mut self, color: Color32) {
+        log::trace!("set gl clear color: {:?}", color);
         self.clear_color = color;
     }
 
     /// set the FOV for 3D rendering in degrees (default is 45°)
     pub fn set_fov(&mut self, fov: f32) {
+        log::trace!("set FOV: {:?}", fov);
         self.perspective_camera.update_fov(fov);
     }
 
     /// link/unlink the 3D camera position to some enities' position
     pub fn link_cam_to_entity(&mut self, link: Option<EntityID>) {
+        log::trace!("update cam entity link: {:?}", link);
         self.cam_position_link = link;
     }
 
     /// changes the render distance to `distance` units from the current camera position
     pub fn set_render_distance(&mut self, distance: Option<f32>) {
+        log::trace!("set render distance: {:?}", distance);
         self.render_distance = distance;
     }
 
     /// changes the shadow map resolution (default is normal)
     pub fn set_shadow_resolution(&mut self, resolution: ShadowResolution) {
+        log::trace!("set shadow map resolution: {:?}", resolution);
         self.shadow_resolution = resolution;
         self.light_sources.iter_mut().for_each(|(_, map)| {
             *map = ShadowMap::new(self.shadow_resolution.map_res(), map.light_pos, &map.light)
@@ -409,6 +415,11 @@ impl RenderingSystem {
 
     /// changes the ambient light (default is white and 0.3)
     pub fn set_ambient_light(&mut self, color: Color32, intensity: f32) {
+        log::trace!(
+            "set ambient light to {:?} with intensity {:?}",
+            color,
+            intensity
+        );
         self.ambient_light = (color, intensity);
     }
 }
@@ -467,6 +478,7 @@ struct RenderData<'a> {
 }
 
 /// all possible settings for shadow map resolution
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ShadowResolution {
     Ultra,
     High,

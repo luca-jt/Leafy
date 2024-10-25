@@ -145,7 +145,7 @@ impl AudioSystem {
             .set_position(Vector3::new(pos_data.x, pos_data.y, pos_data.z));
     }
 
-    /// plays the music from a given file in a loop
+    /// plays the music from a given file in a loop (overwrites the bg music playing before)
     pub fn play_background_music(&mut self, file_path: impl AsRef<Path>) {
         let volume = self.calc_absolute_volume(VolumeType::Music);
         self.stop_background_music();
@@ -179,6 +179,7 @@ impl AudioSystem {
 
     /// use sound rendering on the hrtf sphere
     pub fn enable_hrtf(&self) {
+        log::trace!("enabled HRTF");
         let hrir_path = PathBuf::from(get_audio_path("IRC_1002_C.bin"));
         let hrir_sphere = HrirSphere::from_file(&hrir_path, context::SAMPLE_RATE).unwrap();
 
@@ -191,6 +192,7 @@ impl AudioSystem {
 
     /// enable a reverb effect (enables hrtf)
     pub fn enable_reverb(&self, decay_time: f32) {
+        log::trace!("enabled reverb");
         self.enable_hrtf();
         let mut reverb = Reverb::new();
         reverb.set_decay_time(decay_time);
@@ -204,6 +206,7 @@ impl AudioSystem {
 
     /// disable the reverb effect (does not disable hrtf)
     pub fn disable_reverb(&self) {
+        log::trace!("disabled reverb");
         self.sound_context
             .state()
             .bus_graph_mut()
@@ -213,6 +216,7 @@ impl AudioSystem {
 
     /// changes the volume of the given type to the specified value
     pub fn set_volume(&mut self, volume_type: VolumeType, new_volume: f32) {
+        log::trace!("set volume {:?} to {:?}", volume_type, new_volume);
         match volume_type {
             VolumeType::Master => {
                 self.master_volume = new_volume;
@@ -227,7 +231,8 @@ impl AudioSystem {
     }
 
     /// enables/disbles the pitch change on animation speed change (default is true)
-    pub fn enable_pitch_on_speed_change(&mut self, flag: bool) {
+    pub fn set_pitch_on_speed_change(&mut self, flag: bool) {
+        log::trace!("set pitch on speed change: {:?}", flag);
         self.pitch_on_speed_change = flag;
     }
 

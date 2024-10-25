@@ -114,6 +114,7 @@ impl EntityManager {
                 == 1
             {
                 self.asset_register.remove(mesh_type);
+                log::debug!("deleted mesh from register: {:?}", mesh_type);
             }
             if let Some(MeshAttribute::Textured(path)) =
                 self.ecs.get_component::<MeshAttribute>(entity)
@@ -188,6 +189,7 @@ impl EntityManager {
                     .any(|component| mesh_type == component)
                 {
                     self.asset_register.remove(mesh_type);
+                    log::debug!("deleted mesh from register: {:?}", mesh_type);
                 }
             }
             if let Some(MeshAttribute::Textured(path)) =
@@ -238,6 +240,7 @@ impl EntityManager {
                 MeshType::Custom(path) => Mesh::new(path),
             };
             self.asset_register.insert(mesh_type.clone(), mesh);
+            log::debug!("inserted mesh in register: {:?}", mesh_type);
         }
     }
 }

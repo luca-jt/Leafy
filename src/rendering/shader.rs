@@ -103,6 +103,11 @@ impl ShaderProgram {
         unsafe {
             gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()); // maybe do this generically
         }
+        log::debug!(
+            "compiled shader {:?}: {:?}",
+            vertex_file.split_once('.').unwrap().0,
+            id
+        );
 
         Self { id }
     }
@@ -127,6 +132,7 @@ impl ShaderProgram {
 
 impl Drop for ShaderProgram {
     fn drop(&mut self) {
+        log::debug!("deleted shader: {:?}", self.id);
         unsafe {
             gl::DeleteProgram(self.id);
         }
