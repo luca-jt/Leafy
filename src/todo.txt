@@ -16,4 +16,3 @@ on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type (voxelization for custom?)
 inertia matrix: correct origin for the center of mass
 recalculate inertia tensor when needed
-delete sound controllers no longer attached to an enity

@@ -189,7 +189,7 @@ impl VideoSystem {
 
     /// enables vsync for opengl
     pub fn enable_vsync(&mut self) -> Result<(), String> {
-        log::trace!("enabled vsync");
+        log::debug!("enabled vsync");
         if let (Some(gl_surface), Some(gl_context)) =
             (self.gl_surface.as_ref(), self.gl_context.as_ref())
         {
@@ -202,7 +202,7 @@ impl VideoSystem {
 
     /// disables vsync for opengl
     pub fn disable_vsync(&mut self) -> Result<(), String> {
-        log::trace!("disabled vsync");
+        log::debug!("disabled vsync");
         if let (Some(gl_surface), Some(gl_context)) =
             (self.gl_surface.as_ref(), self.gl_context.as_ref())
         {
@@ -304,7 +304,7 @@ impl VideoSystem {
 
     /// enables/disables the link to the 3D camera control for the mouse with some senstivity (default is None)
     pub fn set_mouse_cam_control(&mut self, sensitivity: Option<f32>) {
-        log::trace!("set mouse cam control: {:?}", sensitivity);
+        log::debug!("set mouse cam control: {:?}", sensitivity);
         match sensitivity {
             None => {
                 self.set_cursor_visible(true);

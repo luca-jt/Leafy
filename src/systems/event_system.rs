@@ -40,7 +40,7 @@ impl<A: FallingLeafApp> EventSystem<A> {
 
     /// trigger an event and call all relevant functions/listeners
     pub(crate) fn trigger<T: Any + Debug>(&self, event: T, engine: &Engine<A>) {
-        log::debug!("triggered event: {:?}", event);
+        log::trace!("triggered event: {:?}", event);
         if let Some(handlers) = self.listeners.get(&TypeId::of::<T>()) {
             for handler in handlers {
                 let casted_handler = handler

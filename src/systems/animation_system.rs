@@ -118,7 +118,7 @@ impl AnimationSystem {
     /// enables/disables the built-in flying cam movement with a movement speed
     /// to change the movement keys use ``define_movement_keys()``
     pub fn set_flying_cam_movement(&mut self, speed: Option<f32>) {
-        log::trace!("set flying cam movement: {:?}", speed);
+        log::debug!("set flying cam movement: {:?}", speed);
         match speed {
             None => {
                 self.flying_cam_dir = None;
@@ -132,13 +132,12 @@ impl AnimationSystem {
     /// changes the movement keys used for the built-in flying camera movement
     /// defaults: up - Space, down - LeftShift, directions - WASD
     pub fn define_movement_keys(&mut self, keys: MovementKeys) {
-        log::trace!("defined movement keys: {:?}", keys);
         self.flying_cam_keys = keys;
     }
 
     /// changes the gravity value used for physics computations (default is ``constants::G``)
     pub fn set_gravity(&mut self, a: Acceleration) {
-        log::trace!("set gravity: {:?}", a);
+        log::debug!("set gravity: {:?}", a);
         self.gravity = a;
     }
 }

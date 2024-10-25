@@ -394,19 +394,19 @@ impl RenderingSystem {
 
     /// link/unlink the 3D camera position to some enities' position
     pub fn link_cam_to_entity(&mut self, link: Option<EntityID>) {
-        log::trace!("update cam entity link: {:?}", link);
+        log::debug!("update cam entity link: {:?}", link);
         self.cam_position_link = link;
     }
 
     /// changes the render distance to `distance` units from the current camera position
     pub fn set_render_distance(&mut self, distance: Option<f32>) {
-        log::trace!("set render distance: {:?}", distance);
+        log::debug!("set render distance: {:?}", distance);
         self.render_distance = distance;
     }
 
     /// changes the shadow map resolution (default is normal)
     pub fn set_shadow_resolution(&mut self, resolution: ShadowResolution) {
-        log::trace!("set shadow map resolution: {:?}", resolution);
+        log::debug!("set shadow map resolution: {:?}", resolution);
         self.shadow_resolution = resolution;
         self.light_sources.iter_mut().for_each(|(_, map)| {
             *map = ShadowMap::new(self.shadow_resolution.map_res(), map.light_pos, &map.light)
@@ -415,7 +415,7 @@ impl RenderingSystem {
 
     /// changes the ambient light (default is white and 0.3)
     pub fn set_ambient_light(&mut self, color: Color32, intensity: f32) {
-        log::trace!(
+        log::debug!(
             "set ambient light to {:?} with intensity {:?}",
             color,
             intensity

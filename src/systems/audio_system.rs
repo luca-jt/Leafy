@@ -69,7 +69,9 @@ impl AudioSystem {
         }
         // update entity sound positions
         let sfx_volume = self.calc_absolute_volume(VolumeType::SFX);
+        let mut active_ids = vec![];
         for (pos, sound) in entity_manager.query2::<Position, SoundController>(vec![]) {
+            active_ids.push(sound.id);
             let handles = self.sound_register.get(&sound.id).unwrap();
             for handle in handles {
                 let mut state = self.sound_context.state();
@@ -79,6 +81,8 @@ impl AudioSystem {
                 source.set_position(Vector3::new(pos_data.x, pos_data.y, pos_data.z));
             }
         }
+        // clean up unused controllers
+        self.sound_register.retain(|id, _| active_ids.contains(id));
     }
 
     /// spawns a new sound controller component
@@ -136,7 +140,7 @@ impl AudioSystem {
         let handle = self.sound_context.state().add_source(source);
         self.sound_register
             .get_mut(&controller.id)
-            .unwrap()
+            .expect("no entity with this controller")
             .push(handle);
         let pos_data = position.data();
         self.sound_context
