@@ -13,7 +13,7 @@ pub struct Mesh {
     pub(crate) positions: Vec<glm::Vec3>,
     pub(crate) texture_coords: Vec<glm::Vec2>,
     pub(crate) normals: Vec<glm::Vec3>,
-    pub(crate) indeces: Vec<GLuint>,
+    pub(crate) indices: Vec<GLuint>,
 }
 
 impl Mesh {
@@ -42,27 +42,27 @@ impl Mesh {
             .map(|vertex| glm::vec3(vertex.normal[0], vertex.normal[1], vertex.normal[2]))
             .collect();
 
-        let indeces: Vec<GLuint> = model.indices;
-        assert_eq!(indeces.len() % 3, 0, "mesh has to be triangulated");
+        let indices: Vec<GLuint> = model.indices;
+        assert_eq!(indices.len() % 3, 0, "mesh has to be triangulated");
 
         Self {
             positions,
             texture_coords,
             normals,
-            indeces,
+            indices,
         }
     }
 
-    /// yields the number of verteces per object
+    /// yields the number of vertices per object
     #[inline]
-    pub fn num_verteces(&self) -> usize {
+    pub fn num_vertices(&self) -> usize {
         self.positions.len()
     }
 
-    /// yields the number of indeces per object
+    /// yields the number of indices per object
     #[inline]
-    pub fn num_indeces(&self) -> usize {
-        self.indeces.len()
+    pub fn num_indices(&self) -> usize {
+        self.indices.len()
     }
 
     /// generates the inertia tensor matrix
@@ -74,10 +74,10 @@ impl Mesh {
         let mut mass = 0f32;
         let scale_matrix = scale.scale_matrix();
 
-        for i in (0..self.indeces.len()).step_by(3) {
-            let pos1 = self.positions[self.indeces[i] as usize];
-            let pos2 = self.positions[self.indeces[i + 1] as usize];
-            let pos3 = self.positions[self.indeces[i + 2] as usize];
+        for i in (0..self.indices.len()).step_by(3) {
+            let pos1 = self.positions[self.indices[i] as usize];
+            let pos2 = self.positions[self.indices[i + 1] as usize];
+            let pos3 = self.positions[self.indices[i + 2] as usize];
             let scaled1 = (scale_matrix * to_vec4(&pos1)).xyz();
             let scaled2 = (scale_matrix * to_vec4(&pos2)).xyz();
             let scaled3 = (scale_matrix * to_vec4(&pos3)).xyz();
@@ -118,56 +118,106 @@ impl Mesh {
     /// generates the meshes' hitbox for the given hitbox type
     pub(crate) fn generate_hitbox(&self, hitbox: HitboxType) -> Hitbox {
         match hitbox {
-            HitboxType::ConvexHull => self.convex_hull_hitbox(),
-            HitboxType::Simplified => self.simplified_hitbox(),
+            HitboxType::ConvexHull => Hitbox::Meshed(self.convex_hull_hitbox()),
+            HitboxType::Simplified => Hitbox::Meshed(self.simplified_hitbox()),
             HitboxType::Voxelized => self.voxelized_hitbox(),
-            HitboxType::Unaltered => self.unaltered_hitbox(),
+            HitboxType::Unaltered => Hitbox::Meshed(self.unaltered_hitbox()),
             HitboxType::Ellipsiod => self.ellipsoid_hitbox(),
         }
     }
 
     /// creates a hitbox in the form of a convex hull of the mesh
-    fn convex_hull_hitbox(&self) -> Hitbox {
-        Hitbox {
-            verteces: vec![],
+    fn convex_hull_hitbox(&self) -> HitboxMesh {
+        HitboxMesh {
+            vertices: vec![],
             faces: vec![],
         }
     }
 
     /// creates a hitbox in the form of a simplified version of the mesh
-    fn simplified_hitbox(&self) -> Hitbox {
-        Hitbox {
-            verteces: vec![],
-            faces: vec![],
+    fn simplified_hitbox(&self) -> HitboxMesh {
+        let mut hitbox = self.unaltered_hitbox();
+        let mut vertex_count = hitbox.vertices.len();
+        let target_vertex_count = self.num_vertices().ilog2() as usize;
+        let mut face_iter = (0..hitbox.faces.len()).cycle();
+        while vertex_count > target_vertex_count {
+            let face_index = face_iter.next().unwrap();
+            let edge = (hitbox.faces[face_index][0], hitbox.faces[face_index][1]);
+            if edge.0 == edge.1 {
+                continue;
+            }
+            let midpoint = (hitbox.vertices[edge.0] + hitbox.vertices[edge.1]) / 2.0;
+            hitbox.vertices[edge.0] = midpoint;
+            hitbox.vertices[edge.1] = midpoint;
+            vertex_count -= 1;
+            hitbox.faces[face_index] = [0, 0, 0];
         }
+        hitbox.faces.retain(|face| *face != [0, 0, 0]);
+        let mut indeces_to_remove = vec![];
+        for (i, vertex) in hitbox.vertices.iter().enumerate() {
+            for j in (i + 1)..hitbox.vertices.len() {
+                if *vertex == hitbox.vertices[j] {
+                    for index in hitbox.faces.iter_mut().flatten() {
+                        if *index == j {
+                            *index = i;
+                        }
+                    }
+                    indeces_to_remove.push(j);
+                }
+            }
+        }
+        for index_to_rm in indeces_to_remove {
+            hitbox.vertices.swap_remove(index_to_rm);
+            for index in hitbox.faces.iter_mut().flatten() {
+                if *index == hitbox.vertices.len() {
+                    *index = index_to_rm;
+                }
+            }
+        }
+        hitbox
     }
 
     /// creates a hitbox in the form of a voxelized version of the mesh
     fn voxelized_hitbox(&self) -> Hitbox {
-        Hitbox {
-            verteces: vec![],
-            faces: vec![],
-        }
+        Hitbox::SparseVoxelOctree
     }
 
     /// creates a hitbox in the form of a unaltered version of the mesh
-    fn unaltered_hitbox(&self) -> Hitbox {
-        let mut faces = vec![[0, 0, 0]; self.indeces.len() / 3];
-        for (i, index) in self.indeces.iter().enumerate() {
+    fn unaltered_hitbox(&self) -> HitboxMesh {
+        let mut faces = vec![[0, 0, 0]; self.indices.len() / 3];
+        for (i, index) in self.indices.iter().enumerate() {
             faces[i / 3][i % 3] = *index as usize;
         }
-        Hitbox {
-            verteces: self.positions.clone(),
+        HitboxMesh {
+            vertices: self.positions.clone(),
             faces,
         }
     }
 
     /// creates a hitbox in the form of an ellipsiod approximation of the mesh
     fn ellipsoid_hitbox(&self) -> Hitbox {
-        Hitbox {
-            verteces: vec![],
-            faces: vec![],
-        }
+        let max_x = self
+            .positions
+            .iter()
+            .copied()
+            .map(|p| p.x.abs())
+            .reduce(f32::max)
+            .unwrap();
+        let max_y = self
+            .positions
+            .iter()
+            .copied()
+            .map(|p| p.y.abs())
+            .reduce(f32::max)
+            .unwrap();
+        let max_z = self
+            .positions
+            .iter()
+            .copied()
+            .map(|p| p.z.abs())
+            .reduce(f32::max)
+            .unwrap();
+        Hitbox::Ellipsoid(glm::vec3(max_x, max_y, max_z))
     }
 }
 
@@ -181,7 +231,7 @@ fn inertia_moment(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize) -> f32
         + triangle.0[i] * triangle.1[i]
 }
 
-/// computes the inertia product for a given traingle and indeces
+/// computes the inertia product for a given traingle and indices
 fn inertia_product(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize, j: usize) -> f32 {
     2.0 * triangle.0[i] * triangle.0[j]
         + triangle.1[i] * triangle.2[j]
@@ -194,8 +244,22 @@ fn inertia_product(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize, j: us
         + triangle.1[i] * triangle.0[j]
 }
 
+/// all possible versions of hitboxes
+pub(crate) enum Hitbox {
+    Meshed(HitboxMesh),
+    Ellipsoid(glm::Vec3),
+    SparseVoxelOctree,
+}
+
+impl Hitbox {
+    /// checks if two hitboxes collide with each other
+    pub(crate) fn collides_with(&self, other: &Hitbox) -> bool {
+        true
+    }
+}
+
 /// contains all of the hitbox vertex data
-pub(crate) struct Hitbox {
-    verteces: Vec<glm::Vec3>,
+pub(crate) struct HitboxMesh {
+    vertices: Vec<glm::Vec3>,
     faces: Vec<[usize; 3]>,
 }

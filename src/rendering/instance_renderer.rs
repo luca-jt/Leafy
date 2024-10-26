@@ -35,7 +35,7 @@ impl InstanceRenderer {
         let mut tbo = 0; // uv
         let mut nbo = 0; // normals
         let mut mbo = 0; // models (includes offsets)
-        let mut ibo = 0; // indeces
+        let mut ibo = 0; // indices
         let mut white_texture = 0;
         let models = vec![glm::Mat4::identity(); max_num_instances];
 
@@ -49,7 +49,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, pbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_verteces() * size_of::<glm::Vec3>()) as GLsizeiptr,
+                (mesh.num_vertices() * size_of::<glm::Vec3>()) as GLsizeiptr,
                 mesh.positions.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -60,7 +60,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, tbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_verteces() * size_of::<glm::Vec2>()) as GLsizeiptr,
+                (mesh.num_vertices() * size_of::<glm::Vec2>()) as GLsizeiptr,
                 mesh.texture_coords.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -71,7 +71,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, nbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_verteces() * size_of::<glm::Vec3>()) as GLsizeiptr,
+                (mesh.num_vertices() * size_of::<glm::Vec3>()) as GLsizeiptr,
                 mesh.normals.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -95,8 +95,8 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
-                (mesh.num_indeces() * size_of::<GLuint>()) as GLsizeiptr,
-                mesh.indeces.as_ptr() as *const GLvoid,
+                (mesh.num_indices() * size_of::<GLuint>()) as GLsizeiptr,
+                mesh.indices.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
 
@@ -165,7 +165,7 @@ impl InstanceRenderer {
             self.resize_buffer();
         }
         self.models[self.pos_idx] = *trafo;
-        self.index_count += mesh.num_indeces() as GLsizei;
+        self.index_count += mesh.num_indices() as GLsizei;
         self.pos_idx += 1;
     }
 

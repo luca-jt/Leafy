@@ -12,7 +12,7 @@ use std::ptr;
 /// batch renderer for the 3D rendering option
 pub(crate) struct BatchRenderer {
     batches: Vec<Batch>,
-    used_batch_indeces: HashSet<usize>,
+    used_batch_indices: HashSet<usize>,
     white_texture: GLuint,
     samplers: [GLint; MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT],
     shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT],
@@ -54,7 +54,7 @@ impl BatchRenderer {
 
         Self {
             batches: vec![Batch::new(mesh, shader_type)],
-            used_batch_indeces: HashSet::new(),
+            used_batch_indices: HashSet::new(),
             white_texture,
             samplers,
             shadow_samplers,
@@ -63,7 +63,7 @@ impl BatchRenderer {
 
     /// begin the first render batch
     pub(crate) fn begin_first_batch(&mut self) {
-        self.used_batch_indeces.clear();
+        self.used_batch_indices.clear();
         self.batches.first_mut().unwrap().begin();
     }
 
@@ -106,7 +106,7 @@ impl BatchRenderer {
         }
         // clean up unused batches
         for index in 0..self.batches.len() {
-            if !self.used_batch_indeces.contains(&index) {
+            if !self.used_batch_indices.contains(&index) {
                 self.batches.remove(index);
             }
         }
@@ -122,7 +122,7 @@ impl BatchRenderer {
     ) {
         for (i, batch) in self.batches.iter_mut().enumerate() {
             if batch.try_add_tex_mesh(trafo, tex_id, mesh) {
-                self.used_batch_indeces.insert(i);
+                self.used_batch_indices.insert(i);
                 return;
             }
         }
@@ -132,13 +132,13 @@ impl BatchRenderer {
         let mut new_batch = Batch::new(mesh, shader_type);
         let res = new_batch.try_add_tex_mesh(trafo, tex_id, mesh);
         debug_assert!(res);
-        self.used_batch_indeces.insert(self.batches.len());
+        self.used_batch_indices.insert(self.batches.len());
         self.batches.push(new_batch);
     }
 
     /// draws a mesh with a color
     pub(crate) fn draw_color_mesh(&mut self, trafo: &glm::Mat4, color: Color32, mesh: &Mesh) {
-        self.used_batch_indeces.insert(0);
+        self.used_batch_indices.insert(0);
         self.batches
             .first_mut()
             .unwrap()
@@ -172,7 +172,7 @@ impl Batch {
     fn new(mesh: &Mesh, shader_type: ShaderType) -> Self {
         let max_num_meshes: usize = 10;
         // init the data ids
-        let obj_buffer: Vec<Vertex> = vec![Vertex::default(); mesh.num_verteces() * max_num_meshes];
+        let obj_buffer: Vec<Vertex> = vec![Vertex::default(); mesh.num_vertices() * max_num_meshes];
         let mut vao = 0;
         let mut vbo = 0;
         let mut ibo = 0;
@@ -185,7 +185,7 @@ impl Batch {
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_verteces() * max_num_meshes * size_of::<Vertex>()) as GLsizeiptr,
+                (mesh.num_vertices() * max_num_meshes * size_of::<Vertex>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -194,17 +194,17 @@ impl Batch {
             bind_batch_attribs(shader_type);
 
             // INDECES
-            let mut indeces: Vec<GLuint> = vec![0; mesh.num_indeces() * max_num_meshes];
-            for i in 0..mesh.num_indeces() * max_num_meshes {
-                indeces[i] = mesh.indeces[i % mesh.num_indeces()]
-                    + mesh.num_verteces() as GLuint * (i as GLuint / mesh.num_indeces() as GLuint);
+            let mut indices: Vec<GLuint> = vec![0; mesh.num_indices() * max_num_meshes];
+            for i in 0..mesh.num_indices() * max_num_meshes {
+                indices[i] = mesh.indices[i % mesh.num_indices()]
+                    + mesh.num_vertices() as GLuint * (i as GLuint / mesh.num_indices() as GLuint);
             }
             gl::GenBuffers(1, &mut ibo);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
-                (mesh.num_indeces() * max_num_meshes * size_of::<GLuint>()) as GLsizeiptr,
-                indeces.as_ptr() as *const GLvoid,
+                (mesh.num_indices() * max_num_meshes * size_of::<GLuint>()) as GLsizeiptr,
+                indices.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
 
@@ -233,20 +233,20 @@ impl Batch {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_verteces() * self.max_num_meshes * size_of::<Vertex>()) as GLsizeiptr,
+                (mesh.num_vertices() * self.max_num_meshes * size_of::<Vertex>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
-            let mut indeces: Vec<GLuint> = vec![0; mesh.num_indeces() * self.max_num_meshes];
-            for i in 0..mesh.num_indeces() * self.max_num_meshes {
-                indeces[i] = mesh.indeces[i % mesh.num_indeces()]
-                    + mesh.num_verteces() as GLuint * (i as GLuint / mesh.num_indeces() as GLuint);
+            let mut indices: Vec<GLuint> = vec![0; mesh.num_indices() * self.max_num_meshes];
+            for i in 0..mesh.num_indices() * self.max_num_meshes {
+                indices[i] = mesh.indices[i % mesh.num_indices()]
+                    + mesh.num_vertices() as GLuint * (i as GLuint / mesh.num_indices() as GLuint);
             }
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
-                (mesh.num_indeces() * self.max_num_meshes * size_of::<GLuint>()) as GLsizeiptr,
-                indeces.as_ptr() as *const GLvoid,
+                (mesh.num_indices() * self.max_num_meshes * size_of::<GLuint>()) as GLsizeiptr,
+                indices.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
         }
@@ -261,13 +261,13 @@ impl Batch {
     fn end(&self) {
         // dynamically copy the the drawn mesh vertex data from object buffer into the vertex buffer on the gpu
         unsafe {
-            let verteces_size: GLsizeiptr =
+            let vertices_size: GLsizeiptr =
                 (self.obj_buffer_ptr * size_of::<Vertex>()) as GLsizeiptr;
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
                 0,
-                verteces_size,
+                vertices_size,
                 self.obj_buffer.as_ptr() as *const GLvoid,
             );
         }
@@ -326,12 +326,12 @@ impl Batch {
             tex_index = (self.all_tex_ids.len() + 1) as GLfloat;
             self.all_tex_ids.push(tex_id);
         }
-        if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes {
+        if self.index_count as usize >= mesh.num_indices() * self.max_num_meshes {
             // resize current batch if batch size exceeded
             self.resize_buffer(mesh);
         }
         // copy mesh vertex data into the object buffer
-        for i in 0..mesh.num_verteces() {
+        for i in 0..mesh.num_vertices() {
             let new_pos = trafo * to_vec4(&mesh.positions[i]);
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
                 position: new_pos.xyz(),
@@ -342,13 +342,13 @@ impl Batch {
             };
             self.obj_buffer_ptr += 1;
         }
-        self.index_count += mesh.num_indeces() as GLsizei;
+        self.index_count += mesh.num_indices() as GLsizei;
         true
     }
 
     /// adds a mesh with a color to the batch
     fn add_color_mesh(&mut self, trafo: &glm::Mat4, color: Color32, mesh: &Mesh) {
-        if self.index_count as usize >= mesh.num_indeces() * self.max_num_meshes {
+        if self.index_count as usize >= mesh.num_indices() * self.max_num_meshes {
             // resize current batch if batch size exceeded
             self.resize_buffer(mesh);
         }
@@ -356,7 +356,7 @@ impl Batch {
         let tex_index: GLfloat = 0.0; // white texture
 
         // copy mesh vertex data into the object buffer
-        for i in 0..mesh.num_verteces() {
+        for i in 0..mesh.num_vertices() {
             let new_pos = trafo * to_vec4(&mesh.positions[i]);
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
                 position: new_pos.xyz(),
@@ -367,7 +367,7 @@ impl Batch {
             };
             self.obj_buffer_ptr += 1;
         }
-        self.index_count += mesh.num_indeces() as GLsizei;
+        self.index_count += mesh.num_indices() as GLsizei;
     }
 }
 
