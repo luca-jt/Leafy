@@ -65,7 +65,7 @@ impl AnimationSystem {
     fn handle_collisions(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
         let objects = entity_manager
             .query6_mut_opt5::<Position, Velocity, AngularVelocity, MeshType, Scale, Friction>(
-                vec![include_filter!(Hitbox)],
+                vec![include_filter!(HitboxType)],
             )
             .collect::<Vec<_>>();
         // two collision cases: two edges touching or one vertex anywhere on a side

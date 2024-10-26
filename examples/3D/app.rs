@@ -55,7 +55,7 @@ impl FallingLeafApp for App {
             Scale::from_factor(5.0),
             MeshType::Plane,
             MeshAttribute::Textured(Texture::Wall),
-            Hitbox
+            HitboxType::Unaltered
         ));
         let player = entity_manager.create_regular_moving(
             Position::new(0.0, 4.0, 0.0),

@@ -444,9 +444,15 @@ pub struct SoundController {
     pub(crate) id: SoundHandleID,
 }
 
-/// marker for an entity (enables collision physics)
+/// hitbox type specifier for an entity (enables collision physics)
 #[derive(Debug, Clone, Copy)]
-pub struct Hitbox;
+pub enum HitboxType {
+    ConvexHull,
+    Simplified,
+    Voxelized,
+    Unaltered,
+    Ellipsiod,
+}
 
 /// marks an entity as a point light source for the rendering system, needs a position attached to work
 #[derive(Debug, Clone, Copy, PartialEq)]

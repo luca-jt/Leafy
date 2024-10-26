@@ -80,7 +80,7 @@ impl EntityManager {
             Orientation::default(),
             AngularVelocity::zero(),
             Acceleration::zero(),
-            Hitbox,
+            HitboxType::Simplified,
             Density::default(),
             Friction(0.5)
         ))

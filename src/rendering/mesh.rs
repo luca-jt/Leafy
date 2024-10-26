@@ -1,4 +1,4 @@
-use crate::ecs::component::{Density, Scale};
+use crate::ecs::component::{Density, HitboxType, Scale};
 use crate::glm;
 use crate::utils::constants::ORIGIN;
 use crate::utils::tools::to_vec4;
@@ -114,6 +114,61 @@ impl Mesh {
             glm::vec3(-icp, -iap, ic),
         ])
     }
+
+    /// generates the meshes' hitbox for the given hitbox type
+    pub(crate) fn generate_hitbox(&self, hitbox: HitboxType) -> Hitbox {
+        match hitbox {
+            HitboxType::ConvexHull => self.convex_hull_hitbox(),
+            HitboxType::Simplified => self.simplified_hitbox(),
+            HitboxType::Voxelized => self.voxelized_hitbox(),
+            HitboxType::Unaltered => self.unaltered_hitbox(),
+            HitboxType::Ellipsiod => self.ellipsoid_hitbox(),
+        }
+    }
+
+    /// creates a hitbox in the form of a convex hull of the mesh
+    fn convex_hull_hitbox(&self) -> Hitbox {
+        Hitbox {
+            verteces: vec![],
+            faces: vec![],
+        }
+    }
+
+    /// creates a hitbox in the form of a simplified version of the mesh
+    fn simplified_hitbox(&self) -> Hitbox {
+        Hitbox {
+            verteces: vec![],
+            faces: vec![],
+        }
+    }
+
+    /// creates a hitbox in the form of a voxelized version of the mesh
+    fn voxelized_hitbox(&self) -> Hitbox {
+        Hitbox {
+            verteces: vec![],
+            faces: vec![],
+        }
+    }
+
+    /// creates a hitbox in the form of a unaltered version of the mesh
+    fn unaltered_hitbox(&self) -> Hitbox {
+        let mut faces = vec![[0, 0, 0]; self.indeces.len() / 3];
+        for (i, index) in self.indeces.iter().enumerate() {
+            faces[i / 3][i % 3] = *index as usize;
+        }
+        Hitbox {
+            verteces: self.positions.clone(),
+            faces,
+        }
+    }
+
+    /// creates a hitbox in the form of an ellipsiod approximation of the mesh
+    fn ellipsoid_hitbox(&self) -> Hitbox {
+        Hitbox {
+            verteces: vec![],
+            faces: vec![],
+        }
+    }
 }
 
 /// computes the inertia moment for a given traingle and index
@@ -137,4 +192,10 @@ fn inertia_product(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize, j: us
         + 2.0 * triangle.2[i] * triangle.2[j]
         + triangle.0[i] * triangle.1[j]
         + triangle.1[i] * triangle.0[j]
+}
+
+/// contains all of the hitbox vertex data
+pub(crate) struct Hitbox {
+    verteces: Vec<glm::Vec3>,
+    faces: Vec<[usize; 3]>,
 }
