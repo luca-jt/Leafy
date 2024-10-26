@@ -68,11 +68,8 @@ impl AnimationSystem {
                 vec![include_filter!(Hitbox)],
             )
             .collect::<Vec<_>>();
-        // TODO
         // two collision cases: two edges touching or one vertex anywhere on a side
-        // compute center of mass and hitboxes in mesh constructor
-        // use steps for animations, not only delta time
-        // angular velocity (+ operations) -> use also in apply_physics()
+        // compute hitboxes in mesh constructor
     }
 
     /// performs all relevant physics calculations on entity data

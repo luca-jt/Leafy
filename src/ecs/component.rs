@@ -298,6 +298,8 @@ pub enum MeshType {
     Cube,
     Sphere,
     Cylinder,
+    Cone,
+    Torus,
     Custom(PathBuf),
 }
 

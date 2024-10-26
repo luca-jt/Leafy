@@ -45,10 +45,12 @@ impl EntityManager {
             opt_mesh = Some(self.asset_from_type(mesh_type).unwrap());
         }
         let mut opt_md = None;
-        if let (Some(mesh), Some(density)) = (opt_mesh, components.component_data::<Density>()) {
+        if let Some(mesh) = opt_mesh {
             opt_md = Some(
                 mesh.intertia_tensor(
-                    density,
+                    components
+                        .component_data::<Density>()
+                        .unwrap_or(&Density::default()),
                     components
                         .component_data::<Scale>()
                         .unwrap_or(&Scale::default()),
@@ -154,18 +156,22 @@ impl EntityManager {
         }
         self.ecs.add_component::<T>(entity, component);
         if !self.has_component::<MassDistribution>(entity) {
-            if let (Some(mesh), Some(density)) = (
-                self.asset_from_id(entity),
-                self.get_component::<Density>(entity),
-            ) {
+            if let Some(mesh) = self.asset_from_id(entity) {
                 let scale = self.get_component::<Scale>(entity);
+                let density = self.get_component::<Density>(entity);
                 self.add_component(
                     entity,
-                    MassDistribution(
-                        mesh.intertia_tensor(density, scale.unwrap_or(&Scale::default())),
-                    ),
+                    MassDistribution(mesh.intertia_tensor(
+                        density.unwrap_or(&Density::default()),
+                        scale.unwrap_or(&Scale::default()),
+                    )),
                 );
             }
+        }
+        if TypeId::of::<T>() == TypeId::of::<Scale>()
+            || TypeId::of::<T>() == TypeId::of::<Density>()
+        {
+            self.recalculate_inertia_tensor(entity);
         }
     }
 
@@ -178,12 +184,8 @@ impl EntityManager {
     pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
         let removed = self.ecs.remove_component::<T>(entity);
         if let Some(component) = removed.as_ref() {
-            if TypeId::of::<T>() == TypeId::of::<Density>()
-                || TypeId::of::<T>() == TypeId::of::<MeshType>()
-            {
-                self.remove_component::<MassDistribution>(entity);
-            }
             if let Some(mesh_type) = (component as &dyn Any).downcast_ref::<MeshType>() {
+                self.remove_component::<MassDistribution>(entity);
                 if !self
                     .query1::<MeshType>(vec![])
                     .any(|component| mesh_type == component)
@@ -202,11 +204,13 @@ impl EntityManager {
                     self.texture_map.delete_texture(path);
                 }
             }
-            if (component as &dyn Any)
-                .downcast_ref::<PointLight>()
-                .is_some()
-            {
+            if TypeId::of::<T>() == TypeId::of::<PointLight>() {
                 self.remove_component::<LightSrcID>(entity);
+            }
+            if TypeId::of::<T>() == TypeId::of::<Scale>()
+                || TypeId::of::<T>() == TypeId::of::<Density>()
+            {
+                self.recalculate_inertia_tensor(entity);
             }
         }
         removed
@@ -228,6 +232,21 @@ impl EntityManager {
         self.ecs.entity_index.keys()
     }
 
+    /// recalculates the inertia tensor for an entity
+    fn recalculate_inertia_tensor(&mut self, entity: EntityID) {
+        if self.has_component::<MeshType>(entity) {
+            let mesh = self.asset_from_id(entity).unwrap();
+            let density = self.get_component::<Density>(entity);
+            let scale = self.get_component::<Scale>(entity);
+            self.get_component_mut::<MassDistribution>(entity)
+                .unwrap()
+                .0 = mesh.intertia_tensor(
+                density.unwrap_or(&Density::default()),
+                scale.unwrap_or(&Scale::default()),
+            );
+        }
+    }
+
     /// adds a new mesh to the asset register if necessary
     fn try_add_mesh(&mut self, mesh_type: &MeshType) {
         if !self.asset_register.keys().any(|t| t == mesh_type) {
@@ -237,6 +256,8 @@ impl EntityManager {
                 MeshType::Cube => Mesh::new(get_model_path("cube.obj")),
                 MeshType::Sphere => Mesh::new(get_model_path("sphere.obj")),
                 MeshType::Cylinder => Mesh::new(get_model_path("cylinder.obj")),
+                MeshType::Cone => Mesh::new(get_model_path("cone.obj")),
+                MeshType::Torus => Mesh::new(get_model_path("torus.obj")),
                 MeshType::Custom(path) => Mesh::new(path),
             };
             self.asset_register.insert(mesh_type.clone(), mesh);
