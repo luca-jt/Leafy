@@ -1,7 +1,7 @@
 use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::TextureMap;
-use crate::rendering::mesh::Mesh;
+use crate::rendering::mesh::{Hitbox, Mesh};
 use crate::utils::file::get_model_path;
 use std::any::{Any, TypeId};
 use std::collections::hash_map::Keys;
@@ -20,6 +20,7 @@ pub struct EntityManager {
     pub(crate) ecs: ECS,
     asset_register: HashMap<MeshType, Mesh>,
     pub(crate) texture_map: TextureMap,
+    hitbox_register: HashMap<(MeshType, HitboxType), Hitbox>,
 }
 
 impl EntityManager {
@@ -29,6 +30,7 @@ impl EntityManager {
             ecs: ECS::new(),
             asset_register: HashMap::new(),
             texture_map: TextureMap::new(),
+            hitbox_register: HashMap::new(),
         }
     }
 
@@ -41,6 +43,21 @@ impl EntityManager {
                 components.component_data::<MeshAttribute>()
             {
                 self.texture_map.add_texture(file);
+            }
+            if let Some(box_type) = components.component_data::<HitboxType>() {
+                self.hitbox_register
+                    .entry((mesh_type.clone(), *box_type))
+                    .or_insert_with(|| {
+                        log::debug!(
+                            "inserted hitbox {:?} in register for mesh {:?}",
+                            box_type,
+                            mesh_type
+                        );
+                        self.asset_register
+                            .get(mesh_type)
+                            .unwrap()
+                            .generate_hitbox(box_type)
+                    });
             }
             opt_mesh = Some(self.asset_from_type(mesh_type).unwrap());
         }
@@ -111,21 +128,34 @@ impl EntityManager {
         if let Some(mesh_type) = self.ecs.get_component::<MeshType>(entity) {
             if self
                 .query1::<MeshType>(vec![])
-                .filter(|&component| *mesh_type == *component)
+                .filter(|&mt| *mesh_type == *mt)
                 .count()
                 == 1
             {
                 self.asset_register.remove(mesh_type);
                 log::debug!("deleted mesh from register: {:?}", mesh_type);
             }
+            if let Some(box_type) = self.ecs.get_component::<HitboxType>(entity) {
+                if self
+                    .query2::<MeshType, HitboxType>(vec![])
+                    .filter(|(mt, ht)| mesh_type == *mt && box_type == *ht)
+                    .count()
+                    == 1
+                {
+                    self.hitbox_register.remove(&(mesh_type.clone(), *box_type));
+                    log::debug!(
+                        "deleted hitbox {:?} from register for mesh {:?}",
+                        box_type,
+                        mesh_type
+                    );
+                }
+            }
             if let Some(MeshAttribute::Textured(path)) =
                 self.ecs.get_component::<MeshAttribute>(entity)
             {
                 if self
                     .query1::<MeshAttribute>(vec![])
-                    .filter(|&component| {
-                        path.path() == component.texture_path().unwrap_or("".as_ref())
-                    })
+                    .filter(|&ma| path.path() == ma.texture_path().unwrap_or("".as_ref()))
                     .count()
                     == 1
                 {
@@ -151,14 +181,31 @@ impl EntityManager {
         if let Some(mesh_type) = (&component as &dyn Any).downcast_ref::<MeshType>() {
             self.try_add_mesh(mesh_type);
         }
+        self.ecs.add_component::<T>(entity, component);
+        if self.has_component::<MeshType>(entity) && self.has_component::<HitboxType>(entity) {
+            let mesh_type = self.ecs.get_component::<MeshType>(entity).unwrap();
+            let box_type = self.ecs.get_component::<HitboxType>(entity).unwrap();
+            self.hitbox_register
+                .entry((mesh_type.clone(), *box_type))
+                .or_insert_with(|| {
+                    log::debug!(
+                        "inserted hitbox {:?} in register for mesh {:?}",
+                        box_type,
+                        mesh_type
+                    );
+                    self.asset_register
+                        .get(mesh_type)
+                        .unwrap()
+                        .generate_hitbox(box_type)
+                });
+        }
         if TypeId::of::<T>() == TypeId::of::<PointLight>() {
             self.add_component(entity, LightSrcID(entity));
         }
-        self.ecs.add_component::<T>(entity, component);
         if !self.has_component::<MassDistribution>(entity) {
             if let Some(mesh) = self.asset_from_id(entity) {
-                let scale = self.get_component::<Scale>(entity);
-                let density = self.get_component::<Density>(entity);
+                let scale = self.ecs.get_component::<Scale>(entity);
+                let density = self.ecs.get_component::<Density>(entity);
                 self.add_component(
                     entity,
                     MassDistribution(mesh.intertia_tensor(
@@ -186,12 +233,22 @@ impl EntityManager {
         if let Some(component) = removed.as_ref() {
             if let Some(mesh_type) = (component as &dyn Any).downcast_ref::<MeshType>() {
                 self.remove_component::<MassDistribution>(entity);
-                if !self
-                    .query1::<MeshType>(vec![])
-                    .any(|component| mesh_type == component)
-                {
+                if !self.query1::<MeshType>(vec![]).any(|mt| mesh_type == mt) {
                     self.asset_register.remove(mesh_type);
                     log::debug!("deleted mesh from register: {:?}", mesh_type);
+                }
+                if let Some(box_type) = self.ecs.get_component::<HitboxType>(entity) {
+                    if !self
+                        .query2::<MeshType, HitboxType>(vec![])
+                        .any(|(mt, ht)| mt == mesh_type && ht == box_type)
+                    {
+                        self.hitbox_register.remove(&(mesh_type.clone(), *box_type));
+                        log::debug!(
+                            "deleted hitbox {:?} from register for mesh {:?}",
+                            box_type,
+                            mesh_type
+                        );
+                    }
                 }
             }
             if let Some(MeshAttribute::Textured(path)) =
@@ -199,7 +256,7 @@ impl EntityManager {
             {
                 if !self
                     .query1::<MeshAttribute>(vec![])
-                    .any(|component| path.path() == component.texture_path().unwrap_or("".as_ref()))
+                    .any(|ma| path.path() == ma.texture_path().unwrap_or("".as_ref()))
                 {
                     self.texture_map.delete_texture(path);
                 }
@@ -236,8 +293,8 @@ impl EntityManager {
     fn recalculate_inertia_tensor(&mut self, entity: EntityID) {
         if self.has_component::<MeshType>(entity) {
             let mesh = self.asset_from_id(entity).unwrap();
-            let density = self.get_component::<Density>(entity);
-            let scale = self.get_component::<Scale>(entity);
+            let density = self.ecs.get_component::<Density>(entity);
+            let scale = self.ecs.get_component::<Scale>(entity);
             self.get_component_mut::<MassDistribution>(entity)
                 .unwrap()
                 .0 = mesh.intertia_tensor(

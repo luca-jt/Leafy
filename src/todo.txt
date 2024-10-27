@@ -15,4 +15,4 @@ sprite renderer -> depth layers configurable, sprite component
 on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type (voxelization for custom?)
 inertia matrix: correct origin for the center of mass
-recalculate inertia tensor when needed automatically
+recalculate inertia tensor when needed automatically -> other components might be effected by get_component_mut() + queries too

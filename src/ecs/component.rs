@@ -444,8 +444,8 @@ pub struct SoundController {
     pub(crate) id: SoundHandleID,
 }
 
-/// hitbox type specifier for an entity (enables collision physics)
-#[derive(Debug, Clone, Copy)]
+/// hitbox type specifier for an entity (enables collision physics, requires MeshType to work)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HitboxType {
     ConvexHull,
     Simplified,

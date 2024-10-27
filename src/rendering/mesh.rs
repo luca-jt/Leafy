@@ -116,18 +116,18 @@ impl Mesh {
     }
 
     /// generates the meshes' hitbox for the given hitbox type
-    pub(crate) fn generate_hitbox(&self, hitbox: HitboxType) -> Hitbox {
+    pub(crate) fn generate_hitbox(&self, hitbox: &HitboxType) -> Hitbox {
         match hitbox {
-            HitboxType::ConvexHull => Hitbox::Meshed(self.convex_hull_hitbox()),
-            HitboxType::Simplified => Hitbox::Meshed(self.simplified_hitbox()),
+            HitboxType::ConvexHull => Hitbox::Meshed(self.convex_hull_hitbox_mesh()),
+            HitboxType::Simplified => Hitbox::Meshed(self.simplified_hitbox_mesh()),
             HitboxType::Voxelized => self.voxelized_hitbox(),
-            HitboxType::Unaltered => Hitbox::Meshed(self.unaltered_hitbox()),
+            HitboxType::Unaltered => Hitbox::Meshed(self.unaltered_hitbox_mesh()),
             HitboxType::Ellipsiod => self.ellipsoid_hitbox(),
         }
     }
 
     /// creates a hitbox in the form of a convex hull of the mesh
-    fn convex_hull_hitbox(&self) -> HitboxMesh {
+    fn convex_hull_hitbox_mesh(&self) -> HitboxMesh {
         HitboxMesh {
             vertices: vec![],
             faces: vec![],
@@ -135,8 +135,8 @@ impl Mesh {
     }
 
     /// creates a hitbox in the form of a simplified version of the mesh
-    fn simplified_hitbox(&self) -> HitboxMesh {
-        let mut hitbox = self.unaltered_hitbox();
+    fn simplified_hitbox_mesh(&self) -> HitboxMesh {
+        let mut hitbox = self.unaltered_hitbox_mesh();
         let mut vertex_count = hitbox.vertices.len();
         let target_vertex_count = self.num_vertices().ilog2() as usize;
         let mut face_iter = (0..hitbox.faces.len()).cycle();
@@ -183,7 +183,7 @@ impl Mesh {
     }
 
     /// creates a hitbox in the form of a unaltered version of the mesh
-    fn unaltered_hitbox(&self) -> HitboxMesh {
+    fn unaltered_hitbox_mesh(&self) -> HitboxMesh {
         let mut faces = vec![[0, 0, 0]; self.indices.len() / 3];
         for (i, index) in self.indices.iter().enumerate() {
             faces[i / 3][i % 3] = *index as usize;
