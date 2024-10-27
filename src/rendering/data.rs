@@ -74,7 +74,7 @@ impl TextureMap {
 
     /// adds a texture from file
     pub(crate) fn add_texture(&mut self, texture: &Texture) {
-        log::debug!("loaded texture: {:?}", texture);
+        log::debug!("loaded texture: '{:?}'", texture);
         match texture {
             Texture::Ice => {
                 self.textures.insert(
@@ -105,7 +105,7 @@ impl TextureMap {
 
     /// deletes a stored texture
     pub(crate) fn delete_texture(&mut self, texture: &Texture) {
-        log::debug!("deleted texture: {:?}", texture);
+        log::debug!("deleted texture: '{:?}'", texture);
         let deleted = match texture {
             Texture::Ice => self.textures.remove("ice").expect("texture not stored"),
             Texture::Sand => self.textures.remove("sand").expect("texture not stored"),

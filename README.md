@@ -25,23 +25,23 @@ So far the Falling Leaf Engine provides the following features out of the box:
 - 3D-Audio with sound effects attachable to entities
 
 ## Usage
-- add the following to your `Cargo.toml` file:
+- Add the following to your `Cargo.toml` file:
 ```
 [dependencies]
 falling_leaf = "0.1.0"
 ```
 
 ## Examples
-- all examples are located in the `/examples` folder
-- clone the repository
-- run them with:
+- All examples are located in the `/examples` folder
+- Clone the repository
+- Run them with:
 ```sh
 # runs the "3D" example
 cargo run --release --example 3D
 ```
 
 ## Overview
-- create an app struct that implements the `FallingLeafApp` trait and run the app like this:
+- Create an app struct that implements the `FallingLeafApp` trait and run the app like this:
 ```rs
 use fl_core::engine_builder::EngineAttributes;
 use std::error::Error;
@@ -52,6 +52,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     engine.run(app)
 }
 ```
+- The ``init`` function runs one time at engine start-up. It is supposed to be used to run the setup for your app. You can specify settings for different systems and run your own setup code for your app.
+- The ``on_frame_update`` function runs once every frame. You can use it to implement your app logic. This includes changing the engines' internal state, adding UI features, and running your own code.
+
+This crate exports the crates ``glm``(nalgebra_glm), ``winit``, ``log``, and ``env_logger``. They can be used to perform math operations, logging, and use certain engine features with winit. This way you don't have to manually add them yourself.\
+If you want to use the internal logger to get information about what is happening under the hood, you can set the ``LOG_LVL`` environment variable to one of ``log``'s logging levels (``error``, ``warn``, ``info``, ``debug``, ``trace``). Setting the variable to ``trace`` enables all log messages but will cause a significant performance hit.
 
 ### Credits
 This library uses [fyrox-sound](https://github.com/FyroxEngine/Fyrox/tree/master/fyrox-sound) for audio file decoding and 3D audio composing. Its functionality is integrated in the engines' audio system to interact with the entity data.

@@ -268,7 +268,7 @@ impl RenderingSystem {
 
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
-        log::debug!("added new renderer for: {:?}", rd.spec.mesh_type);
+        log::debug!("added new renderer for: '{:?}'", rd.spec.mesh_type);
         match rd.spec.mesh_type {
             MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
                 let mut renderer = BatchRenderer::new(rd.mesh, rd.spec.shader_type);

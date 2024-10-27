@@ -9,7 +9,7 @@ mod app;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let env = Env::default()
-        .filter_or("LOG_LVL", "trace")
+        .filter_or("LOG_LVL", "info")
         .write_style_or("LOG_STYLE", "always");
     env_logger::init_from_env(env); // only for testing purposes (not necessary)
 

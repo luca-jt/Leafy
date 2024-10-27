@@ -36,48 +36,21 @@ impl EntityManager {
 
     /// stores a new entity and returns the id of the new entity
     pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
-        let mut opt_mesh = None;
         if let Some(mesh_type) = components.component_data::<MeshType>() {
-            self.try_add_mesh(mesh_type);
+            // load mesh if necessary
+            Self::try_add_mesh(mesh_type, &mut self.asset_register);
+            // load texture if necessary
             if let Some(MeshAttribute::Textured(file)) =
                 components.component_data::<MeshAttribute>()
             {
                 self.texture_map.add_texture(file);
             }
-            if let Some(box_type) = components.component_data::<HitboxType>() {
-                self.hitbox_register
-                    .entry((mesh_type.clone(), *box_type))
-                    .or_insert_with(|| {
-                        log::debug!(
-                            "inserted hitbox {:?} in register for mesh {:?}",
-                            box_type,
-                            mesh_type
-                        );
-                        self.asset_register
-                            .get(mesh_type)
-                            .unwrap()
-                            .generate_hitbox(box_type)
-                    });
-            }
-            opt_mesh = Some(self.asset_from_type(mesh_type).unwrap());
-        }
-        let mut opt_md = None;
-        if let Some(mesh) = opt_mesh {
-            opt_md = Some(
-                mesh.intertia_tensor(
-                    components
-                        .component_data::<Density>()
-                        .unwrap_or(&Density::default()),
-                    components
-                        .component_data::<Scale>()
-                        .unwrap_or(&Scale::default()),
-                ),
-            );
         }
         let entity = self.ecs.create_entity(components);
-        if let Some(md) = opt_md {
-            self.add_component(entity, MassDistribution(md));
-        }
+        // add mass distribution component if computed
+        self.try_add_inertia_tensor(entity);
+        // compute hitbox if necessary
+        self.try_add_hitbox(entity);
         entity
     }
 
@@ -97,7 +70,7 @@ impl EntityManager {
             Orientation::default(),
             AngularVelocity::zero(),
             Acceleration::zero(),
-            HitboxType::Simplified,
+            HitboxType::Ellipsiod,
             Density::default(),
             Friction(0.5)
         ))
@@ -106,7 +79,7 @@ impl EntityManager {
     /// creates a new default point light source for the rendering system without other components attached (invisible)
     pub fn create_point_light(&mut self, position: Position) -> EntityID {
         let light = self.create_entity(components!(position, PointLight::default()));
-        self.add_component(light, LightSrcID(light));
+        self.ecs.add_component(light, LightSrcID(light)).unwrap();
         light
     }
 
@@ -119,49 +92,16 @@ impl EntityManager {
             MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
             Scale::from_factor(0.1)
         ));
-        self.add_component(light, LightSrcID(light));
+        self.ecs.add_component(light, LightSrcID(light)).unwrap();
         light
     }
 
     /// deletes an entity from the register by id and returns the removed entity
     pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), ()> {
-        if let Some(mesh_type) = self.ecs.get_component::<MeshType>(entity) {
-            if self
-                .query1::<MeshType>(vec![])
-                .filter(|&mt| *mesh_type == *mt)
-                .count()
-                == 1
-            {
-                self.asset_register.remove(mesh_type);
-                log::debug!("deleted mesh from register: {:?}", mesh_type);
-            }
-            if let Some(box_type) = self.ecs.get_component::<HitboxType>(entity) {
-                if self
-                    .query2::<MeshType, HitboxType>(vec![])
-                    .filter(|(mt, ht)| mesh_type == *mt && box_type == *ht)
-                    .count()
-                    == 1
-                {
-                    self.hitbox_register.remove(&(mesh_type.clone(), *box_type));
-                    log::debug!(
-                        "deleted hitbox {:?} from register for mesh {:?}",
-                        box_type,
-                        mesh_type
-                    );
-                }
-            }
-            if let Some(MeshAttribute::Textured(path)) =
-                self.ecs.get_component::<MeshAttribute>(entity)
-            {
-                if self
-                    .query1::<MeshAttribute>(vec![])
-                    .filter(|&ma| path.path() == ma.texture_path().unwrap_or("".as_ref()))
-                    .count()
-                    == 1
-                {
-                    self.texture_map.delete_texture(path);
-                }
-            }
+        if self.ecs.has_component::<MeshType>(entity) {
+            Self::try_delete_mesh(entity, &self.ecs, &mut self.asset_register);
+            Self::try_delete_hitbox(entity, &self.ecs, &mut self.hitbox_register);
+            Self::try_delete_texture(entity, &self.ecs, &mut self.texture_map);
         }
         self.ecs.delete_entity(entity)
     }
@@ -176,50 +116,38 @@ impl EntityManager {
         self.ecs.get_component_mut::<T>(entity)
     }
 
-    /// adds a component to an existing entity
-    pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) {
-        if let Some(mesh_type) = (&component as &dyn Any).downcast_ref::<MeshType>() {
-            self.try_add_mesh(mesh_type);
-        }
-        self.ecs.add_component::<T>(entity, component);
-        if self.has_component::<MeshType>(entity) && self.has_component::<HitboxType>(entity) {
-            let mesh_type = self.ecs.get_component::<MeshType>(entity).unwrap();
-            let box_type = self.ecs.get_component::<HitboxType>(entity).unwrap();
-            self.hitbox_register
-                .entry((mesh_type.clone(), *box_type))
-                .or_insert_with(|| {
-                    log::debug!(
-                        "inserted hitbox {:?} in register for mesh {:?}",
-                        box_type,
-                        mesh_type
-                    );
-                    self.asset_register
-                        .get(mesh_type)
-                        .unwrap()
-                        .generate_hitbox(box_type)
-                });
-        }
-        if TypeId::of::<T>() == TypeId::of::<PointLight>() {
-            self.add_component(entity, LightSrcID(entity));
-        }
-        if !self.has_component::<MassDistribution>(entity) {
-            if let Some(mesh) = self.asset_from_id(entity) {
-                let scale = self.ecs.get_component::<Scale>(entity);
-                let density = self.ecs.get_component::<Density>(entity);
-                self.add_component(
-                    entity,
-                    MassDistribution(mesh.intertia_tensor(
-                        density.unwrap_or(&Density::default()),
-                        scale.unwrap_or(&Scale::default()),
-                    )),
-                );
+    /// adds a component to an existing entity (returns Err(()) if the component is already present)
+    pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) -> Result<(), ()> {
+        self.ecs.add_component::<T>(entity, component)?;
+        // add mesh to the register if necessary
+        if TypeId::of::<T>() == TypeId::of::<MeshType>() {
+            if let Some(mesh_type) = self.ecs.get_component::<MeshType>(entity) {
+                Self::try_add_mesh(mesh_type, &mut self.asset_register);
             }
         }
+        // add the texture if necessary
+        if TypeId::of::<T>() == TypeId::of::<MeshAttribute>() {
+            if let Some(MeshAttribute::Textured(file)) =
+                self.ecs.get_component::<MeshAttribute>(entity)
+            {
+                self.texture_map.add_texture(file);
+            }
+        }
+        // add hitbox to the register if necessary
+        self.try_add_hitbox(entity);
+        // add the light source id component if necessary
+        if TypeId::of::<T>() == TypeId::of::<PointLight>() {
+            self.ecs.add_component(entity, LightSrcID(entity)).unwrap();
+        }
+        // add the inertia tensor if necessary
+        self.try_add_inertia_tensor(entity);
+        // recalculate the inertia tensor if necessary
         if TypeId::of::<T>() == TypeId::of::<Scale>()
             || TypeId::of::<T>() == TypeId::of::<Density>()
         {
             self.recalculate_inertia_tensor(entity);
         }
+        Ok(())
     }
 
     /// checks wether or not an entity has a component of given type associated with it
@@ -229,40 +157,21 @@ impl EntityManager {
 
     /// removes a component from an entity and returns the component data if present
     pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
+        // delete data associated with mesh type if necessary
+        if TypeId::of::<T>() == TypeId::of::<MeshType>()
+            && self.ecs.has_component::<MeshType>(entity)
+        {
+            Self::try_delete_mesh(entity, &self.ecs, &mut self.asset_register);
+            Self::try_delete_hitbox(entity, &self.ecs, &mut self.hitbox_register);
+            Self::try_delete_texture(entity, &self.ecs, &mut self.texture_map);
+            self.ecs
+                .remove_component::<MassDistribution>(entity)
+                .unwrap();
+        }
         let removed = self.ecs.remove_component::<T>(entity);
-        if let Some(component) = removed.as_ref() {
-            if let Some(mesh_type) = (component as &dyn Any).downcast_ref::<MeshType>() {
-                self.remove_component::<MassDistribution>(entity);
-                if !self.query1::<MeshType>(vec![]).any(|mt| mesh_type == mt) {
-                    self.asset_register.remove(mesh_type);
-                    log::debug!("deleted mesh from register: {:?}", mesh_type);
-                }
-                if let Some(box_type) = self.ecs.get_component::<HitboxType>(entity) {
-                    if !self
-                        .query2::<MeshType, HitboxType>(vec![])
-                        .any(|(mt, ht)| mt == mesh_type && ht == box_type)
-                    {
-                        self.hitbox_register.remove(&(mesh_type.clone(), *box_type));
-                        log::debug!(
-                            "deleted hitbox {:?} from register for mesh {:?}",
-                            box_type,
-                            mesh_type
-                        );
-                    }
-                }
-            }
-            if let Some(MeshAttribute::Textured(path)) =
-                (component as &dyn Any).downcast_ref::<MeshAttribute>()
-            {
-                if !self
-                    .query1::<MeshAttribute>(vec![])
-                    .any(|ma| path.path() == ma.texture_path().unwrap_or("".as_ref()))
-                {
-                    self.texture_map.delete_texture(path);
-                }
-            }
+        if removed.is_some() {
             if TypeId::of::<T>() == TypeId::of::<PointLight>() {
-                self.remove_component::<LightSrcID>(entity);
+                self.ecs.remove_component::<LightSrcID>(entity).unwrap();
             }
             if TypeId::of::<T>() == TypeId::of::<Scale>()
                 || TypeId::of::<T>() == TypeId::of::<Density>()
@@ -305,8 +214,8 @@ impl EntityManager {
     }
 
     /// adds a new mesh to the asset register if necessary
-    fn try_add_mesh(&mut self, mesh_type: &MeshType) {
-        if !self.asset_register.keys().any(|t| t == mesh_type) {
+    fn try_add_mesh(mesh_type: &MeshType, asset_register: &mut HashMap<MeshType, Mesh>) {
+        if !asset_register.keys().any(|t| t == mesh_type) {
             let mesh = match mesh_type {
                 MeshType::Triangle => Mesh::new(get_model_path("triangle.obj")),
                 MeshType::Plane => Mesh::new(get_model_path("plane.obj")),
@@ -317,8 +226,101 @@ impl EntityManager {
                 MeshType::Torus => Mesh::new(get_model_path("torus.obj")),
                 MeshType::Custom(path) => Mesh::new(path),
             };
-            self.asset_register.insert(mesh_type.clone(), mesh);
-            log::debug!("inserted mesh in register: {:?}", mesh_type);
+            asset_register.insert(mesh_type.clone(), mesh);
+            log::debug!("inserted mesh in register: '{:?}'", mesh_type);
+        }
+    }
+
+    /// deletes a mesh types' corresponding mesh from the register if necessary
+    fn try_delete_mesh(entity: EntityID, ecs: &ECS, asset_register: &mut HashMap<MeshType, Mesh>) {
+        let mesh_type = ecs.get_component::<MeshType>(entity).unwrap();
+        if ecs
+            .query1::<MeshType>(vec![])
+            .filter(|&mt| mesh_type == mt)
+            .count()
+            == 1
+        {
+            asset_register.remove(mesh_type);
+            log::debug!("deleted mesh from register: '{:?}'", mesh_type);
+        }
+    }
+
+    /// compute and add the hitbox to the register if necessary
+    fn try_add_hitbox(&mut self, entity: EntityID) {
+        if let (Some(mesh_type), Some(box_type)) = (
+            self.ecs.get_component::<MeshType>(entity),
+            self.ecs.get_component::<HitboxType>(entity),
+        ) {
+            self.hitbox_register
+                .entry((mesh_type.clone(), *box_type))
+                .or_insert_with(|| {
+                    log::debug!(
+                        "inserted hitbox '{:?}' in register for mesh '{:?}'",
+                        box_type,
+                        mesh_type
+                    );
+                    self.asset_register
+                        .get(mesh_type)
+                        .unwrap()
+                        .generate_hitbox(box_type)
+                });
+        }
+    }
+
+    /// deletes a hitbox from the register if necessary
+    fn try_delete_hitbox(
+        entity: EntityID,
+        ecs: &ECS,
+        hitbox_register: &mut HashMap<(MeshType, HitboxType), Hitbox>,
+    ) {
+        if let Some(box_type) = ecs.get_component::<HitboxType>(entity) {
+            let mesh_type = ecs.get_component::<MeshType>(entity).unwrap();
+            if ecs
+                .query2::<MeshType, HitboxType>(vec![])
+                .filter(|(mt, ht)| mesh_type == *mt && box_type == *ht)
+                .count()
+                == 1
+            {
+                hitbox_register.remove(&(mesh_type.clone(), *box_type));
+                log::debug!(
+                    "deleted hitbox '{:?}' from register for mesh '{:?}'",
+                    box_type,
+                    mesh_type
+                );
+            }
+        }
+    }
+
+    /// deletes a texture from the texture map if necessary
+    fn try_delete_texture(entity: EntityID, ecs: &ECS, texture_map: &mut TextureMap) {
+        if let Some(MeshAttribute::Textured(path)) = ecs.get_component::<MeshAttribute>(entity) {
+            if ecs
+                .query1::<MeshAttribute>(vec![])
+                .filter(|&ma| path.path() == ma.texture_path().unwrap_or("".as_ref()))
+                .count()
+                == 1
+            {
+                texture_map.delete_texture(path);
+            }
+        }
+    }
+
+    /// add the mass distribution component to an entity if necessary
+    fn try_add_inertia_tensor(&mut self, entity: EntityID) {
+        if !self.has_component::<MassDistribution>(entity) {
+            if let Some(mesh) = self.asset_from_id(entity) {
+                let scale = self.ecs.get_component::<Scale>(entity);
+                let density = self.ecs.get_component::<Density>(entity);
+                self.ecs
+                    .add_component(
+                        entity,
+                        MassDistribution(mesh.intertia_tensor(
+                            density.unwrap_or(&Density::default()),
+                            scale.unwrap_or(&Scale::default()),
+                        )),
+                    )
+                    .unwrap();
+            }
         }
     }
 }
@@ -411,9 +413,13 @@ impl ECS {
     }
 
     /// adds a component to an existing entity
-    pub(crate) fn add_component<T: Any>(&mut self, entity: EntityID, component: T) {
+    pub(crate) fn add_component<T: Any>(
+        &mut self,
+        entity: EntityID,
+        component: T,
+    ) -> Result<(), ()> {
         if self.has_component::<T>(entity) {
-            return;
+            return Err(());
         }
         let mut entity_type = self.get_entity_type(entity);
         let record = self.entity_index.get(&entity).unwrap();
@@ -464,6 +470,7 @@ impl ECS {
         let record = self.entity_index.get_mut(&entity).unwrap();
         record.archetype_id = new_archetype_id;
         record.row = new_row;
+        Ok(())
     }
 
     /// checks wether or not an entity has a component of given type associated with it
