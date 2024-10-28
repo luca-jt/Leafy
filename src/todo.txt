@@ -16,3 +16,7 @@ on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type (voxelization for custom?)
 inertia matrix: correct origin for the center of mass
 recalculate inertia tensor / manage register data when needed automatically -> other components might be effected by get_component_mut() + queries too
+entity cam distance + entity cam: look vector should not be updated
+add/delete commands that are dealt with once per frame for meshes/auto components/hitboxes -> code cleaner
+NO_ENTITY constant -> all ids in general should start at 1 not 0
+projection matrices should dynamically depend on the windows width to height ratio
