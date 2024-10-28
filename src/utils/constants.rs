@@ -1,4 +1,5 @@
 use crate::ecs::component::Acceleration;
+use crate::ecs::entity::EntityID;
 use crate::glm;
 
 pub const WIN_TITLE: &str = "Falling Leaf";
@@ -14,3 +15,5 @@ pub const ORIGIN: glm::Vec3 = glm::Vec3::new(0.0, 0.0, 0.0);
 pub const X_AXIS: glm::Vec3 = glm::Vec3::new(1.0, 0.0, 0.0);
 pub const Y_AXIS: glm::Vec3 = glm::Vec3::new(0.0, 1.0, 0.0);
 pub const Z_AXIS: glm::Vec3 = glm::Vec3::new(0.0, 0.0, 1.0);
+
+pub const NO_ENTITY: EntityID = 0;

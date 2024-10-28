@@ -3,8 +3,9 @@ sampled animations from files
 2D sprite hitboxes with seperate collision checking
 cascaded shadow mapping
 shadow anti-aliasing -> pcss
-scene files and loading of them in the rendering system
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
+scene files and loading of them in the rendering system
+---------------------------------------------------------------------
 conways game of life example
 include asset files in binary if needed
 other light source type (not point) with creation function
@@ -14,9 +15,8 @@ particle system https://youtu.be/GK0jHlv3e3w
 sprite renderer -> depth layers configurable, sprite component
 on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type (voxelization for custom?)
-inertia matrix: correct origin for the center of mass
+optimize shader program change
+inertia matrix: correct origin for the center of mass -> add center of mass to the mass dist component?
 recalculate inertia tensor / manage register data when needed automatically -> other components might be effected by get_component_mut() + queries too
 entity cam distance + entity cam: look vector should not be updated
 add/delete commands that are dealt with once per frame for meshes/auto components/hitboxes -> code cleaner
-NO_ENTITY constant -> all ids in general should start at 1 not 0
-projection matrices should dynamically depend on the windows width to height ratio

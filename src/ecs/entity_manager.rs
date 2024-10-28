@@ -338,8 +338,8 @@ impl ECS {
     /// creates a new ecs
     pub fn new() -> Self {
         Self {
-            next_entity: 0,
-            next_archetype_id: 0,
+            next_entity: 1,
+            next_archetype_id: 1,
             entity_index: HashMap::new(),
             archetypes: HashMap::new(),
             type_to_archetype: HashMap::new(),

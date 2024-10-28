@@ -8,7 +8,7 @@ use crate::rendering::data::*;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::{ShaderCatalog, ShaderType};
-use crate::systems::event_system::events::CamPositionChange;
+use crate::systems::event_system::events::{CamPositionChange, WindowResize};
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
 use crate::utils::tools::{padding, to_vec4};
@@ -430,6 +430,13 @@ impl EventObserver<CamPositionChange> for RenderingSystem {
         self.perspective_camera
             .update_cam(&event.new_pos, &new_focus);
         self.current_cam_config = (event.new_pos, event.new_look);
+    }
+}
+
+impl EventObserver<WindowResize> for RenderingSystem {
+    fn on_event(&mut self, event: &WindowResize) {
+        self.perspective_camera
+            .update_win_size(event.width, event.height);
     }
 }
 

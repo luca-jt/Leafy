@@ -181,9 +181,12 @@ impl<A: FallingLeafApp> Engine<A> {
 impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
+
         self.rendering_system = Some(shared_ptr(RenderingSystem::new()));
         self.event_system_mut()
             .add_listener::<CamPositionChange>(self.rendering_system.as_ref().unwrap());
+        self.event_system_mut()
+            .add_listener::<WindowResize>(self.rendering_system.as_ref().unwrap());
 
         self.app_mut().init(self);
         self.animation_system_mut().time_of_last_sim = TouchTime::now();

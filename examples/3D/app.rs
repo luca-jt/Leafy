@@ -5,7 +5,7 @@ use fl_core::engine::{Engine, FallingLeafApp};
 use fl_core::glm;
 use fl_core::systems::audio_system::VolumeType;
 use fl_core::systems::event_system::events::*;
-use fl_core::utils::constants::{ORIGIN, Y_AXIS};
+use fl_core::utils::constants::{NO_ENTITY, ORIGIN, Y_AXIS};
 use fl_core::winit::keyboard::KeyCode;
 use std::f32::consts::PI;
 
@@ -14,16 +14,16 @@ pub const CAM_MOUSE_SPEED: f32 = 0.001;
 
 /// example app
 pub struct App {
-    player: Option<EntityID>,
-    cube: Option<EntityID>,
+    player: EntityID,
+    cube: EntityID,
     using_mouse_control: bool,
 }
 
 impl App {
     pub fn new() -> Self {
         Self {
-            player: None,
-            cube: None,
+            player: NO_ENTITY,
+            cube: NO_ENTITY,
             using_mouse_control: true,
         }
     }
@@ -57,12 +57,14 @@ impl FallingLeafApp for App {
             MeshAttribute::Textured(Texture::Wall),
             HitboxType::Unaltered
         ));
-        let player = entity_manager.create_regular_moving(
+        self.player = entity_manager.create_regular_moving(
             Position::new(0.0, 4.0, 0.0),
             MeshType::Sphere,
             MeshAttribute::Colored(Color32::RED),
         );
-        *entity_manager.get_component_mut::<Scale>(player).unwrap() = Scale::from_factor(0.2);
+        *entity_manager
+            .get_component_mut::<Scale>(self.player)
+            .unwrap() = Scale::from_factor(0.2);
 
         let sound = engine.audio_system_mut().new_sound_controller();
         let heli_position = Position::new(0.0, 1.0, 1.0);
@@ -74,7 +76,7 @@ impl FallingLeafApp for App {
             &heli_position,
         );
 
-        let cube = entity_manager.create_entity(components!(
+        self.cube = entity_manager.create_entity(components!(
             heli_position,
             Scale::from_factor(0.1),
             Orientation::new(45.0, &Y_AXIS),
@@ -92,19 +94,16 @@ impl FallingLeafApp for App {
         engine
             .audio_system_mut()
             .play_background_music("examples/3D/drop.wav");
-
-        self.cube = Some(cube);
-        self.player = Some(player);
     }
 
     fn on_frame_update(&mut self, engine: &Engine<Self>) {
         let mut entity_manager = engine.entity_manager_mut();
         let secs = entity_manager
-            .get_component_mut::<TouchTime>(self.cube.unwrap())
+            .get_component_mut::<TouchTime>(self.cube)
             .unwrap()
             .delta_time();
         let pos = entity_manager
-            .get_component_mut::<Position>(self.cube.unwrap())
+            .get_component_mut::<Position>(self.cube)
             .unwrap();
         let av = PI / 2.0;
         pos.data_mut().x = (secs * av).0.sin() * 3.0;
@@ -116,7 +115,7 @@ fn jump(event: &KeyPress, engine: &Engine<App>) {
     if event.key == KeyCode::KeyE && !event.is_repeat {
         let mut entity_manager = engine.entity_manager_mut();
         let v_ref = entity_manager
-            .get_component_mut::<Velocity>(engine.app().player.unwrap())
+            .get_component_mut::<Velocity>(engine.app().player)
             .unwrap();
         *v_ref = Velocity::new(0.0, 5.0, 0.0);
     }

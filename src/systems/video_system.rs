@@ -227,15 +227,15 @@ impl VideoSystem {
 
     /// caps the fps of the event loop if the setting requires it
     pub(crate) fn try_cap_fps(&mut self) {
+        let elapsed_frame_time = self.frame_start_time.elapsed();
         if let Some(fps_cap) = self.fps_cap {
-            let elapsed_frame_time = self.frame_start_time.elapsed();
             let max_frame_time = Duration::from_secs_f64(1.0 / fps_cap);
             if elapsed_frame_time < max_frame_time {
                 std::thread::sleep(max_frame_time - elapsed_frame_time);
             }
-            self.current_fps = (1.0 / self.frame_start_time.elapsed().as_secs_f64()).round();
-            self.frame_start_time = Instant::now();
         }
+        self.current_fps = (1.0 / elapsed_frame_time.as_secs_f64()).round();
+        self.frame_start_time = Instant::now();
     }
 
     /// gets the current fps in seconds

@@ -168,36 +168,51 @@ pub fn calc_model_matrix(
 pub(crate) struct PerspectiveCamera {
     projection: glm::Mat4,
     view: glm::Mat4,
+    win_width: f32,
+    win_height: f32,
+    fov: f32,
 }
 
 impl PerspectiveCamera {
     /// creates new config with default values
     pub(crate) fn new(position: glm::Vec3, focus: glm::Vec3) -> Self {
+        let win_width = MIN_WIN_WIDTH as f32;
+        let win_height = MIN_WIN_HEIGHT as f32;
         let fov = 45.0_f32.to_radians();
-        let projection = glm::perspective::<f32>(
-            MIN_WIN_WIDTH as f32 / MIN_WIN_HEIGHT as f32,
-            fov,
-            0.1,
-            100.0,
-        );
+        let projection = glm::perspective::<f32>(win_width / win_height, fov, 0.1, 100.0);
         let view = glm::look_at::<f32>(&position, &focus, &Y_AXIS);
 
-        Self { projection, view }
+        Self {
+            projection,
+            view,
+            win_width,
+            win_height,
+            fov,
+        }
     }
 
     /// update the projection matrix based on a given fov
     pub(crate) fn update_fov(&mut self, fov: f32) {
-        self.projection = glm::perspective::<f32>(
-            MIN_WIN_WIDTH as f32 / MIN_WIN_HEIGHT as f32,
-            fov.to_radians(),
-            0.1,
-            100.0,
-        );
+        self.fov = fov.to_radians();
+        self.recompute_projection();
+    }
+
+    /// updates the internally stored values for the window size and recompute the projection
+    pub(crate) fn update_win_size(&mut self, win_width: u32, win_height: u32) {
+        self.win_width = win_width as f32;
+        self.win_height = win_height as f32;
+        self.recompute_projection();
     }
 
     /// updates the camera for given camera position and focus
     pub(crate) fn update_cam(&mut self, position: &glm::Vec3, focus: &glm::Vec3) {
         self.view = glm::look_at(position, focus, &Y_AXIS);
+    }
+
+    /// refreshes the stored projection matrix
+    fn recompute_projection(&mut self) {
+        self.projection =
+            glm::perspective::<f32>(self.win_width / self.win_height, self.fov, 0.1, 100.0);
     }
 }
 

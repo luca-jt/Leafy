@@ -52,7 +52,7 @@ impl AudioSystem {
             _sound_engine: sound_engine,
             sound_context,
             background_music: None,
-            next_handle_id: 0,
+            next_handle_id: 1,
             sound_register: HashMap::new(),
             pitch_on_speed_change: true,
         }
