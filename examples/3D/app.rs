@@ -38,7 +38,7 @@ impl FallingLeafApp for App {
         });
         engine
             .video_system_mut()
-            .set_mouse_cam_control(Some(CAM_MOUSE_SPEED));
+            .set_mouse_fpp_cam_control(Some(CAM_MOUSE_SPEED));
         engine
             .animation_system_mut()
             .set_flying_cam_movement(Some(CAM_MOVE_SPEED));
@@ -130,12 +130,12 @@ fn quit_app(event: &KeyPress, engine: &Engine<App>) {
 fn toggle_cursor(event: &KeyPress, engine: &Engine<App>) {
     if event.key == KeyCode::Tab {
         if engine.app().using_mouse_control {
-            engine.video_system_mut().set_mouse_cam_control(None);
+            engine.video_system_mut().set_mouse_fpp_cam_control(None);
             engine.app_mut().using_mouse_control = false;
         } else {
             engine
                 .video_system_mut()
-                .set_mouse_cam_control(Some(CAM_MOUSE_SPEED));
+                .set_mouse_fpp_cam_control(Some(CAM_MOUSE_SPEED));
             engine.app_mut().using_mouse_control = true;
         }
     }
