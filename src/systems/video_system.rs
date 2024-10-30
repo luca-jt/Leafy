@@ -45,6 +45,7 @@ impl VideoSystem {
     pub(crate) fn new(config: EngineAttributes) -> Self {
         let window_attributes = config.generate_win_attrs();
 
+        #[allow(unexpected_cfgs)]
         let config_template = ConfigTemplateBuilder::new()
             .with_alpha_size(8)
             .with_transparency(cfg!(cgl_backend));

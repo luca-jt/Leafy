@@ -76,6 +76,8 @@ impl<A: FallingLeafApp> Engine<A> {
 
     /// gets called every frame and contains the main app logic
     fn on_frame_redraw(&mut self, event_loop: &ActiveEventLoop) {
+        self.app_mut().on_frame_update(self);
+
         self.audio_system_mut()
             .update(self.entity_manager().deref());
 
@@ -86,8 +88,6 @@ impl<A: FallingLeafApp> Engine<A> {
 
         self.rendering_system_mut()
             .render(self.entity_manager().deref());
-
-        self.app_mut().on_frame_update(self);
 
         self.video_system().swap_window();
         self.video_system_mut().try_cap_fps();
