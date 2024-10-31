@@ -1,10 +1,10 @@
 use crate::engine::{Engine, FallingLeafApp};
 use crate::utils::constants::*;
-use crate::utils::file::get_image_path;
 use std::path::PathBuf;
 use winit::dpi::LogicalSize;
 use winit::window::{Fullscreen, Theme, Window, WindowAttributes};
 
+use crate::utils::file::image_path;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::IconExtWindows;
 #[cfg(target_os = "windows")]
@@ -39,7 +39,7 @@ impl EngineAttributes {
             enforced_ratio: None,
             transparent: false,
             blur: false,
-            icon: PathBuf::from(get_image_path("icon.ico")),
+            icon: PathBuf::from(image_path!("icon.ico")),
             resizable: true,
             max_size: None,
             fullscreen: false,

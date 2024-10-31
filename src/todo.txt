@@ -2,6 +2,7 @@ controller events
 sampled animations from files
 2D sprite hitboxes with seperate collision checking
 cascaded shadow mapping
+dynamic mesh LOD
 shadow anti-aliasing -> pcss
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system
@@ -17,4 +18,3 @@ collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPK
 optimize shader program change
 inertia matrix: correct origin for the center of mass -> add center of mass to the mass dist component?
 recalculate inertia tensor / manage register data when needed automatically -> other components might be effected by get_component_mut() + queries too
-include asset files in binary if needed

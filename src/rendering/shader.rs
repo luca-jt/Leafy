@@ -1,11 +1,10 @@
 use crate::glm;
 use crate::rendering::data::{LightConfig, LightData, UniformBuffer, Vertex};
 use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
-use crate::utils::file::get_shader_path;
+use crate::utils::file::*;
 use crate::utils::tools::padding;
 use gl::types::*;
 use std::ffi::CString;
-use std::fs::read_to_string;
 use std::{mem, ptr};
 
 /// compiles a gl shader
@@ -91,12 +90,8 @@ impl ShaderProgram {
     /// creates new shader program
     pub(crate) fn new(vertex_file: &str, fragment_file: &str) -> Self {
         // compile and link shader program
-        let vs_file =
-            read_to_string(get_shader_path(vertex_file)).expect("could not find vertex shader");
-        let fs_file =
-            read_to_string(get_shader_path(fragment_file)).expect("could not find fragment shader");
-        let vs = compile_shader(vs_file.as_str(), gl::VERTEX_SHADER);
-        let fs = compile_shader(fs_file.as_str(), gl::FRAGMENT_SHADER);
+        let vs = compile_shader(vertex_file, gl::VERTEX_SHADER);
+        let fs = compile_shader(fragment_file, gl::FRAGMENT_SHADER);
         let id = link_program(vs, fs);
 
         let c_out_color = CString::new("out_color").unwrap();
@@ -200,7 +195,7 @@ impl ShaderCatalog {
 
     /// creates a new basic batch renderer shader
     fn create_batch_basic(&mut self) {
-        let program = ShaderProgram::new("batch_basic.vert", "batch_basic.frag");
+        let program = ShaderProgram::new(BATCH_B_VERT, BATCH_B_FRAG);
 
         program.add_unif_buffer("light_data", &self.light_buffer, 0);
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
@@ -210,7 +205,7 @@ impl ShaderCatalog {
 
     /// creates a new basic instance renderer shader
     fn create_instance_basic(&mut self) {
-        let program = ShaderProgram::new("instance_basic.vert", "instance_basic.frag");
+        let program = ShaderProgram::new(INST_B_VERT, INST_B_FRAG);
 
         program.add_unif_buffer("light_data", &self.light_buffer, 0);
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
@@ -220,7 +215,7 @@ impl ShaderCatalog {
 
     /// creates a new passthrough batch renderer shader
     fn create_batch_passthrough(&mut self) {
-        let program = ShaderProgram::new("batch_passthrough.vert", "batch_passthrough.frag");
+        let program = ShaderProgram::new(BATCH_PT_VERT, BATCH_PT_FRAG);
 
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
 
@@ -229,7 +224,7 @@ impl ShaderCatalog {
 
     /// creates a new passthrough instance renderer shader
     fn create_instance_passthrough(&mut self) {
-        let program = ShaderProgram::new("instance_passthrough.vert", "instance_passthrough.frag");
+        let program = ShaderProgram::new(INST_PT_VERT, INST_PT_FRAG);
 
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
 

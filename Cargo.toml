@@ -16,6 +16,17 @@ exclude = ["tests"]
 name = "fl_core"
 path = "src/lib.rs"
 
+[features]
+default = ["triangle_mesh", "plane_mesh"]
+triangle_mesh = []
+plane_mesh = []
+cube_mesh = []
+cone_mesh = []
+cylinder_mesh = []
+sphere_mesh = []
+torus_mesh = []
+all_meshes = ["triangle_mesh", "plane_mesh", "cube_mesh", "cone_mesh", "cylinder_mesh", "sphere_mesh", "torus_mesh"]
+
 [[example]]
 name = "3D"
 path = "examples/3D/main.rs"

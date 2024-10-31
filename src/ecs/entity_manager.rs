@@ -2,7 +2,7 @@ use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::TextureMap;
 use crate::rendering::mesh::{Hitbox, Mesh};
-use crate::utils::file::get_model_path;
+use crate::utils::file::*;
 use std::any::{Any, TypeId};
 use std::collections::hash_map::Keys;
 use std::collections::{HashMap, VecDeque};
@@ -197,14 +197,14 @@ impl EntityManager {
                     if let Some(mesh_type) = self.ecs.get_component::<MeshType>(entity) {
                         if !self.asset_register.keys().any(|t| t == mesh_type) {
                             let mesh = match mesh_type {
-                                MeshType::Triangle => Mesh::new(get_model_path("triangle.obj")),
-                                MeshType::Plane => Mesh::new(get_model_path("plane.obj")),
-                                MeshType::Cube => Mesh::new(get_model_path("cube.obj")),
-                                MeshType::Sphere => Mesh::new(get_model_path("sphere.obj")),
-                                MeshType::Cylinder => Mesh::new(get_model_path("cylinder.obj")),
-                                MeshType::Cone => Mesh::new(get_model_path("cone.obj")),
-                                MeshType::Torus => Mesh::new(get_model_path("torus.obj")),
-                                MeshType::Custom(path) => Mesh::new(path),
+                                MeshType::Triangle => Mesh::from_bytes(TRIANGLE_MESH),
+                                MeshType::Plane => Mesh::from_bytes(PLANE_MESH),
+                                MeshType::Cube => Mesh::from_bytes(CUBE_MESH),
+                                MeshType::Sphere => Mesh::from_bytes(SPHERE_MESH),
+                                MeshType::Cylinder => Mesh::from_bytes(CYLINDER_MESH),
+                                MeshType::Cone => Mesh::from_bytes(CONE_MESH),
+                                MeshType::Torus => Mesh::from_bytes(TORUS_MESH),
+                                MeshType::Custom(path) => Mesh::from_path(path),
                             };
                             self.asset_register.insert(mesh_type.clone(), mesh);
                             log::debug!("inserted mesh in register: '{:?}'", mesh_type);

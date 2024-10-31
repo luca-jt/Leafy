@@ -2,7 +2,7 @@ use crate::ecs::component::*;
 use crate::glm;
 use crate::rendering::shader::ShaderProgram;
 use crate::utils::constants::*;
-use crate::utils::file::get_texture_path;
+use crate::utils::file::{texture_path, SHADOW_FRAG, SHADOW_VERT};
 use gl::types::*;
 use stb_image::image::{Image, LoadResult};
 use std::collections::HashMap;
@@ -77,21 +77,19 @@ impl TextureMap {
         log::debug!("loaded texture: '{:?}'", texture);
         match texture {
             Texture::Ice => {
-                self.textures.insert(
-                    String::from("ice"),
-                    load_texture(get_texture_path("ice.png")),
-                );
+                self.textures
+                    .insert(String::from("ice"), load_texture(texture_path!("ice.png")));
             }
             Texture::Sand => {
                 self.textures.insert(
                     String::from("sand"),
-                    load_texture(get_texture_path("sand.png")),
+                    load_texture(texture_path!("sand.png")),
                 );
             }
             Texture::Wall => {
                 self.textures.insert(
                     String::from("wall"),
-                    load_texture(get_texture_path("wall.png")),
+                    load_texture(texture_path!("wall.png")),
                 );
             }
             Texture::Custom(path) => {
@@ -276,7 +274,7 @@ impl ShadowMap {
     pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &PointLight) -> Self {
         let mut dbo = 0;
         let mut shadow_map = 0;
-        let program = ShaderProgram::new("shadow.vert", "shadow.frag");
+        let program = ShaderProgram::new(SHADOW_VERT, SHADOW_FRAG);
 
         unsafe {
             gl::GenFramebuffers(1, &mut dbo);

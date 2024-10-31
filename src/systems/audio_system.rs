@@ -3,7 +3,7 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
-use crate::utils::file::get_audio_path;
+use crate::utils::file::audio_path;
 use fyrox_resource::io::FsResourceIo;
 use fyrox_sound::{
     algebra::Vector3,
@@ -184,7 +184,7 @@ impl AudioSystem {
     /// use sound rendering on the hrtf sphere
     pub fn enable_hrtf(&self) {
         log::trace!("enabled HRTF");
-        let hrir_path = PathBuf::from(get_audio_path("IRC_1002_C.bin"));
+        let hrir_path = PathBuf::from(audio_path!("IRC_1002_C.bin"));
         let hrir_sphere = HrirSphere::from_file(&hrir_path, context::SAMPLE_RATE).unwrap();
 
         self.sound_context
