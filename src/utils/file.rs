@@ -22,17 +22,6 @@ macro_rules! material_path {
         )
     };
 }
-pub(crate) use material_path;
-
-macro_rules! image_path {
-    ($file:literal) => {
-        concat!(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/images/"),
-            $file
-        )
-    };
-}
-pub(crate) use image_path;
 
 macro_rules! model_path {
     ($file:literal) => {
@@ -51,7 +40,6 @@ macro_rules! texture_path {
         )
     };
 }
-pub(crate) use texture_path;
 
 // shader files
 pub(crate) const BATCH_B_FRAG: &'static str = include_str!(shader_path!("batch_basic.frag"));
@@ -103,3 +91,8 @@ pub(crate) const TORUS_MESH: &[u8] = &[0];
 
 // audio data
 pub(crate) const HRTF_SPHERE: &[u8] = include_bytes!(audio_path!("IRC_1002_C.bin"));
+
+// texture data
+pub(crate) const WALL_TEXTURE: &[u8] = include_bytes!(texture_path!("wall.png"));
+pub(crate) const ICE_TEXTURE: &[u8] = include_bytes!(texture_path!("ice.png"));
+pub(crate) const SAND_TEXTURE: &[u8] = include_bytes!(texture_path!("sand.png"));

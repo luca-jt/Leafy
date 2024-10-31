@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use winit::dpi::LogicalSize;
 use winit::window::{Fullscreen, Theme, Window, WindowAttributes};
 
-use crate::utils::file::image_path;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::IconExtWindows;
 #[cfg(target_os = "windows")]
@@ -19,7 +18,7 @@ pub struct EngineAttributes {
     pub(crate) enforced_ratio: Option<f32>,
     transparent: bool,
     blur: bool,
-    icon: PathBuf,
+    icon: AppIcon,
     resizable: bool,
     max_size: Option<(u32, u32)>,
     fullscreen: bool,
@@ -39,7 +38,7 @@ impl EngineAttributes {
             enforced_ratio: None,
             transparent: false,
             blur: false,
-            icon: PathBuf::from(image_path!("icon.ico")),
+            icon: AppIcon::Default,
             resizable: true,
             max_size: None,
             fullscreen: false,
@@ -93,7 +92,7 @@ impl EngineAttributes {
 
     /// sets the window icon from a file (must be .ico) (only works on windows)
     pub fn with_icon(mut self, path: PathBuf) -> Self {
-        self.icon = path;
+        self.icon = AppIcon::Custom(path);
         self
     }
 
@@ -179,9 +178,23 @@ impl EngineAttributes {
         }
 
         #[cfg(target_os = "windows")]
-        let window_attributes = window_attributes
-            .with_window_icon(Some(Icon::from_path(self.icon.as_path(), None).unwrap()));
+        let window_attributes = window_attributes.with_window_icon(Some(self.icon.generate_icon()));
 
         window_attributes
+    }
+}
+
+enum AppIcon {
+    Default,
+    Custom(PathBuf),
+}
+
+impl AppIcon {
+    #[cfg(target_os = "windows")]
+    fn generate_icon(&self) -> Icon {
+        match self {
+            AppIcon::Default => Icon::from_resource(32512, None).unwrap(),
+            AppIcon::Custom(path_buf) => Icon::from_path(path_buf.as_path(), None).unwrap(),
+        }
     }
 }

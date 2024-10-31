@@ -2,28 +2,16 @@ use crate::ecs::component::*;
 use crate::glm;
 use crate::rendering::shader::ShaderProgram;
 use crate::utils::constants::*;
-use crate::utils::file::{texture_path, SHADOW_FRAG, SHADOW_VERT};
+use crate::utils::file::*;
 use gl::types::*;
 use stb_image::image::{Image, LoadResult};
 use std::collections::HashMap;
 use std::path::Path;
 use std::ptr;
 
-/// loads an opengl texture
-pub fn load_texture(file_path: impl AsRef<Path>) -> GLuint {
+/// generates a gl texture from given image data
+fn generate_texture(data: Image<u8>) -> GLuint {
     let mut tex_id = 0;
-
-    let texture: Image<u8>;
-    match stb_image::image::load_with_depth(file_path, 4, false) {
-        LoadResult::ImageU8(im) => {
-            texture = im;
-        }
-        _ => {
-            panic!("error reading texture")
-        }
-    }
-
-    // generate gl texture
     unsafe {
         gl::GenTextures(1, &mut tex_id);
         gl::BindTexture(gl::TEXTURE_2D, tex_id);
@@ -31,12 +19,12 @@ pub fn load_texture(file_path: impl AsRef<Path>) -> GLuint {
             gl::TEXTURE_2D,
             0,
             gl::RGBA8 as GLint,
-            texture.width as GLint,
-            texture.height as GLint,
+            data.width as GLint,
+            data.height as GLint,
             0,
             gl::RGBA,
             gl::UNSIGNED_BYTE,
-            texture.data.as_ptr() as *const GLvoid,
+            data.data.as_ptr() as *const GLvoid,
         );
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
@@ -44,8 +32,35 @@ pub fn load_texture(file_path: impl AsRef<Path>) -> GLuint {
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
         gl::GenerateMipmap(gl::TEXTURE_2D);
     }
-
     tex_id
+}
+
+/// loads an opengl texture from a file path
+pub(crate) fn load_texture_from_path(file_path: impl AsRef<Path>) -> GLuint {
+    let texture: Image<u8>;
+    match stb_image::image::load_with_depth(file_path, 4, false) {
+        LoadResult::ImageU8(im) => {
+            texture = im;
+        }
+        _ => {
+            panic!("error loading texture")
+        }
+    }
+    generate_texture(texture)
+}
+
+/// loads an opengl texture from bytes
+pub(crate) fn load_texture_from_bytes(bytes: &[u8]) -> GLuint {
+    let texture: Image<u8>;
+    match stb_image::image::load_from_memory_with_depth(bytes, 4, false) {
+        LoadResult::ImageU8(im) => {
+            texture = im;
+        }
+        _ => {
+            panic!("error loading texture from memory")
+        }
+    }
+    generate_texture(texture)
 }
 
 /// data for a single vertex
@@ -78,24 +93,20 @@ impl TextureMap {
         match texture {
             Texture::Ice => {
                 self.textures
-                    .insert(String::from("ice"), load_texture(texture_path!("ice.png")));
+                    .insert(String::from("ice"), load_texture_from_bytes(ICE_TEXTURE));
             }
             Texture::Sand => {
-                self.textures.insert(
-                    String::from("sand"),
-                    load_texture(texture_path!("sand.png")),
-                );
+                self.textures
+                    .insert(String::from("sand"), load_texture_from_bytes(SAND_TEXTURE));
             }
             Texture::Wall => {
-                self.textures.insert(
-                    String::from("wall"),
-                    load_texture(texture_path!("wall.png")),
-                );
+                self.textures
+                    .insert(String::from("wall"), load_texture_from_bytes(WALL_TEXTURE));
             }
             Texture::Custom(path) => {
                 self.textures.insert(
                     path.file_name().unwrap().to_str().unwrap().to_string(),
-                    load_texture(path),
+                    load_texture_from_path(path),
                 );
             }
         }
