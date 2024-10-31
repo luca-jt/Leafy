@@ -13,7 +13,6 @@ macro_rules! audio_path {
         concat!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/audio/"), $file)
     };
 }
-pub(crate) use audio_path;
 
 macro_rules! material_path {
     ($file:literal) => {
@@ -101,3 +100,6 @@ pub(crate) const SPHERE_MESH: &[u8] = &[0];
 pub(crate) const TORUS_MESH: &[u8] = include_bytes!(model_path!("torus.obj"));
 #[cfg(not(feature = "torus_mesh"))]
 pub(crate) const TORUS_MESH: &[u8] = &[0];
+
+// audio data
+pub(crate) const HRTF_SPHERE: &[u8] = include_bytes!(audio_path!("IRC_1002_C.bin"));

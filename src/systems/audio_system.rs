@@ -3,8 +3,9 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
-use crate::utils::file::audio_path;
+use crate::utils::file::HRTF_SPHERE;
 use fyrox_resource::io::FsResourceIo;
+use fyrox_resource::untyped::ResourceKind;
 use fyrox_sound::{
     algebra::Vector3,
     buffer::{DataSource, SoundBufferResource, SoundBufferResourceExtension},
@@ -21,7 +22,7 @@ use fyrox_sound::{
     source::{SoundSource, SoundSourceBuilder, Status},
 };
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub type SoundHandleID = u64;
 
@@ -184,13 +185,12 @@ impl AudioSystem {
     /// use sound rendering on the hrtf sphere
     pub fn enable_hrtf(&self) {
         log::trace!("enabled HRTF");
-        let hrir_path = PathBuf::from(audio_path!("IRC_1002_C.bin"));
-        let hrir_sphere = HrirSphere::from_file(&hrir_path, context::SAMPLE_RATE).unwrap();
+        let hrir_sphere = HrirSphere::new(HRTF_SPHERE, context::SAMPLE_RATE).unwrap();
 
         self.sound_context
             .state()
             .set_renderer(Renderer::HrtfRenderer(HrtfRenderer::new(
-                HrirSphereResource::from_hrir_sphere(hrir_sphere, hrir_path.into()),
+                HrirSphereResource::from_hrir_sphere(hrir_sphere, ResourceKind::Embedded),
             )));
     }
 

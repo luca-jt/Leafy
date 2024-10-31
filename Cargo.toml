@@ -30,6 +30,7 @@ all_meshes = ["triangle_mesh", "plane_mesh", "cube_mesh", "cone_mesh", "cylinder
 [[example]]
 name = "3D"
 path = "examples/3D/main.rs"
+required-features = ["cube_mesh", "sphere_mesh"]
 
 [[example]]
 name = "ui"

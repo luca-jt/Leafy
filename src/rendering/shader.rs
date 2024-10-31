@@ -98,11 +98,7 @@ impl ShaderProgram {
         unsafe {
             gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()); // maybe do this generically
         }
-        log::debug!(
-            "compiled shader {:?}: {:?}",
-            vertex_file.split_once('.').unwrap().0,
-            id
-        );
+        log::debug!("compiled shader: {:?}", id);
 
         Self { id }
     }
