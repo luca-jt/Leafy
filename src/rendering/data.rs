@@ -76,7 +76,7 @@ pub struct Vertex {
 
 /// holds the texture ID's for the App
 pub(crate) struct TextureMap {
-    textures: HashMap<String, GLuint>,
+    textures: HashMap<Texture, GLuint>,
 }
 
 impl TextureMap {
@@ -93,53 +93,43 @@ impl TextureMap {
         match texture {
             Texture::Ice => {
                 self.textures
-                    .insert(String::from("ice"), load_texture_from_bytes(ICE_TEXTURE));
+                    .insert(texture.clone(), load_texture_from_bytes(ICE_TEXTURE));
             }
             Texture::Sand => {
                 self.textures
-                    .insert(String::from("sand"), load_texture_from_bytes(SAND_TEXTURE));
+                    .insert(texture.clone(), load_texture_from_bytes(SAND_TEXTURE));
             }
             Texture::Wall => {
                 self.textures
-                    .insert(String::from("wall"), load_texture_from_bytes(WALL_TEXTURE));
+                    .insert(texture.clone(), load_texture_from_bytes(WALL_TEXTURE));
             }
             Texture::Custom(path) => {
-                self.textures.insert(
-                    path.file_name().unwrap().to_str().unwrap().to_string(),
-                    load_texture_from_path(path),
-                );
+                self.textures
+                    .insert(texture.clone(), load_texture_from_path(path));
             }
         }
     }
 
-    /// deletes a stored texture
-    pub(crate) fn delete_texture(&mut self, texture: &Texture) {
-        log::debug!("deleted texture: '{:?}'", texture);
-        let deleted = match texture {
-            Texture::Ice => self.textures.remove("ice").expect("texture not stored"),
-            Texture::Sand => self.textures.remove("sand").expect("texture not stored"),
-            Texture::Wall => self.textures.remove("wall").expect("texture not stored"),
-            Texture::Custom(path) => self
-                .textures
-                .remove(path.file_name().unwrap().to_str().unwrap())
-                .expect("texture not stored"),
-        };
-        unsafe {
-            gl::DeleteTextures(1, &deleted);
-        }
+    /// deletes a stored textures based on a function bool return
+    pub(crate) fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&Texture) -> bool,
+    {
+        self.textures.retain(|texture, id| {
+            let deleted = f(texture);
+            if deleted {
+                log::debug!("deleted texture: '{:?}'", texture);
+                unsafe {
+                    gl::DeleteTextures(1, id);
+                }
+            }
+            deleted
+        });
     }
 
     /// yields a texture id for given name
     pub(crate) fn get_tex_id(&self, texture: &Texture) -> Option<GLuint> {
-        match texture {
-            Texture::Ice => self.textures.get("ice").copied(),
-            Texture::Sand => self.textures.get("sand").copied(),
-            Texture::Wall => self.textures.get("wall").copied(),
-            Texture::Custom(path) => self
-                .textures
-                .get(path.file_name().unwrap().to_str().unwrap())
-                .copied(),
-        }
+        self.textures.get(texture).copied()
     }
 }
 

@@ -97,12 +97,13 @@ impl EntityManager {
     /// deletes an entity from the register by id and returns the removed entity
     pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), ()> {
         if self.ecs.has_component::<MeshType>(entity) {
-            self.add_command(AssetCommand::DeleteMesh(entity));
-            self.add_command(AssetCommand::DeleteHitbox(entity));
-            self.add_command(AssetCommand::DeleteTexture(entity));
+            self.add_command(AssetCommand::CleanMeshes);
+            self.add_command(AssetCommand::CleanHitboxes);
+            self.add_command(AssetCommand::CleanTextures);
         }
+        self.ecs.delete_entity(entity)?;
         self.exec_commands();
-        self.ecs.delete_entity(entity)
+        Ok(())
     }
 
     /// yields the component data reference of an entity if present
@@ -112,13 +113,24 @@ impl EntityManager {
 
     /// yields the mutable component data reference of an entity if present
     pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
-        if TypeId::of::<T>() == TypeId::of::<MeshType>()
-            || TypeId::of::<T>() == TypeId::of::<Scale>()
+        if TypeId::of::<T>() == TypeId::of::<MeshType>() {
+            self.add_command(AssetCommand::UpdateRigidBody(entity));
+            self.add_command(AssetCommand::AddMesh(entity));
+            self.add_command(AssetCommand::CleanMeshes);
+            self.add_command(AssetCommand::AddHitbox(entity));
+            self.add_command(AssetCommand::CleanHitboxes);
+        } else if TypeId::of::<T>() == TypeId::of::<Scale>()
             || TypeId::of::<T>() == TypeId::of::<RigidBody>()
         {
             self.add_command(AssetCommand::UpdateRigidBody(entity));
-            self.exec_commands();
+        } else if TypeId::of::<T>() == TypeId::of::<HitboxType>() {
+            self.add_command(AssetCommand::AddHitbox(entity));
+            self.add_command(AssetCommand::CleanHitboxes);
+        } else if TypeId::of::<T>() == TypeId::of::<MeshAttribute>() {
+            self.add_command(AssetCommand::AddTexture(entity));
+            self.add_command(AssetCommand::CleanTextures);
         }
+        self.exec_commands();
         self.ecs.get_component_mut::<T>(entity)
     }
 
@@ -154,19 +166,27 @@ impl EntityManager {
 
     /// removes a component from an entity and returns the component data if present
     pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
-        // delete data associated with mesh type if necessary
         if TypeId::of::<T>() == TypeId::of::<MeshType>()
             && self.ecs.has_component::<MeshType>(entity)
         {
-            self.add_command(AssetCommand::DeleteMesh(entity));
-            self.add_command(AssetCommand::DeleteHitbox(entity));
-        } else {
+            self.add_command(AssetCommand::CleanMeshes);
+            self.add_command(AssetCommand::CleanHitboxes);
+        } else if TypeId::of::<T>() == TypeId::of::<MeshAttribute>()
+            && self.ecs.has_component::<MeshAttribute>(entity)
+        {
+            self.add_command(AssetCommand::CleanTextures);
+        } else if TypeId::of::<T>() == TypeId::of::<Scale>()
+            && self.ecs.has_component::<Scale>(entity)
+        {
             self.add_command(AssetCommand::UpdateRigidBody(entity));
+        } else if TypeId::of::<T>() == TypeId::of::<HitboxType>() {
+            self.add_command(AssetCommand::CleanHitboxes);
+        } else {
+            self.add_command(AssetCommand::DeleteLightID(entity));
         }
-        self.add_command(AssetCommand::DeleteTexture(entity));
-        self.add_command(AssetCommand::DeleteLightID(entity));
+        let removed = self.ecs.remove_component::<T>(entity);
         self.exec_commands();
-        self.ecs.remove_component::<T>(entity)
+        removed
     }
 
     /// makes mesh data available for a given entity id
@@ -207,19 +227,19 @@ impl EntityManager {
                         }
                     }
                 }
-                AssetCommand::DeleteMesh(entity) => {
-                    if let Some(mesh_type) = self.ecs.get_component::<MeshType>(entity) {
-                        if self
+                AssetCommand::CleanMeshes => {
+                    self.asset_register.retain(|mesh_type, _| {
+                        let delete = self
                             .ecs
                             .query1::<MeshType>(vec![])
                             .filter(|&mt| mt == mesh_type)
                             .count()
-                            == 1
-                        {
-                            self.asset_register.remove(&mesh_type);
+                            == 0;
+                        if delete {
                             log::debug!("deleted mesh from register: '{:?}'", mesh_type);
                         }
-                    }
+                        delete
+                    });
                 }
                 AssetCommand::AddHitbox(entity) => {
                     if let (Some(mesh_type), Some(box_type)) = (
@@ -241,27 +261,28 @@ impl EntityManager {
                             });
                     }
                 }
-                AssetCommand::DeleteHitbox(entity) => {
-                    if let Some(box_type) = self.ecs.get_component::<HitboxType>(entity) {
-                        let mesh_type = self.ecs.get_component::<MeshType>(entity).unwrap();
-                        if self
+                AssetCommand::CleanHitboxes => {
+                    self.hitbox_register.retain(|(mesh_type, box_type), _| {
+                        let delete = self
                             .ecs
                             .query2::<MeshType, HitboxType>(vec![])
                             .filter(|(mt, ht)| mesh_type == *mt && box_type == *ht)
                             .count()
-                            == 1
-                        {
-                            self.hitbox_register.remove(&(mesh_type.clone(), *box_type));
+                            == 0;
+                        if delete {
                             log::debug!(
                                 "deleted hitbox '{:?}' from register for mesh '{:?}'",
                                 box_type,
                                 mesh_type
                             );
                         }
-                    }
+                        delete
+                    });
                 }
                 AssetCommand::UpdateRigidBody(entity) => {
-                    if self.ecs.has_component::<MeshType>(entity) {
+                    if self.ecs.has_component::<MeshType>(entity)
+                        && self.ecs.has_component::<RigidBody>(entity)
+                    {
                         let mesh = self.asset_from_id(entity).unwrap();
                         let scale = self.ecs.get_component::<Scale>(entity).copied();
                         let density = self.ecs.get_component::<RigidBody>(entity).unwrap().density;
@@ -289,22 +310,14 @@ impl EntityManager {
                         }
                     }
                 }
-                AssetCommand::DeleteTexture(entity) => {
-                    if let Some(MeshAttribute::Textured(texture)) =
-                        self.ecs.get_component::<MeshAttribute>(entity)
-                    {
-                        if self
-                            .ecs
+                AssetCommand::CleanTextures => {
+                    self.texture_map.retain(|texture| {
+                        self.ecs
                             .query1::<MeshAttribute>(vec![])
-                            .filter(|&ma| {
-                                texture.path() == ma.texture_path().unwrap_or("".as_ref())
-                            })
+                            .filter(|&ma| ma.texture().map(|t| t == texture).unwrap_or(false))
                             .count()
-                            == 1
-                        {
-                            self.texture_map.delete_texture(&texture);
-                        }
-                    }
+                            == 0
+                    });
                 }
             }
         }
@@ -319,14 +332,14 @@ impl EntityManager {
 /// allows for additional entity data or asset data to be added
 enum AssetCommand {
     AddMesh(EntityID),
-    DeleteMesh(EntityID),
+    CleanMeshes,
     AddHitbox(EntityID),
-    DeleteHitbox(EntityID),
+    CleanHitboxes,
     UpdateRigidBody(EntityID),
     AddLightID(EntityID),
     DeleteLightID(EntityID),
     AddTexture(EntityID),
-    DeleteTexture(EntityID),
+    CleanTextures,
 }
 
 /// the entity component system that manages all the data associated with an entity
