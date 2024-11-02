@@ -7,14 +7,16 @@ shadow anti-aliasing -> pcss
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system
 ---------------------------------------------------------------------
+sky box cube maps
 conways game of life example
 other light source type (not point) with creation function
 dpi scale factor event handling
 ui basics + font rendering + events for ui struct
-particle system https://youtu.be/GK0jHlv3e3w
+particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
 sprite renderer -> depth layers configurable, sprite component
 on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type (voxelization for custom?)
 optimize shader program change
 inertia matrix: correct origin for the center of mass -> add center of mass to the mass dist component?
 recalculate inertia tensor / manage register data when needed automatically -> other components might be effected by get_component_mut() + queries too
+specular lighting

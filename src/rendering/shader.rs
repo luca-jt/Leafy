@@ -355,3 +355,40 @@ pub(crate) unsafe fn bind_instance_mbo() {
     gl::VertexAttribDivisor(pos3, 1);
     gl::VertexAttribDivisor(pos4, 1);
 }
+
+/// binds the nmbo attrib pointer for the instance renderer
+pub(crate) unsafe fn bind_instance_nmbo() {
+    let pos1 = 9;
+    let pos2 = pos1 + 1;
+    let pos3 = pos1 + 2;
+    gl::EnableVertexAttribArray(pos1);
+    gl::EnableVertexAttribArray(pos2);
+    gl::EnableVertexAttribArray(pos3);
+    gl::VertexAttribPointer(
+        pos1,
+        3,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        (size_of::<GLfloat>() * 3 * 3) as GLsizei,
+        ptr::null(),
+    );
+    gl::VertexAttribPointer(
+        pos2,
+        3,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        (size_of::<GLfloat>() * 3 * 3) as GLsizei,
+        (size_of::<GLfloat>() * 3) as *const GLvoid,
+    );
+    gl::VertexAttribPointer(
+        pos3,
+        3,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        (size_of::<GLfloat>() * 3 * 3) as GLsizei,
+        (size_of::<GLfloat>() * 6) as *const GLvoid,
+    );
+    gl::VertexAttribDivisor(pos1, 1);
+    gl::VertexAttribDivisor(pos2, 1);
+    gl::VertexAttribDivisor(pos3, 1);
+}

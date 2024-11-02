@@ -83,7 +83,7 @@ impl BatchRenderer {
     }
 
     /// send data to GPU and reset
-    pub(crate) fn flush(&mut self, shadow_maps: &Vec<&ShadowMap>, shader_type: ShaderType) {
+    pub(crate) fn flush(&mut self, shadow_maps: &[&ShadowMap], shader_type: ShaderType) {
         unsafe {
             // bind uniforms
             if shader_type != ShaderType::Passthrough {
@@ -337,7 +337,8 @@ impl Batch {
                 position: new_pos.xyz(),
                 color: glm::vec4(1.0, 1.0, 1.0, 1.0),
                 uv_coords: mesh.texture_coords[i],
-                normal: mesh.normals[i],
+                normal: glm::mat4_to_mat3(&trafo.try_inverse().unwrap().transpose())
+                    * mesh.normals[i],
                 tex_index,
             };
             self.obj_buffer_ptr += 1;
@@ -362,7 +363,8 @@ impl Batch {
                 position: new_pos.xyz(),
                 color: color.to_vec4(),
                 uv_coords: mesh.texture_coords[i],
-                normal: mesh.normals[i],
+                normal: glm::mat4_to_mat3(&trafo.try_inverse().unwrap().transpose())
+                    * mesh.normals[i],
                 tex_index,
             };
             self.obj_buffer_ptr += 1;

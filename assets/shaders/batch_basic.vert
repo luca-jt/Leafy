@@ -43,7 +43,7 @@ void main() {
     gl_Position = projection * view * vec4(position, 1.0); // model matrix is already calculated in
     v_color = color;
     v_uv = uv;
-    v_normal = normal;
+    v_normal = normalize(normal);
     v_tex_idx = tex_idx;
     frag_pos = position;
     frag_pos_light = vec4[5](vec4(0), vec4(0), vec4(0), vec4(0), vec4(0));
