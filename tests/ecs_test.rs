@@ -26,12 +26,12 @@ fn render_data() {
     let mut ecs = EntityManager::new();
     ecs.create_point_light(Position::origin());
     let l = ecs.create_point_light_visible(Position::origin());
-    let r1 = ecs.create_regular_moving(
+    let r1 = ecs.create_basic_dynamic(
         Position::origin(),
         MeshType::Triangle,
         MeshAttribute::Colored(Color32::WHITE),
     );
-    let r2 = ecs.create_regular_moving(
+    let r2 = ecs.create_basic_dynamic(
         Position::origin(),
         MeshType::Cube,
         MeshAttribute::Colored(Color32::RED),

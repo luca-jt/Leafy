@@ -57,7 +57,7 @@ impl FallingLeafApp for App {
             MeshAttribute::Textured(Texture::Wall),
             HitboxType::Unaltered
         ));
-        self.player = entity_manager.create_regular_moving(
+        self.player = entity_manager.create_basic_dynamic(
             Position::new(0.0, 4.0, 0.0),
             MeshType::Sphere,
             MeshAttribute::Colored(Color32::RED),

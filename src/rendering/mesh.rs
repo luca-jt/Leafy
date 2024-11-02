@@ -1,4 +1,4 @@
-use crate::ecs::component::{Density, HitboxType, Scale};
+use crate::ecs::component::{HitboxType, Scale};
 use crate::glm;
 use crate::utils::constants::ORIGIN;
 use crate::utils::tools::to_vec4;
@@ -77,12 +77,12 @@ impl Mesh {
         self.indices.len()
     }
 
-    /// generates the inertia tensor matrix
-    pub(crate) fn intertia_tensor(&self, density: &Density, scale: &Scale) -> glm::Mat3 {
+    /// generates the inertia tensor matrix and center of mass
+    pub(crate) fn intertia_data(&self, density: f32, scale: &Scale) -> (glm::Mat3, glm::Vec3) {
         // inertia matrix entries
         let (mut ia, mut ib, mut ic, mut iap, mut ibp, mut icp) =
             (0f32, 0f32, 0f32, 0f32, 0f32, 0f32);
-        let mut mass_center = ORIGIN;
+        let mut center_of_mass = ORIGIN;
         let mut mass = 0f32;
         let scale_matrix = scale.scale_matrix();
 
@@ -96,7 +96,7 @@ impl Mesh {
             let triangle = (scaled1, scaled2, scaled3);
             let det_jacobi = triangle.0.dot(&triangle.1.cross(&triangle.2));
             let tet_volume = det_jacobi / 6.0;
-            let tet_mass = tet_volume * density.0;
+            let tet_mass = tet_volume * density;
             let tet_mass_center = (triangle.0 + triangle.1 + triangle.2) / 4.0;
 
             ia += det_jacobi * (inertia_moment(&triangle, 1) + inertia_moment(&triangle, 2));
@@ -106,25 +106,28 @@ impl Mesh {
             ibp += det_jacobi * inertia_product(&triangle, 0, 1);
             icp += det_jacobi * inertia_product(&triangle, 0, 2);
 
-            mass_center += tet_mass * tet_mass_center;
+            center_of_mass += tet_mass * tet_mass_center;
             mass += tet_mass;
         }
-        mass_center /= mass;
-        ia = density.0 * ia / 60.0
-            - mass * (mass_center.y * mass_center.y + mass_center.z * mass_center.z);
-        ib = density.0 * ib / 60.0
-            - mass * (mass_center.x * mass_center.x + mass_center.z * mass_center.z);
-        ic = density.0 * ic / 60.0
-            - mass * (mass_center.x * mass_center.x + mass_center.y * mass_center.y);
-        iap = density.0 * ia / 120.0 - mass * mass_center.y * mass_center.z;
-        ibp = density.0 * ia / 120.0 - mass * mass_center.x * mass_center.y;
-        icp = density.0 * ia / 120.0 - mass * mass_center.x * mass_center.z;
+        center_of_mass /= mass;
+        ia = density * ia / 60.0
+            - mass * (center_of_mass.y * center_of_mass.y + center_of_mass.z * center_of_mass.z);
+        ib = density * ib / 60.0
+            - mass * (center_of_mass.x * center_of_mass.x + center_of_mass.z * center_of_mass.z);
+        ic = density * ic / 60.0
+            - mass * (center_of_mass.x * center_of_mass.x + center_of_mass.y * center_of_mass.y);
+        iap = density * ia / 120.0 - mass * center_of_mass.y * center_of_mass.z;
+        ibp = density * ia / 120.0 - mass * center_of_mass.x * center_of_mass.y;
+        icp = density * ia / 120.0 - mass * center_of_mass.x * center_of_mass.z;
 
-        glm::Mat3::from_columns(&[
-            glm::vec3(ia, -ibp, -icp),
-            glm::vec3(-ibp, ib, -iap),
-            glm::vec3(-icp, -iap, ic),
-        ])
+        (
+            glm::Mat3::from_columns(&[
+                glm::vec3(ia, -ibp, -icp),
+                glm::vec3(-ibp, ib, -iap),
+                glm::vec3(-icp, -iap, ic),
+            ]),
+            center_of_mass,
+        )
     }
 
     /// generates the meshes' hitbox for the given hitbox type

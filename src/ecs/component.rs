@@ -1,7 +1,7 @@
 use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::systems::audio_system::SoundHandleID;
-use crate::utils::constants::{X_AXIS, Y_AXIS};
+use crate::utils::constants::*;
 use gl::types::GLfloat;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::path::{Path, PathBuf};
@@ -396,47 +396,38 @@ impl Div<TimeDuration> for TimeDuration {
 }
 
 /// enables gravity physics and is used for all computations involving forces
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Density(pub f32);
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct RigidBody {
+    pub(crate) density: f32,
+    pub(crate) inertia_tensor: glm::Mat3,
+    pub(crate) center_of_mass: glm::Vec3,
+    pub(crate) friction: f32,
+}
 
-impl_arithmetic_basics!(Density);
+impl RigidBody {
+    /// changes the density of the rigid body
+    pub fn with_density(mut self, density: f32) -> Self {
+        self.density = density;
+        self
+    }
 
-impl Default for Density {
+    /// changes the friction of the rigid body
+    pub fn with_friction(mut self, friction: f32) -> Self {
+        self.friction = friction;
+        self
+    }
+}
+
+impl Default for RigidBody {
     fn default() -> Self {
-        Density(1.0)
+        Self {
+            density: 1.0,
+            inertia_tensor: glm::Mat3::identity(),
+            center_of_mass: ORIGIN,
+            friction: 0.5,
+        }
     }
 }
-
-/// contains an inertia tensor that is used for physics calculations
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct MassDistribution(pub(crate) glm::Mat3);
-
-impl Default for MassDistribution {
-    fn default() -> Self {
-        MassDistribution(glm::Mat3::identity())
-    }
-}
-
-/// used for all computations involving friction
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Friction(pub f32);
-
-impl_arithmetic_basics!(Friction);
-
-/// force in 3D space
-#[derive(Debug, Clone, PartialEq, Copy)]
-pub struct Force(glm::Vec3);
-
-impl_basic_vec_ops!(Force);
-
-impl Force {
-    /// creates a new force filled with zeros
-    pub const fn zero() -> Self {
-        Self(glm::Vec3::new(0.0, 0.0, 0.0))
-    }
-}
-
-impl_arithmetic_basics!(Force);
 
 /// stores all of the associated sound controller ids for an entity
 #[derive(Debug, Clone, Copy, PartialEq)]

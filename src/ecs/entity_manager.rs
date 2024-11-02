@@ -43,16 +43,16 @@ impl EntityManager {
         self.add_command(AssetCommand::AddMesh(entity));
         // load texture if necessary
         self.add_command(AssetCommand::AddTexture(entity));
-        // add mass distribution component if computed
-        self.add_command(AssetCommand::AddMass(entity));
         // compute hitbox if necessary
         self.add_command(AssetCommand::AddHitbox(entity));
+        // do rigid body calculations if necessary
+        self.add_command(AssetCommand::UpdateRigidBody(entity));
         self.exec_commands();
         entity
     }
 
     /// creates a new entity with all basic data needed for physics and rendering
-    pub fn create_regular_moving(
+    pub fn create_basic_dynamic(
         &mut self,
         at: Position,
         mesh_type: MeshType,
@@ -68,8 +68,7 @@ impl EntityManager {
             AngularVelocity::zero(),
             Acceleration::zero(),
             HitboxType::Ellipsiod,
-            Density::default(),
-            Friction(0.5)
+            RigidBody::default()
         ))
     }
 
@@ -81,7 +80,7 @@ impl EntityManager {
         light
     }
 
-    /// creates a new default point light source for the rendering system without other components attached (visible)
+    /// creates a new default point light source for the rendering system with Scale attached (visible)
     pub fn create_point_light_visible(&mut self, position: Position) -> EntityID {
         let light = self.create_entity(components!(
             position,
@@ -114,10 +113,10 @@ impl EntityManager {
     /// yields the mutable component data reference of an entity if present
     pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
         if TypeId::of::<T>() == TypeId::of::<MeshType>()
-            || TypeId::of::<T>() == TypeId::of::<Density>()
             || TypeId::of::<T>() == TypeId::of::<Scale>()
+            || TypeId::of::<T>() == TypeId::of::<RigidBody>()
         {
-            self.add_command(AssetCommand::UpdateMass(entity));
+            self.add_command(AssetCommand::UpdateRigidBody(entity));
             self.exec_commands();
         }
         self.ecs.get_component_mut::<T>(entity)
@@ -138,13 +137,11 @@ impl EntityManager {
         if TypeId::of::<T>() == TypeId::of::<PointLight>() {
             self.add_command(AssetCommand::AddLightID(entity));
         }
-        // add the inertia tensor if necessary
-        self.add_command(AssetCommand::AddMass(entity));
         // recalculate the inertia tensor if necessary
         if TypeId::of::<T>() == TypeId::of::<Scale>()
-            || TypeId::of::<T>() == TypeId::of::<Density>()
+            || TypeId::of::<T>() == TypeId::of::<RigidBody>()
         {
-            self.add_command(AssetCommand::UpdateMass(entity));
+            self.add_command(AssetCommand::UpdateRigidBody(entity));
         }
         self.exec_commands();
         Ok(())
@@ -163,9 +160,8 @@ impl EntityManager {
         {
             self.add_command(AssetCommand::DeleteMesh(entity));
             self.add_command(AssetCommand::DeleteHitbox(entity));
-            self.add_command(AssetCommand::DeleteMass(entity));
         } else {
-            self.add_command(AssetCommand::UpdateMass(entity));
+            self.add_command(AssetCommand::UpdateRigidBody(entity));
         }
         self.add_command(AssetCommand::DeleteTexture(entity));
         self.add_command(AssetCommand::DeleteLightID(entity));
@@ -264,39 +260,16 @@ impl EntityManager {
                         }
                     }
                 }
-                AssetCommand::AddMass(entity) => {
-                    if !self.has_component::<MassDistribution>(entity) {
-                        if let Some(mesh) = self.asset_from_id(entity) {
-                            let scale = self.ecs.get_component::<Scale>(entity);
-                            let density = self.ecs.get_component::<Density>(entity);
-                            self.ecs
-                                .add_component(
-                                    entity,
-                                    MassDistribution(mesh.intertia_tensor(
-                                        density.unwrap_or(&Density::default()),
-                                        scale.unwrap_or(&Scale::default()),
-                                    )),
-                                )
-                                .unwrap();
-                        }
-                    }
-                }
-                AssetCommand::DeleteMass(entity) => {
-                    if self.ecs.has_component::<MeshType>(entity) {
-                        self.ecs.remove_component::<MassDistribution>(entity);
-                    }
-                }
-                AssetCommand::UpdateMass(entity) => {
+                AssetCommand::UpdateRigidBody(entity) => {
                     if self.ecs.has_component::<MeshType>(entity) {
                         let mesh = self.asset_from_id(entity).unwrap();
-                        let density = self.ecs.get_component::<Density>(entity);
-                        let scale = self.ecs.get_component::<Scale>(entity);
-                        self.get_component_mut::<MassDistribution>(entity)
-                            .unwrap()
-                            .0 = mesh.intertia_tensor(
-                            density.unwrap_or(&Density::default()),
-                            scale.unwrap_or(&Scale::default()),
-                        );
+                        let scale = self.ecs.get_component::<Scale>(entity).copied();
+                        let density = self.ecs.get_component::<RigidBody>(entity).unwrap().density;
+                        let (inertia_tensor, center_of_mass) =
+                            mesh.intertia_data(density, &scale.unwrap_or_default());
+                        let body = self.ecs.get_component_mut::<RigidBody>(entity).unwrap();
+                        body.inertia_tensor = inertia_tensor;
+                        body.center_of_mass = center_of_mass;
                     }
                 }
                 AssetCommand::AddLightID(entity) => {
@@ -349,9 +322,7 @@ enum AssetCommand {
     DeleteMesh(EntityID),
     AddHitbox(EntityID),
     DeleteHitbox(EntityID),
-    AddMass(EntityID),
-    DeleteMass(EntityID),
-    UpdateMass(EntityID),
+    UpdateRigidBody(EntityID),
     AddLightID(EntityID),
     DeleteLightID(EntityID),
     AddTexture(EntityID),

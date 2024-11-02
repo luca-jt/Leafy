@@ -1,10 +1,10 @@
 use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::{Engine, EngineMode, FallingLeafApp};
+use crate::glm;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::{G, Y_AXIS};
-use crate::{glm, include_filter};
 use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
 
@@ -64,9 +64,7 @@ impl AnimationSystem {
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
         let objects = entity_manager
-            .query6_mut_opt5::<Position, Velocity, AngularVelocity, MeshType, Scale, Friction>(
-                vec![include_filter!(HitboxType)],
-            )
+            .query7_mut_opt6::<Position, Velocity, AngularVelocity, MeshType, Scale, RigidBody, HitboxType>(vec![])
             .collect::<Vec<_>>();
         // two collision cases: two edges touching or one vertex anywhere on a side
         // compute hitboxes in mesh constructor
@@ -74,15 +72,15 @@ impl AnimationSystem {
 
     /// performs all relevant physics calculations on entity data
     fn apply_physics(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
-        for (p, v, a_opt, md_opt, o_opt, av_opt) in entity_manager
-            .query6_mut_opt4::<Position, Velocity, Acceleration, MassDistribution, Orientation, AngularVelocity>(vec![])
+        for (p, v, a_opt, rb_opt, o_opt, av_opt) in entity_manager
+            .query6_mut_opt4::<Position, Velocity, Acceleration, RigidBody, Orientation, AngularVelocity>(vec![])
         {
-            let total_a = md_opt.is_some().then_some(self.gravity).unwrap_or_default() + a_opt.copied().unwrap_or_default();
+            let total_a = rb_opt.is_some().then_some(self.gravity).unwrap_or_default() + a_opt.copied().unwrap_or_default();
             *v += total_a * time_step;
             *p += *v * time_step;
 
             if let (Some(av), Some(o)) = (av_opt, o_opt) {
-                let inertia_mat = md_opt.copied().unwrap_or_default().0;
+                let inertia_mat = rb_opt.copied().unwrap_or_default().inertia_tensor;
                 let corr_av = inertia_mat.try_inverse().unwrap() * av.0;
                 o.0 += 0.5 * o.0 * glm::quat(corr_av.x, corr_av.y, corr_av.z, 0.0) * time_step.0;
                 o.0.normalize_mut();
