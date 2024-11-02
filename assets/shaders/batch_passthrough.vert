@@ -12,6 +12,7 @@ flat out float v_tex_idx;
 layout (std140, binding = 1, column_major) uniform matrix_block {
     mat4 projection;
     mat4 view;
+    vec4 cam_pos;
 };
 
 void main() {

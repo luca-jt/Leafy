@@ -327,6 +327,12 @@ impl RenderingSystem {
             size_of::<glm::Mat4>(),
             self.perspective_camera.view() as *const glm::Mat4 as *const GLvoid,
         );
+        let cam_pos_4 = to_vec4(&self.current_cam_config.0);
+        self.shader_catalog.matrix_buffer.upload_data(
+            size_of::<glm::Mat4>() * 2,
+            size_of::<glm::Vec4>(),
+            &cam_pos_4 as *const glm::Vec4 as *const GLvoid,
+        );
 
         let light_data = self
             .light_sources

@@ -10,6 +10,7 @@ in vec3 v_normal;
 flat in float v_tex_idx;
 in vec3 frag_pos;
 in vec4 frag_pos_light[MAX_LIGHT_SRC_COUNT];
+in vec3 cam_position;
 
 out vec4 out_color;
 
@@ -76,6 +77,15 @@ void main() {
     // clamp if final light strength is too high
     for (int i = 0; i < 3; i++) {
         final_light[i] = clamp(final_light[i], 0.0, 1.0);
+    }
+    // add specular lighting
+    float spec_strenght = 0.4;
+    for (int i = 0; i < num_lights; i++) {
+        vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
+        vec3 view_dir = normalize(cam_position - frag_pos);
+        vec3 reflect_dir = reflect(-light_dir, v_normal);
+        float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+        final_light += spec_strenght * spec * vec3(lights[i].color) / float(num_lights);
     }
 
     vec4 textured = texture(tex_sampler[sampler_idx], v_uv).rgba * v_color;

@@ -10,6 +10,7 @@ out vec2 v_uv;
 layout (std140, binding = 1, column_major) uniform matrix_block {
     mat4 projection;
     mat4 view;
+    vec4 cam_pos;
 };
 
 layout(location = 1) uniform vec4 color;

@@ -14,6 +14,7 @@ out vec3 v_normal;
 flat out float v_tex_idx;
 out vec3 frag_pos;
 out vec4 frag_pos_light[MAX_LIGHT_SRC_COUNT];
+out vec3 cam_position;
 
 struct LightData {
     vec4 light_pos;
@@ -35,6 +36,7 @@ layout (std140, binding = 0, column_major) uniform light_data {
 layout (std140, binding = 1, column_major) uniform matrix_block {
     mat4 projection;
     mat4 view;
+    vec4 cam_pos;
 };
 
 layout(location = 0) uniform int num_lights;
@@ -50,4 +52,5 @@ void main() {
     for (int i = 0; i < num_lights; i++) {
         frag_pos_light[i] = lights[i].light_matrix * vec4(frag_pos, 1.0);
     }
+    cam_position = vec3(cam_pos);
 }

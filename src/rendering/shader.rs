@@ -149,7 +149,7 @@ impl ShaderCatalog {
                     + padding::<LightConfig>()
                     + MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
             ),
-            matrix_buffer: UniformBuffer::new(size_of::<glm::Mat4>() * 2),
+            matrix_buffer: UniformBuffer::new(size_of::<glm::Mat4>() * 2 + size_of::<glm::Vec4>()),
             batch_basic: None,
             instance_basic: None,
             batch_passthrough: None,

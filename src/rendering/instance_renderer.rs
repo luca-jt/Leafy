@@ -183,7 +183,8 @@ impl InstanceRenderer {
             self.resize_buffer();
         }
         self.models[self.pos_idx] = *trafo;
-        self.normal_matrices[self.pos_idx] = glm::mat4_to_mat3(&trafo.try_inverse().unwrap().transpose());
+        self.normal_matrices[self.pos_idx] =
+            glm::mat4_to_mat3(&trafo.try_inverse().unwrap().transpose());
         self.index_count += mesh.num_indices() as GLsizei;
         self.pos_idx += 1;
     }
