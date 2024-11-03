@@ -1,4 +1,4 @@
-use fl_core::engine::{Engine, FallingLeafApp};
+use falling_leaf::engine::{Engine, FallingLeafApp};
 
 pub struct App;
 

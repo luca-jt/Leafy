@@ -186,7 +186,7 @@ macro_rules! impl_mut_query {
                 &mut self,
                 filter: Vec<Box<dyn QueryFilter>>,
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
-                debug_assert!(verify_types!($($ret), +));
+                debug_assert!(verify_types!($($ret), + $(, $ret_opt) *));
                 $sname {
                     archetype_iter: self.archetypes.values_mut().filter(|archetype| {$(archetype.contains::<$ret>()) && +}),
                     current_archetype: None,
@@ -199,6 +199,21 @@ macro_rules! impl_mut_query {
 
         impl EntityManager {
             #[doc = "mutable query for n components with m optionals"]
+            #[doc = "### Warning"]
+            #[doc = "If the query modifies components that influence what asset data is loaded"]
+            #[doc = "(e.g ``Scale``, ``MeshType``, ``MeshAttribute``, ``RigidBody``, ``HitboxType``),"]
+            #[doc = "the asset data is not updated automatically."]
+            #[doc = "Recomputes in every query are expensive and components in mutable queries are not necessarily modified."]
+            #[doc = "If you still do that you will end up with crashes or undefined behavior."]
+            #[doc = "To avoid this you can manually trigger a full recompute of all entities after you executed the query."]
+            #[doc = "Keep in mind that this is a big performance hit."]
+            #[doc = "This should not be a real problem most of the time, as all components that influence what asset data is loaded are typically quite static."]
+            #[doc = "E.g. ``Scale`` only influences inertia values of ``RigidBody``'s, which means modifying a scale in a query alone doesn't require a recompute"]
+            #[doc = "and modifying a ``MeshAttribute`` in a query only matters if there is texture data at play."]
+            #[doc = "### Unsafe"]
+            #[doc = "If you use the same component type twice in the same query, it is possible to aquire two mutable references to the same component,"]
+            #[doc = "which harms Rust's borrowing rules. In debug builds the query panics if you do that."]
+            #[doc = "In release builds these checks are disabled for performance reasons."]
             pub fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
                 &mut self,
                 filter: Vec<Box<dyn QueryFilter>>,

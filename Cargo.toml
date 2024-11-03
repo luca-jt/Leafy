@@ -13,7 +13,7 @@ repository = "https://github.com/luca-jt/Falling-Leaf"
 exclude = ["tests"]
 
 [lib]
-name = "fl_core"
+name = "falling_leaf"
 path = "src/lib.rs"
 
 [features]

@@ -1,6 +1,6 @@
-use fl_core::components;
-use fl_core::ecs::component::{Color32, MeshAttribute, MeshType, PointLight, Position};
-use fl_core::ecs::entity_manager::EntityManager;
+use falling_leaf::components;
+use falling_leaf::ecs::component::{Color32, MeshAttribute, MeshType, PointLight, Position};
+use falling_leaf::ecs::entity_manager::EntityManager;
 
 struct A;
 struct B;

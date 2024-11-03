@@ -1,12 +1,12 @@
-use fl_core::components;
-use fl_core::ecs::component::*;
-use fl_core::ecs::entity::EntityID;
-use fl_core::engine::{Engine, FallingLeafApp};
-use fl_core::glm;
-use fl_core::systems::audio_system::VolumeType;
-use fl_core::systems::event_system::events::*;
-use fl_core::utils::constants::{NO_ENTITY, ORIGIN, Y_AXIS};
-use fl_core::winit::keyboard::KeyCode;
+use falling_leaf::components;
+use falling_leaf::ecs::component::*;
+use falling_leaf::ecs::entity::EntityID;
+use falling_leaf::engine::{Engine, FallingLeafApp};
+use falling_leaf::glm;
+use falling_leaf::systems::audio_system::VolumeType;
+use falling_leaf::systems::event_system::events::*;
+use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, Y_AXIS};
+use falling_leaf::winit::keyboard::KeyCode;
 use std::f32::consts::PI;
 
 pub const CAM_MOVE_SPEED: f32 = 4.5;

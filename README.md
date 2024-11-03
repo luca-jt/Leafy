@@ -43,7 +43,7 @@ cargo run --release --example 3D
 ## Overview
 - Create an app struct that implements the `FallingLeafApp` trait and run the app like this:
 ```rs
-use fl_core::engine_builder::EngineAttributes;
+use falling_leaf::engine_builder::EngineAttributes;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {

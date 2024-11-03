@@ -166,26 +166,22 @@ impl EntityManager {
 
     /// removes a component from an entity and returns the component data if present
     pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
-        if TypeId::of::<T>() == TypeId::of::<MeshType>()
-            && self.ecs.has_component::<MeshType>(entity)
-        {
-            self.add_command(AssetCommand::CleanMeshes);
-            self.add_command(AssetCommand::CleanHitboxes);
-        } else if TypeId::of::<T>() == TypeId::of::<MeshAttribute>()
-            && self.ecs.has_component::<MeshAttribute>(entity)
-        {
-            self.add_command(AssetCommand::CleanTextures);
-        } else if TypeId::of::<T>() == TypeId::of::<Scale>()
-            && self.ecs.has_component::<Scale>(entity)
-        {
-            self.add_command(AssetCommand::UpdateRigidBody(entity));
-        } else if TypeId::of::<T>() == TypeId::of::<HitboxType>() {
-            self.add_command(AssetCommand::CleanHitboxes);
-        } else {
-            self.add_command(AssetCommand::DeleteLightID(entity));
-        }
         let removed = self.ecs.remove_component::<T>(entity);
-        self.exec_commands();
+        if removed.is_some() {
+            if TypeId::of::<T>() == TypeId::of::<MeshType>() {
+                self.add_command(AssetCommand::CleanMeshes);
+                self.add_command(AssetCommand::CleanHitboxes);
+            } else if TypeId::of::<T>() == TypeId::of::<MeshAttribute>() {
+                self.add_command(AssetCommand::CleanTextures);
+            } else if TypeId::of::<T>() == TypeId::of::<Scale>() {
+                self.add_command(AssetCommand::UpdateRigidBody(entity));
+            } else if TypeId::of::<T>() == TypeId::of::<HitboxType>() {
+                self.add_command(AssetCommand::CleanHitboxes);
+            } else if TypeId::of::<T>() == TypeId::of::<PointLight>() {
+                self.add_command(AssetCommand::DeleteLightID(entity));
+            }
+            self.exec_commands();
+        }
         removed
     }
 
@@ -326,6 +322,22 @@ impl EntityManager {
     /// adds a command to the managers' queue
     fn add_command(&mut self, command: AssetCommand) {
         self.commands.push_back(command);
+    }
+
+    /// fully recompute all internal asset data that is influenced by entities' components (performance heavy)
+    /// (might be useful when modifying specific component data in queries)
+    pub fn full_recompute(&mut self) {
+        let ids = self.all_ids_iter().copied().collect::<Vec<_>>();
+        for entity in ids {
+            self.add_command(AssetCommand::AddMesh(entity));
+            self.add_command(AssetCommand::CleanMeshes);
+            self.add_command(AssetCommand::UpdateRigidBody(entity));
+            self.add_command(AssetCommand::AddHitbox(entity));
+            self.add_command(AssetCommand::CleanHitboxes);
+            self.add_command(AssetCommand::AddTexture(entity));
+            self.add_command(AssetCommand::CleanTextures);
+        }
+        self.exec_commands();
     }
 }
 

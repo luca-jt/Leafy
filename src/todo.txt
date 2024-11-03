@@ -6,7 +6,6 @@ dynamic mesh LOD
 shadow anti-aliasing -> pcss
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system
-update components / manage register data when needed automatically in queries: hitbox, mesh, rigidbody
 ---------------------------------------------------------------------
 sky box cube maps
 conways game of life example
@@ -19,4 +18,4 @@ on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type
 optimize shader program change
 inertia matrix: correct origin for the center of mass
-entity flags bitmap + visibility component (just a flag?)?
+entity flags bitmap + visibility component (just a flag?)? or flag components?

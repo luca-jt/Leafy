@@ -2,7 +2,7 @@
 
 use crate::app::*;
 use env_logger::Env;
-use fl_core::engine_builder::EngineAttributes;
+use falling_leaf::engine_builder::EngineAttributes;
 use std::error::Error;
 
 mod app;
