@@ -21,13 +21,10 @@ pub fn weak_ptr<T>(shared_ptr: &SharedPtr<T>) -> WeakPtr<T> {
 }
 
 /// maps numeric ranges
-pub fn map_range<
+pub fn map_range<T>(from_range: (T, T), to_range: (T, T), s: T) -> T
+where
     T: Sub<Output = T> + Copy + Mul<Output = T> + Div<Output = T> + Add<Output = T>,
->(
-    from_range: (T, T),
-    to_range: (T, T),
-    s: T,
-) -> T {
+{
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
 }
 
@@ -39,6 +36,29 @@ pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
 /// calculates the padding necessary for offsets in uniform buffers (multiple of 16)
 pub(crate) fn padding<T>() -> usize {
     16 - (size_of::<T>() % 16)
+}
+
+/// generic octree data structure
+pub enum OctreeNode<T> {
+    Branch {
+        n1: Box<OctreeNode<T>>,
+        n2: Box<OctreeNode<T>>,
+        n3: Box<OctreeNode<T>>,
+        n4: Box<OctreeNode<T>>,
+        n5: Box<OctreeNode<T>>,
+        n6: Box<OctreeNode<T>>,
+        n7: Box<OctreeNode<T>>,
+        n8: Box<OctreeNode<T>>,
+    },
+    Leaf(T),
+}
+
+impl<T> Iterator for OctreeNode<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
 }
 
 /// cast anything to Any

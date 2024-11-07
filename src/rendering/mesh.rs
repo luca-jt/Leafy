@@ -1,7 +1,7 @@
 use crate::ecs::component::{HitboxType, Scale};
 use crate::glm;
 use crate::utils::constants::ORIGIN;
-use crate::utils::tools::to_vec4;
+use crate::utils::tools::{to_vec4, OctreeNode};
 use gl::types::*;
 use obj::{load_obj, Obj, TexturedVertex};
 use std::cmp::Ordering;
@@ -173,7 +173,7 @@ impl Mesh {
 
     /// creates a hitbox in the form of a voxelized version of the mesh
     fn voxelized_hitbox(&self) -> Hitbox {
-        Hitbox::SparseVoxelOctree
+        Hitbox::SparseVoxelOctree(OctreeNode::Leaf(0.1))
     }
 
     /// creates a hitbox in the form of a unaltered version of the mesh
@@ -242,7 +242,7 @@ fn inertia_product(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize, j: us
 pub(crate) enum Hitbox {
     Meshed(HitboxMesh),
     Ellipsoid(glm::Vec3),
-    SparseVoxelOctree,
+    SparseVoxelOctree(OctreeNode<f32>),
 }
 
 impl Hitbox {
@@ -270,14 +270,22 @@ impl HitboxMesh {
 
     /// removes vertices that are not used by a face and corrects the face indices
     fn remove_unused_vertices(&mut self) {
-        let used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
-        for i in (0..self.vertices.len()).filter(|index| !used_indices.contains(index)) {
-            self.vertices.swap_remove(i);
-            self.faces
-                .iter_mut()
-                .flatten()
-                .filter(|index| **index == self.vertices.len())
-                .for_each(|index| *index = i);
+        let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
+        for i in 0..self.vertices.len() {
+            while !used_indices.contains(&i) {
+                self.vertices.swap_remove(i);
+                self.faces
+                    .iter_mut()
+                    .flatten()
+                    .filter(|index| **index == self.vertices.len())
+                    .for_each(|index| *index = i);
+                if used_indices.remove(&self.vertices.len()) {
+                    used_indices.insert(i);
+                }
+            }
+            if i == self.vertices.len() {
+                break;
+            }
         }
     }
 
