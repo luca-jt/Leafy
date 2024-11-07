@@ -5,7 +5,7 @@ use crate::utils::tools::to_vec4;
 use gl::types::*;
 use obj::{load_obj, Obj, TexturedVertex};
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -270,7 +270,15 @@ impl HitboxMesh {
 
     /// removes vertices that are not used by a face and corrects the face indices
     fn remove_unused_vertices(&mut self) {
-        todo!()
+        let used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
+        for i in (0..self.vertices.len()).filter(|index| !used_indices.contains(index)) {
+            self.vertices.swap_remove(i);
+            self.faces
+                .iter_mut()
+                .flatten()
+                .filter(|index| **index == self.vertices.len())
+                .for_each(|index| *index = i);
+        }
     }
 
     /// simplifys the hitbox mesh for one iteration
@@ -450,19 +458,21 @@ impl HitboxMesh {
     }
 
     /// expand the hull by adding a new point and creating new faces for the convex hull algorithm
-    fn expand_hull(&mut self, face: usize, point: usize, outside_sets: &mut Vec<Vec<usize>>) {
-        let old_face = self.faces[face];
-        self.faces.remove(face);
-        outside_sets.remove(face);
-        self.faces.push([old_face[0], old_face[1], point]);
-        self.faces.push([old_face[1], old_face[2], point]);
-        self.faces.push([old_face[2], old_face[0], point]);
+    fn expand_hull(&mut self, f_idx: usize, p_idx: usize, outside_sets: &mut Vec<Vec<usize>>) {
+        let old_face = self.faces[f_idx];
+        self.faces.swap_remove(f_idx);
+        outside_sets.swap_remove(f_idx);
+        self.faces.push([old_face[0], old_face[1], p_idx]);
+        self.faces.push([old_face[1], old_face[2], p_idx]);
+        self.faces.push([old_face[2], old_face[0], p_idx]);
         outside_sets.append(&mut vec![Vec::new(); 3]);
+
+        let used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
         for (i, point) in self
             .vertices
             .iter()
             .enumerate()
-            .filter(|(i, _)| self.faces.iter().flatten().all(|idx| idx != i))
+            .filter(|(index, _)| !used_indices.contains(index))
         {
             for face_idx in self.faces.len() - 3..self.faces.len() {
                 let (v0, v1, v2) = self.face_points(face_idx);
