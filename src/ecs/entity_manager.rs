@@ -68,7 +68,8 @@ impl EntityManager {
             AngularVelocity::zero(),
             Acceleration::zero(),
             HitboxType::Ellipsiod,
-            RigidBody::default()
+            RigidBody::default(),
+            EntityFlags::default()
         ))
     }
 

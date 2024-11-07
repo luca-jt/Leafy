@@ -80,7 +80,9 @@ impl AnimationSystem {
             *p += *v * time_step;
 
             if let (Some(av), Some(o)) = (av_opt, o_opt) {
-                let inertia_mat = rb_opt.copied().unwrap_or_default().inertia_tensor;
+                let rigid_body = rb_opt.copied().unwrap_or_default();
+                let center_of_mass = rigid_body.center_of_mass;
+                let inertia_mat = rigid_body.inertia_tensor;
                 let corr_av = inertia_mat.try_inverse().unwrap() * av.0;
                 o.0 += 0.5 * o.0 * glm::quat(corr_av.x, corr_av.y, corr_av.z, 0.0) * time_step.0;
                 o.0.normalize_mut();

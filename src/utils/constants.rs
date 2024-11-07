@@ -17,3 +17,7 @@ pub const Y_AXIS: glm::Vec3 = glm::Vec3::new(0.0, 1.0, 0.0);
 pub const Z_AXIS: glm::Vec3 = glm::Vec3::new(0.0, 0.0, 1.0);
 
 pub const NO_ENTITY: EntityID = 0;
+
+pub mod bits {
+    pub const INVISIBLE: u64 = 0;
+}

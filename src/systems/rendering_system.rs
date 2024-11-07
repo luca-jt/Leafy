@@ -10,6 +10,7 @@ use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::{ShaderCatalog, ShaderType};
 use crate::systems::event_system::events::{CamPositionChange, WindowResize};
 use crate::systems::event_system::EventObserver;
+use crate::utils::constants::bits::INVISIBLE;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
 use crate::utils::tools::{padding, to_vec4};
 use gl::types::*;
@@ -97,14 +98,12 @@ impl RenderingSystem {
 
         // add entity data
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        for (position, mesh_type, mesh_attr, scale, orientation, light) in entity_manager
-            .query6_opt4::<Position, MeshType, MeshAttribute, Scale, Orientation, PointLight>(
+        for (position, mesh_type, _, mesh_attr, scale, orientation, light) in entity_manager
+            .query7_opt5::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, PointLight>(
                 vec![],
             )
-            .filter(|(pos, ..)| match render_dist {
-                None => true,
-                Some(dist) => (pos.data() - cam_pos).norm() <= dist,
-            })
+            .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
+            .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
         {
             let default_attr = Colored(Color32::WHITE);
             let trafo = calc_model_matrix(

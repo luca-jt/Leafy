@@ -456,6 +456,32 @@ impl Default for PointLight {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct LightSrcID(pub(crate) EntityID);
 
+/// 64bit flag bitmap for enabling special entity behavior (default: all turned off, the same as component not present)
+/// ### Info
+/// You can use this component independantly of the rest of the engine if you want to.
+/// The bits 1-63 do not influence engine behavior and are free to customize.
+pub struct EntityFlags(u64);
+
+impl EntityFlags {
+    /// get the bool value of the ``n'th`` flag bit (``n`` is in ``(0..=63)``)
+    /// (bit constants available in ``constants::bits``)
+    pub fn get_bit(&self, n: u64) -> bool {
+        ((self.0 >> n) & 1) == 1
+    }
+
+    /// set the bool value of the ``n'th`` flag bit (``n`` is in ``(0..=63)``)
+    /// (bit constants available in ``constants::bits``)
+    pub fn set_bit(&mut self, n: u64, value: bool) {
+        self.0 = (self.0 & !(1 << n)) | ((value as u64) << n);
+    }
+}
+
+impl Default for EntityFlags {
+    fn default() -> Self {
+        Self(0)
+    }
+}
+
 /// holds data for sprite rendering
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sprite;

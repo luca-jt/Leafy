@@ -16,6 +16,6 @@ particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
 sprite renderer -> depth layers configurable, sprite component
 on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type
+voxelized meshes -> Mesh becomes enum
 optimize shader program change
 inertia matrix: correct origin for the center of mass
-entity flags bitmap + visibility component (just a flag?)? or flag components?
