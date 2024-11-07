@@ -11,8 +11,8 @@ struct D;
 fn entity_test() {
     let mut ecs = EntityManager::new();
     let x = ecs.create_entity(components!(A, B));
-    ecs.add_component(x, C);
-    ecs.add_component(x, D);
+    ecs.add_component(x, C).unwrap();
+    ecs.add_component(x, D).unwrap();
     assert!(ecs.has_component::<D>(x));
     ecs.remove_component::<D>(x);
     assert!(!ecs.has_component::<D>(x));

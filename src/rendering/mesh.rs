@@ -11,7 +11,7 @@ use std::io::BufReader;
 use std::path::Path;
 
 /// a mesh that can be rendered in gl
-pub struct Mesh {
+pub(crate) struct Mesh {
     pub(crate) positions: Vec<glm::Vec3>,
     pub(crate) texture_coords: Vec<glm::Vec2>,
     pub(crate) normals: Vec<glm::Vec3>,
@@ -67,13 +67,13 @@ impl Mesh {
 
     /// yields the number of vertices per object
     #[inline]
-    pub fn num_vertices(&self) -> usize {
+    pub(crate) fn num_vertices(&self) -> usize {
         self.positions.len()
     }
 
     /// yields the number of indices per object
     #[inline]
-    pub fn num_indices(&self) -> usize {
+    pub(crate) fn num_indices(&self) -> usize {
         self.indices.len()
     }
 
@@ -143,19 +143,31 @@ impl Mesh {
 
     /// creates a hitbox in the form of a convex hull of the mesh
     fn convex_hull_hitbox_mesh(&self) -> HitboxMesh {
-        HitboxMesh {
-            vertices: vec![],
-            faces: vec![],
+        let mut hitbox = self.unaltered_hitbox_mesh();
+        assert!(
+            hitbox.vertices.len() >= 4,
+            "mesh must be at least as complex as a tetrahedron for it to have a convex hull hitbox"
+        );
+        let (a, b, c, d) = hitbox.find_initial_tetrahedron();
+        let initial_faces = vec![[a, b, c], [a, b, d], [a, c, d], [b, c, d]];
+        hitbox.faces = initial_faces;
+        let mut outside_sets = hitbox.partition_points();
+        while !outside_sets.is_empty() {
+            let (face, far_point) = hitbox.find_furthest_point(&mut outside_sets);
+            hitbox.expand_hull(face, far_point, &mut outside_sets);
         }
+        hitbox.remove_unused_vertices();
+        hitbox
     }
 
     /// creates a hitbox in the form of a simplified version of the mesh
     fn simplified_hitbox_mesh(&self) -> HitboxMesh {
         let mut hitbox = self.unaltered_hitbox_mesh();
-        let target_triangle_count = hitbox.faces.len().ilog2() as usize;
+        let target_triangle_count = (hitbox.faces.len().ilog2() as usize).max(4);
         while hitbox.faces.len() < target_triangle_count {
             hitbox.simplify(target_triangle_count);
         }
+        hitbox.remove_unused_vertices();
         hitbox
     }
 
@@ -247,6 +259,20 @@ pub(crate) struct HitboxMesh {
 }
 
 impl HitboxMesh {
+    /// yields all of the points corresponding to the face of the given index
+    fn face_points(&self, face_idx: usize) -> (glm::Vec3, glm::Vec3, glm::Vec3) {
+        (
+            self.vertices[self.faces[face_idx][0]],
+            self.vertices[self.faces[face_idx][1]],
+            self.vertices[self.faces[face_idx][2]],
+        )
+    }
+
+    /// removes vertices that are not used by a face and corrects the face indices
+    fn remove_unused_vertices(&mut self) {
+        todo!()
+    }
+
     /// simplifys the hitbox mesh for one iteration
     fn simplify(&mut self, target_triangle_count: usize) {
         let mut vertex_errors: Vec<glm::Mat4> = self.calculate_vertex_errors();
@@ -261,12 +287,8 @@ impl HitboxMesh {
     /// calculate the initial error metrics (quadrics) for all vertices
     fn calculate_vertex_errors(&self) -> Vec<glm::Mat4> {
         let mut vertex_errors = vec![glm::Mat4::zeros(); self.vertices.len()];
-        for face in &self.faces {
-            let (v0, v1, v2) = (
-                self.vertices[face[0]],
-                self.vertices[face[1]],
-                self.vertices[face[2]],
-            );
+        for (i, face) in self.faces.iter().enumerate() {
+            let (v0, v1, v2) = self.face_points(i);
             let normal = (v1 - v0).cross(&(v2 - v0)).normalize();
             let d = -normal.dot(&v0);
 
@@ -299,7 +321,6 @@ impl HitboxMesh {
     fn build_edge_queue(&self, vertex_errors: &[glm::Mat4]) -> BinaryHeap<Edge> {
         let mut edge_queue = BinaryHeap::new();
         let mut edge_set = HashMap::new();
-
         for face in &self.faces {
             for i in 0..3 {
                 let (v1, v2) = (face[i], face[(i + 1) % 3]);
@@ -334,6 +355,124 @@ impl HitboxMesh {
             }
             face[0] != face[1] && face[1] != face[2] && face[2] != face[0]
         });
+    }
+
+    /// find the base tetrahedron for the convex hull algorithm
+    fn find_initial_tetrahedron(&self) -> (usize, usize, usize, usize) {
+        // find two extreme points along x axis
+        let (min_x_idx, max_x_idx) =
+            self.vertices
+                .iter()
+                .enumerate()
+                .fold((0, 0), |(min_idx, max_idx), (i, v)| {
+                    let mut updated = (min_idx, max_idx);
+                    if v.x < self.vertices[min_idx].x {
+                        updated.0 = i;
+                    }
+                    if v.x > self.vertices[max_idx].x {
+                        updated.1 = 1;
+                    }
+                    updated
+                });
+        // find the point farthest from the line formed by the two points
+        let line_vec = self.vertices[max_x_idx] - self.vertices[min_x_idx];
+        let third_idx = self
+            .vertices
+            .iter()
+            .enumerate()
+            .filter(|&(i, _)| i != min_x_idx && i != max_x_idx)
+            .map(|(i, v)| {
+                (
+                    i,
+                    glm::cross(&line_vec, &(v - self.vertices[min_x_idx])).norm(),
+                )
+            })
+            .max_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap())
+            .unwrap()
+            .0;
+        // find the fourth point that forms a valid tetrahedron
+        let normal = (self.vertices[max_x_idx] - self.vertices[min_x_idx])
+            .cross(&(self.vertices[third_idx] - self.vertices[min_x_idx]))
+            .normalize();
+        let fourth_idx = self
+            .vertices
+            .iter()
+            .enumerate()
+            .filter(|&(i, _)| i != min_x_idx && i != max_x_idx && i != third_idx)
+            .map(|(i, v)| (i, (v - self.vertices[min_x_idx]).dot(&normal)))
+            .max_by(|(_, dot1), (_, dot2)| dot1.partial_cmp(dot2).unwrap())
+            .unwrap()
+            .0;
+
+        (min_x_idx, max_x_idx, third_idx, fourth_idx)
+    }
+
+    /// partition points into outside sets for each face of the initial tetrahedron for the convex hull algorithm
+    fn partition_points(&self) -> Vec<Vec<usize>> {
+        let mut outside_sets: Vec<Vec<usize>> = vec![Vec::new(); 4];
+        for (i, point) in self
+            .vertices
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| self.faces.iter().flatten().all(|idx| idx != i))
+        {
+            for face_idx in 0..self.faces.len() {
+                let (v0, v1, v2) = self.face_points(face_idx);
+                let normal = (v1 - v0).cross(&(v2 - v0)).normalize();
+                let distance = (point - v0).dot(&normal);
+                if distance > 0.0 {
+                    outside_sets[face_idx].push(i);
+                }
+            }
+        }
+        outside_sets
+    }
+
+    /// find the point furthest from a given face
+    fn find_furthest_point(&self, outside_sets: &mut Vec<Vec<usize>>) -> (usize, usize) {
+        let mut max_distance = -f32::INFINITY;
+        let mut best_face_idx = 0;
+        let mut best_point_idx = 0;
+        for (face_idx, face_points) in outside_sets.iter().enumerate() {
+            let (v0, v1, v2) = self.face_points(face_idx);
+            let normal = (v1 - v0).cross(&(v2 - v0)).normalize();
+            for &point_idx in face_points {
+                let point = self.vertices[point_idx];
+                let distance = (point - v0).dot(&normal);
+                if distance > max_distance {
+                    max_distance = distance;
+                    best_face_idx = face_idx;
+                    best_point_idx = point_idx;
+                }
+            }
+        }
+        (best_face_idx, best_point_idx)
+    }
+
+    /// expand the hull by adding a new point and creating new faces for the convex hull algorithm
+    fn expand_hull(&mut self, face: usize, point: usize, outside_sets: &mut Vec<Vec<usize>>) {
+        let old_face = self.faces[face];
+        self.faces.remove(face);
+        outside_sets.remove(face);
+        self.faces.push([old_face[0], old_face[1], point]);
+        self.faces.push([old_face[1], old_face[2], point]);
+        self.faces.push([old_face[2], old_face[0], point]);
+        outside_sets.append(&mut vec![Vec::new(); 3]);
+        for (i, point) in self
+            .vertices
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| self.faces.iter().flatten().all(|idx| idx != i))
+        {
+            for face_idx in self.faces.len() - 3..self.faces.len() {
+                let (v0, v1, v2) = self.face_points(face_idx);
+                let normal = (v1 - v0).cross(&(v2 - v0)).normalize();
+                let distance = (point - v0).dot(&normal);
+                if distance > 0.0 {
+                    outside_sets[face_idx].push(i);
+                }
+            }
+        }
     }
 }
 

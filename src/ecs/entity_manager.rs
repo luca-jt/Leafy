@@ -185,20 +185,14 @@ impl EntityManager {
         removed
     }
 
-    /// makes mesh data available for a given entity id
-    pub fn asset_from_id(&self, entity: EntityID) -> Option<&Mesh> {
-        let mesh_type = self.ecs.get_component::<MeshType>(entity)?;
-        self.asset_register.get(mesh_type)
-    }
-
-    /// makes mesh data available for a given mesh type
-    pub fn asset_from_type(&self, mesh_type: &MeshType) -> Option<&Mesh> {
-        self.asset_register.get(mesh_type)
-    }
-
     /// iterate over all of the stored entities
     pub fn all_ids_iter(&self) -> Keys<'_, EntityID, EntityRecord> {
         self.ecs.entity_index.keys()
+    }
+
+    /// makes mesh data available for a given mesh type
+    pub(crate) fn asset_from_type(&self, mesh_type: &MeshType) -> Option<&Mesh> {
+        self.asset_register.get(mesh_type)
     }
 
     /// executes all the commands in the queue and clears it
@@ -279,7 +273,8 @@ impl EntityManager {
                     if self.ecs.has_component::<MeshType>(entity)
                         && self.ecs.has_component::<RigidBody>(entity)
                     {
-                        let mesh = self.asset_from_id(entity).unwrap();
+                        let mt = self.ecs.get_component::<MeshType>(entity).unwrap();
+                        let mesh = self.asset_from_type(mt).unwrap();
                         let scale = self.ecs.get_component::<Scale>(entity).copied();
                         let density = self.ecs.get_component::<RigidBody>(entity).unwrap().density;
                         let (inertia_tensor, center_of_mass) =
@@ -355,7 +350,7 @@ enum AssetCommand {
 }
 
 /// the entity component system that manages all the data associated with an entity
-pub struct ECS {
+pub(crate) struct ECS {
     next_entity: EntityID,
     next_archetype_id: ArchetypeID,
     entity_index: HashMap<EntityID, EntityRecord>,
@@ -365,7 +360,7 @@ pub struct ECS {
 
 impl ECS {
     /// creates a new ecs
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             next_entity: 1,
             next_archetype_id: 1,
