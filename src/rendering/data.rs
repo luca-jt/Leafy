@@ -156,11 +156,14 @@ pub fn calc_model_matrix(
     position: &Position,
     scale: &Scale,
     orientation: &Orientation,
+    center_of_mass: &glm::Vec3,
 ) -> glm::Mat4 {
+    let mass_offset = glm::translate(&glm::Mat4::identity(), center_of_mass);
+    let inv_mass_offset = mass_offset.try_inverse().unwrap();
     let translate = glm::translate(&glm::Mat4::identity(), position.data());
     let rotate = orientation.rotation_matrix();
     let scaled = scale.scale_matrix();
-    translate * rotate * scaled
+    translate * mass_offset * rotate * inv_mass_offset * scaled
 }
 
 /// stores the current camera config for 3D rendering

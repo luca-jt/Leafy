@@ -98,8 +98,8 @@ impl RenderingSystem {
 
         // add entity data
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        for (position, mesh_type, _, mesh_attr, scale, orientation, light) in entity_manager
-            .query7_opt5::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, PointLight>(
+        for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light) in entity_manager
+            .query8_opt6::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight>(
                 vec![],
             )
             .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
@@ -110,11 +110,9 @@ impl RenderingSystem {
                 position,
                 scale.unwrap_or(&Scale::default()),
                 orientation.unwrap_or(&Orientation::default()),
+                &rb.copied().unwrap_or_default().center_of_mass
             );
-            let shader_type = match light {
-                None => ShaderType::Basic,
-                Some(_) => ShaderType::Passthrough,
-            };
+            let shader_type = light.map_or(ShaderType::Basic, |_| ShaderType::Passthrough);
 
             let render_data = RenderData {
                 spec: RenderSpec {

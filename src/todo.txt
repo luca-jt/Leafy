@@ -18,4 +18,3 @@ on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type
 voxelized meshes -> Mesh becomes enum
 optimize shader program change
-inertia matrix: correct origin for the center of mass
