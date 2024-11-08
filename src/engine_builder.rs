@@ -96,7 +96,7 @@ impl EngineAttributes {
         self
     }
 
-    /// sets the window icon from a file (must be .ico) (only works on windows)
+    /// sets the window to be resizable (default is true)
     pub fn with_resizable(mut self, flag: bool) -> Self {
         self.resizable = flag;
         self
@@ -132,7 +132,7 @@ impl EngineAttributes {
         self
     }
 
-    /// builds the actual engine and performs engine
+    /// builds the actual engine and performs compatibility checks
     pub fn build_engine<A: FallingLeafApp>(self) -> Result<Engine<A>, String> {
         if let Some(min_size) = self.min_size {
             if min_size.0 > self.size.0 || min_size.1 > self.size.1 {
