@@ -7,6 +7,7 @@ shadow anti-aliasing -> pcss
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system
 ---------------------------------------------------------------------
+fix 3D mouse cam movement
 sky box cube maps
 conways game of life example
 other light source type (not point) with creation function
@@ -14,7 +15,6 @@ dpi scale factor event handling
 ui basics + font rendering + events for ui struct
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
 sprite renderer -> depth layers configurable, sprite component
+voxelized meshes -> Mesh becomes enum
 on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type
-voxelized meshes -> Mesh becomes enum
-optimize shader program change

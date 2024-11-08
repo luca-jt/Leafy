@@ -14,6 +14,7 @@ use crate::utils::constants::bits::INVISIBLE;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
 use crate::utils::tools::{padding, to_vec4};
 use gl::types::*;
+use std::cmp::Ordering;
 use RendererType::*;
 
 /// responsible for the automated rendering of all entities
@@ -171,28 +172,21 @@ impl RenderingSystem {
             .map(|(_, map)| map)
             .collect::<Vec<_>>();
 
+        let mut current_shader = None;
         for renderer_type in self.renderers.iter_mut() {
+            let new_shader = renderer_type.required_shader();
+            if current_shader
+                .map(|shader_spec| shader_spec != new_shader)
+                .unwrap_or(true)
+            {
+                self.shader_catalog.use_shader(new_shader);
+                current_shader = Some(new_shader);
+            }
             match renderer_type {
                 Batch(spec, renderer, _) => {
-                    match spec.shader_type {
-                        ShaderType::Passthrough => {
-                            self.shader_catalog.batch_passthrough().use_program();
-                        }
-                        ShaderType::Basic => {
-                            self.shader_catalog.batch_basic().use_program();
-                        }
-                    }
                     renderer.flush(&shadow_maps, spec.shader_type);
                 }
                 Instance(spec, _, renderer, _) => {
-                    match spec.shader_type {
-                        ShaderType::Passthrough => {
-                            self.shader_catalog.instance_passthrough().use_program();
-                        }
-                        ShaderType::Basic => {
-                            self.shader_catalog.instance_basic().use_program();
-                        }
-                    }
                     renderer.draw_all(&shadow_maps, spec.shader_type);
                 }
             }
@@ -299,6 +293,7 @@ impl RenderingSystem {
                     .push(Instance(rd.spec.clone(), rd.m_attr.clone(), renderer, true));
             }
         }
+        self.renderers.sort();
     }
 
     /// updates the camera if it is attached to an entity
@@ -456,6 +451,20 @@ struct RenderSpec {
     shader_type: ShaderType,
 }
 
+/// all variants of renderer architecture
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub(crate) enum RendererArch {
+    Batch,
+    Instance,
+}
+
+/// identifies a shader (combines renderer architecture and shader type)
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub(crate) struct ShaderSpec {
+    pub(crate) arch: RendererArch,
+    pub(crate) shader_type: ShaderType,
+}
+
 /// stores the renderer type with rendered entity type + renderer
 enum RendererType {
     Batch(RenderSpec, BatchRenderer, bool),
@@ -480,6 +489,58 @@ impl RendererType {
             Instance(_, _, _, used) => {
                 *used = false;
             }
+        }
+    }
+
+    /// returns the shader requirement for this shader
+    fn required_shader(&self) -> ShaderSpec {
+        match self {
+            Batch(spec, ..) => ShaderSpec {
+                arch: RendererArch::Batch,
+                shader_type: spec.shader_type,
+            },
+            Instance(spec, ..) => ShaderSpec {
+                arch: RendererArch::Instance,
+                shader_type: spec.shader_type,
+            },
+        }
+    }
+}
+
+impl Eq for RendererType {}
+
+impl PartialEq<Self> for RendererType {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Batch(spec1, ..) => match other {
+                Batch(spec2, ..) => spec1.shader_type == spec2.shader_type,
+                Instance(..) => false,
+            },
+            Instance(spec1, ..) => match other {
+                Batch(..) => false,
+                Instance(spec2, ..) => spec1.shader_type == spec2.shader_type,
+            },
+        }
+    }
+}
+
+impl PartialOrd<Self> for RendererType {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for RendererType {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self {
+            Batch(spec1, ..) => match other {
+                Batch(spec2, ..) => spec1.shader_type.cmp(&spec2.shader_type),
+                Instance(..) => Ordering::Less,
+            },
+            Instance(spec1, ..) => match other {
+                Batch(..) => Ordering::Greater,
+                Instance(spec2, ..) => spec1.shader_type.cmp(&spec2.shader_type),
+            },
         }
     }
 }

@@ -1,5 +1,6 @@
 use crate::glm;
 use crate::rendering::data::{LightConfig, LightData, UniformBuffer, Vertex};
+use crate::systems::rendering_system::{RendererArch, ShaderSpec};
 use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
 use crate::utils::file::*;
 use crate::utils::tools::padding;
@@ -157,8 +158,22 @@ impl ShaderCatalog {
         }
     }
 
+    /// calls ``gl::UseProgram`` for the spec's corresponding shader
+    pub(crate) fn use_shader(&mut self, shader_spec: ShaderSpec) {
+        match shader_spec.arch {
+            RendererArch::Batch => match shader_spec.shader_type {
+                ShaderType::Passthrough => self.batch_passthrough().use_program(),
+                ShaderType::Basic => self.batch_basic().use_program(),
+            },
+            RendererArch::Instance => match shader_spec.shader_type {
+                ShaderType::Passthrough => self.instance_passthrough().use_program(),
+                ShaderType::Basic => self.instance_basic().use_program(),
+            },
+        }
+    }
+
     /// returns a reference to the basic shader for batch renderers
-    pub(crate) fn batch_basic(&mut self) -> &ShaderProgram {
+    fn batch_basic(&mut self) -> &ShaderProgram {
         if self.batch_basic.is_none() {
             self.create_batch_basic();
         }
@@ -166,7 +181,7 @@ impl ShaderCatalog {
     }
 
     /// returns a reference to the basic shader for instance renderers
-    pub(crate) fn instance_basic(&mut self) -> &ShaderProgram {
+    fn instance_basic(&mut self) -> &ShaderProgram {
         if self.instance_basic.is_none() {
             self.create_instance_basic();
         }
@@ -174,7 +189,7 @@ impl ShaderCatalog {
     }
 
     /// returns a reference to the passthrough shader for batch renderers
-    pub(crate) fn batch_passthrough(&mut self) -> &ShaderProgram {
+    fn batch_passthrough(&mut self) -> &ShaderProgram {
         if self.batch_passthrough.is_none() {
             self.create_batch_passthrough();
         }
@@ -182,7 +197,7 @@ impl ShaderCatalog {
     }
 
     /// returns a reference to the passthrough shader for instance renderers
-    pub(crate) fn instance_passthrough(&mut self) -> &ShaderProgram {
+    fn instance_passthrough(&mut self) -> &ShaderProgram {
         if self.instance_passthrough.is_none() {
             self.create_instance_passthrough();
         }
@@ -229,7 +244,7 @@ impl ShaderCatalog {
 }
 
 /// all shader variants for entity rendering
-#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub(crate) enum ShaderType {
     Passthrough,
     Basic,
