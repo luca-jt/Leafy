@@ -75,7 +75,7 @@ impl<A: FallingLeafApp> Engine<A> {
     }
 
     /// gets called every frame and contains the main app logic
-    fn on_frame_redraw(&mut self, event_loop: &ActiveEventLoop) {
+    fn on_frame_redraw(&mut self) {
         self.app_mut().on_frame_update(self);
 
         self.audio_system_mut()
@@ -88,13 +88,6 @@ impl<A: FallingLeafApp> Engine<A> {
 
         self.rendering_system_mut()
             .render(self.entity_manager().deref());
-
-        self.video_system().swap_window();
-        self.video_system_mut().try_cap_fps();
-
-        if *self.should_quit.borrow() {
-            event_loop.exit();
-        }
     }
 
     /// access to the stored app
@@ -200,7 +193,19 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
     ) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::RedrawRequested => self.on_frame_redraw(event_loop),
+            WindowEvent::RedrawRequested => {
+                if self.video_system().should_redraw() {
+                    self.video_system_mut().reset_draw_timer();
+                    self.on_frame_redraw();
+                    self.video_system().swap_window();
+                    self.video_system_mut().add_time_until_next_draw();
+                }
+                if *self.should_quit.borrow() {
+                    event_loop.exit();
+                }
+                self.video_system().request_redraw();
+                self.video_system_mut().subtract_iteration_time();
+            }
             _ => self.event_system().parse_winit_window_event(event, self),
         }
     }

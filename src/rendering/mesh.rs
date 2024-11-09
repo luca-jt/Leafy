@@ -173,6 +173,7 @@ impl Mesh {
 
     /// creates a hitbox in the form of a voxelized version of the mesh
     fn voxelized_hitbox(&self) -> Hitbox {
+        // TODO https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
         Hitbox::SparseVoxelOctree(OctreeNode::Leaf(0.1))
     }
 

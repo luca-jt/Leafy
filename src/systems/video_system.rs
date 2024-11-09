@@ -33,7 +33,9 @@ pub struct VideoSystem {
     pub(crate) gl_surface: Option<Surface<WindowSurface>>,
     pub(crate) window: Option<Window>,
     current_fps: f64,
-    frame_start_time: Instant,
+    last_draw_time: Instant,
+    wait_time_accu: Duration,
+    iteration_start_time: Instant,
     fps_cap: Option<f64>,
     stored_config: EngineAttributes,
     skipped_first_resize: bool,
@@ -60,7 +62,9 @@ impl VideoSystem {
             gl_surface: None,
             window: None,
             current_fps: 0f64,
-            frame_start_time: Instant::now(),
+            last_draw_time: Instant::now(),
+            wait_time_accu: Duration::ZERO,
+            iteration_start_time: Instant::now(),
             fps_cap: config.fps_cap,
             stored_config: config,
             skipped_first_resize: false,
@@ -216,30 +220,56 @@ impl VideoSystem {
 
     /// call the opengl window swap
     pub(crate) fn swap_window(&self) {
-        if let (Some(window), Some(gl_surface), Some(gl_context)) = (
-            self.window.as_ref(),
-            self.gl_surface.as_ref(),
-            self.gl_context.as_ref(),
-        ) {
-            window.request_redraw();
+        if let (Some(gl_surface), Some(gl_context)) =
+            (self.gl_surface.as_ref(), self.gl_context.as_ref())
+        {
             gl_surface.swap_buffers(gl_context).unwrap();
         }
     }
 
-    /// caps the fps of the event loop if the setting requires it
-    pub(crate) fn try_cap_fps(&mut self) {
-        let elapsed_frame_time = self.frame_start_time.elapsed();
-        if let Some(fps_cap) = self.fps_cap {
-            let max_frame_time = Duration::from_secs_f64(1.0 / fps_cap);
-            if elapsed_frame_time < max_frame_time {
-                std::thread::sleep(max_frame_time - elapsed_frame_time);
-            }
+    /// requests a redraw of the winit window
+    pub(crate) fn request_redraw(&self) {
+        if let Some(window) = self.window.as_ref() {
+            window.request_redraw();
         }
-        self.current_fps = (1.0 / elapsed_frame_time.as_secs_f64()).round();
-        self.frame_start_time = Instant::now();
+    }
+
+    /// resets the internal timer for the engine update loop
+    pub(crate) fn reset_draw_timer(&mut self) {
+        let elapsed_draw_time = self.last_draw_time.elapsed();
+        self.last_draw_time = Instant::now();
+        self.current_fps = 1.0 / elapsed_draw_time.as_secs_f64();
+        println!("{:.2}", self.current_fps);
+    }
+
+    /// calculates how long the update loop took and adds the time to wait to the internal accumulator
+    pub(crate) fn add_time_until_next_draw(&mut self) {
+        if let Some(fps_cap) = self.fps_cap {
+            let elapsed_draw_time = self.last_draw_time.elapsed();
+            let max_frame_time = Duration::from_secs_f64(1.0 / fps_cap);
+            self.wait_time_accu += max_frame_time.max(elapsed_draw_time);
+        }
+    }
+
+    /// subtract the iteration's time from the accumulator and resets the iteration timer
+    pub(crate) fn subtract_iteration_time(&mut self) {
+        let elapsed_iteration_time = self.iteration_start_time.elapsed();
+        self.iteration_start_time = Instant::now();
+        self.wait_time_accu = self.wait_time_accu.saturating_sub(elapsed_iteration_time);
+        // cap event loop at ~40000 fps
+        let max_iteration_time = Duration::from_micros(25);
+        if elapsed_iteration_time < max_iteration_time {
+            std::thread::sleep(max_iteration_time - elapsed_iteration_time);
+        }
+    }
+
+    /// checks wether or not a full engine update loop should occur
+    pub(crate) fn should_redraw(&self) -> bool {
+        self.fps_cap.map_or(true, |_| self.wait_time_accu.is_zero())
     }
 
     /// gets the current fps in seconds
+    #[inline]
     pub fn current_fps(&self) -> f64 {
         self.current_fps
     }
