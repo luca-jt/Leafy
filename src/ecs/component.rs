@@ -460,6 +460,7 @@ pub(crate) struct LightSrcID(pub(crate) EntityID);
 /// ### Info
 /// You can use this component independantly of the rest of the engine if you want to.
 /// The bits 1-63 do not influence engine behavior and are free to customize.
+#[derive(Default)]
 pub struct EntityFlags(u64);
 
 impl EntityFlags {
@@ -473,12 +474,6 @@ impl EntityFlags {
     /// (bit constants available in ``constants::bits``)
     pub fn set_bit(&mut self, n: u64, value: bool) {
         self.0 = (self.0 & !(1 << n)) | ((value as u64) << n);
-    }
-}
-
-impl Default for EntityFlags {
-    fn default() -> Self {
-        Self(0)
     }
 }
 

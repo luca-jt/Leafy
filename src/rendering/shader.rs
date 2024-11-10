@@ -216,7 +216,7 @@ impl ShaderCatalog {
 
     /// creates a new basic instance renderer shader
     fn create_instance_basic(&mut self) {
-        let program = ShaderProgram::new(INST_B_VERT, INST_B_FRAG);
+        let program = ShaderProgram::new(INSTANCE_B_VERT, INSTANCE_B_FRAG);
 
         program.add_unif_buffer("light_data", &self.light_buffer, 0);
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
@@ -235,7 +235,7 @@ impl ShaderCatalog {
 
     /// creates a new passthrough instance renderer shader
     fn create_instance_passthrough(&mut self) {
-        let program = ShaderProgram::new(INST_PT_VERT, INST_PT_FRAG);
+        let program = ShaderProgram::new(INSTANCE_PT_VERT, INSTANCE_PT_FRAG);
 
         program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
 

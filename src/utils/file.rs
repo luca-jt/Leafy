@@ -42,16 +42,16 @@ macro_rules! texture_path {
 }
 
 // shader files
-pub(crate) const BATCH_B_FRAG: &'static str = include_str!(shader_path!("batch_basic.frag"));
-pub(crate) const BATCH_B_VERT: &'static str = include_str!(shader_path!("batch_basic.vert"));
-pub(crate) const BATCH_PT_FRAG: &'static str = include_str!(shader_path!("batch_passthrough.frag"));
-pub(crate) const BATCH_PT_VERT: &'static str = include_str!(shader_path!("batch_passthrough.vert"));
-pub(crate) const INST_B_FRAG: &'static str = include_str!(shader_path!("inst_basic.frag"));
-pub(crate) const INST_B_VERT: &'static str = include_str!(shader_path!("inst_basic.vert"));
-pub(crate) const INST_PT_FRAG: &'static str = include_str!(shader_path!("inst_passthrough.frag"));
-pub(crate) const INST_PT_VERT: &'static str = include_str!(shader_path!("inst_passthrough.vert"));
-pub(crate) const SHADOW_FRAG: &'static str = include_str!(shader_path!("shadow.frag"));
-pub(crate) const SHADOW_VERT: &'static str = include_str!(shader_path!("shadow.vert"));
+pub(crate) const BATCH_B_FRAG: &str = include_str!(shader_path!("batch_basic.frag"));
+pub(crate) const BATCH_B_VERT: &str = include_str!(shader_path!("batch_basic.vert"));
+pub(crate) const BATCH_PT_FRAG: &str = include_str!(shader_path!("batch_passthrough.frag"));
+pub(crate) const BATCH_PT_VERT: &str = include_str!(shader_path!("batch_passthrough.vert"));
+pub(crate) const INSTANCE_B_FRAG: &str = include_str!(shader_path!("inst_basic.frag"));
+pub(crate) const INSTANCE_B_VERT: &str = include_str!(shader_path!("inst_basic.vert"));
+pub(crate) const INSTANCE_PT_FRAG: &str = include_str!(shader_path!("inst_passthrough.frag"));
+pub(crate) const INSTANCE_PT_VERT: &str = include_str!(shader_path!("inst_passthrough.vert"));
+pub(crate) const SHADOW_FRAG: &str = include_str!(shader_path!("shadow.frag"));
+pub(crate) const SHADOW_VERT: &str = include_str!(shader_path!("shadow.vert"));
 
 // optional mesh features
 #[cfg(feature = "triangle_mesh")]

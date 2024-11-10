@@ -67,7 +67,7 @@ impl RenderingSystem {
         // update positions of existing ones
         self.light_sources.iter_mut().for_each(|(entity, map)| {
             let correct_light = lights.iter().find(|(_, _, id)| id == entity).unwrap();
-            map.update_light(correct_light.0.data(), &correct_light.1);
+            map.update_light(correct_light.0.data(), correct_light.1);
         });
         // add new light sources
         let new_lights = lights
@@ -84,7 +84,7 @@ impl RenderingSystem {
             }
             self.light_sources.push((
                 entity,
-                ShadowMap::new(self.shadow_resolution.map_res(), *pos.data(), &src),
+                ShadowMap::new(self.shadow_resolution.map_res(), *pos.data(), src),
             ));
         }
     }

@@ -11,10 +11,14 @@ env:
 
 jobs:
   build:
-
     runs-on: windows-latest
-
     steps:
     - uses: actions/checkout@v4
-    - run: cargo build --all-features
-    - run: cargo fmt -- --check
+    - run: cargo build --all-targets --all-features
+    - run: cargo clippy --all-features
+
+  formatting:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fmt --check
