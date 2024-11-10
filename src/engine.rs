@@ -43,6 +43,8 @@ impl<A: FallingLeafApp> Engine<A> {
 
         event_system.add_listener::<KeyPress>(&video_system);
         event_system.add_listener::<WindowResize>(&video_system);
+        event_system.add_listener::<WindowLostFocus>(&video_system);
+        event_system.add_listener::<WindowGainedFocus>(&video_system);
         event_system.add_listener::<CamPositionChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&audio_system);
         event_system.add_listener::<EngineModeChange>(&audio_system);
@@ -88,6 +90,8 @@ impl<A: FallingLeafApp> Engine<A> {
 
         self.rendering_system_mut()
             .render(self.entity_manager().deref());
+
+        self.video_system().swap_window();
     }
 
     /// access to the stored app
@@ -197,14 +201,12 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
                 if self.video_system().should_redraw() {
                     self.video_system_mut().reset_draw_timer();
                     self.on_frame_redraw();
-                    self.video_system().swap_window();
-                    self.video_system_mut().add_time_until_next_draw();
                 }
                 if *self.should_quit.borrow() {
                     event_loop.exit();
                 }
                 self.video_system().request_redraw();
-                self.video_system_mut().subtract_iteration_time();
+                self.video_system_mut().cap_iterations();
             }
             _ => self.event_system().parse_winit_window_event(event, self),
         }

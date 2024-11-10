@@ -13,6 +13,7 @@ use winit::window::Icon;
 pub struct EngineAttributes {
     title: &'static str,
     pub(crate) fps_cap: Option<f64>,
+    pub(crate) bg_fps_cap: Option<f64>,
     size: (u32, u32),
     min_size: Option<(u32, u32)>,
     pub(crate) enforced_ratio: Option<f32>,
@@ -33,6 +34,7 @@ impl EngineAttributes {
         Self {
             title: WIN_TITLE,
             fps_cap: Some(300f64),
+            bg_fps_cap: None,
             size: (MIN_WIN_WIDTH, MIN_WIN_HEIGHT),
             min_size: None,
             enforced_ratio: None,
@@ -57,6 +59,12 @@ impl EngineAttributes {
     /// sets an optional fps cap for the rendering process (default is 300)
     pub fn with_fps_cap(mut self, cap: Option<f64>) -> Self {
         self.fps_cap = cap;
+        self
+    }
+
+    /// sets an optional fps cap for the rendering process when the app is not in focus (default is None)
+    pub fn with_bg_fps_cap(mut self, cap: Option<f64>) -> Self {
+        self.bg_fps_cap = cap;
         self
     }
 

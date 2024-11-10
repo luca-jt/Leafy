@@ -34,8 +34,9 @@ pub struct VideoSystem {
     pub(crate) window: Option<Window>,
     current_fps: f64,
     last_draw_time: Instant,
-    wait_time_accu: Duration,
     iteration_start_time: Instant,
+    bg_fps_cap: Option<f64>,
+    use_bg_fps_cap: bool,
     fps_cap: Option<f64>,
     stored_config: EngineAttributes,
     skipped_first_resize: bool,
@@ -63,8 +64,9 @@ impl VideoSystem {
             window: None,
             current_fps: 0f64,
             last_draw_time: Instant::now(),
-            wait_time_accu: Duration::ZERO,
             iteration_start_time: Instant::now(),
+            bg_fps_cap: config.bg_fps_cap,
+            use_bg_fps_cap: false,
             fps_cap: config.fps_cap,
             stored_config: config,
             skipped_first_resize: false,
@@ -234,38 +236,36 @@ impl VideoSystem {
         }
     }
 
+    /// caps the event loop iterations to avoid CPU load
+    pub(crate) fn cap_iterations(&mut self) {
+        let iteration_time = self.iteration_start_time.elapsed();
+        let max_iteration_time = Duration::from_micros(100);
+        if iteration_time < max_iteration_time {
+            std::thread::sleep(max_iteration_time - iteration_time);
+        }
+        self.iteration_start_time = Instant::now();
+    }
+
     /// resets the internal timer for the engine update loop
     pub(crate) fn reset_draw_timer(&mut self) {
         let elapsed_draw_time = self.last_draw_time.elapsed();
         self.last_draw_time = Instant::now();
         self.current_fps = 1.0 / elapsed_draw_time.as_secs_f64();
-        println!("{:.2}", self.current_fps);
-    }
-
-    /// calculates how long the update loop took and adds the time to wait to the internal accumulator
-    pub(crate) fn add_time_until_next_draw(&mut self) {
-        if let Some(fps_cap) = self.fps_cap {
-            let elapsed_draw_time = self.last_draw_time.elapsed();
-            let max_frame_time = Duration::from_secs_f64(1.0 / fps_cap);
-            self.wait_time_accu += max_frame_time.max(elapsed_draw_time);
-        }
-    }
-
-    /// subtract the iteration's time from the accumulator and resets the iteration timer
-    pub(crate) fn subtract_iteration_time(&mut self) {
-        let elapsed_iteration_time = self.iteration_start_time.elapsed();
-        self.iteration_start_time = Instant::now();
-        self.wait_time_accu = self.wait_time_accu.saturating_sub(elapsed_iteration_time);
-        // cap event loop at ~40000 fps
-        let max_iteration_time = Duration::from_micros(25);
-        if elapsed_iteration_time < max_iteration_time {
-            std::thread::sleep(max_iteration_time - elapsed_iteration_time);
-        }
     }
 
     /// checks wether or not a full engine update loop should occur
     pub(crate) fn should_redraw(&self) -> bool {
-        self.fps_cap.map_or(true, |_| self.wait_time_accu.is_zero())
+        let elapsed = self.last_draw_time.elapsed();
+        let user_cap = self
+            .fps_cap
+            .map_or(true, |fps| elapsed >= Duration::from_secs_f64(1.0 / fps));
+        self.bg_fps_cap.map_or(user_cap, |fps| {
+            if self.use_bg_fps_cap {
+                elapsed >= Duration::from_secs_f64(1.0 / fps)
+            } else {
+                user_cap
+            }
+        })
     }
 
     /// gets the current fps in seconds
@@ -278,6 +278,12 @@ impl VideoSystem {
     pub fn set_fps_cap(&mut self, new_cap: Option<f64>) {
         log::trace!("set fps cap: {:?}", new_cap);
         self.fps_cap = new_cap;
+    }
+
+    /// set the optional fps cap value for the rendering process when the app is out of focus
+    pub fn set_bg_fps_cap(&mut self, new_cap: Option<f64>) {
+        log::trace!("set background fps cap: {:?}", new_cap);
+        self.bg_fps_cap = new_cap;
     }
 
     /// changes the title bar text in the window
@@ -362,6 +368,18 @@ impl EventObserver<KeyPress> for VideoSystem {
                 }
             }
         }
+    }
+}
+
+impl EventObserver<WindowLostFocus> for VideoSystem {
+    fn on_event(&mut self, _event: &WindowLostFocus) {
+        self.use_bg_fps_cap = true;
+    }
+}
+
+impl EventObserver<WindowGainedFocus> for VideoSystem {
+    fn on_event(&mut self, _event: &WindowGainedFocus) {
+        self.use_bg_fps_cap = false;
     }
 }
 
