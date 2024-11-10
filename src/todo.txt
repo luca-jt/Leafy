@@ -19,4 +19,3 @@ sprite renderer -> depth layers configurable, sprite component
 voxelized meshes -> Mesh becomes enum
 on collision event functions for entities?
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | generate hitboxes for mesh type
-github workflows ci
