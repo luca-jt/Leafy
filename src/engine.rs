@@ -205,6 +205,7 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
                     event_loop.exit();
                 }
                 self.video_system().request_redraw();
+                self.video_system_mut().cap_iterations();
             }
             _ => self.event_system().parse_winit_window_event(event, self),
         }
