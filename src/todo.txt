@@ -6,6 +6,7 @@ dynamic mesh LOD
 shadow anti-aliasing -> pcss
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system -> serialization (serde)
+cap event loop update without frame rate drops
 ---------------------------------------------------------------------
 fix 3D mouse cam movement
 sky box cube maps

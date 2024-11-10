@@ -90,8 +90,6 @@ impl<A: FallingLeafApp> Engine<A> {
 
         self.rendering_system_mut()
             .render(self.entity_manager().deref());
-
-        self.video_system().swap_window();
     }
 
     /// access to the stored app
@@ -201,12 +199,12 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
                 if self.video_system().should_redraw() {
                     self.video_system_mut().reset_draw_timer();
                     self.on_frame_redraw();
+                    self.video_system().swap_window();
                 }
                 if *self.should_quit.borrow() {
                     event_loop.exit();
                 }
                 self.video_system().request_redraw();
-                self.video_system_mut().cap_iterations();
             }
             _ => self.event_system().parse_winit_window_event(event, self),
         }

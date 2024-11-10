@@ -236,16 +236,6 @@ impl VideoSystem {
         }
     }
 
-    /// caps the event loop iterations to avoid CPU load
-    pub(crate) fn cap_iterations(&mut self) {
-        let iteration_time = self.iteration_start_time.elapsed();
-        let max_iteration_time = Duration::from_micros(100);
-        if iteration_time < max_iteration_time {
-            std::thread::sleep(max_iteration_time - iteration_time);
-        }
-        self.iteration_start_time = Instant::now();
-    }
-
     /// resets the internal timer for the engine update loop
     pub(crate) fn reset_draw_timer(&mut self) {
         let elapsed_draw_time = self.last_draw_time.elapsed();
