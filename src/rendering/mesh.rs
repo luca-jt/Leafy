@@ -1,7 +1,7 @@
 use crate::ecs::component::{HitboxType, Scale};
 use crate::glm;
 use crate::utils::constants::ORIGIN;
-use crate::utils::tools::{to_vec4, OctreeNode};
+use crate::utils::tools::to_vec4;
 use gl::types::*;
 use obj::{load_obj, Obj, TexturedVertex};
 use std::cmp::Ordering;
@@ -130,14 +130,40 @@ impl Mesh {
         )
     }
 
+    /// calculates the maximum positional reach the mesh has in each axis' direction
+    fn max_reach_vector(&self) -> glm::Vec3 {
+        let max_x = self
+            .positions
+            .iter()
+            .copied()
+            .map(|p| p.x.abs())
+            .reduce(f32::max)
+            .unwrap();
+        let max_y = self
+            .positions
+            .iter()
+            .copied()
+            .map(|p| p.y.abs())
+            .reduce(f32::max)
+            .unwrap();
+        let max_z = self
+            .positions
+            .iter()
+            .copied()
+            .map(|p| p.z.abs())
+            .reduce(f32::max)
+            .unwrap();
+        glm::vec3(max_x, max_y, max_z)
+    }
+
     /// generates the meshes' hitbox for the given hitbox type
     pub(crate) fn generate_hitbox(&self, hitbox: &HitboxType) -> Hitbox {
         match hitbox {
             HitboxType::ConvexHull => Hitbox::Meshed(self.convex_hull_hitbox_mesh()),
             HitboxType::Simplified => Hitbox::Meshed(self.simplified_hitbox_mesh()),
-            HitboxType::Voxelized => self.voxelized_hitbox(),
             HitboxType::Unaltered => Hitbox::Meshed(self.unaltered_hitbox_mesh()),
             HitboxType::Ellipsiod => self.ellipsoid_hitbox(),
+            HitboxType::Box => self.box_hitbox(),
         }
     }
 
@@ -171,12 +197,6 @@ impl Mesh {
         hitbox
     }
 
-    /// creates a hitbox in the form of a voxelized version of the mesh
-    fn voxelized_hitbox(&self) -> Hitbox {
-        // TODO https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
-        Hitbox::SparseVoxelOctree(OctreeNode::Leaf(0.1))
-    }
-
     /// creates a hitbox in the form of a unaltered version of the mesh
     fn unaltered_hitbox_mesh(&self) -> HitboxMesh {
         let mut faces = vec![[0, 0, 0]; self.indices.len() / 3];
@@ -189,30 +209,14 @@ impl Mesh {
         }
     }
 
+    /// creates a hitbox in the form of a box collider of the mesh
+    fn box_hitbox(&self) -> Hitbox {
+        Hitbox::Box(self.max_reach_vector())
+    }
+
     /// creates a hitbox in the form of an ellipsiod approximation of the mesh
     fn ellipsoid_hitbox(&self) -> Hitbox {
-        let max_x = self
-            .positions
-            .iter()
-            .copied()
-            .map(|p| p.x.abs())
-            .reduce(f32::max)
-            .unwrap();
-        let max_y = self
-            .positions
-            .iter()
-            .copied()
-            .map(|p| p.y.abs())
-            .reduce(f32::max)
-            .unwrap();
-        let max_z = self
-            .positions
-            .iter()
-            .copied()
-            .map(|p| p.z.abs())
-            .reduce(f32::max)
-            .unwrap();
-        Hitbox::Ellipsoid(glm::vec3(max_x, max_y, max_z))
+        Hitbox::Ellipsoid(self.max_reach_vector())
     }
 }
 
@@ -243,7 +247,7 @@ fn inertia_product(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize, j: us
 pub(crate) enum Hitbox {
     Meshed(HitboxMesh),
     Ellipsoid(glm::Vec3),
-    SparseVoxelOctree(OctreeNode<f32>),
+    Box(glm::Vec3),
 }
 
 impl Hitbox {

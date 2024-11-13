@@ -128,7 +128,7 @@ impl EngineAttributes {
         self
     }
 
-    /// enables/disables vsync (default is false)
+    /// enables/disables vsync (default is false) (should not be used in combination with a capped frame rate)
     pub fn with_vsync(mut self, flag: bool) -> Self {
         self.use_vsync = flag;
         self

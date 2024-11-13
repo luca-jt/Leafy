@@ -67,7 +67,13 @@ impl AnimationSystem {
             .query7_mut_opt6::<Position, Velocity, AngularVelocity, MeshType, Scale, RigidBody, HitboxType>(vec![])
             .collect::<Vec<_>>();
         // two collision cases: two edges touching or one vertex anywhere on a side
-        // compute hitboxes in mesh constructor
+        // first do macro level checks where you construct a axis alligned box around the mesh that is as big as the max reach of the mesh in each direction
+        // match these into groups where hits are able to occur and then construct the detailed colliders for them
+        // repeat the collision detection and resolution until the entire group is resolved
+        // then the collision detection algorithms depend on the hitbox type:
+        // if the hitboxes are convex, use GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders are trivial, and the rest is triangle intersection tests wich are expensive
+        // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
+        // seperate the colliders and create an impulse to move the underlying objects
     }
 
     /// performs all relevant physics calculations on entity data

@@ -429,9 +429,9 @@ pub struct SoundController {
 pub enum HitboxType {
     ConvexHull,
     Simplified,
-    Voxelized,
     Unaltered,
     Ellipsiod,
+    Box,
 }
 
 /// marks an entity as a point light source for the rendering system, needs a position attached to work
