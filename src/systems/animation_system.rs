@@ -4,6 +4,7 @@ use crate::engine::{Engine, EngineMode, FallingLeafApp};
 use crate::glm;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
+use crate::utils::constants::bits::COLLISION;
 use crate::utils::constants::{G, Y_AXIS};
 use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
@@ -63,10 +64,22 @@ impl AnimationSystem {
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
-        let objects = entity_manager
-            .query7_mut_opt6::<Position, Velocity, AngularVelocity, MeshType, Scale, RigidBody, HitboxType>(vec![])
+        let entity_data = entity_manager
+            .query8_mut_opt7::<Position, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags, MeshType, HitboxType>(vec![])
+            .map(|(p, v, av, s, rb, f, mt, hb)| {
+                (
+                    p,
+                    v,
+                    av,
+                    s,
+                    rb,
+                    f.map(|flags| { flags.set_bit(COLLISION, false); flags}),
+                    mt.as_ref()
+                      .and_then(|m| hb.map(|h| entity_manager.hitbox_from_data(m, h).unwrap())),
+                    mt.map(|m| entity_manager.asset_from_type(m).unwrap().max_reach()),
+                )
+            })
             .collect::<Vec<_>>();
-        // two collision cases: two edges touching or one vertex anywhere on a side
         // first do macro level checks where you construct a axis alligned box around the mesh that is as big as the max reach of the mesh in each direction
         // match these into groups where hits are able to occur and then construct the detailed colliders for them
         // repeat the collision detection and resolution until the entire group is resolved

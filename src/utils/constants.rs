@@ -20,4 +20,5 @@ pub const NO_ENTITY: EntityID = 0;
 
 pub mod bits {
     pub const INVISIBLE: u64 = 0;
+    pub const COLLISION: u64 = 1;
 }

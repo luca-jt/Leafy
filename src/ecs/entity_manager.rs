@@ -196,6 +196,15 @@ impl EntityManager {
         self.asset_register.get(mesh_type)
     }
 
+    /// makes hitbox data available for given entity data
+    pub(crate) fn hitbox_from_data(
+        &self,
+        mesh_type: &MeshType,
+        hitbox: &HitboxType,
+    ) -> Option<&Hitbox> {
+        self.hitbox_register.get(&(mesh_type.clone(), *hitbox))
+    }
+
     /// executes all the commands in the queue and clears it
     fn exec_commands(&mut self) {
         while let Some(command) = self.commands.pop_front() {

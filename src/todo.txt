@@ -17,5 +17,5 @@ ui basics + font rendering + events for ui struct
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
 sprite renderer -> depth layers configurable, sprite component
 voxelized meshes -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
-on collision event functions for entities?
+on collision event functions for entities? -> no but a flag that is set in enitityflags
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY

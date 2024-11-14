@@ -16,6 +16,7 @@ pub(crate) struct Mesh {
     pub(crate) texture_coords: Vec<glm::Vec2>,
     pub(crate) normals: Vec<glm::Vec3>,
     pub(crate) indices: Vec<GLuint>,
+    max_reach: glm::Vec3,
 }
 
 impl Mesh {
@@ -57,11 +58,24 @@ impl Mesh {
         let indices: Vec<GLuint> = obj.indices;
         assert_eq!(indices.len() % 3, 0, "mesh has to be triangulated");
 
+        let max_reach =
+            positions
+                .iter()
+                .copied()
+                .map(|p| p.abs())
+                .fold(ORIGIN, |mut current, p| {
+                    current.x = current.x.max(p.x);
+                    current.y = current.y.max(p.y);
+                    current.z = current.z.max(p.z);
+                    current
+                });
+
         Self {
             positions,
             texture_coords,
             normals,
             indices,
+            max_reach,
         }
     }
 
@@ -75,6 +89,12 @@ impl Mesh {
     #[inline]
     pub(crate) fn num_indices(&self) -> usize {
         self.indices.len()
+    }
+
+    /// yields the highest x, y, and z values of all vertex positions in the mesh
+    #[inline]
+    pub fn max_reach(&self) -> glm::Vec3 {
+        self.max_reach
     }
 
     /// generates the inertia tensor matrix and center of mass
@@ -128,32 +148,6 @@ impl Mesh {
             ]),
             center_of_mass,
         )
-    }
-
-    /// calculates the maximum positional reach the mesh has in each axis' direction
-    fn max_reach_vector(&self) -> glm::Vec3 {
-        let max_x = self
-            .positions
-            .iter()
-            .copied()
-            .map(|p| p.x.abs())
-            .reduce(f32::max)
-            .unwrap();
-        let max_y = self
-            .positions
-            .iter()
-            .copied()
-            .map(|p| p.y.abs())
-            .reduce(f32::max)
-            .unwrap();
-        let max_z = self
-            .positions
-            .iter()
-            .copied()
-            .map(|p| p.z.abs())
-            .reduce(f32::max)
-            .unwrap();
-        glm::vec3(max_x, max_y, max_z)
     }
 
     /// generates the meshes' hitbox for the given hitbox type
@@ -211,12 +205,12 @@ impl Mesh {
 
     /// creates a hitbox in the form of a box collider of the mesh
     fn box_hitbox(&self) -> Hitbox {
-        Hitbox::Box(self.max_reach_vector())
+        Hitbox::Box(self.max_reach)
     }
 
     /// creates a hitbox in the form of an ellipsiod approximation of the mesh
     fn ellipsoid_hitbox(&self) -> Hitbox {
-        Hitbox::Ellipsoid(self.max_reach_vector())
+        Hitbox::Ellipsoid(self.max_reach)
     }
 }
 
