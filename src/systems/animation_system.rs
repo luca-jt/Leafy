@@ -64,22 +64,27 @@ impl AnimationSystem {
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
-        let entity_data = entity_manager
-            .query8_mut_opt7::<Position, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags, MeshType, HitboxType>(vec![])
-            .map(|(p, v, av, s, rb, f, mt, hb)| {
-                (
-                    p,
-                    v,
-                    av,
-                    s,
-                    rb,
-                    f.map(|flags| { flags.set_bit(COLLISION, false); flags}),
-                    mt.as_ref()
-                      .and_then(|m| hb.map(|h| entity_manager.hitbox_from_data(m, h).unwrap())),
-                    mt.map(|m| entity_manager.asset_from_type(m).unwrap().max_reach()),
-                )
-            })
-            .collect::<Vec<_>>();
+        let entity_data = unsafe {
+            entity_manager
+                .query8_mut_opt7::<Position, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags, MeshType, HitboxType>(vec![])
+                .map(|(p, v, av, s, rb, f, mt, hb)| {
+                    (
+                        p,
+                        v,
+                        av,
+                        s,
+                        rb,
+                        f.map(|flags| {
+                            flags.set_bit(COLLISION, false);
+                            flags
+                        }),
+                        mt.as_ref()
+                          .and_then(|m| hb.map(|h| entity_manager.hitbox_from_data(m, h).unwrap())),
+                        mt.map(|m| entity_manager.asset_from_type(m).unwrap().max_reach()),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
         // first do macro level checks where you construct a axis alligned box around the mesh that is as big as the max reach of the mesh in each direction
         // match these into groups where hits are able to occur and then construct the detailed colliders for them
         // repeat the collision detection and resolution until the entire group is resolved
@@ -91,10 +96,12 @@ impl AnimationSystem {
 
     /// performs all relevant physics calculations on entity data
     fn apply_physics(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
-        for (p, v, a_opt, rb_opt, o_opt, av_opt) in entity_manager
-            .query6_mut_opt4::<Position, Velocity, Acceleration, RigidBody, Orientation, AngularVelocity>(vec![])
-        {
-            let total_a = rb_opt.is_some().then_some(self.gravity).unwrap_or_default() + a_opt.copied().unwrap_or_default();
+        for (p, v, a_opt, rb_opt, o_opt, av_opt) in unsafe {
+            entity_manager
+                .query6_mut_opt4::<Position, Velocity, Acceleration, RigidBody, Orientation, AngularVelocity>(vec![])
+        } {
+            let total_a = rb_opt.is_some().then_some(self.gravity).unwrap_or_default()
+                + a_opt.copied().unwrap_or_default();
             *v += total_a * time_step;
             *p += *v * time_step;
 

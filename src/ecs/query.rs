@@ -205,8 +205,8 @@ macro_rules! impl_mut_query {
             #[doc = "the asset data is not updated automatically."]
             #[doc = "Recomputes in every query are expensive and components in mutable queries are not necessarily modified."]
             #[doc = "If you still do that you will end up with crashes or undefined behavior."]
-            #[doc = "To avoid this you can manually trigger a full recompute of all entities after you executed the query."]
-            #[doc = "Keep in mind that this is a big performance hit."]
+            #[doc = "To avoid this, you can manually trigger a full recompute of all entities after you executed the query using ``full_recompute()``."]
+            #[doc = "Currently, this is the only way to handle this. Keep in mind that this is a big performance hit."]
             #[doc = "This should not be a real problem most of the time, as all components that influence what asset data is loaded are typically quite static."]
             #[doc = "E.g. ``Scale`` only influences inertia values of ``RigidBody``'s, which means modifying a scale in a query alone doesn't require a recompute"]
             #[doc = "and modifying a ``MeshAttribute`` in a query only matters if there is texture data at play."]
@@ -214,11 +214,13 @@ macro_rules! impl_mut_query {
             #[doc = "If you use the same component type twice in the same query, it is possible to aquire two mutable references to the same component,"]
             #[doc = "which harms Rust's borrowing rules. In debug builds the query panics if you do that."]
             #[doc = "In release builds these checks are disabled for performance reasons."]
-            pub fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
-                &mut self,
+            #[doc = "At the moment all queries borrow the entire entity manager and it is common to use other entity manager functions inside of queries."]
+            #[doc = "For this reason this function is marked as ``unsafe`` until this is changed in the future, as there would be borrowing issues otherwhise."]
+            pub unsafe fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
+                &self,
                 filter: Vec<Box<dyn QueryFilter>>,
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
-                self.ecs.$fname::<$($ret), +, $($ret_opt), *>(filter)
+                (*(&self.ecs as *const ECS as *mut ECS)).$fname::<$($ret), +, $($ret_opt), *>(filter)
             }
         }
     };
