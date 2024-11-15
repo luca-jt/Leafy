@@ -58,5 +58,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 This crate exports the crates ``glm``(nalgebra_glm), ``winit``, ``log``, and ``env_logger``. They can be used to perform math operations, logging, and use certain engine features with winit. This way you don't have to manually add them yourself.\
 If you want to use the internal logger to get information about what is happening under the hood, you can set the ``LOG_LVL`` environment variable to one of ``log``'s logging levels (``error``, ``warn``, ``info``, ``debug``, ``trace``). Setting the variable to ``trace`` enables all log messages but will cause a significant performance hit.
 
+## Unsafe
+The only ``unsafe`` code segments in this crate are the OpenGL calls and some implementation details in the mutable queries.\
+In the future the unsafeness of mutable entity manager query calls will be broadly resolved. The only reason the call itself is unsafe at the moment is that otherwhise there would be a borrowing problem with the entity manager. The disconnect between the whole manager and the internal ECS is not trivial and not just solved by introducing a RefCell or something similar and are linked to lifetime issues associated with that.
+
 ### Credits
 This library uses [fyrox-sound](https://github.com/FyroxEngine/Fyrox/tree/master/fyrox-sound) for audio file decoding and 3D audio composing. Its functionality is integrated in the engines' audio system to interact with the entity data.

@@ -6,6 +6,7 @@ use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::COLLISION;
 use crate::utils::constants::{G, Y_AXIS};
+use std::collections::HashMap;
 use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
 
@@ -64,12 +65,14 @@ impl AnimationSystem {
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
-        let entity_data = unsafe {
+        let mut entity_data = unsafe {
             entity_manager
-                .query8_mut_opt7::<Position, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags, MeshType, HitboxType>(vec![])
-                .map(|(p, v, av, s, rb, f, mt, hb)| {
+                .query8_mut_opt5::<Position, MeshType, HitboxType, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags>(vec![])
+                .map(|(p, mt, hb, v, av, s, rb, f)| {
                     (
                         p,
+                        entity_manager.hitbox_from_data(mt, hb).unwrap(),
+                        entity_manager.asset_from_type(mt).unwrap(),
                         v,
                         av,
                         s,
@@ -77,21 +80,46 @@ impl AnimationSystem {
                         f.map(|flags| {
                             flags.set_bit(COLLISION, false);
                             flags
-                        }),
-                        mt.as_ref()
-                          .and_then(|m| hb.map(|h| entity_manager.hitbox_from_data(m, h).unwrap())),
-                        mt.map(|m| entity_manager.asset_from_type(m).unwrap().max_reach()),
+                        })
                     )
                 })
                 .collect::<Vec<_>>()
         };
-        // first do macro level checks where you construct a axis alligned box around the mesh that is as big as the max reach of the mesh in each direction
-        // match these into groups where hits are able to occur and then construct the detailed colliders for them
-        // repeat the collision detection and resolution until the entire group is resolved
-        // then the collision detection algorithms depend on the hitbox type:
-        // if the hitboxes are convex, use GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders are trivial, and the rest is triangle intersection tests wich are expensive
-        // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
-        // seperate the colliders and create an impulse to move the underlying objects
+        if entity_data.is_empty() {
+            return;
+        }
+        // sort by some axis value for higher check performance
+        entity_data
+            .sort_by(|tuple1, tuple2| tuple1.0.data().x.partial_cmp(&tuple2.0.data().x).unwrap());
+        // macro level checks where bounding spheres of the mesh are constructed and the objects are grouped
+        let spheres = entity_data
+            .iter()
+            .map(|tuple| (tuple.0.data(), tuple.2.max_reach().norm()))
+            .collect::<Vec<_>>();
+        let mut union_find = UnionFinder::new(spheres.len());
+        for i in 0..spheres.len() {
+            for j in (i + 1)..spheres.len() {
+                if spheres_collide(spheres[i].0, spheres[i].1, spheres[j].0, spheres[j].1) {
+                    union_find.union(i, j);
+                }
+            }
+        }
+        let mut near_entity_groups: HashMap<usize, Vec<usize>> = HashMap::new();
+        for i in 0..spheres.len() {
+            let group = union_find.find(i);
+            near_entity_groups
+                .entry(group)
+                .or_insert_with(Vec::new)
+                .push(i);
+        }
+        // construct the detailed colliders for the groups
+        for group in near_entity_groups.values() {
+            // repeat the collision detection and resolution until the entire group is resolved
+            // then the collision detection algorithms depend on the hitbox type:
+            // if the hitboxes are convex, use GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders are trivial, and the rest is triangle intersection tests wich are expensive
+            // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
+            // seperate the colliders and create an impulse to move the underlying objects
+        }
     }
 
     /// performs all relevant physics calculations on entity data
@@ -238,6 +266,53 @@ pub(crate) fn stop_cam<T: FallingLeafApp>(event: &KeyRelease, engine: &Engine<T>
         }
         if event.key == keys.right {
             cam_move_direction.x -= 1.0;
+        }
+    }
+}
+
+/// checks if two broad oject areas represented as spheres at two positions collide
+fn spheres_collide(pos1: &glm::Vec3, box1: f32, pos2: &glm::Vec3, box2: f32) -> bool {
+    (pos1 - pos2).norm() <= box1 + box2
+}
+
+/// finder for the spacial groups used in collision checking
+struct UnionFinder {
+    parent: Vec<usize>,
+    rank: Vec<usize>,
+}
+
+impl UnionFinder {
+    /// creates a new finder from a given size of the collection of the objects
+    fn new(size: usize) -> Self {
+        UnionFinder {
+            parent: (0..size).collect(),
+            rank: vec![0; size],
+        }
+    }
+
+    /// finds the parent (group id) for some index
+    fn find(&mut self, x: usize) -> usize {
+        if self.parent[x] != x {
+            // path compression
+            self.parent[x] = self.find(self.parent[x]);
+        }
+        self.parent[x]
+    }
+
+    /// unionizes two indeces into the collection
+    fn union(&mut self, x: usize, y: usize) {
+        let root_x = self.find(x);
+        let root_y = self.find(y);
+
+        if root_x != root_y {
+            if self.rank[root_x] > self.rank[root_y] {
+                self.parent[root_y] = root_x;
+            } else if self.rank[root_x] < self.rank[root_y] {
+                self.parent[root_x] = root_y;
+            } else {
+                self.parent[root_y] = root_x;
+                self.rank[root_x] += 1;
+            }
         }
     }
 }
