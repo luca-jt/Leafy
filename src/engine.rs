@@ -41,7 +41,6 @@ impl<A: FallingLeafApp> Engine<A> {
         let entity_manager = shared_ptr(EntityManager::new());
         let mut event_system = EventSystem::new();
 
-        event_system.add_listener::<KeyPress>(&video_system);
         event_system.add_listener::<WindowResize>(&video_system);
         event_system.add_listener::<WindowLostFocus>(&video_system);
         event_system.add_listener::<WindowGainedFocus>(&video_system);

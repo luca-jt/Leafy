@@ -10,13 +10,14 @@ use falling_leaf::winit::keyboard::KeyCode;
 use std::f32::consts::PI;
 
 pub const CAM_MOVE_SPEED: f32 = 4.5;
-pub const CAM_MOUSE_SPEED: f32 = 0.001;
+pub const CAM_MOUSE_SPEED: f32 = 4.0;
 
 /// example app
 pub struct App {
     player: EntityID,
     cube: EntityID,
     using_mouse_control: bool,
+    using_fullscreen: bool,
 }
 
 impl App {
@@ -25,6 +26,7 @@ impl App {
             player: NO_ENTITY,
             cube: NO_ENTITY,
             using_mouse_control: true,
+            using_fullscreen: false,
         }
     }
 }
@@ -89,6 +91,7 @@ impl FallingLeafApp for App {
         engine.event_system_mut().add_modifier(jump);
         engine.event_system_mut().add_modifier(quit_app);
         engine.event_system_mut().add_modifier(toggle_cursor);
+        engine.event_system_mut().add_modifier(toggle_fullscreen);
 
         engine.audio_system().enable_hrtf();
         engine
@@ -138,5 +141,15 @@ fn toggle_cursor(event: &KeyPress, engine: &Engine<App>) {
                 .set_mouse_fpp_cam_control(Some(CAM_MOUSE_SPEED));
             engine.app_mut().using_mouse_control = true;
         }
+    }
+}
+
+fn toggle_fullscreen(event: &KeyPress, engine: &Engine<App>) {
+    if event.key == KeyCode::F11 {
+        let current_fullscreen_state = engine.app().using_fullscreen;
+        engine.app_mut().using_fullscreen = !current_fullscreen_state;
+        engine
+            .video_system()
+            .set_fullscreen(!current_fullscreen_state);
     }
 }

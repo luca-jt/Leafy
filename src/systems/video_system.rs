@@ -14,8 +14,10 @@ use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SwapInterval, WindowSurface};
 use glutin_winit::{DisplayBuilder, GlWindow};
+use nalgebra_glm::angle;
 use raw_window_handle::HasWindowHandle;
 use std::error::Error;
+use std::f32::consts::PI;
 use std::ffi::{CStr, CString};
 use std::num::NonZeroU32;
 use std::time::{Duration, Instant};
@@ -356,21 +358,6 @@ impl VideoSystem {
     }
 }
 
-impl EventObserver<KeyPress> for VideoSystem {
-    fn on_event(&mut self, event: &KeyPress) {
-        if event.key == KeyCode::F11 {
-            // toggle fullscreen
-            if let Some(window) = self.window.as_ref() {
-                if window.fullscreen().is_some() {
-                    window.set_fullscreen(None);
-                } else {
-                    window.set_fullscreen(Some(Fullscreen::Borderless(None)));
-                }
-            }
-        }
-    }
-}
-
 impl EventObserver<WindowLostFocus> for VideoSystem {
     fn on_event(&mut self, _event: &WindowLostFocus) {
         self.use_bg_fps_cap = true;
@@ -473,19 +460,31 @@ fn get_gl_string(variant: gl::types::GLenum) -> Option<&'static CStr> {
 pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: &Engine<T>) {
     if let Some(sens) = engine.video_system().mouse_cam_sens {
         let cam_config = engine.rendering_system().current_cam_config();
+        debug_assert!(
+            cam_config.1 != Y_AXIS && cam_config.1 != -Y_AXIS && cam_config.1.norm() > 0.0,
+            "viewing angle must be in interval (-pi, pi] and look vector cannot have length 0"
+        );
+        let look_dir = cam_config.1.normalize(); // new z
+        let right_dir = look_dir.cross(&Y_AXIS).normalize(); // new x
+        let up_dir = right_dir.cross(&look_dir).normalize(); // new y
+        let look_trafo = glm::Mat3::from_columns(&[right_dir, up_dir, look_dir]);
 
-        let look_dir = cam_config.1.normalize(); // new -z
-        let from_view_up = -(Y_AXIS - look_dir.dot(&Y_AXIS) * Y_AXIS).normalize(); // new y
-        let right_dir = -look_dir.cross(&from_view_up).normalize(); // new x
-        let basis_trafo = glm::Mat3::from_columns(&[right_dir, from_view_up, -look_dir]);
+        let current_vert_angle = glm::vec3(look_dir.x, 0.0, look_dir.z).norm().acos();
+        let add_angle = sens / 1000.0;
 
-        let hori_diff = sens * event.delta_x as f32 * X_AXIS;
-        let vert_diff = sens * event.delta_y as f32 * Y_AXIS;
-        let new_look = cam_config.1 + basis_trafo * hori_diff + basis_trafo * vert_diff;
+        let add_hori_angle = add_angle * event.delta_x as f32;
+        let look_hori = look_trafo * glm::vec3(add_hori_angle.sin(), 0.0, add_hori_angle.cos());
+
+        let angle_block = PI / 16.0;
+        let add_vert_angle = (add_angle * -event.delta_y as f32).clamp(
+            -PI / 2.0 + angle_block + current_vert_angle,
+            PI / 2.0 - angle_block - current_vert_angle,
+        );
+        let look_vert = look_trafo * glm::vec3(0.0, add_vert_angle.sin(), add_vert_angle.cos());
 
         engine.trigger_event(CamPositionChange {
             new_pos: cam_config.0,
-            new_look: new_look.normalize(),
+            new_look: (look_hori + look_vert).normalize(),
         });
     }
 }
