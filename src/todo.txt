@@ -8,6 +8,7 @@ graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system -> serialization (serde)
 custom render stages with shaders? (requires new rendering system with effect shaders)
 cap event loop update without frame rate drops
+fix fullscreen switch
 ---------------------------------------------------------------------
 sky box cube maps
 conways game of life example

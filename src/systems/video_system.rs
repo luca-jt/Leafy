@@ -3,7 +3,7 @@ use crate::engine_builder::EngineAttributes;
 use crate::glm;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
-use crate::utils::constants::{X_AXIS, Y_AXIS};
+use crate::utils::constants::Y_AXIS;
 use gl::types::GLsizei;
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{
@@ -14,7 +14,6 @@ use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SwapInterval, WindowSurface};
 use glutin_winit::{DisplayBuilder, GlWindow};
-use nalgebra_glm::angle;
 use raw_window_handle::HasWindowHandle;
 use std::error::Error;
 use std::f32::consts::PI;
@@ -23,7 +22,6 @@ use std::num::NonZeroU32;
 use std::time::{Duration, Instant};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;
-use winit::keyboard::KeyCode;
 use winit::window::{CursorGrabMode, CursorIcon, Fullscreen, Window};
 
 /// holds the video backend attributes
