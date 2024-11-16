@@ -65,10 +65,10 @@ impl AnimationSystem {
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
-        let mut entity_data = unsafe {
+        let entity_data = unsafe {
             entity_manager
-                .query8_mut_opt5::<Position, MeshType, HitboxType, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags>(vec![])
-                .map(|(p, mt, hb, v, av, s, rb, f)| {
+                .query8_mut_opt5::<Position, HitboxType, MeshType, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags>(vec![])
+                .map(|(p, hb, mt, v, av, s, rb, f)| {
                     (
                         p,
                         entity_manager.hitbox_from_data(mt, hb).unwrap(),
@@ -88,9 +88,6 @@ impl AnimationSystem {
         if entity_data.is_empty() {
             return;
         }
-        // sort by some axis value for higher check performance
-        entity_data
-            .sort_by(|tuple1, tuple2| tuple1.0.data().x.partial_cmp(&tuple2.0.data().x).unwrap());
         // macro level checks where bounding spheres of the mesh are constructed and the objects are grouped
         let spheres = entity_data
             .iter()
@@ -112,14 +109,26 @@ impl AnimationSystem {
                 .or_insert_with(Vec::new)
                 .push(i);
         }
-        // construct the detailed colliders for the groups
+        // repeat collision detection with detailed colliders until the entire group is resolved
         for group in near_entity_groups.values() {
-            // repeat the collision detection and resolution until the entire group is resolved
-            // then the collision detection algorithms depend on the hitbox type:
-            // if the hitboxes are convex, use GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders are trivial, and the rest is triangle intersection tests wich are expensive
-            // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
-            // seperate the colliders and create an impulse to move the underlying objects
+            let mut hits_found = true;
+            while hits_found {
+                hits_found = false;
+                for i in 0..group.len() {
+                    for j in i..group.len() {
+                        let data_idx_1 = group[i];
+                        let data_idx_2 = group[j];
+                        let data_1 = &entity_data[data_idx_1];
+                        let data_2 = &entity_data[data_idx_2];
+                        if let Some(collison_data) = data_1.1.collides_with(data_2.1) {
+                            hits_found = true;
+                            // seperate the colliders (and create an impulse to move the underlying objects?)
+                        }
+                    }
+                }
+            }
         }
+        // TODO: do grouping again to avoid objects from different groups to still overlap?
     }
 
     /// performs all relevant physics calculations on entity data

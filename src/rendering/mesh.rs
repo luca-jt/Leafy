@@ -246,8 +246,10 @@ pub(crate) enum Hitbox {
 
 impl Hitbox {
     /// checks if two hitboxes collide with each other
-    pub(crate) fn collides_with(&self, other: &Hitbox) -> bool {
-        true
+    pub(crate) fn collides_with(&self, other: &Hitbox) -> Option<bool> {
+        // for convex GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders trivial, the rest is triangle intersection tests
+        // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
+        Some(true)
     }
 }
 
