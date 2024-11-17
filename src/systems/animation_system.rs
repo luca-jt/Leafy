@@ -6,6 +6,7 @@ use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::COLLISION;
 use crate::utils::constants::{G, Y_AXIS};
+use crate::utils::tools::to_vec4;
 use std::collections::HashMap;
 use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
@@ -65,7 +66,7 @@ impl AnimationSystem {
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
-        let entity_data = unsafe {
+        let mut entity_data = unsafe {
             entity_manager
                 .query8_mut_opt5::<Position, HitboxType, MeshType, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags>(vec![])
                 .map(|(p, hb, mt, v, av, s, rb, f)| {
@@ -85,50 +86,61 @@ impl AnimationSystem {
                 })
                 .collect::<Vec<_>>()
         };
-        if entity_data.is_empty() {
+        if entity_data.len() <= 1 {
             return;
         }
         // macro level checks where bounding spheres of the mesh are constructed and the objects are grouped
-        let spheres = entity_data
-            .iter()
-            .map(|tuple| (tuple.0.data(), tuple.2.max_reach().norm()))
-            .collect::<Vec<_>>();
-        let mut union_find = UnionFinder::new(spheres.len());
-        for i in 0..spheres.len() {
-            for j in (i + 1)..spheres.len() {
-                if spheres_collide(spheres[i].0, spheres[i].1, spheres[j].0, spheres[j].1) {
-                    union_find.union(i, j);
-                }
-            }
-        }
-        let mut near_entity_groups: HashMap<usize, Vec<usize>> = HashMap::new();
-        for i in 0..spheres.len() {
-            let group = union_find.find(i);
-            near_entity_groups
-                .entry(group)
-                .or_insert_with(Vec::new)
-                .push(i);
-        }
-        // repeat collision detection with detailed colliders until the entire group is resolved
-        for group in near_entity_groups.values() {
-            let mut hits_found = true;
-            while hits_found {
-                hits_found = false;
-                for i in 0..group.len() {
-                    for j in i..group.len() {
-                        let data_idx_1 = group[i];
-                        let data_idx_2 = group[j];
-                        let data_1 = &entity_data[data_idx_1];
-                        let data_2 = &entity_data[data_idx_2];
-                        if let Some(collison_data) = data_1.1.collides_with(data_2.1) {
-                            hits_found = true;
-                            // seperate the colliders (and create an impulse to move the underlying objects?)
+        let mut amount_groups = 0;
+        while amount_groups != entity_data.len() {
+            let spheres = entity_data
+                .iter()
+                .map(|tuple| {
+                    (
+                        tuple.0.data(),
+                        (tuple
+                            .5
+                            .as_ref()
+                            .unwrap_or(&&mut Scale::default())
+                            .scale_matrix()
+                            * to_vec4(tuple.2.max_reach()))
+                        .xyz()
+                        .norm(),
+                    )
+                })
+                .collect::<Vec<_>>();
+            let groups = near_entity_groups(&spheres);
+
+            /*
+            TODO: Until the collision resolver works we will have to break here because otherwhise this will infinitely loop
+            */
+            break;
+
+            // repeat collision detection with detailed colliders until the entire group is resolved
+            for group in groups.values() {
+                let mut hits_found = true;
+                while hits_found {
+                    hits_found = false;
+                    for i in 0..group.len() {
+                        for j in i..group.len() {
+                            let data_idx_1 = group[i];
+                            let data_idx_2 = group[j];
+                            let data_1 = &entity_data[data_idx_1];
+                            let data_2 = &entity_data[data_idx_2];
+                            if let Some(collison_data) = data_1.1.collides_with(data_2.1) {
+                                hits_found = true;
+                                if let Some(flags) = &mut entity_data[data_idx_1].7 {
+                                    flags.set_bit(COLLISION, true);
+                                }
+                                if let Some(flags) = &mut entity_data[data_idx_2].7 {
+                                    flags.set_bit(COLLISION, true);
+                                }
+                                // seperate the colliders (and create an impulse to move the underlying objects?)
+                            }
                         }
                     }
                 }
             }
         }
-        // TODO: do grouping again to avoid objects from different groups to still overlap?
     }
 
     /// performs all relevant physics calculations on entity data
@@ -282,6 +294,24 @@ pub(crate) fn stop_cam<T: FallingLeafApp>(event: &KeyRelease, engine: &Engine<T>
 /// checks if two broad oject areas represented as spheres at two positions collide
 fn spheres_collide(pos1: &glm::Vec3, box1: f32, pos2: &glm::Vec3, box2: f32) -> bool {
     (pos1 - pos2).norm() <= box1 + box2
+}
+
+/// identifies all of the near entity groups in a list of bounding spheres
+fn near_entity_groups(spheres: &Vec<(&glm::Vec3, f32)>) -> HashMap<usize, Vec<usize>> {
+    let mut union_find = UnionFinder::new(spheres.len());
+    for i in 0..spheres.len() {
+        for j in (i + 1)..spheres.len() {
+            if spheres_collide(spheres[i].0, spheres[i].1, spheres[j].0, spheres[j].1) {
+                union_find.union(i, j);
+            }
+        }
+    }
+    let mut near_entity_groups: HashMap<usize, Vec<usize>> = HashMap::new();
+    for i in 0..spheres.len() {
+        let group = union_find.find(i);
+        near_entity_groups.entry(group).or_default().push(i);
+    }
+    near_entity_groups
 }
 
 /// finder for the spacial groups used in collision checking

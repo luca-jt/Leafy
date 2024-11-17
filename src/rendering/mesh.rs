@@ -10,6 +10,177 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
+/// vertex used in the AOS meshes
+#[derive(Debug, Copy, Clone)]
+struct MeshVertex {
+    position: glm::Vec3,
+    uv: glm::Vec2,
+    normal: glm::Vec3,
+}
+
+/// mesh containing vertex structs as opposed to the regular soa mesh which allows for easier processing
+struct AOSMesh {
+    vertices: Vec<MeshVertex>,
+    faces: Vec<[usize; 3]>,
+}
+
+impl AOSMesh {
+    /// converts back to a regular mesh
+    fn to_mesh(self) -> Mesh {
+        Mesh {
+            positions: self.vertices.iter().map(|v| v.position).collect(),
+            texture_coords: self.vertices.iter().map(|v| v.uv).collect(),
+            normals: self.vertices.iter().map(|v| v.normal).collect(),
+            indices: self
+                .faces
+                .into_iter()
+                .flatten()
+                .map(|i| i as GLuint)
+                .collect(),
+            max_reach: self.vertices.iter().map(|v| v.position.abs()).fold(
+                ORIGIN,
+                |mut current, p| {
+                    current.x = current.x.max(p.x);
+                    current.y = current.y.max(p.y);
+                    current.z = current.z.max(p.z);
+                    current
+                },
+            ),
+        }
+    }
+
+    /// creates a hitbox in the form of a unaltered version of the mesh
+    fn hitbox_mesh(self) -> HitboxMesh {
+        HitboxMesh {
+            vertices: self.vertices.into_iter().map(|v| v.position).collect(),
+            faces: self.faces,
+        }
+    }
+
+    /// creates a hitbox in the form of a simplified version of the mesh
+    fn simplified(mut self) -> Self {
+        let target_triangle_count = (self.faces.len() / 2).max(4);
+        while self.faces.len() < target_triangle_count {
+            self.simplify(target_triangle_count);
+        }
+        self.remove_unused_vertices();
+        self
+    }
+
+    /// removes vertices that are not used by a face and corrects the face indices
+    fn remove_unused_vertices(&mut self) {
+        let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
+        for i in 0..self.vertices.len() {
+            while !used_indices.contains(&i) {
+                self.vertices.swap_remove(i);
+                self.faces
+                    .iter_mut()
+                    .flatten()
+                    .filter(|index| **index == self.vertices.len())
+                    .for_each(|index| *index = i);
+                if used_indices.remove(&self.vertices.len()) {
+                    used_indices.insert(i);
+                }
+            }
+            if i == self.vertices.len() {
+                break;
+            }
+        }
+    }
+
+    /// simplifys the hitbox mesh for one iteration
+    fn simplify(&mut self, target_triangle_count: usize) {
+        let mut vertex_errors: Vec<glm::Mat4> = self.calculate_vertex_errors();
+        let mut edge_queue = self.build_edge_queue(&vertex_errors);
+
+        while self.faces.len() > target_triangle_count && !edge_queue.is_empty() {
+            let edge = edge_queue.pop().unwrap();
+            self.collapse_edge(edge, &mut vertex_errors);
+        }
+    }
+
+    /// calculate the initial error metrics (quadrics) for all vertices
+    fn calculate_vertex_errors(&self) -> Vec<glm::Mat4> {
+        let mut vertex_errors = vec![glm::Mat4::zeros(); self.vertices.len()];
+        for face in self.faces.iter() {
+            let (v0, v1, v2) = (
+                self.vertices[face[0]].position,
+                self.vertices[face[1]].position,
+                self.vertices[face[2]].position,
+            );
+            let normal = (v1 - v0).cross(&(v2 - v0)).normalize();
+            let d = -normal.dot(&v0);
+
+            let quadric = glm::mat4(
+                normal.x * normal.x,
+                normal.x * normal.y,
+                normal.x * normal.z,
+                normal.x * d,
+                normal.y * normal.x,
+                normal.y * normal.y,
+                normal.y * normal.z,
+                normal.y * d,
+                normal.z * normal.x,
+                normal.z * normal.y,
+                normal.z * normal.z,
+                normal.z * d,
+                d * normal.x,
+                d * normal.y,
+                d * normal.z,
+                d * d,
+            );
+            for vi in face {
+                vertex_errors[*vi] += quadric;
+            }
+        }
+        vertex_errors
+    }
+
+    /// build a min heap of edges prioritized by error metrics
+    fn build_edge_queue(&self, vertex_errors: &[glm::Mat4]) -> BinaryHeap<Edge> {
+        let mut edge_queue = BinaryHeap::new();
+        let mut edge_set = HashMap::new();
+        for face in &self.faces {
+            for i in 0..3 {
+                let (v1, v2) = (face[i], face[(i + 1) % 3]);
+                if !edge_set.contains_key(&(v1.min(v2), v1.max(v2))) {
+                    let error = self.calculate_edge_error(v1, v2, vertex_errors);
+                    edge_queue.push(Edge { v1, v2, error });
+                    edge_set.insert((v1.min(v2), v1.max(v2)), true);
+                }
+            }
+        }
+        edge_queue
+    }
+
+    /// calculate the error for collapsing an edge between vertices v1 and v2
+    fn calculate_edge_error(&self, v1: usize, v2: usize, vertex_errors: &[glm::Mat4]) -> f32 {
+        let quadric = vertex_errors[v1] + vertex_errors[v2];
+        let midpoint = (self.vertices[v1].position + self.vertices[v2].position) * 0.5;
+        let midpoint_hom = glm::vec4(midpoint.x, midpoint.y, midpoint.z, 1.0);
+        (midpoint_hom.transpose() * quadric * midpoint_hom).sum()
+    }
+
+    /// collapse an edge and update the mesh structure
+    fn collapse_edge(&mut self, edge: Edge, vertex_errors: &mut [glm::Mat4]) {
+        let Edge { v1, v2, .. } = edge;
+        self.vertices[v1] = MeshVertex {
+            position: (self.vertices[v1].position + self.vertices[v2].position) * 0.5,
+            uv: (self.vertices[v1].uv + self.vertices[v2].uv) * 0.5,
+            normal: (self.vertices[v1].normal + self.vertices[v2].normal) * 0.5,
+        };
+        vertex_errors[v1] += vertex_errors[v2];
+        self.faces.retain_mut(|face| {
+            for v in face.iter_mut() {
+                if *v == v2 {
+                    *v = v1;
+                }
+            }
+            face[0] != face[1] && face[1] != face[2] && face[2] != face[0]
+        });
+    }
+}
+
 /// a mesh that can be rendered in gl
 pub(crate) struct Mesh {
     pub(crate) positions: Vec<glm::Vec3>,
@@ -93,8 +264,30 @@ impl Mesh {
 
     /// yields the highest x, y, and z values of all vertex positions in the mesh
     #[inline]
-    pub fn max_reach(&self) -> glm::Vec3 {
-        self.max_reach
+    pub fn max_reach(&self) -> &glm::Vec3 {
+        &self.max_reach
+    }
+
+    /// generates the AOS mesh for easier data parsing
+    fn aos_mesh(&self) -> AOSMesh {
+        let mut faces = vec![[0, 0, 0]; self.indices.len() / 3];
+        for (i, index) in self.indices.iter().enumerate() {
+            faces[i / 3][i % 3] = *index as usize;
+        }
+        AOSMesh {
+            vertices: self
+                .positions
+                .iter()
+                .zip(self.texture_coords.iter())
+                .zip(self.normals.iter())
+                .map(|data| MeshVertex {
+                    position: *data.0 .0,
+                    uv: *data.0 .1,
+                    normal: *data.1,
+                })
+                .collect(),
+            faces,
+        }
     }
 
     /// generates the inertia tensor matrix and center of mass
@@ -150,56 +343,26 @@ impl Mesh {
         )
     }
 
+    /// generates all the simpified meshes for the lod levels
+    #[rustfmt::skip]
+    pub(crate) fn generate_lods(&self) -> [Mesh; 4] {
+        [
+            self.aos_mesh().simplified().to_mesh(),
+            self.aos_mesh().simplified().simplified().to_mesh(),
+            self.aos_mesh().simplified().simplified().simplified().to_mesh(),
+            self.aos_mesh().simplified().simplified().simplified().simplified().to_mesh(),
+        ]
+    }
+
     /// generates the meshes' hitbox for the given hitbox type
+    #[rustfmt::skip]
     pub(crate) fn generate_hitbox(&self, hitbox: &HitboxType) -> Hitbox {
         match hitbox {
-            HitboxType::ConvexHull => Hitbox::Meshed(self.convex_hull_hitbox_mesh()),
-            HitboxType::Simplified => Hitbox::Meshed(self.simplified_hitbox_mesh()),
-            HitboxType::Unaltered => Hitbox::Meshed(self.unaltered_hitbox_mesh()),
+            HitboxType::ConvexHull => Hitbox::ConvexMesh(self.aos_mesh().hitbox_mesh().convex_hull()),
+            HitboxType::Simplified => Hitbox::Mesh(self.aos_mesh().simplified().hitbox_mesh()),
+            HitboxType::Unaltered => Hitbox::Mesh(self.aos_mesh().hitbox_mesh()),
             HitboxType::Ellipsiod => self.ellipsoid_hitbox(),
             HitboxType::Box => self.box_hitbox(),
-        }
-    }
-
-    /// creates a hitbox in the form of a convex hull of the mesh
-    fn convex_hull_hitbox_mesh(&self) -> HitboxMesh {
-        let mut hitbox = self.unaltered_hitbox_mesh();
-        assert!(
-            hitbox.vertices.len() >= 4,
-            "mesh must be at least as complex as a tetrahedron for it to have a convex hull hitbox"
-        );
-        let (a, b, c, d) = hitbox.find_initial_tetrahedron();
-        let initial_faces = vec![[a, b, c], [a, b, d], [a, c, d], [b, c, d]];
-        hitbox.faces = initial_faces;
-        let mut outside_sets = hitbox.partition_points();
-        while !outside_sets.is_empty() {
-            let (face, far_point) = hitbox.find_furthest_point(&mut outside_sets);
-            hitbox.expand_hull(face, far_point, &mut outside_sets);
-        }
-        hitbox.remove_unused_vertices();
-        hitbox
-    }
-
-    /// creates a hitbox in the form of a simplified version of the mesh
-    fn simplified_hitbox_mesh(&self) -> HitboxMesh {
-        let mut hitbox = self.unaltered_hitbox_mesh();
-        let target_triangle_count = (hitbox.faces.len().ilog2() as usize).max(4);
-        while hitbox.faces.len() < target_triangle_count {
-            hitbox.simplify(target_triangle_count);
-        }
-        hitbox.remove_unused_vertices();
-        hitbox
-    }
-
-    /// creates a hitbox in the form of a unaltered version of the mesh
-    fn unaltered_hitbox_mesh(&self) -> HitboxMesh {
-        let mut faces = vec![[0, 0, 0]; self.indices.len() / 3];
-        for (i, index) in self.indices.iter().enumerate() {
-            faces[i / 3][i % 3] = *index as usize;
-        }
-        HitboxMesh {
-            vertices: self.positions.clone(),
-            faces,
         }
     }
 
@@ -239,18 +402,30 @@ fn inertia_product(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize, j: us
 
 /// all possible versions of hitboxes
 pub(crate) enum Hitbox {
-    Meshed(HitboxMesh),
+    Mesh(HitboxMesh),
+    ConvexMesh(HitboxMesh),
     Ellipsoid(glm::Vec3),
     Box(glm::Vec3),
 }
 
 impl Hitbox {
     /// checks if two hitboxes collide with each other
-    pub(crate) fn collides_with(&self, other: &Hitbox) -> Option<bool> {
+    pub(crate) fn collides_with(&self, other: &Hitbox) -> Option<CollisionData> {
         // for convex GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders trivial, the rest is triangle intersection tests
         // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
-        Some(true)
+        return match self {
+            Hitbox::Mesh(_) => None,
+            Hitbox::ConvexMesh(_) => None,
+            Hitbox::Ellipsoid(_) => None,
+            Hitbox::Box(_) => None,
+        };
     }
+}
+
+/// contains all of the relevant data for the collision of the two objects
+pub(crate) struct CollisionData {
+    translation_vec: glm::Vec3,
+    collision_normal: glm::Vec3,
 }
 
 /// contains all of the hitbox vertex data
@@ -269,109 +444,22 @@ impl HitboxMesh {
         )
     }
 
-    /// removes vertices that are not used by a face and corrects the face indices
-    fn remove_unused_vertices(&mut self) {
-        let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
-        for i in 0..self.vertices.len() {
-            while !used_indices.contains(&i) {
-                self.vertices.swap_remove(i);
-                self.faces
-                    .iter_mut()
-                    .flatten()
-                    .filter(|index| **index == self.vertices.len())
-                    .for_each(|index| *index = i);
-                if used_indices.remove(&self.vertices.len()) {
-                    used_indices.insert(i);
-                }
-            }
-            if i == self.vertices.len() {
-                break;
-            }
+    /// creates a hitbox in the form of a convex hull of the mesh
+    fn convex_hull(mut self) -> Self {
+        assert!(
+            self.vertices.len() >= 4,
+            "mesh must be at least as complex as a tetrahedron for it to have a convex hull hitbox"
+        );
+        let (a, b, c, d) = self.find_initial_tetrahedron();
+        let initial_faces = vec![[a, b, c], [a, b, d], [a, c, d], [b, c, d]];
+        self.faces = initial_faces;
+        let mut outside_sets = self.partition_points();
+        while !outside_sets.is_empty() {
+            let (face, far_point) = self.find_furthest_point(&mut outside_sets);
+            self.expand_hull(face, far_point, &mut outside_sets);
         }
-    }
-
-    /// simplifys the hitbox mesh for one iteration
-    fn simplify(&mut self, target_triangle_count: usize) {
-        let mut vertex_errors: Vec<glm::Mat4> = self.calculate_vertex_errors();
-        let mut edge_queue = self.build_edge_queue(&vertex_errors);
-
-        while self.faces.len() > target_triangle_count && !edge_queue.is_empty() {
-            let edge = edge_queue.pop().unwrap();
-            self.collapse_edge(edge, &mut vertex_errors);
-        }
-    }
-
-    /// calculate the initial error metrics (quadrics) for all vertices
-    fn calculate_vertex_errors(&self) -> Vec<glm::Mat4> {
-        let mut vertex_errors = vec![glm::Mat4::zeros(); self.vertices.len()];
-        for (i, face) in self.faces.iter().enumerate() {
-            let (v0, v1, v2) = self.face_points(i);
-            let normal = (v1 - v0).cross(&(v2 - v0)).normalize();
-            let d = -normal.dot(&v0);
-
-            let quadric = glm::mat4(
-                normal.x * normal.x,
-                normal.x * normal.y,
-                normal.x * normal.z,
-                normal.x * d,
-                normal.y * normal.x,
-                normal.y * normal.y,
-                normal.y * normal.z,
-                normal.y * d,
-                normal.z * normal.x,
-                normal.z * normal.y,
-                normal.z * normal.z,
-                normal.z * d,
-                d * normal.x,
-                d * normal.y,
-                d * normal.z,
-                d * d,
-            );
-            for vi in face {
-                vertex_errors[*vi] += quadric;
-            }
-        }
-        vertex_errors
-    }
-
-    /// build a min heap of edges prioritized by error metrics
-    fn build_edge_queue(&self, vertex_errors: &[glm::Mat4]) -> BinaryHeap<Edge> {
-        let mut edge_queue = BinaryHeap::new();
-        let mut edge_set = HashMap::new();
-        for face in &self.faces {
-            for i in 0..3 {
-                let (v1, v2) = (face[i], face[(i + 1) % 3]);
-                if !edge_set.contains_key(&(v1.min(v2), v1.max(v2))) {
-                    let error = self.calculate_edge_error(v1, v2, vertex_errors);
-                    edge_queue.push(Edge { v1, v2, error });
-                    edge_set.insert((v1.min(v2), v1.max(v2)), true);
-                }
-            }
-        }
-        edge_queue
-    }
-
-    /// calculate the error for collapsing an edge between vertices v1 and v2
-    fn calculate_edge_error(&self, v1: usize, v2: usize, vertex_errors: &[glm::Mat4]) -> f32 {
-        let quadric = vertex_errors[v1] + vertex_errors[v2];
-        let midpoint = (self.vertices[v1] + self.vertices[v2]) * 0.5;
-        let midpoint_hom = glm::vec4(midpoint.x, midpoint.y, midpoint.z, 1.0);
-        (midpoint_hom.transpose() * quadric * midpoint_hom).sum()
-    }
-
-    /// collapse an edge and update the mesh structure
-    fn collapse_edge(&mut self, edge: Edge, vertex_errors: &mut [glm::Mat4]) {
-        let Edge { v1, v2, .. } = edge;
-        self.vertices[v1] = (self.vertices[v1] + self.vertices[v2]) * 0.5;
-        vertex_errors[v1] += vertex_errors[v2];
-        self.faces.retain_mut(|face| {
-            for v in face.iter_mut() {
-                if *v == v2 {
-                    *v = v1;
-                }
-            }
-            face[0] != face[1] && face[1] != face[2] && face[2] != face[0]
-        });
+        self.remove_unused_vertices();
+        self
     }
 
     /// find the base tetrahedron for the convex hull algorithm
@@ -490,6 +578,27 @@ impl HitboxMesh {
                 if distance > 0.0 {
                     outside_sets[face_idx].push(i);
                 }
+            }
+        }
+    }
+
+    /// removes vertices that are not used by a face and corrects the face indices
+    fn remove_unused_vertices(&mut self) {
+        let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
+        for i in 0..self.vertices.len() {
+            while !used_indices.contains(&i) {
+                self.vertices.swap_remove(i);
+                self.faces
+                    .iter_mut()
+                    .flatten()
+                    .filter(|index| **index == self.vertices.len())
+                    .for_each(|index| *index = i);
+                if used_indices.remove(&self.vertices.len()) {
+                    used_indices.insert(i);
+                }
+            }
+            if i == self.vertices.len() {
+                break;
             }
         }
     }

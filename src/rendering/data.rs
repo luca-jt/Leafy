@@ -66,12 +66,12 @@ pub(crate) fn load_texture_from_bytes(bytes: &[u8]) -> GLuint {
 /// data for a single vertex
 #[derive(Default, Clone, Copy, Debug)]
 #[repr(C)]
-pub struct Vertex {
-    pub position: glm::Vec3,
-    pub color: glm::Vec4,
-    pub uv_coords: glm::Vec2,
-    pub normal: glm::Vec3,
-    pub tex_index: GLfloat,
+pub(crate) struct Vertex {
+    pub(crate) position: glm::Vec3,
+    pub(crate) color: glm::Vec4,
+    pub(crate) uv_coords: glm::Vec2,
+    pub(crate) normal: glm::Vec3,
+    pub(crate) tex_index: GLfloat,
 }
 
 /// holds the texture ID's for the App
