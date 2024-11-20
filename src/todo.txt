@@ -2,21 +2,23 @@ controller events
 sampled animations from files
 2D sprite hitboxes with seperate collision checking
 cascaded shadow mapping
-dynamic mesh LOD
 shadow anti-aliasing -> pcss
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system -> serialization (serde)
-custom render stages with shaders? (requires new rendering system with effect shaders)
+---------------------------------------------------------------------
+dpi scale factor event handling? -> render res handled by screen texture res (if that setting is in %, maybe scale that or smth)
+custom render stages with shaders?
+new rendering system with effect shaders that renders to a screen texture
+dynamic mesh LOD usage
 cap event loop update without frame rate drops
 fix fullscreen switch
----------------------------------------------------------------------
 sky box cube maps
 conways game of life example
 other light source type (not point) with creation function
-dpi scale factor event handling
 ui basics + font rendering + events for ui struct
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
 sprite renderer -> depth layers configurable, sprite component
 voxelized meshes -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
-on collision event functions for entities? -> no but a flag that is set in enitityflags
+seperate the ecs from the asset data to avoid unsafe mutable queries?
+on collision event functions for entities? (-> with entity flag that is set in during collision)
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY

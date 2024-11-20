@@ -282,7 +282,7 @@ pub mod events {
         pub button: MouseButton,
     }
 
-    /// window resize event data
+    /// window resize event data (physical size)
     #[derive(Debug, Clone, PartialEq)]
     pub struct WindowResize {
         pub width: u32,

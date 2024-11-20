@@ -90,8 +90,9 @@ impl AnimationSystem {
             return;
         }
         // macro level checks where bounding spheres of the mesh are constructed and the objects are grouped
-        let mut amount_groups = 0;
-        while amount_groups != entity_data.len() {
+        let mut any_hits = true;
+        while any_hits {
+            any_hits = false;
             let spheres = entity_data
                 .iter()
                 .map(|tuple| {
@@ -109,17 +110,11 @@ impl AnimationSystem {
                 })
                 .collect::<Vec<_>>();
             let groups = near_entity_groups(&spheres);
-
-            /*
-            TODO: Until the collision resolver works we will have to break here because otherwhise this will infinitely loop
-            */
-            break;
-
             // repeat collision detection with detailed colliders until the entire group is resolved
             for group in groups.values() {
-                let mut hits_found = true;
-                while hits_found {
-                    hits_found = false;
+                let mut group_hits = true;
+                while group_hits {
+                    group_hits = false;
                     for i in 0..group.len() {
                         for j in i..group.len() {
                             let data_idx_1 = group[i];
@@ -127,7 +122,8 @@ impl AnimationSystem {
                             let data_1 = &entity_data[data_idx_1];
                             let data_2 = &entity_data[data_idx_2];
                             if let Some(collison_data) = data_1.1.collides_with(data_2.1) {
-                                hits_found = true;
+                                any_hits = true;
+                                group_hits = true;
                                 if let Some(flags) = &mut entity_data[data_idx_1].7 {
                                     flags.set_bit(COLLISION, true);
                                 }
