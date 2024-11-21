@@ -2,12 +2,13 @@ use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::{Engine, EngineMode, FallingLeafApp};
 use crate::glm;
+use crate::rendering::data::calc_model_matrix;
+use crate::rendering::mesh::Hitbox;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::COLLISION;
-use crate::utils::constants::{G, Y_AXIS};
+use crate::utils::constants::{G, ORIGIN, X_AXIS, Y_AXIS};
 use crate::utils::tools::to_vec4;
-use std::collections::HashMap;
 use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
 
@@ -59,17 +60,17 @@ impl AnimationSystem {
     fn simulate_timestep<T: FallingLeafApp>(&mut self, engine: &Engine<T>) {
         if self.current_mode == EngineMode::Running {
             self.apply_physics(engine.entity_manager_mut().deref_mut(), self.time_step_size);
-            self.handle_collisions(engine.entity_manager_mut().deref_mut(), self.time_step_size);
+            self.handle_collisions(engine.entity_manager_mut().deref_mut());
         }
         self.update_cam(engine, self.time_step_size);
     }
 
     /// checks for collision between entities with hitboxes and resolves them
-    fn handle_collisions(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
+    fn handle_collisions(&self, entity_manager: &mut EntityManager) {
         let mut entity_data = unsafe {
             entity_manager
-                .query8_mut_opt5::<Position, HitboxType, MeshType, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags>(vec![])
-                .map(|(p, hb, mt, v, av, s, rb, f)| {
+                .query9_mut_opt6::<Position, HitboxType, MeshType, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags, Orientation>(vec![])
+                .map(|(p, hb, mt, v, av, s, rb, f, o)| {
                     (
                         p,
                         entity_manager.hitbox_from_data(mt, hb).unwrap(),
@@ -81,7 +82,8 @@ impl AnimationSystem {
                         f.map(|flags| {
                             flags.set_bit(COLLISION, false);
                             flags
-                        })
+                        }),
+                        o
                     )
                 })
                 .collect::<Vec<_>>()
@@ -89,15 +91,16 @@ impl AnimationSystem {
         if entity_data.len() <= 1 {
             return;
         }
-        // macro level checks where bounding spheres of the mesh are constructed and the objects are grouped
+        // repeat collision checks until all of them are resolved
         let mut any_hits = true;
         while any_hits {
             any_hits = false;
+            // bounding spheres of the mesh for macro level checks
             let spheres = entity_data
                 .iter()
                 .map(|tuple| {
                     (
-                        tuple.0.data(),
+                        *tuple.0.data(),
                         (tuple
                             .5
                             .as_ref()
@@ -109,29 +112,103 @@ impl AnimationSystem {
                     )
                 })
                 .collect::<Vec<_>>();
-            let groups = near_entity_groups(&spheres);
-            // repeat collision detection with detailed colliders until the entire group is resolved
-            for group in groups.values() {
-                let mut group_hits = true;
-                while group_hits {
-                    group_hits = false;
-                    for i in 0..group.len() {
-                        for j in i..group.len() {
-                            let data_idx_1 = group[i];
-                            let data_idx_2 = group[j];
-                            let data_1 = &entity_data[data_idx_1];
-                            let data_2 = &entity_data[data_idx_2];
-                            if let Some(collison_data) = data_1.1.collides_with(data_2.1) {
-                                any_hits = true;
-                                group_hits = true;
-                                if let Some(flags) = &mut entity_data[data_idx_1].7 {
-                                    flags.set_bit(COLLISION, true);
-                                }
-                                if let Some(flags) = &mut entity_data[data_idx_2].7 {
-                                    flags.set_bit(COLLISION, true);
-                                }
-                                // seperate the colliders (and create an impulse to move the underlying objects?)
-                            }
+
+            for i in 0..spheres.len() {
+                for j in i..spheres.len() {
+                    if !spheres_collide(&spheres[i].0, spheres[i].1, &spheres[j].0, spheres[j].1) {
+                        continue;
+                    }
+                    // objects 1 and 2
+                    let data_1 = &entity_data[i];
+                    let data_2 = &entity_data[j];
+                    let collider_1 = Collider {
+                        hitbox: data_1.1,
+                        model_matrix: calc_model_matrix(
+                            data_1.0,
+                            data_1.5.as_ref().unwrap_or(&&mut Scale::default()),
+                            data_1.8.as_ref().unwrap_or(&&mut Orientation::default()),
+                            &data_1
+                                .6
+                                .as_ref()
+                                .map(|rb| rb.center_of_mass)
+                                .unwrap_or(ORIGIN),
+                        ),
+                    };
+                    let collider_2 = Collider {
+                        hitbox: data_2.1,
+                        model_matrix: calc_model_matrix(
+                            data_2.0,
+                            data_2.5.as_ref().unwrap_or(&&mut Scale::default()),
+                            data_2.8.as_ref().unwrap_or(&&mut Orientation::default()),
+                            &data_2
+                                .6
+                                .as_ref()
+                                .map(|rb| rb.center_of_mass)
+                                .unwrap_or(ORIGIN),
+                        ),
+                    };
+                    if let Some(collison_data) = collider_1.collides_with(&collider_2) {
+                        // set collision flags
+                        if let Some(flags) = &mut entity_data[i].7 {
+                            flags.set_bit(COLLISION, true);
+                        }
+                        if let Some(flags) = &mut entity_data[j].7 {
+                            flags.set_bit(COLLISION, true);
+                        }
+                        // resolve the collision
+                        let data_1 = &entity_data[i];
+                        let data_2 = &entity_data[j];
+                        // seperate normal and tangential components of the motion in relation to the collision
+                        // v = a * normal + b * plane_1 + c * plane_2
+                        let (plane_1, plane_2) =
+                            plane_vectors_from_normal(&collison_data.collision_normal);
+                        let system = glm::Mat3::from_columns(&[
+                            collison_data.collision_normal,
+                            plane_1,
+                            plane_2,
+                        ]);
+                        // components = (normal_component, tangential_component)
+                        let components_1 = data_1.3.as_ref().and_then(|v| {
+                            let x = system.solve_lower_triangular(v.data()).unwrap();
+                            Some((
+                                collison_data.collision_normal * x.x,
+                                plane_1 * x.y + plane_2 * x.z,
+                            ))
+                        });
+                        let components_2 = data_2.3.as_ref().and_then(|v| {
+                            let x = system.solve_lower_triangular(v.data()).unwrap();
+                            Some((
+                                collison_data.collision_normal * x.x,
+                                plane_1 * x.y + plane_2 * x.z,
+                            ))
+                        });
+
+                        // TODO:
+                        // https://de.wikipedia.org/wiki/Sto%C3%9F_(Physik)
+                        // tangential für reibung relevant und normal für impulsänderung
+                        // beachte rotationsänderungen die durch offsets zwischen normalkomponente und schwerpunkten auftreten können
+                        // betrachte dann inelastische collisions und elastische nur wenn es nicht viel mehr aufwand ist (vielleicht mit einer flag oder so)
+
+                        let collision_resolved =
+                            if let (Some(comp_1), Some(comp_2)) = (components_1, components_2) {
+                                // both have velocity and therefore are movable
+                                //*data_1.0.data_mut() += 0.5 * collison_data.translation_vec;
+                                //*data_2.0.data_mut() += -0.5 * collison_data.translation_vec;
+                                true
+                            } else if let Some(comp_1) = components_1 {
+                                // only 1 is movable
+                                //*data_1.0.data_mut() += collison_data.translation_vec;
+                                true
+                            } else if let Some(comp_2) = components_2 {
+                                // only 2 is movable
+                                //*data_2.0.data_mut() += -collison_data.translation_vec;
+                                true
+                            } else {
+                                // both are immovable
+                                false
+                            };
+                        if collision_resolved {
+                            any_hits = true;
                         }
                     }
                 }
@@ -287,68 +364,67 @@ pub(crate) fn stop_cam<T: FallingLeafApp>(event: &KeyRelease, engine: &Engine<T>
     }
 }
 
+/// finds two vectors describing the plane defined by a given normal vector
+fn plane_vectors_from_normal(normal: &glm::Vec3) -> (glm::Vec3, glm::Vec3) {
+    // assume normal is normalized
+    let mut plane_1 = normal.cross(&X_AXIS);
+    if plane_1.norm() == 0.0 {
+        plane_1 = normal.cross(&Y_AXIS);
+    }
+    (plane_1.normalize(), plane_1.cross(&normal).normalize())
+}
+
 /// checks if two broad oject areas represented as spheres at two positions collide
 fn spheres_collide(pos1: &glm::Vec3, box1: f32, pos2: &glm::Vec3, box2: f32) -> bool {
     (pos1 - pos2).norm() <= box1 + box2
 }
 
-/// identifies all of the near entity groups in a list of bounding spheres
-fn near_entity_groups(spheres: &Vec<(&glm::Vec3, f32)>) -> HashMap<usize, Vec<usize>> {
-    let mut union_find = UnionFinder::new(spheres.len());
-    for i in 0..spheres.len() {
-        for j in (i + 1)..spheres.len() {
-            if spheres_collide(spheres[i].0, spheres[i].1, spheres[j].0, spheres[j].1) {
-                union_find.union(i, j);
-            }
-        }
-    }
-    let mut near_entity_groups: HashMap<usize, Vec<usize>> = HashMap::new();
-    for i in 0..spheres.len() {
-        let group = union_find.find(i);
-        near_entity_groups.entry(group).or_default().push(i);
-    }
-    near_entity_groups
+/// contains collision plane normal vector and the point of the collision
+struct CollisionData {
+    collision_normal: glm::Vec3,
+    collision_point: glm::Vec3,
 }
 
-/// finder for the spacial groups used in collision checking
-struct UnionFinder {
-    parent: Vec<usize>,
-    rank: Vec<usize>,
+/// collider that is used in collision checking
+struct Collider<'a> {
+    hitbox: &'a Hitbox,
+    model_matrix: glm::Mat4,
 }
 
-impl UnionFinder {
-    /// creates a new finder from a given size of the collection of the objects
-    fn new(size: usize) -> Self {
-        UnionFinder {
-            parent: (0..size).collect(),
-            rank: vec![0; size],
-        }
-    }
-
-    /// finds the parent (group id) for some index
-    fn find(&mut self, x: usize) -> usize {
-        if self.parent[x] != x {
-            // path compression
-            self.parent[x] = self.find(self.parent[x]);
-        }
-        self.parent[x]
-    }
-
-    /// unionizes two indeces into the collection
-    fn union(&mut self, x: usize, y: usize) {
-        let root_x = self.find(x);
-        let root_y = self.find(y);
-
-        if root_x != root_y {
-            if self.rank[root_x] > self.rank[root_y] {
-                self.parent[root_y] = root_x;
-            } else if self.rank[root_x] < self.rank[root_y] {
-                self.parent[root_x] = root_y;
-            } else {
-                self.parent[root_y] = root_x;
-                self.rank[root_x] += 1;
-            }
-        }
+impl Collider<'_> {
+    /// checks if two hitboxes collide with each other
+    pub(crate) fn collides_with(&self, other: &Self) -> Option<CollisionData> {
+        // TODO:
+        // for convex GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders trivial, the rest is triangle intersection tests
+        // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
+        // assume the translation vector is form the point of view of 1
+        // the normal vector in the collision data should be normalized
+        return match self.hitbox {
+            Hitbox::Mesh(_) => match other.hitbox {
+                Hitbox::Mesh(_) => None,
+                Hitbox::ConvexMesh(_) => None,
+                Hitbox::Ellipsoid(_) => None,
+                Hitbox::Box(_) => None,
+            },
+            Hitbox::ConvexMesh(_) => match other.hitbox {
+                Hitbox::Mesh(_) => None,
+                Hitbox::ConvexMesh(_) => None,
+                Hitbox::Ellipsoid(_) => None,
+                Hitbox::Box(_) => None,
+            },
+            Hitbox::Ellipsoid(dim1) => match other.hitbox {
+                Hitbox::Mesh(_) => None,
+                Hitbox::ConvexMesh(_) => None,
+                Hitbox::Ellipsoid(dim2) => None,
+                Hitbox::Box(dim2) => None,
+            },
+            Hitbox::Box(dim1) => match other.hitbox {
+                Hitbox::Mesh(_) => None,
+                Hitbox::ConvexMesh(_) => None,
+                Hitbox::Ellipsoid(dim2) => None,
+                Hitbox::Box(dim2) => None,
+            },
+        };
     }
 }
 

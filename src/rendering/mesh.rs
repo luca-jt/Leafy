@@ -408,26 +408,6 @@ pub(crate) enum Hitbox {
     Box(glm::Vec3),
 }
 
-impl Hitbox {
-    /// checks if two hitboxes collide with each other
-    pub(crate) fn collides_with(&self, other: &Hitbox) -> Option<CollisionData> {
-        // for convex GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders trivial, the rest is triangle intersection tests
-        // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
-        return match self {
-            Hitbox::Mesh(_) => None,
-            Hitbox::ConvexMesh(_) => None,
-            Hitbox::Ellipsoid(_) => None,
-            Hitbox::Box(_) => None,
-        };
-    }
-}
-
-/// contains all of the relevant data for the collision of the two objects
-pub(crate) struct CollisionData {
-    translation_vec: glm::Vec3,
-    collision_normal: glm::Vec3,
-}
-
 /// contains all of the hitbox vertex data
 pub(crate) struct HitboxMesh {
     vertices: Vec<glm::Vec3>,
