@@ -15,6 +15,7 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SwapInterval, WindowSurface};
 use glutin_winit::{DisplayBuilder, GlWindow};
 use raw_window_handle::HasWindowHandle;
+use std::cell::Cell;
 use std::error::Error;
 use std::f32::consts::PI;
 use std::ffi::{CStr, CString};
@@ -40,6 +41,7 @@ pub struct VideoSystem {
     fps_cap: Option<f64>,
     stored_config: EngineAttributes,
     skipped_first_resize: bool,
+    came_out_of_fs: Cell<bool>,
     mouse_cam_sens: Option<f32>,
 }
 
@@ -70,6 +72,7 @@ impl VideoSystem {
             fps_cap: config.fps_cap,
             stored_config: config,
             skipped_first_resize: false,
+            came_out_of_fs: Cell::new(false),
             mouse_cam_sens: None,
         }
     }
@@ -326,6 +329,9 @@ impl VideoSystem {
             if flag {
                 window.set_fullscreen(Some(Fullscreen::Borderless(None)));
             } else {
+                if window.fullscreen().is_some() {
+                    self.came_out_of_fs.set(true);
+                }
                 window.set_fullscreen(None);
             }
         }
@@ -382,27 +388,27 @@ impl EventObserver<WindowResize> for VideoSystem {
                 return;
             }
 
-            let size_to_use = if let Some(enforced_ratio) = self.stored_config.enforced_ratio {
-                // enforce window side ratio
-                let corrected_height = (event.width as f32 / enforced_ratio) as u32;
-                let mut final_size = (event.width, event.height);
-                if self.skipped_first_resize {
-                    if corrected_height != event.height {
-                        let returned_size = window
-                            .request_inner_size(PhysicalSize::new(event.width, corrected_height));
-                        if let Some(rs) = returned_size {
-                            final_size = (rs.width, rs.height);
-                        } else {
-                            return;
+            let mut size_to_use = (event.width, event.height);
+            if self.skipped_first_resize {
+                if window.fullscreen().is_none() && !self.came_out_of_fs.get() {
+                    if let Some(enforced_ratio) = self.stored_config.enforced_ratio {
+                        // enforce window side ratio
+                        let corrected_height = (event.width as f32 / enforced_ratio) as u32;
+                        if corrected_height != event.height {
+                            if let Some(rs) = window.request_inner_size(PhysicalSize::new(
+                                event.width,
+                                corrected_height,
+                            )) {
+                                size_to_use = (rs.width, rs.height);
+                            }
                         }
                     }
                 } else {
-                    self.skipped_first_resize = true;
+                    self.came_out_of_fs.set(false);
                 }
-                final_size
             } else {
-                (event.width, event.height)
-            };
+                self.skipped_first_resize = true;
+            }
 
             gl_surface.resize(
                 gl_context,

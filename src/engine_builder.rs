@@ -170,7 +170,8 @@ impl EngineAttributes {
             .with_resizable(self.resizable)
             .with_maximized(self.maximized)
             .with_theme(self.theme)
-            .with_inner_size(PhysicalSize::new(self.size.0, self.size.1));
+            .with_inner_size(PhysicalSize::new(self.size.0, self.size.1))
+            .with_fullscreen(self.fullscreen.then_some(Fullscreen::Borderless(None)));
 
         if let Some(min_size) = self.min_size {
             window_attributes =
@@ -179,10 +180,6 @@ impl EngineAttributes {
         if let Some(max_size) = self.max_size {
             window_attributes =
                 window_attributes.with_max_inner_size(PhysicalSize::new(max_size.0, max_size.1));
-        }
-        if self.fullscreen {
-            window_attributes =
-                window_attributes.with_fullscreen(Some(Fullscreen::Borderless(None)));
         }
 
         #[cfg(target_os = "windows")]

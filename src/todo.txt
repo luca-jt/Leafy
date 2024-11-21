@@ -6,21 +6,20 @@ shadow anti-aliasing -> pcss
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system -> serialization (serde)
 ---------------------------------------------------------------------
-remove EventObserver trait and only use funcition events -> remove the shared pointer overhead
+voxelized meshes -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
+particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
 dpi scale factor event handling? -> render res handled by screen texture res (if that setting is in %, maybe scale that or smth)
 custom render stages with shaders?
 new rendering system with effect shaders that renders to a screen texture
 dynamic mesh LOD usage
-cap event loop update without frame rate drops?
-fix fullscreen switch
 sky box cube maps
 conways game of life example
 other light source type (not point) with creation function
 ui basics + font rendering + events for ui struct
-particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
 sprite renderer -> depth layers configurable, sprite component
-voxelized meshes -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
 seperate the ecs from the asset data to avoid unsafe mutable queries?
-on collision event functions for entities? (-> with entity flag that is set in during collision)
+on collision event functions for entities (-> with entity flag that is set in during collision)
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
 reduce model matrix computations for every entity?
+remove EventObserver trait and only use function events -> remove the shared pointer overhead
+cap event loop update without frame rate drops?
