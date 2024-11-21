@@ -17,7 +17,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut engine = EngineAttributes::new()
         .with_transparent(true)
         .with_blur(true)
-        .with_fps_cap(Some(10.0))
         .with_title("Conway's Game of Life")
         .with_resizable(false)
         .build_engine()

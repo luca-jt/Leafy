@@ -35,9 +35,7 @@ pub struct VideoSystem {
     pub(crate) window: Option<Window>,
     current_fps: f64,
     last_draw_time: Instant,
-    iteration_start_time: Instant,
     bg_fps_cap: Option<f64>,
-    use_bg_fps_cap: bool,
     fps_cap: Option<f64>,
     stored_config: EngineAttributes,
     skipped_first_resize: bool,
@@ -66,9 +64,7 @@ impl VideoSystem {
             window: None,
             current_fps: 0f64,
             last_draw_time: Instant::now(),
-            iteration_start_time: Instant::now(),
             bg_fps_cap: config.bg_fps_cap,
-            use_bg_fps_cap: false,
             fps_cap: config.fps_cap,
             stored_config: config,
             skipped_first_resize: false,
@@ -239,18 +235,8 @@ impl VideoSystem {
         }
     }
 
-    /// caps the event loop iterations to avoid CPU load
-    pub(crate) fn cap_iterations(&mut self) {
-        let iteration_time = self.iteration_start_time.elapsed();
-        let max_iteration_time = Duration::from_millis(1);
-        if iteration_time < max_iteration_time {
-            std::thread::sleep(max_iteration_time - iteration_time);
-        }
-        self.iteration_start_time = Instant::now();
-    }
-
     /// resets the internal timer for the engine update loop
-    pub(crate) fn reset_draw_timer(&mut self) {
+    pub(crate) fn update_draw_timer(&mut self) {
         let elapsed_draw_time = self.last_draw_time.elapsed();
         self.last_draw_time = Instant::now();
         self.current_fps = 1.0 / elapsed_draw_time.as_secs_f64();
@@ -263,7 +249,7 @@ impl VideoSystem {
             .fps_cap
             .map_or(true, |fps| elapsed >= Duration::from_secs_f64(1.0 / fps));
         self.bg_fps_cap.map_or(user_cap, |fps| {
-            if self.use_bg_fps_cap {
+            if self.window.as_ref().map_or(false, |win| !win.has_focus()) {
                 elapsed >= Duration::from_secs_f64(1.0 / fps)
             } else {
                 user_cap
@@ -359,18 +345,6 @@ impl VideoSystem {
             }
         }
         self.mouse_cam_sens = sensitivity;
-    }
-}
-
-impl EventObserver<WindowLostFocus> for VideoSystem {
-    fn on_event(&mut self, _event: &WindowLostFocus) {
-        self.use_bg_fps_cap = true;
-    }
-}
-
-impl EventObserver<WindowGainedFocus> for VideoSystem {
-    fn on_event(&mut self, _event: &WindowGainedFocus) {
-        self.use_bg_fps_cap = false;
     }
 }
 

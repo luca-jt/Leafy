@@ -21,5 +21,4 @@ seperate the ecs from the asset data to avoid unsafe mutable queries?
 on collision event functions for entities (-> with entity flag that is set in during collision)
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
 reduce model matrix computations for every entity?
-remove EventObserver trait and only use function events -> remove the shared pointer overhead
-cap event loop update without frame rate drops?
+remove EventObserver trait and only use function events? -> remove the shared pointer overhead

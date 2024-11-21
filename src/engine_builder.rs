@@ -33,7 +33,7 @@ impl EngineAttributes {
     pub fn new() -> Self {
         Self {
             title: WIN_TITLE,
-            fps_cap: Some(300f64),
+            fps_cap: None,
             bg_fps_cap: None,
             size: (MIN_WIN_WIDTH, MIN_WIN_HEIGHT),
             min_size: None,
@@ -45,7 +45,7 @@ impl EngineAttributes {
             max_size: None,
             fullscreen: false,
             maximized: false,
-            use_vsync: false,
+            use_vsync: true,
             theme: None,
         }
     }
@@ -56,7 +56,7 @@ impl EngineAttributes {
         self
     }
 
-    /// sets an optional fps cap for the rendering process (default is 300)
+    /// sets an optional fps cap for the rendering process (default is None because vsync is enabled)
     pub fn with_fps_cap(mut self, cap: Option<f64>) -> Self {
         self.fps_cap = cap;
         self
@@ -128,7 +128,7 @@ impl EngineAttributes {
         self
     }
 
-    /// enables/disables vsync (default is false) (should not be used in combination with a capped frame rate)
+    /// enables/disables vsync (default is true) (disabling this will set the frame rate to unlimited)
     pub fn with_vsync(mut self, flag: bool) -> Self {
         self.use_vsync = flag;
         self

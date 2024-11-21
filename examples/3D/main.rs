@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_min_size(Some((400, 225)))
         .with_transparent(true)
         .with_fixed_ratio(Some(16.0 / 9.0))
-        .with_bg_fps_cap(Some(60.0))
+        .with_bg_fps_cap(Some(30.0))
         .build_engine()
         .unwrap();
 

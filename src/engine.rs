@@ -42,8 +42,6 @@ impl<A: FallingLeafApp> Engine<A> {
         let mut event_system = EventSystem::new();
 
         event_system.add_listener::<WindowResize>(&video_system);
-        event_system.add_listener::<WindowLostFocus>(&video_system);
-        event_system.add_listener::<WindowGainedFocus>(&video_system);
         event_system.add_listener::<CamPositionChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&audio_system);
         event_system.add_listener::<EngineModeChange>(&audio_system);
@@ -196,7 +194,7 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::RedrawRequested => {
                 if self.video_system().should_redraw() {
-                    self.video_system_mut().reset_draw_timer();
+                    self.video_system_mut().update_draw_timer();
                     self.on_frame_redraw();
                     self.video_system().swap_window();
                 }
@@ -204,7 +202,6 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
                     event_loop.exit();
                 }
                 self.video_system().request_redraw();
-                self.video_system_mut().cap_iterations();
             }
             _ => self.event_system().parse_winit_window_event(event, self),
         }
