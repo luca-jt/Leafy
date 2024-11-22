@@ -89,5 +89,8 @@ void main() {
     }
 
     vec4 textured = texture(tex_sampler[sampler_idx], v_uv).rgba * v_color;
+    if (textured.a < 0.01) {
+        discard;
+    }
     out_color = vec4(textured.rgb * final_light * ambient_light.color.rgb, textured.a);
 }

@@ -9,7 +9,7 @@ use crate::systems::rendering_system::RenderingSystem;
 use crate::systems::video_system::{mouse_move_cam, VideoSystem};
 use crate::utils::tools::{shared_ptr, SharedPtr};
 use std::any::Any;
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::error::Error;
 use std::fmt::Debug;
 use std::ops::Deref;
@@ -23,7 +23,7 @@ use winit::window::WindowId;
 pub struct Engine<A: FallingLeafApp> {
     app: Option<SharedPtr<A>>,
     exit_state: Option<Result<(), Box<dyn Error>>>,
-    should_quit: RefCell<bool>,
+    should_quit: Cell<bool>,
     rendering_system: Option<SharedPtr<RenderingSystem>>,
     audio_system: SharedPtr<AudioSystem>,
     event_system: RefCell<EventSystem<A>>,
@@ -54,7 +54,7 @@ impl<A: FallingLeafApp> Engine<A> {
         Self {
             app: None,
             exit_state: Some(Ok(())),
-            should_quit: RefCell::new(false),
+            should_quit: Cell::new(false),
             rendering_system: None,
             audio_system,
             event_system: RefCell::new(event_system),
@@ -161,7 +161,7 @@ impl<A: FallingLeafApp> Engine<A> {
 
     /// quits the running engine and exit the event loop
     pub fn quit(&self) {
-        *self.should_quit.borrow_mut() = true;
+        self.should_quit.set(true);
     }
 
     /// triggers an engine-wide event in the event system and call all relevant functions/listeners
@@ -198,7 +198,7 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
                     self.on_frame_redraw();
                     self.video_system().swap_window();
                 }
-                if *self.should_quit.borrow() {
+                if self.should_quit.get() {
                     event_loop.exit();
                 }
                 self.video_system().request_redraw();

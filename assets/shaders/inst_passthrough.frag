@@ -10,5 +10,9 @@ out vec4 out_color;
 layout(location = 7) uniform sampler2D tex_sampler;
 
 void main() {
-    out_color = texture(tex_sampler, v_uv).rgba * v_color;
+    vec4 textured = texture(tex_sampler, v_uv).rgba;
+    if (textured.a < 0.01) {
+        discard;
+    }
+    out_color = textured * v_color;
 }

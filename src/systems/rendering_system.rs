@@ -38,6 +38,8 @@ impl RenderingSystem {
         unsafe {
             gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::SCISSOR_TEST);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
 
         Self {
