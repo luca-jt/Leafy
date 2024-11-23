@@ -99,21 +99,29 @@ impl RenderingSystem {
         enable_3d_gl_modes();
         self.init_renderers();
 
-        // add entity data
+        // collect entity data
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light) in entity_manager
-            .query8_opt6::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight>(
-                vec![],
-            )
+        let mut render_data = entity_manager
+            .query8_opt6::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight>(vec![])
             .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
-        {
+            .collect::<Vec<_>>();
+
+        // sort the render data from furthest to nearest (reverse order) for correct transparency rendering
+        render_data.sort_by(|(pos1, ..), (pos2, ..)| {
+            glm::distance2(&cam_pos, pos2.data())
+                .partial_cmp(&glm::distance2(&cam_pos, pos1.data()))
+                .unwrap()
+        });
+
+        // add entity data to the renderers
+        for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light) in render_data {
             let default_attr = Colored(Color32::WHITE);
             let trafo = calc_model_matrix(
                 position,
                 scale.unwrap_or(&Scale::default()),
                 orientation.unwrap_or(&Orientation::default()),
-                &rb.copied().unwrap_or_default().center_of_mass
+                &rb.copied().unwrap_or_default().center_of_mass,
             );
             let shader_type = light.map_or(ShaderType::Basic, |_| ShaderType::Passthrough);
 

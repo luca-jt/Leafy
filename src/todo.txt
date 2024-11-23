@@ -20,5 +20,4 @@ sprite renderer -> depth layers configurable, sprite component
 seperate the ecs from the asset data to avoid unsafe mutable queries?
 on collision event functions for entities (-> with entity flag that is set in during collision)
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
-opengl transparency for rendering to shadow maps + ensure correct rendering order to avoid incorrect transparency -> first opaque, then sort transparent and render from furthest to nearest
-reduce model matrix computations for every entity?
+opengl transparency for rendering to shadow maps
