@@ -50,8 +50,10 @@ pub(crate) const INSTANCE_B_FRAG: &str = include_str!(shader_path!("inst_basic.f
 pub(crate) const INSTANCE_B_VERT: &str = include_str!(shader_path!("inst_basic.vert"));
 pub(crate) const INSTANCE_PT_FRAG: &str = include_str!(shader_path!("inst_passthrough.frag"));
 pub(crate) const INSTANCE_PT_VERT: &str = include_str!(shader_path!("inst_passthrough.vert"));
-pub(crate) const SHADOW_FRAG: &str = include_str!(shader_path!("shadow.frag"));
-pub(crate) const SHADOW_VERT: &str = include_str!(shader_path!("shadow.vert"));
+pub(crate) const INSTANCE_SHADOW_FRAG: &str = include_str!(shader_path!("inst_shadow.frag"));
+pub(crate) const INSTANCE_SHADOW_VERT: &str = include_str!(shader_path!("inst_shadow.vert"));
+pub(crate) const BATCH_SHADOW_FRAG: &str = include_str!(shader_path!("batch_shadow.frag"));
+pub(crate) const BATCH_SHADOW_VERT: &str = include_str!(shader_path!("batch_shadow.vert"));
 
 // optional mesh features
 #[cfg(feature = "triangle_mesh")]
