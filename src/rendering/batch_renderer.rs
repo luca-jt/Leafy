@@ -75,7 +75,14 @@ impl BatchRenderer {
     /// renders to the shadow map
     pub(crate) fn render_shadows(&self) {
         unsafe {
-            gl::Uniform1i(34, 0);
+            // bind uniforms
+            gl::Uniform1iv(
+                6,
+                (MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT) as GLsizei,
+                &self.samplers[0],
+            );
+            // bind white texture
+            gl::BindTextureUnit(MAX_LIGHT_SRC_COUNT as GLuint, self.white_texture);
         }
         for batch in self.batches.iter() {
             batch.render_shadows();
@@ -276,6 +283,10 @@ impl Batch {
     /// renders this batch to the shadow map (has to be binded before)
     fn render_shadows(&self) {
         unsafe {
+            // bind textures
+            for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
+                gl::BindTextureUnit((unit + 1 + MAX_LIGHT_SRC_COUNT) as GLuint, *tex_id);
+            }
             // draw the triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
             gl::DrawElements(

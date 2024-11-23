@@ -19,4 +19,3 @@ sprite renderer -> depth layers configurable, sprite component
 seperate the ecs from the asset data to avoid unsafe mutable queries?
 on collision event functions for entities (-> with entity flag that is set in during collision) -> probably also want info about the collision such as the point of collision
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
-transparency rendering for shadow maps -> requires two shadow shaders because of texturing -> would mean we dont need to do some weird hacky stuff when it comes to input parameters

@@ -4,7 +4,6 @@
 #define MAX_LIGHT_SRC_COUNT 5
 #define POINT_LIGHT_STRENGTH 300
 
-in vec4 v_color;
 in vec2 v_uv;
 in vec3 v_normal;
 in vec3 frag_pos;
@@ -31,6 +30,7 @@ layout (std140, binding = 0, column_major) uniform light_data {
 };
 
 layout(location = 0) uniform int num_lights;
+layout(location = 1) uniform vec4 color;
 layout(location = 2) uniform sampler2D shadow_sampler[MAX_LIGHT_SRC_COUNT];
 layout(location = 7) uniform sampler2D tex_sampler;
 
@@ -85,7 +85,7 @@ void main() {
         final_light += spec_strenght * spec * vec3(lights[i].color) / float(num_lights);
     }
 
-    vec4 textured = texture(tex_sampler, v_uv).rgba * v_color;
+    vec4 textured = texture(tex_sampler, v_uv).rgba * color;
     if (textured.a < 0.01) {
         discard;
     }

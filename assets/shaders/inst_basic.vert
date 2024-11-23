@@ -8,7 +8,6 @@ layout(location = 2) in vec3 normal;
 layout (location = 5) in mat4 model; // takes up 4 attribute locations
 layout (location = 9) in mat3 normal_matrix; // takes up 3 attribute locations
 
-out vec4 v_color;
 out vec2 v_uv;
 out vec3 v_normal;
 out vec3 frag_pos;
@@ -39,11 +38,9 @@ layout (std140, binding = 1, column_major) uniform matrix_block {
 };
 
 layout(location = 0) uniform int num_lights;
-layout(location = 1) uniform vec4 color;
 
 void main() {
     gl_Position = projection * view * model * vec4(position, 1.0);
-    v_color = color;
     v_uv = uv;
     v_normal = normalize(normal_matrix * normal);
     frag_pos = vec3(model * vec4(position, 1.0));

@@ -2,11 +2,11 @@
 
 #define MAX_LIGHT_SRC_COUNT 5
 
-in vec4 v_color;
 in vec2 v_uv;
 
 out vec4 out_color;
 
+layout(location = 1) uniform vec4 color;
 layout(location = 7) uniform sampler2D tex_sampler;
 
 void main() {
@@ -14,5 +14,5 @@ void main() {
     if (textured.a < 0.01) {
         discard;
     }
-    out_color = textured * v_color;
+    out_color = textured * color;
 }

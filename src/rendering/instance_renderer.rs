@@ -215,7 +215,12 @@ impl InstanceRenderer {
     /// renders to the shadow map
     pub(crate) fn render_shadows(&self) {
         unsafe {
-            gl::Uniform1i(34, 1);
+            // bind texture
+            gl::BindTextureUnit(0, self.tex_id);
+            // bind uniforms
+            gl::Uniform1i(7, 0);
+            let color_vec = self.color.to_vec4();
+            gl::Uniform4fv(1, 1, &color_vec[0]);
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
             gl::DrawElementsInstanced(
