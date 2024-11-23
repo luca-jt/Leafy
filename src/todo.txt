@@ -1,16 +1,18 @@
 controller events
 sampled animations from files
-2D sprite hitboxes with seperate collision checking
 cascaded shadow mapping
 shadow anti-aliasing -> pcss
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system -> serialization (serde)
----------------------------------------------------------------------
 voxelized meshes -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
+---------------------------------------------------------------------
+2D sprite hitboxes with seperate collision checking
+cube shadow maps for point lights
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
 dpi scale factor event handling? -> render res handled by screen texture res (if that setting is in %, maybe scale that or smth)
-custom render stages with shaders?
-new rendering system with effect shaders that renders to a screen texture
+materials -> reflection?
+new rendering system with effect shaders that renders to a screen texture (for SSAO?) -> maybe only later
+glsl preprocessor for including shader files and not copy and pasting everything
 dynamic mesh LOD usage
 sky box cube maps
 conways game of life example

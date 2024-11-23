@@ -8,11 +8,15 @@ use std::marker::PhantomData;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
 
+/// includes all of the requirements for a type to be used as an event
+pub trait Event: Any + Debug {}
+impl<T> Event for T where T: Any + Debug {}
+
 /// system managing the events
 pub struct EventSystem<A: FallingLeafApp> {
     phantom: PhantomData<A>,
     listeners: HashMap<TypeId, Vec<Box<dyn Any>>>,
-    entity_modifiers: HashMap<TypeId, Vec<Box<dyn Any>>>,
+    modifiers: HashMap<TypeId, Vec<Box<dyn Any>>>,
 }
 
 impl<A: FallingLeafApp> EventSystem<A> {
@@ -21,25 +25,25 @@ impl<A: FallingLeafApp> EventSystem<A> {
         Self {
             phantom: PhantomData,
             listeners: HashMap::new(),
-            entity_modifiers: HashMap::new(),
+            modifiers: HashMap::new(),
         }
     }
 
     /// subscribe a handler to a specific event type
-    pub fn add_listener<T: Any>(&mut self, handler: &SharedPtr<impl EventObserver<T> + 'static>) {
+    pub fn add_listener<T: Event>(&mut self, handler: &SharedPtr<impl EventObserver<T> + 'static>) {
         let listeners = self.listeners.entry(TypeId::of::<T>()).or_default();
         listeners.push(Box::new(weak_ptr(handler) as WeakPtr<dyn EventObserver<T>>));
     }
 
     /// add a entity system modifier for a specific event type to the system
-    pub fn add_modifier<T: Any>(&mut self, modifier: fn(&T, &Engine<A>)) {
+    pub fn add_modifier<T: Event>(&mut self, modifier: fn(&T, &Engine<A>)) {
         let wrapper = EventFunction { f: modifier };
-        let modifiers = self.entity_modifiers.entry(TypeId::of::<T>()).or_default();
+        let modifiers = self.modifiers.entry(TypeId::of::<T>()).or_default();
         modifiers.push(Box::new(wrapper));
     }
 
     /// trigger an event and call all relevant functions/listeners
-    pub(crate) fn trigger<T: Any + Debug>(&self, event: T, engine: &Engine<A>) {
+    pub(crate) fn trigger<T: Event>(&self, event: T, engine: &Engine<A>) {
         log::trace!("triggered event: {:?}", event);
         if let Some(handlers) = self.listeners.get(&TypeId::of::<T>()) {
             for handler in handlers {
@@ -52,7 +56,7 @@ impl<A: FallingLeafApp> EventSystem<A> {
                 }
             }
         }
-        if let Some(modifiers) = self.entity_modifiers.get(&TypeId::of::<T>()) {
+        if let Some(modifiers) = self.modifiers.get(&TypeId::of::<T>()) {
             for modifier in modifiers {
                 let casted = modifier.downcast_ref::<EventFunction<T, A>>().unwrap();
                 (casted.f)(&event, engine);
@@ -222,13 +226,13 @@ impl<A: FallingLeafApp> EventSystem<A> {
 
 /// every struct that is supposed to be added to the event system as a listener has to implement this trait
 /// for the specfic type of event it should listen to
-pub trait EventObserver<T: Any> {
+pub trait EventObserver<T: Event> {
     /// runs on every event trigger
     fn on_event(&mut self, event: &T);
 }
 
 /// holds the function pointer to the entity system event function
-struct EventFunction<T: Any, A: FallingLeafApp> {
+struct EventFunction<T: Event, A: FallingLeafApp> {
     pub(crate) f: fn(&T, &Engine<A>),
 }
 
