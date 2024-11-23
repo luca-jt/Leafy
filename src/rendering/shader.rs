@@ -133,113 +133,116 @@ impl Drop for ShaderProgram {
 
 /// holds all the shader data and loads them if needed
 pub struct ShaderCatalog {
+    batch_basic: ShaderProgram,
+    instance_basic: ShaderProgram,
+    batch_passthrough: ShaderProgram,
+    instance_passthrough: ShaderProgram,
+    batch_shadow: ShaderProgram,
+    instance_shadow: ShaderProgram,
     pub(crate) light_buffer: UniformBuffer,
     pub(crate) matrix_buffer: UniformBuffer,
-    batch_basic: Option<ShaderProgram>,
-    instance_basic: Option<ShaderProgram>,
-    batch_passthrough: Option<ShaderProgram>,
-    instance_passthrough: Option<ShaderProgram>,
 }
 
 impl ShaderCatalog {
     /// creates a new shader catalog
     pub fn new() -> Self {
+        let light_buffer = UniformBuffer::new(
+            size_of::<LightConfig>()
+                + padding::<LightConfig>()
+                + MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
+        );
+        let matrix_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2 + size_of::<glm::Vec4>());
+
         Self {
-            light_buffer: UniformBuffer::new(
-                size_of::<LightConfig>()
-                    + padding::<LightConfig>()
-                    + MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
-            ),
-            matrix_buffer: UniformBuffer::new(size_of::<glm::Mat4>() * 2 + size_of::<glm::Vec4>()),
-            batch_basic: None,
-            instance_basic: None,
-            batch_passthrough: None,
-            instance_passthrough: None,
+            batch_basic: Self::create_batch_basic(&light_buffer, &matrix_buffer),
+            instance_basic: Self::create_instance_basic(&light_buffer, &matrix_buffer),
+            batch_passthrough: Self::create_batch_passthrough(&matrix_buffer),
+            instance_passthrough: Self::create_instance_passthrough(&matrix_buffer),
+            batch_shadow: Self::create_batch_shadow(),
+            instance_shadow: Self::create_instance_shadow(),
+            light_buffer,
+            matrix_buffer,
         }
     }
 
     /// calls ``gl::UseProgram`` for the spec's corresponding shader
-    pub(crate) fn use_shader(&mut self, shader_spec: ShaderSpec) {
+    pub(crate) fn use_shader(&self, shader_spec: ShaderSpec) {
         match shader_spec.arch {
             RendererArch::Batch => match shader_spec.shader_type {
-                ShaderType::Passthrough => self.batch_passthrough().use_program(),
-                ShaderType::Basic => self.batch_basic().use_program(),
+                ShaderType::Passthrough => self.batch_passthrough.use_program(),
+                ShaderType::Basic => self.batch_basic.use_program(),
             },
             RendererArch::Instance => match shader_spec.shader_type {
-                ShaderType::Passthrough => self.instance_passthrough().use_program(),
-                ShaderType::Basic => self.instance_basic().use_program(),
+                ShaderType::Passthrough => self.instance_passthrough.use_program(),
+                ShaderType::Basic => self.instance_basic.use_program(),
             },
         }
     }
 
-    /// returns a reference to the basic shader for batch renderers
-    fn batch_basic(&mut self) -> &ShaderProgram {
-        if self.batch_basic.is_none() {
-            self.create_batch_basic();
+    /// uses the corresponding shadow shader for the given renderer architecture
+    pub(crate) fn use_shadow_shader(&self, arch: RendererArch) {
+        match arch {
+            RendererArch::Batch => self.batch_shadow.use_program(),
+            RendererArch::Instance => self.instance_shadow.use_program(),
         }
-        self.batch_basic.as_ref().unwrap()
-    }
-
-    /// returns a reference to the basic shader for instance renderers
-    fn instance_basic(&mut self) -> &ShaderProgram {
-        if self.instance_basic.is_none() {
-            self.create_instance_basic();
-        }
-        self.instance_basic.as_ref().unwrap()
-    }
-
-    /// returns a reference to the passthrough shader for batch renderers
-    fn batch_passthrough(&mut self) -> &ShaderProgram {
-        if self.batch_passthrough.is_none() {
-            self.create_batch_passthrough();
-        }
-        self.batch_passthrough.as_ref().unwrap()
-    }
-
-    /// returns a reference to the passthrough shader for instance renderers
-    fn instance_passthrough(&mut self) -> &ShaderProgram {
-        if self.instance_passthrough.is_none() {
-            self.create_instance_passthrough();
-        }
-        self.instance_passthrough.as_ref().unwrap()
     }
 
     /// creates a new basic batch renderer shader
-    fn create_batch_basic(&mut self) {
+    fn create_batch_basic(
+        light_buffer: &UniformBuffer,
+        matrix_buffer: &UniformBuffer,
+    ) -> ShaderProgram {
         let program = ShaderProgram::new(BATCH_B_VERT, BATCH_B_FRAG);
 
-        program.add_unif_buffer("light_data", &self.light_buffer, 0);
-        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
+        program.add_unif_buffer("light_data", light_buffer, 0);
+        program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
-        self.batch_basic = Some(program);
+        program
     }
 
     /// creates a new basic instance renderer shader
-    fn create_instance_basic(&mut self) {
+    fn create_instance_basic(
+        light_buffer: &UniformBuffer,
+        matrix_buffer: &UniformBuffer,
+    ) -> ShaderProgram {
         let program = ShaderProgram::new(INSTANCE_B_VERT, INSTANCE_B_FRAG);
 
-        program.add_unif_buffer("light_data", &self.light_buffer, 0);
-        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
+        program.add_unif_buffer("light_data", light_buffer, 0);
+        program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
-        self.instance_basic = Some(program);
+        program
     }
 
     /// creates a new passthrough batch renderer shader
-    fn create_batch_passthrough(&mut self) {
+    fn create_batch_passthrough(matrix_buffer: &UniformBuffer) -> ShaderProgram {
         let program = ShaderProgram::new(BATCH_PT_VERT, BATCH_PT_FRAG);
 
-        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
+        program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
-        self.batch_passthrough = Some(program);
+        program
     }
 
     /// creates a new passthrough instance renderer shader
-    fn create_instance_passthrough(&mut self) {
+    fn create_instance_passthrough(matrix_buffer: &UniformBuffer) -> ShaderProgram {
         let program = ShaderProgram::new(INSTANCE_PT_VERT, INSTANCE_PT_FRAG);
 
-        program.add_unif_buffer("matrix_block", &self.matrix_buffer, 1);
+        program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
-        self.instance_passthrough = Some(program);
+        program
+    }
+
+    /// creates a new shadow rendering shader for the batch renderer
+    fn create_batch_shadow() -> ShaderProgram {
+        let program = ShaderProgram::new(SHADOW_VERT, SHADOW_FRAG);
+
+        program
+    }
+
+    /// creates a new shadow rendering shader for the instance renderer
+    fn create_instance_shadow() -> ShaderProgram {
+        let program = ShaderProgram::new(SHADOW_VERT, SHADOW_FRAG);
+
+        program
     }
 }
 

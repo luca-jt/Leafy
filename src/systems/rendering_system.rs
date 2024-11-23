@@ -205,9 +205,20 @@ impl RenderingSystem {
 
     /// renders the shadows to the shadow map
     fn render_shadows(&mut self) {
+        let mut current_renderer_arch = None;
         for (_, shadow_map) in self.light_sources.iter_mut() {
             shadow_map.bind_writing();
             for renderer_type in self.renderers.iter_mut() {
+                let new_arch = renderer_type.required_shader().arch;
+                if current_renderer_arch
+                    .map(|arch| arch != new_arch)
+                    .unwrap_or(true)
+                {
+                    current_renderer_arch = Some(new_arch);
+                    self.shader_catalog
+                        .use_shadow_shader(current_renderer_arch.unwrap());
+                    shadow_map.bind_light_matrix();
+                }
                 match renderer_type {
                     Batch(_, renderer, _) => {
                         renderer.render_shadows();

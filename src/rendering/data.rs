@@ -1,6 +1,5 @@
 use crate::ecs::component::*;
 use crate::glm;
-use crate::rendering::shader::ShaderProgram;
 use crate::utils::constants::*;
 use crate::utils::file::*;
 use gl::types::*;
@@ -269,7 +268,6 @@ pub(crate) struct ShadowMap {
     pub(crate) light_matrix: glm::Mat4,
     pub(crate) light_pos: glm::Vec3,
     pub(crate) light: PointLight,
-    pub(crate) program: ShaderProgram,
     tmp_viewport: [GLint; 4],
 }
 
@@ -278,7 +276,6 @@ impl ShadowMap {
     pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &PointLight) -> Self {
         let mut dbo = 0;
         let mut shadow_map = 0;
-        let program = ShaderProgram::new(SHADOW_VERT, SHADOW_FRAG);
 
         unsafe {
             gl::GenFramebuffers(1, &mut dbo);
@@ -343,7 +340,6 @@ impl ShadowMap {
                 * glm::look_at(&light_pos, &(light_pos + light.direction), &from_view_up),
             light_pos,
             light: *light,
-            program,
             tmp_viewport: [0; 4],
         }
     }
@@ -355,10 +351,15 @@ impl ShadowMap {
             gl::Viewport(0, 0, self.size.0, self.size.1);
             gl::Scissor(0, 0, self.size.0, self.size.1);
             gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.dbo);
-            gl::UseProgram(self.program.id);
-            gl::UniformMatrix4fv(33, 1, gl::FALSE, &self.light_matrix[0]);
             // clear the depth buffer bit
             gl::Clear(gl::DEPTH_BUFFER_BIT);
+        }
+    }
+
+    /// binds the light matrix uniform to the currently used shader
+    pub(crate) fn bind_light_matrix(&self) {
+        unsafe {
+            gl::UniformMatrix4fv(33, 1, gl::FALSE, &self.light_matrix[0]);
         }
     }
 
