@@ -442,8 +442,7 @@ impl ECS {
     pub(crate) fn get_entity_type(&self, entity: EntityID) -> EntityType {
         let record = self.entity_index.get(&entity).expect("entity doesnt exist");
         let archetype = self.archetypes.get(&record.archetype_id).unwrap();
-
-        EntityType::from(archetype.components.keys().cloned().collect::<Vec<_>>())
+        EntityType::from(archetype.components.keys().copied().collect::<Vec<_>>())
     }
 
     /// adds a component to an existing entity

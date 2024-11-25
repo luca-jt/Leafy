@@ -4,7 +4,8 @@ use crate::systems::audio_system::SoundHandleID;
 use crate::utils::constants::*;
 use gl::types::GLfloat;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-use std::path::PathBuf;
+use std::path::Path;
+use std::rc::Rc;
 use std::time::Instant;
 use MeshAttribute::*;
 
@@ -300,7 +301,7 @@ pub enum MeshType {
     Cylinder,
     Cone,
     Torus,
-    Custom(PathBuf),
+    Custom(Rc<Path>),
 }
 
 /// represents all texture types with path data
@@ -309,7 +310,7 @@ pub enum Texture {
     Ice,
     Sand,
     Wall,
-    Custom(PathBuf),
+    Custom(Rc<Path>),
 }
 
 /// wether or not a mesh is colored or textured
@@ -346,7 +347,7 @@ impl Default for MeshAttribute {
 #[derive(Debug, PartialOrd, PartialEq, Clone)]
 pub enum Material {
     Reflective,
-    Custom(PathBuf),
+    Custom(Rc<Path>),
 }
 
 /// component wrapper struct for `std::time::Instant` to track physics time
