@@ -4,6 +4,7 @@ use crate::glm;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::Y_AXIS;
+use crate::utils::tools::map_range;
 use gl::types::GLsizei;
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{
@@ -17,7 +18,7 @@ use glutin_winit::{DisplayBuilder, GlWindow};
 use raw_window_handle::HasWindowHandle;
 use std::cell::Cell;
 use std::error::Error;
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 use std::ffi::{CStr, CString};
 use std::num::NonZeroU32;
 use std::time::{Duration, Instant};
@@ -447,16 +448,18 @@ pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: 
         let up_dir = right_dir.cross(&look_dir).normalize(); // new y
         let look_trafo = glm::Mat3::from_columns(&[right_dir, up_dir, look_dir]);
 
-        let current_vert_angle = glm::vec3(look_dir.x, 0.0, look_dir.z).norm().acos();
+        let forward_dir = glm::vec3(look_dir.x, 0.0, look_dir.z);
+        let current_vert_angle = forward_dir.norm().acos();
         let add_angle = sens / 1000.0;
 
-        let add_hori_angle = add_angle * event.delta_x as f32;
+        let hori_factor = map_range((0.0, FRAC_PI_2), (1.0, 0.0), current_vert_angle); // TODO: why not linear?
+        let add_hori_angle = add_angle * event.delta_x as f32 * hori_factor;
         let look_hori = look_trafo * glm::vec3(add_hori_angle.sin(), 0.0, add_hori_angle.cos());
 
         let angle_block = PI / 16.0;
         let add_vert_angle = (add_angle * -event.delta_y as f32).clamp(
-            -PI / 2.0 + angle_block + current_vert_angle,
-            PI / 2.0 - angle_block - current_vert_angle,
+            -FRAC_PI_2 + angle_block + current_vert_angle,
+            FRAC_PI_2 - angle_block - current_vert_angle,
         );
         let look_vert = look_trafo * glm::vec3(0.0, add_vert_angle.sin(), add_vert_angle.cos());
 

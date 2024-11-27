@@ -7,7 +7,7 @@ use falling_leaf::systems::audio_system::VolumeType;
 use falling_leaf::systems::event_system::events::*;
 use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, Y_AXIS};
 use falling_leaf::winit::keyboard::KeyCode;
-use std::f32::consts::PI;
+use std::f32::consts::FRAC_PI_2;
 
 pub const CAM_MOVE_SPEED: f32 = 4.5;
 pub const CAM_MOUSE_SPEED: f32 = 4.0;
@@ -108,7 +108,7 @@ impl FallingLeafApp for App {
         let pos = entity_manager
             .get_component_mut::<Position>(self.cube)
             .unwrap();
-        let av = PI / 2.0;
+        let av = FRAC_PI_2;
         pos.data_mut().x = (secs * av).0.sin() * 3.0;
         pos.data_mut().z = (secs * av).0.cos() * 3.0;
     }
