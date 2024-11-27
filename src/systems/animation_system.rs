@@ -158,29 +158,28 @@ impl AnimationSystem {
                         // resolve the collision
                         let data_1 = &entity_data[i];
                         let data_2 = &entity_data[j];
+
+                        let rigid_body_1 = data_1.6.as_ref().copied().unwrap_or_default();
+                        let rigid_body_2 = data_2.6.as_ref().copied().unwrap_or_default();
                         // seperate normal and tangential components of the motion in relation to the collision
-                        // v = a * normal + b * plane_1 + c * plane_2
-                        let (plane_1, plane_2) =
-                            plane_vectors_from_normal(&collison_data.collision_normal);
-                        let system = glm::Mat3::from_columns(&[
-                            collison_data.collision_normal,
-                            plane_1,
-                            plane_2,
-                        ]);
+                        // INFO: normal vector is 1 -> 2
+
+                        // vectors from the center of mass to the contact point
+                        let mass_center_coll_point_1 =
+                            collison_data.collision_point - rigid_body_1.center_of_mass;
+                        let mass_center_coll_point_2 =
+                            collison_data.collision_point - rigid_body_2.center_of_mass;
+
                         // components = (normal_component, tangential_component)
                         let components_1 = data_1.3.as_ref().and_then(|v| {
-                            let x = system.solve_lower_triangular(v.data()).unwrap();
-                            Some((
-                                collison_data.collision_normal * x.x,
-                                plane_1 * x.y + plane_2 * x.z,
-                            ))
+                            let normal_component =
+                                mass_center_coll_point_1.dot(v.data()) * v.data();
+                            Some((normal_component, v.data() - normal_component))
                         });
                         let components_2 = data_2.3.as_ref().and_then(|v| {
-                            let x = system.solve_lower_triangular(v.data()).unwrap();
-                            Some((
-                                collison_data.collision_normal * x.x,
-                                plane_1 * x.y + plane_2 * x.z,
-                            ))
+                            let normal_component =
+                                mass_center_coll_point_2.dot(v.data()) * v.data();
+                            Some((normal_component, v.data() - normal_component))
                         });
 
                         // TODO:
@@ -188,6 +187,10 @@ impl AnimationSystem {
                         // tangential für reibung relevant und normal für impulsänderung
                         // beachte rotationsänderungen die durch offsets zwischen normalkomponente und schwerpunkten auftreten können
                         // betrachte dann inelastische collisions und elastische nur wenn es nicht viel mehr aufwand ist (vielleicht mit einer flag oder so)
+                        // -> diese unterscheiden sich durch den coefficient of restitution welcher in der berechnung der impulse verwendet wird
+                        // (sollte in der fallunterscheidung nicht all zu viel aufwand sein)
+
+                        let restitution_coefficient = 0; // change that in the future with component data
 
                         let collision_resolved =
                             if let (Some(comp_1), Some(comp_2)) = (components_1, components_2) {
@@ -364,16 +367,6 @@ pub(crate) fn stop_cam<T: FallingLeafApp>(event: &KeyRelease, engine: &Engine<T>
     }
 }
 
-/// finds two vectors describing the plane defined by a given normal vector
-fn plane_vectors_from_normal(normal: &glm::Vec3) -> (glm::Vec3, glm::Vec3) {
-    // assume normal is normalized
-    let mut plane_1 = normal.cross(&X_AXIS);
-    if plane_1.norm() == 0.0 {
-        plane_1 = normal.cross(&Y_AXIS);
-    }
-    (plane_1.normalize(), plane_1.cross(&normal).normalize())
-}
-
 /// checks if two broad oject areas represented as spheres at two positions collide
 fn spheres_collide(pos1: &glm::Vec3, box1: f32, pos2: &glm::Vec3, box2: f32) -> bool {
     (pos1 - pos2).norm() <= box1 + box2
@@ -397,7 +390,7 @@ impl Collider<'_> {
         // TODO:
         // for convex GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders trivial, the rest is triangle intersection tests
         // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
-        // assume the translation vector is form the point of view of 1
+        // assume the normal vector is form the point of view of 1
         // the normal vector in the collision data should be normalized
         return match self.hitbox {
             Hitbox::Mesh(_) => match other.hitbox {
