@@ -452,7 +452,7 @@ pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: 
         let current_vert_angle = forward_dir.norm().acos();
         let add_angle = sens / 1000.0;
 
-        let hori_factor = map_range((0.0, FRAC_PI_2), (1.0, 0.0), current_vert_angle); // TODO: why not linear?
+        let hori_factor = map_range((0.0, FRAC_PI_2), (0.0, FRAC_PI_2), current_vert_angle).cos();
         let add_hori_angle = add_angle * event.delta_x as f32 * hori_factor;
         let look_hori = look_trafo * glm::vec3(add_hori_angle.sin(), 0.0, add_hori_angle.cos());
 
