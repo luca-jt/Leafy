@@ -75,3 +75,15 @@ impl<T: Any> AnyCast for T {
         self
     }
 }
+
+/// allows for data behind ``Option<&mut T>`` to be copied easily
+pub fn copied_or_default<T>(option: &Option<&mut T>) -> T
+where
+    T: Default + Copy,
+{
+    option
+        .as_ref()
+        .map(|refref| refref as &T)
+        .copied()
+        .unwrap_or_default()
+}

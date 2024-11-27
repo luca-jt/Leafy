@@ -7,8 +7,8 @@ use crate::rendering::mesh::Hitbox;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::COLLISION;
-use crate::utils::constants::{G, ORIGIN, X_AXIS, Y_AXIS};
-use crate::utils::tools::to_vec4;
+use crate::utils::constants::{G, Y_AXIS};
+use crate::utils::tools::{copied_or_default, to_vec4};
 use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
 
@@ -101,14 +101,9 @@ impl AnimationSystem {
                 .map(|tuple| {
                     (
                         *tuple.0.data(),
-                        (tuple
-                            .5
-                            .as_ref()
-                            .unwrap_or(&&mut Scale::default())
-                            .scale_matrix()
-                            * to_vec4(tuple.2.max_reach()))
-                        .xyz()
-                        .norm(),
+                        (copied_or_default(&tuple.5).scale_matrix() * to_vec4(tuple.2.max_reach()))
+                            .xyz()
+                            .norm(),
                     )
                 })
                 .collect::<Vec<_>>();
@@ -121,17 +116,17 @@ impl AnimationSystem {
                     // objects 1 and 2
                     let data_1 = &entity_data[i];
                     let data_2 = &entity_data[j];
+
+                    let rigid_body_1 = copied_or_default(&data_1.6);
+                    let rigid_body_2 = copied_or_default(&data_2.6);
+
                     let collider_1 = Collider {
                         hitbox: data_1.1,
                         model_matrix: calc_model_matrix(
                             data_1.0,
                             data_1.5.as_ref().unwrap_or(&&mut Scale::default()),
                             data_1.8.as_ref().unwrap_or(&&mut Orientation::default()),
-                            &data_1
-                                .6
-                                .as_ref()
-                                .map(|rb| rb.center_of_mass)
-                                .unwrap_or(ORIGIN),
+                            &rigid_body_1.center_of_mass,
                         ),
                     };
                     let collider_2 = Collider {
@@ -140,11 +135,7 @@ impl AnimationSystem {
                             data_2.0,
                             data_2.5.as_ref().unwrap_or(&&mut Scale::default()),
                             data_2.8.as_ref().unwrap_or(&&mut Orientation::default()),
-                            &data_2
-                                .6
-                                .as_ref()
-                                .map(|rb| rb.center_of_mass)
-                                .unwrap_or(ORIGIN),
+                            &rigid_body_2.center_of_mass,
                         ),
                     };
                     if let Some(collison_data) = collider_1.collides_with(&collider_2) {
@@ -158,9 +149,6 @@ impl AnimationSystem {
                         // resolve the collision
                         let data_1 = &entity_data[i];
                         let data_2 = &entity_data[j];
-
-                        let rigid_body_1 = data_1.6.as_ref().copied().unwrap_or_default();
-                        let rigid_body_2 = data_2.6.as_ref().copied().unwrap_or_default();
                         // seperate normal and tangential components of the motion in relation to the collision
                         // INFO: normal vector is 1 -> 2
 
