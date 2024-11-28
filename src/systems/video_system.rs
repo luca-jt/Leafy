@@ -4,7 +4,6 @@ use crate::glm;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::Y_AXIS;
-use crate::utils::tools::map_range;
 use gl::types::GLsizei;
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{
@@ -449,10 +448,11 @@ pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: 
         let look_trafo = glm::Mat3::from_columns(&[right_dir, up_dir, look_dir]);
 
         let forward_dir = glm::vec3(look_dir.x, 0.0, look_dir.z);
-        let current_vert_angle = forward_dir.norm().acos();
+        let forward_dir_norm = forward_dir.norm();
+        let current_vert_angle = forward_dir_norm.acos();
         let add_angle = sens / 1000.0;
 
-        let hori_factor = map_range((0.0, FRAC_PI_2), (0.0, FRAC_PI_2), current_vert_angle).cos();
+        let hori_factor = forward_dir_norm; // accounts for different circle radii when the vertical angle changes
         let add_hori_angle = add_angle * event.delta_x as f32 * hori_factor;
         let look_hori = look_trafo * glm::vec3(add_hori_angle.sin(), 0.0, add_hori_angle.cos());
 

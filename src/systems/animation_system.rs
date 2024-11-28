@@ -147,8 +147,8 @@ impl AnimationSystem {
                             flags.set_bit(COLLISION, true);
                         }
                         // resolve the collision
-                        let data_1 = &entity_data[i];
-                        let data_2 = &entity_data[j];
+                        // data_1 = entity_data[i];
+                        // data_2 = entity_data[j];
                         // seperate normal and tangential components of the motion in relation to the collision
                         // INFO: normal vector is 1 -> 2
 
@@ -159,12 +159,12 @@ impl AnimationSystem {
                             collison_data.collision_point - rigid_body_2.center_of_mass;
 
                         // components = (normal_component, tangential_component)
-                        let components_1 = data_1.3.as_ref().and_then(|v| {
+                        let components_1 = entity_data[i].3.as_ref().and_then(|v| {
                             let normal_component =
                                 mass_center_coll_point_1.dot(v.data()) * v.data();
                             Some((normal_component, v.data() - normal_component))
                         });
-                        let components_2 = data_2.3.as_ref().and_then(|v| {
+                        let components_2 = entity_data[j].3.as_ref().and_then(|v| {
                             let normal_component =
                                 mass_center_coll_point_2.dot(v.data()) * v.data();
                             Some((normal_component, v.data() - normal_component))
@@ -180,24 +180,34 @@ impl AnimationSystem {
 
                         let restitution_coefficient = 0; // change that in the future with component data
 
-                        let collision_resolved =
-                            if let (Some(comp_1), Some(comp_2)) = (components_1, components_2) {
-                                // both have velocity and therefore are movable
-                                //*data_1.0.data_mut() += 0.5 * collison_data.translation_vec;
-                                //*data_2.0.data_mut() += -0.5 * collison_data.translation_vec;
-                                true
-                            } else if let Some(comp_1) = components_1 {
-                                // only 1 is movable
-                                //*data_1.0.data_mut() += collison_data.translation_vec;
-                                true
-                            } else if let Some(comp_2) = components_2 {
-                                // only 2 is movable
-                                //*data_2.0.data_mut() += -collison_data.translation_vec;
-                                true
-                            } else {
-                                // both are immovable
-                                false
-                            };
+                        let collision_resolved = if let (Some(comp_1), Some(comp_2)) =
+                            (components_1, components_2)
+                        {
+                            // both have velocity and therefore are movable
+                            *entity_data[i].0.data_mut() += 0.5 * collison_data.translation_vec;
+                            *entity_data[j].0.data_mut() += -0.5 * collison_data.translation_vec;
+
+                            //...
+
+                            true
+                        } else if let Some(comp_1) = components_1 {
+                            // only 1 is movable
+                            *entity_data[i].0.data_mut() += collison_data.translation_vec;
+
+                            //...
+
+                            true
+                        } else if let Some(comp_2) = components_2 {
+                            // only 2 is movable
+                            *entity_data[j].0.data_mut() += -collison_data.translation_vec;
+
+                            //...
+
+                            true
+                        } else {
+                            // both are immovable
+                            false
+                        };
                         if collision_resolved {
                             any_hits = true;
                         }
@@ -360,10 +370,11 @@ fn spheres_collide(pos1: &glm::Vec3, box1: f32, pos2: &glm::Vec3, box2: f32) -> 
     (pos1 - pos2).norm() <= box1 + box2
 }
 
-/// contains collision plane normal vector and the point of the collision
+/// contains collision plane normal vector, the point of the collision and the minimal translation vector
 struct CollisionData {
     collision_normal: glm::Vec3,
     collision_point: glm::Vec3,
+    translation_vec: glm::Vec3,
 }
 
 /// collider that is used in collision checking
