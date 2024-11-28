@@ -290,8 +290,8 @@ impl Mesh {
         }
     }
 
-    /// generates the inertia tensor matrix and center of mass
-    pub(crate) fn intertia_data(&self, density: f32, scale: &Scale) -> (glm::Mat3, glm::Vec3) {
+    /// generates the inertia tensor matrix, center of mass and the mass
+    pub(crate) fn intertia_data(&self, density: f32, scale: &Scale) -> (glm::Mat3, glm::Vec3, f32) {
         // inertia matrix entries
         let (mut ia, mut ib, mut ic, mut iap, mut ibp, mut icp) =
             (0f32, 0f32, 0f32, 0f32, 0f32, 0f32);
@@ -340,6 +340,7 @@ impl Mesh {
                 glm::vec3(-icp, -iap, ic),
             ]),
             center_of_mass,
+            mass,
         )
     }
 

@@ -287,11 +287,12 @@ impl EntityManager {
                         let mesh = self.asset_from_type(mt).unwrap();
                         let scale = self.ecs.get_component::<Scale>(entity).copied();
                         let density = self.ecs.get_component::<RigidBody>(entity).unwrap().density;
-                        let (inertia_tensor, center_of_mass) =
+                        let (inertia_tensor, center_of_mass, mass) =
                             mesh.intertia_data(density, &scale.unwrap_or_default());
                         let body = self.ecs.get_component_mut::<RigidBody>(entity).unwrap();
                         body.inertia_tensor = inertia_tensor;
                         body.center_of_mass = center_of_mass;
+                        body.mass = mass;
                     }
                 }
                 AssetCommand::AddLightID(entity) => {

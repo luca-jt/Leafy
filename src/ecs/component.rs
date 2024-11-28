@@ -391,6 +391,7 @@ pub struct RigidBody {
     pub(crate) density: f32,
     pub(crate) inertia_tensor: glm::Mat3,
     pub(crate) center_of_mass: glm::Vec3,
+    pub(crate) mass: f32,
     pub(crate) friction: f32,
 }
 
@@ -414,6 +415,7 @@ impl Default for RigidBody {
             density: 1.0,
             inertia_tensor: glm::Mat3::identity(),
             center_of_mass: ORIGIN,
+            mass: 1.0,
             friction: 0.5,
         }
     }

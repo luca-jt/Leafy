@@ -147,10 +147,18 @@ impl AnimationSystem {
                             flags.set_bit(COLLISION, true);
                         }
                         // resolve the collision
-                        // data_1 = entity_data[i];
-                        // data_2 = entity_data[j];
-                        // seperate normal and tangential components of the motion in relation to the collision
-                        // INFO: normal vector is 1 -> 2
+                        // -> seperate normal and tangential components of the motion in relation to the collision
+
+                        // INFO: normal, velocity, and translation vector are pov 1 -> 2
+
+                        // check what entities are fixed
+                        let is_dynamic_1 = entity_data[i].3.is_some();
+                        let is_dynamic_2 = entity_data[j].3.is_some();
+
+                        if !is_dynamic_1 && !is_dynamic_2 {
+                            // both are immovable
+                            continue;
+                        }
 
                         // vectors from the center of mass to the contact point
                         let mass_center_coll_point_1 =
@@ -158,59 +166,102 @@ impl AnimationSystem {
                         let mass_center_coll_point_2 =
                             collison_data.collision_point - rigid_body_2.center_of_mass;
 
-                        // components = (normal_component, tangential_component)
-                        let components_1 = entity_data[i].3.as_ref().and_then(|v| {
-                            let normal_component =
-                                mass_center_coll_point_1.dot(v.data()) * v.data();
-                            Some((normal_component, v.data() - normal_component))
-                        });
-                        let components_2 = entity_data[j].3.as_ref().and_then(|v| {
-                            let normal_component =
-                                mass_center_coll_point_2.dot(v.data()) * v.data();
-                            Some((normal_component, v.data() - normal_component))
-                        });
+                        // relative velocity
+                        let v_rel = copied_or_default(&entity_data[i].3).data()
+                            - copied_or_default(&entity_data[j].3).data();
 
-                        // TODO:
-                        // https://de.wikipedia.org/wiki/Sto%C3%9F_(Physik)
-                        // tangential für reibung relevant und normal für impulsänderung
-                        // beachte rotationsänderungen die durch offsets zwischen normalkomponente und schwerpunkten auftreten können
-                        // betrachte dann inelastische collisions und elastische nur wenn es nicht viel mehr aufwand ist (vielleicht mit einer flag oder so)
-                        // -> diese unterscheiden sich durch den coefficient of restitution welcher in der berechnung der impulse verwendet wird
-                        // (sollte in der fallunterscheidung nicht all zu viel aufwand sein)
+                        // components of the relative velocity
+                        let normal_component = collison_data.collision_normal.dot(&v_rel) * v_rel;
+                        let tangential_component = v_rel - normal_component;
 
-                        let restitution_coefficient = 0; // change that in the future with component data
+                        let restitution_coefficient = 0.0; // TODO: change that in the future with component data
 
-                        let collision_resolved = if let (Some(comp_1), Some(comp_2)) =
-                            (components_1, components_2)
-                        {
+                        let min_friction = rigid_body_1.friction.min(rigid_body_2.friction);
+                        let inertia_inv_1 = rigid_body_1.inertia_tensor.try_inverse().unwrap();
+                        let inertia_inv_2 = rigid_body_2.inertia_tensor.try_inverse().unwrap();
+
+                        //
+                        // do all of the impulse computations for both the normal and tangential components
+                        //
+
+                        if is_dynamic_1 && is_dynamic_2 {
                             // both have velocity and therefore are movable
+
+                            // seperate the two objects
                             *entity_data[i].0.data_mut() += 0.5 * collison_data.translation_vec;
                             *entity_data[j].0.data_mut() += -0.5 * collison_data.translation_vec;
 
-                            //...
+                            //
+                            // normal impulse
+                            //
+                            let coll_normal = collison_data.collision_normal;
+                            // k's are responsible for the impact the angular motion has on the collision response
+                            // they are used in a more efficient calculation of K1=[r1]_× * I_world,1^−1 * [r1]_×^T (using the cross matrix)
+                            let r1_cross_n = mass_center_coll_point_1.cross(&coll_normal);
+                            let r2_cross_n = mass_center_coll_point_2.cross(&coll_normal);
+                            let k1_normal = inertia_inv_1 * r1_cross_n;
+                            let k2_normal = inertia_inv_2 * r2_cross_n;
 
-                            true
-                        } else if let Some(comp_1) = components_1 {
+                            let effective_mass_n = 1.0 / rigid_body_1.mass
+                                + 1.0 / rigid_body_2.mass
+                                + coll_normal.dot(
+                                    &(r1_cross_n.cross(&k1_normal) + r2_cross_n.cross(&k2_normal)),
+                                );
+                            let normal_impulse = -((1.0 + restitution_coefficient)
+                                * normal_component)
+                                / effective_mass_n;
+
+                            //
+                            // tangential impulse
+                            //
+
+                            // TODO: maybe just use the result from the normal impulse to compute Jt = -friction * m * tangential_component? -> performance
+                            let coll_tangent = tangential_component.normalize();
+                            // k's are responsible for the impact the angular motion has on the collision response
+                            let r1_cross_t = mass_center_coll_point_1.cross(&coll_tangent);
+                            let r2_cross_t = mass_center_coll_point_2.cross(&coll_tangent);
+                            let k1_tang = inertia_inv_1 * r1_cross_t;
+                            let k2_tang = inertia_inv_2 * r2_cross_t;
+
+                            let effective_mass_t = 1.0 / rigid_body_1.mass
+                                + 1.0 / rigid_body_2.mass
+                                + coll_tangent.dot(
+                                    &(r1_cross_t.cross(&k1_tang) + r2_cross_t.cross(&k2_tang)),
+                                );
+                            let tang_impulse = -((1.0 + restitution_coefficient)
+                                * tangential_component)
+                                / effective_mass_t
+                                * min_friction;
+
+                            //
+                            // apply impulses
+                            //
+                            *entity_data[i].3.as_mut().unwrap().data_mut() +=
+                                (normal_impulse + tang_impulse) / rigid_body_1.mass;
+                            *entity_data[j].3.as_mut().unwrap().data_mut() +=
+                                -(normal_impulse + tang_impulse) / rigid_body_2.mass;
+
+                            if let Some(angular_vel) = entity_data[i].4.as_mut() {
+                                angular_vel.0 +=
+                                    inertia_inv_1 * mass_center_coll_point_1.cross(&tang_impulse);
+                            }
+                            if let Some(angular_vel) = entity_data[j].4.as_mut() {
+                                angular_vel.0 +=
+                                    inertia_inv_2 * mass_center_coll_point_2.cross(&tang_impulse);
+                            }
+                        } else if is_dynamic_2 {
                             // only 1 is movable
                             *entity_data[i].0.data_mut() += collison_data.translation_vec;
-
-                            //...
-
-                            true
-                        } else if let Some(comp_2) = components_2 {
+                            // TODO
+                        } else if is_dynamic_2 {
                             // only 2 is movable
                             *entity_data[j].0.data_mut() += -collison_data.translation_vec;
-
-                            //...
-
-                            true
+                            // TODO
                         } else {
-                            // both are immovable
-                            false
-                        };
-                        if collision_resolved {
-                            any_hits = true;
+                            // both are immovable (should not happen due to the check earlier)
+                            panic!("tried to seperate two immovable objects");
                         }
+                        any_hits = true;
                     }
                 }
             }
