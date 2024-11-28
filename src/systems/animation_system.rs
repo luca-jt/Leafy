@@ -114,29 +114,35 @@ impl AnimationSystem {
                     if !spheres_collide(&spheres[i].0, spheres[i].1, &spheres[j].0, spheres[j].1) {
                         continue;
                     }
-                    // objects 1 and 2
-                    let data_1 = &entity_data[i];
-                    let data_2 = &entity_data[j];
+                    // check what entities are fixed
+                    let is_dynamic_1 = entity_data[i].3.is_some();
+                    let is_dynamic_2 = entity_data[j].3.is_some();
 
-                    let rigid_body_1 = copied_or_default(&data_1.6);
-                    let rigid_body_2 = copied_or_default(&data_2.6);
+                    if !is_dynamic_1 && !is_dynamic_2 {
+                        // both are immovable
+                        continue;
+                    }
+
+                    // rigid bodies
+                    let rb_1 = copied_or_default(&entity_data[i].6);
+                    let rb_2 = copied_or_default(&entity_data[j].6);
 
                     let collider_1 = Collider {
-                        hitbox: data_1.1,
+                        hitbox: entity_data[i].1,
                         model_matrix: calc_model_matrix(
-                            data_1.0,
-                            data_1.5.as_ref().unwrap_or(&&mut Scale::default()),
-                            data_1.8.as_ref().unwrap_or(&&mut Orientation::default()),
-                            &rigid_body_1.center_of_mass,
+                            entity_data[i].0,
+                            &copied_or_default(&entity_data[i].5),
+                            &copied_or_default(&entity_data[i].8),
+                            &rb_1.center_of_mass,
                         ),
                     };
                     let collider_2 = Collider {
-                        hitbox: data_2.1,
+                        hitbox: entity_data[j].1,
                         model_matrix: calc_model_matrix(
-                            data_2.0,
-                            data_2.5.as_ref().unwrap_or(&&mut Scale::default()),
-                            data_2.8.as_ref().unwrap_or(&&mut Orientation::default()),
-                            &rigid_body_2.center_of_mass,
+                            entity_data[j].0,
+                            &copied_or_default(&entity_data[j].5),
+                            &copied_or_default(&entity_data[j].8),
+                            &rb_2.center_of_mass,
                         ),
                     };
                     if let Some(collison_data) = collider_1.collides_with(&collider_2) {
@@ -147,25 +153,16 @@ impl AnimationSystem {
                         if let Some(flags) = &mut entity_data[j].7 {
                             flags.set_bit(COLLISION, true);
                         }
+
                         // resolve the collision
                         // -> seperate normal and tangential components of the motion in relation to the collision
-
                         // INFO: normal, velocity, and translation vector are pov 1 -> 2
-
-                        // check what entities are fixed
-                        let is_dynamic_1 = entity_data[i].3.is_some();
-                        let is_dynamic_2 = entity_data[j].3.is_some();
-
-                        if !is_dynamic_1 && !is_dynamic_2 {
-                            // both are immovable
-                            continue;
-                        }
 
                         // vectors from the center of mass to the contact point
                         let mass_center_coll_point_1 =
-                            collison_data.collision_point - rigid_body_1.center_of_mass;
+                            collison_data.collision_point - rb_1.center_of_mass;
                         let mass_center_coll_point_2 =
-                            collison_data.collision_point - rigid_body_2.center_of_mass;
+                            collison_data.collision_point - rb_2.center_of_mass;
 
                         // relative velocity
                         let v_rel = copied_or_default(&entity_data[i].3).data()
@@ -177,9 +174,9 @@ impl AnimationSystem {
 
                         let restitution_coefficient = 0.0; // TODO: change that in the future with component data
 
-                        let min_friction = rigid_body_1.friction.min(rigid_body_2.friction);
-                        let inertia_inv_1 = rigid_body_1.inv_inertia_tensor;
-                        let inertia_inv_2 = rigid_body_2.inv_inertia_tensor;
+                        let min_friction = rb_1.friction.min(rb_2.friction);
+                        let inertia_inv_1 = rb_1.inv_inertia_tensor;
+                        let inertia_inv_2 = rb_2.inv_inertia_tensor;
 
                         //
                         // do all of the impulse computations for both the normal and tangential components
@@ -203,8 +200,8 @@ impl AnimationSystem {
                             let k1_normal = inertia_inv_1 * r1_cross_n;
                             let k2_normal = inertia_inv_2 * r2_cross_n;
 
-                            let effective_mass_n = 1.0 / rigid_body_1.mass
-                                + 1.0 / rigid_body_2.mass
+                            let effective_mass_n = 1.0 / rb_1.mass
+                                + 1.0 / rb_2.mass
                                 + coll_normal.dot(
                                     &(r1_cross_n.cross(&k1_normal) + r2_cross_n.cross(&k2_normal)),
                                 );
@@ -224,8 +221,8 @@ impl AnimationSystem {
                             let k1_tang = inertia_inv_1 * r1_cross_t;
                             let k2_tang = inertia_inv_2 * r2_cross_t;
 
-                            let effective_mass_t = 1.0 / rigid_body_1.mass
-                                + 1.0 / rigid_body_2.mass
+                            let effective_mass_t = 1.0 / rb_1.mass
+                                + 1.0 / rb_2.mass
                                 + coll_tangent.dot(
                                     &(r1_cross_t.cross(&k1_tang) + r2_cross_t.cross(&k2_tang)),
                                 );
@@ -238,9 +235,9 @@ impl AnimationSystem {
                             // apply impulses
                             //
                             *entity_data[i].3.as_mut().unwrap().data_mut() +=
-                                (normal_impulse + tang_impulse) / rigid_body_1.mass;
+                                (normal_impulse + tang_impulse) / rb_1.mass;
                             *entity_data[j].3.as_mut().unwrap().data_mut() +=
-                                -(normal_impulse + tang_impulse) / rigid_body_2.mass;
+                                -(normal_impulse + tang_impulse) / rb_2.mass;
 
                             if let Some(angular_vel) = entity_data[i].4.as_mut() {
                                 angular_vel.0 +=
