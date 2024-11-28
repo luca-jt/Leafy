@@ -6,7 +6,8 @@ use crate::rendering::data::calc_model_matrix;
 use crate::rendering::mesh::Hitbox;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
-use crate::utils::constants::bits::COLLISION;
+use crate::utils::constants::bits::internal::*;
+use crate::utils::constants::bits::user_level::*;
 use crate::utils::constants::{G, Y_AXIS};
 use crate::utils::tools::{copied_or_default, to_vec4};
 use std::ops::DerefMut;
@@ -19,8 +20,8 @@ pub struct AnimationSystem {
     time_step_size: TimeDuration,
     time_accumulated: TimeDuration,
     pub(crate) time_of_last_sim: TouchTime,
-    pub(crate) flying_cam_dir: Option<(glm::Vec3, f32)>,
-    pub(crate) flying_cam_keys: MovementKeys,
+    flying_cam_dir: Option<(glm::Vec3, f32)>,
+    flying_cam_keys: MovementKeys,
 }
 
 impl AnimationSystem {
@@ -177,8 +178,8 @@ impl AnimationSystem {
                         let restitution_coefficient = 0.0; // TODO: change that in the future with component data
 
                         let min_friction = rigid_body_1.friction.min(rigid_body_2.friction);
-                        let inertia_inv_1 = rigid_body_1.inertia_tensor.try_inverse().unwrap();
-                        let inertia_inv_2 = rigid_body_2.inertia_tensor.try_inverse().unwrap();
+                        let inertia_inv_1 = rigid_body_1.inv_inertia_tensor;
+                        let inertia_inv_2 = rigid_body_2.inv_inertia_tensor;
 
                         //
                         // do all of the impulse computations for both the normal and tangential components
@@ -270,18 +271,30 @@ impl AnimationSystem {
 
     /// performs all relevant physics calculations on entity data
     fn apply_physics(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
-        for (p, v, a_opt, rb_opt, o_opt, av_opt) in unsafe {
+        for (p, v, a_opt, rb_opt, o_opt, av_opt, flags) in unsafe {
             entity_manager
-                .query6_mut_opt4::<Position, Velocity, Acceleration, RigidBody, Orientation, AngularVelocity>(vec![])
+                .query7_mut_opt5::<Position, Velocity, Acceleration, RigidBody, Orientation, AngularVelocity, EntityFlags>(vec![])
         } {
-            let total_a = rb_opt.is_some().then_some(self.gravity).unwrap_or_default()
+            let total_a = rb_opt
+                .is_some()
+                .then(|| {
+                    flags.map_or(Acceleration::zero(), |f| {
+                        if f.get_bit(FLOATING) {
+                            Acceleration::zero()
+                        } else {
+                            self.gravity
+                        }
+                    })
+                })
+                .unwrap_or_default()
                 + a_opt.copied().unwrap_or_default();
+
             *v += total_a * time_step;
             *p += *v * time_step;
 
             if let (Some(av), Some(o)) = (av_opt, o_opt) {
-                let inertia_mat = rb_opt.copied().unwrap_or_default().inertia_tensor;
-                let corr_av = inertia_mat.try_inverse().unwrap() * av.0;
+                let inv_inertia_mat = rb_opt.copied().unwrap_or_default().inv_inertia_tensor;
+                let corr_av = inv_inertia_mat * av.0;
                 o.0 += 0.5 * o.0 * glm::quat(corr_av.x, corr_av.y, corr_av.z, 0.0) * time_step.0;
                 o.0.normalize_mut();
             }

@@ -389,7 +389,7 @@ impl Div<TimeDuration> for TimeDuration {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct RigidBody {
     pub(crate) density: f32,
-    pub(crate) inertia_tensor: glm::Mat3,
+    pub(crate) inv_inertia_tensor: glm::Mat3,
     pub(crate) center_of_mass: glm::Vec3,
     pub(crate) mass: f32,
     pub(crate) friction: f32,
@@ -413,7 +413,7 @@ impl Default for RigidBody {
     fn default() -> Self {
         Self {
             density: 1.0,
-            inertia_tensor: glm::Mat3::identity(),
+            inv_inertia_tensor: glm::Mat3::identity(),
             center_of_mass: ORIGIN,
             mass: 1.0,
             friction: 0.5,
@@ -462,7 +462,7 @@ pub(crate) struct LightSrcID(pub(crate) EntityID);
 /// 64bit flag bitmap for enabling special entity behavior (default: all turned off, the same as component not present)
 /// ### Info
 /// You can use this component independantly of the rest of the engine if you want to.
-/// The bits 2-63 do not influence engine behavior and are free to customize.
+/// The bits 3-63 do not influence engine behavior and are free to customize.
 #[derive(Default)]
 pub struct EntityFlags(u64);
 

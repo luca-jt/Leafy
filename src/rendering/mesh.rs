@@ -290,7 +290,7 @@ impl Mesh {
         }
     }
 
-    /// generates the inertia tensor matrix, center of mass and the mass
+    /// generates the inverse inertia tensor matrix, center of mass and the mass
     pub(crate) fn intertia_data(&self, density: f32, scale: &Scale) -> (glm::Mat3, glm::Vec3, f32) {
         // inertia matrix entries
         let (mut ia, mut ib, mut ic, mut iap, mut ibp, mut icp) =
@@ -338,7 +338,9 @@ impl Mesh {
                 glm::vec3(ia, -ibp, -icp),
                 glm::vec3(-ibp, ib, -iap),
                 glm::vec3(-icp, -iap, ic),
-            ]),
+            ])
+            .try_inverse()
+            .unwrap(),
             center_of_mass,
             mass,
         )

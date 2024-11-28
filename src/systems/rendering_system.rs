@@ -10,7 +10,7 @@ use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::{ShaderCatalog, ShaderType};
 use crate::systems::event_system::events::{CamPositionChange, WindowResize};
 use crate::systems::event_system::EventObserver;
-use crate::utils::constants::bits::INVISIBLE;
+use crate::utils::constants::bits::user_level::INVISIBLE;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
 use crate::utils::tools::{padding, to_vec4};
 use gl::types::*;
