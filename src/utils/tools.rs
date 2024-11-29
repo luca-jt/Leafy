@@ -3,6 +3,7 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Sub};
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
 
 /// alias for a Rc<RefCell>
 pub type SharedPtr<T> = Rc<RefCell<T>>;
@@ -87,3 +88,9 @@ where
         .copied()
         .unwrap_or_default()
 }
+
+/// immutable efficient string type
+pub type RcStr = Rc<str>;
+
+/// thread-safe immutable efficient string type
+pub type ArcStr = Arc<str>;

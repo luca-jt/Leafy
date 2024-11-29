@@ -18,6 +18,5 @@ sky box cube maps
 conways game of life example
 ui basics + font rendering + events for ui struct
 sprite renderer -> depth layers configurable, sprite component
-seperate the ecs from the asset data to avoid unsafe mutable queries?
-on collision event functions for entities (-> with entity flag that is set in during collision) -> probably also want info about the collision such as the point of collision
+for on collision event functions for entities -> info about the collision is stored inside the collider component
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY

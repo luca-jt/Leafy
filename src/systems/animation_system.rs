@@ -173,10 +173,7 @@ impl AnimationSystem {
                         let tangential_component = v_rel - normal_component;
 
                         let restitution_coefficient = 0.0; // TODO: change that in the future with component data
-
                         let min_friction = rb_1.friction.min(rb_2.friction);
-                        let inertia_inv_1 = rb_1.inv_inertia_tensor;
-                        let inertia_inv_2 = rb_2.inv_inertia_tensor;
 
                         //
                         // do all of the impulse computations for both the normal and tangential components
@@ -197,8 +194,8 @@ impl AnimationSystem {
                             // they are used in a more efficient calculation of K1=[r1]_× * I_world,1^−1 * [r1]_×^T (using the cross matrix)
                             let r1_cross_n = mass_center_coll_point_1.cross(&coll_normal);
                             let r2_cross_n = mass_center_coll_point_2.cross(&coll_normal);
-                            let k1_normal = inertia_inv_1 * r1_cross_n;
-                            let k2_normal = inertia_inv_2 * r2_cross_n;
+                            let k1_normal = rb_1.inv_inertia_tensor * r1_cross_n;
+                            let k2_normal = rb_2.inv_inertia_tensor * r2_cross_n;
 
                             let effective_mass_n = 1.0 / rb_1.mass
                                 + 1.0 / rb_2.mass
@@ -218,8 +215,8 @@ impl AnimationSystem {
                             // k's are responsible for the impact the angular motion has on the collision response
                             let r1_cross_t = mass_center_coll_point_1.cross(&coll_tangent);
                             let r2_cross_t = mass_center_coll_point_2.cross(&coll_tangent);
-                            let k1_tang = inertia_inv_1 * r1_cross_t;
-                            let k2_tang = inertia_inv_2 * r2_cross_t;
+                            let k1_tang = rb_1.inv_inertia_tensor * r1_cross_t;
+                            let k2_tang = rb_2.inv_inertia_tensor * r2_cross_t;
 
                             let effective_mass_t = 1.0 / rb_1.mass
                                 + 1.0 / rb_2.mass
@@ -240,12 +237,12 @@ impl AnimationSystem {
                                 -(normal_impulse + tang_impulse) / rb_2.mass;
 
                             if let Some(angular_vel) = entity_data[i].4.as_mut() {
-                                angular_vel.0 +=
-                                    inertia_inv_1 * mass_center_coll_point_1.cross(&tang_impulse);
+                                angular_vel.0 += rb_1.inv_inertia_tensor
+                                    * mass_center_coll_point_1.cross(&tang_impulse);
                             }
                             if let Some(angular_vel) = entity_data[j].4.as_mut() {
-                                angular_vel.0 +=
-                                    inertia_inv_2 * mass_center_coll_point_2.cross(&tang_impulse);
+                                angular_vel.0 += rb_2.inv_inertia_tensor
+                                    * mass_center_coll_point_2.cross(&tang_impulse);
                             }
                         } else if is_dynamic_2 {
                             // only 1 is movable
