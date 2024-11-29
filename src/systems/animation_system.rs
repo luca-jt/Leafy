@@ -154,8 +154,7 @@ impl AnimationSystem {
                             flags.set_bit(COLLISION, true);
                         }
 
-                        // resolve the collision
-                        // -> seperate normal and tangential components of the motion in relation to the collision
+                        // to resolve the collision seperate normal and tangential components of the motion in relation to the collision
                         // INFO: normal, velocity, and translation vector are pov 1 -> 2
 
                         // vectors from the center of mass to the contact point
@@ -172,6 +171,9 @@ impl AnimationSystem {
                         let normal_component = collison_data.collision_normal.dot(&v_rel) * v_rel;
                         let tangential_component = v_rel - normal_component;
 
+                        let coll_normal = collison_data.collision_normal;
+                        let coll_tangent = tangential_component.normalize();
+
                         let restitution_coefficient = 0.0; // TODO: change that in the future with component data
                         let min_friction = rb_1.friction.min(rb_2.friction);
 
@@ -179,6 +181,27 @@ impl AnimationSystem {
                         // do all of the impulse computations for both the normal and tangential components
                         //
 
+                        //
+                        // normal impulse calculations
+                        //
+                        // k's are responsible for the impact the angular motion has on the collision response
+                        // they are used in a more efficient calculation of K1=[r1]_× * I_world,1^−1 * [r1]_×^T (using the cross matrix)
+                        let r1_cross_n = mass_center_coll_point_1.cross(&coll_normal);
+                        let r2_cross_n = mass_center_coll_point_2.cross(&coll_normal);
+                        let k1_normal = rb_1.inv_inertia_tensor * r1_cross_n;
+                        let k2_normal = rb_2.inv_inertia_tensor * r2_cross_n;
+
+                        //
+                        // tangential impulse calculations
+                        //
+                        // k's are responsible for the impact the angular motion has on the collision response
+                        let r1_cross_t = mass_center_coll_point_1.cross(&coll_tangent);
+                        let r2_cross_t = mass_center_coll_point_2.cross(&coll_tangent);
+                        let k1_tang = rb_1.inv_inertia_tensor * r1_cross_t;
+                        let k2_tang = rb_2.inv_inertia_tensor * r2_cross_t;
+
+                        // resolve the collision depending on what enities are movable
+                        // if only one is movable, treat the mass of the immovable entity as infinite
                         if is_dynamic_1 && is_dynamic_2 {
                             // both have velocity and therefore are movable
 
@@ -186,17 +209,7 @@ impl AnimationSystem {
                             *entity_data[i].0.data_mut() += 0.5 * collison_data.translation_vec;
                             *entity_data[j].0.data_mut() += -0.5 * collison_data.translation_vec;
 
-                            //
                             // normal impulse
-                            //
-                            let coll_normal = collison_data.collision_normal;
-                            // k's are responsible for the impact the angular motion has on the collision response
-                            // they are used in a more efficient calculation of K1=[r1]_× * I_world,1^−1 * [r1]_×^T (using the cross matrix)
-                            let r1_cross_n = mass_center_coll_point_1.cross(&coll_normal);
-                            let r2_cross_n = mass_center_coll_point_2.cross(&coll_normal);
-                            let k1_normal = rb_1.inv_inertia_tensor * r1_cross_n;
-                            let k2_normal = rb_2.inv_inertia_tensor * r2_cross_n;
-
                             let effective_mass_n = 1.0 / rb_1.mass
                                 + 1.0 / rb_2.mass
                                 + coll_normal.dot(
@@ -206,18 +219,8 @@ impl AnimationSystem {
                                 * normal_component)
                                 / effective_mass_n;
 
-                            //
                             // tangential impulse
-                            //
-
                             // TODO: maybe just use the result from the normal impulse to compute Jt = -friction * m * tangential_component? -> performance
-                            let coll_tangent = tangential_component.normalize();
-                            // k's are responsible for the impact the angular motion has on the collision response
-                            let r1_cross_t = mass_center_coll_point_1.cross(&coll_tangent);
-                            let r2_cross_t = mass_center_coll_point_2.cross(&coll_tangent);
-                            let k1_tang = rb_1.inv_inertia_tensor * r1_cross_t;
-                            let k2_tang = rb_2.inv_inertia_tensor * r2_cross_t;
-
                             let effective_mass_t = 1.0 / rb_1.mass
                                 + 1.0 / rb_2.mass
                                 + coll_tangent.dot(
@@ -247,11 +250,69 @@ impl AnimationSystem {
                         } else if is_dynamic_2 {
                             // only 1 is movable
                             *entity_data[i].0.data_mut() += collison_data.translation_vec;
-                            // TODO
+
+                            // normal impulse
+                            let effective_mass_n = 1.0 / rb_1.mass
+                                + coll_normal.dot(
+                                    &(r1_cross_n.cross(&k1_normal) + r2_cross_n.cross(&k2_normal)),
+                                );
+                            let normal_impulse = -((1.0 + restitution_coefficient)
+                                * normal_component)
+                                / effective_mass_n;
+
+                            // tangential impulse
+                            let effective_mass_t = 1.0 / rb_1.mass
+                                + coll_tangent.dot(
+                                    &(r1_cross_t.cross(&k1_tang) + r2_cross_t.cross(&k2_tang)),
+                                );
+                            let tang_impulse = -((1.0 + restitution_coefficient)
+                                * tangential_component)
+                                / effective_mass_t
+                                * min_friction;
+
+                            //
+                            // apply impulses
+                            //
+                            *entity_data[i].3.as_mut().unwrap().data_mut() +=
+                                (normal_impulse + tang_impulse) / rb_1.mass;
+
+                            if let Some(angular_vel) = entity_data[i].4.as_mut() {
+                                angular_vel.0 += rb_1.inv_inertia_tensor
+                                    * mass_center_coll_point_1.cross(&tang_impulse);
+                            }
                         } else if is_dynamic_2 {
                             // only 2 is movable
                             *entity_data[j].0.data_mut() += -collison_data.translation_vec;
-                            // TODO
+
+                            // normal impulse
+                            let effective_mass_n = 1.0 / rb_2.mass
+                                + coll_normal.dot(
+                                    &(r1_cross_n.cross(&k1_normal) + r2_cross_n.cross(&k2_normal)),
+                                );
+                            let normal_impulse = -((1.0 + restitution_coefficient)
+                                * normal_component)
+                                / effective_mass_n;
+
+                            // tangential impulse
+                            let effective_mass_t = 1.0 / rb_2.mass
+                                + coll_tangent.dot(
+                                    &(r1_cross_t.cross(&k1_tang) + r2_cross_t.cross(&k2_tang)),
+                                );
+                            let tang_impulse = -((1.0 + restitution_coefficient)
+                                * tangential_component)
+                                / effective_mass_t
+                                * min_friction;
+
+                            //
+                            // apply impulses
+                            //
+                            *entity_data[j].3.as_mut().unwrap().data_mut() +=
+                                -(normal_impulse + tang_impulse) / rb_2.mass;
+
+                            if let Some(angular_vel) = entity_data[j].4.as_mut() {
+                                angular_vel.0 += rb_2.inv_inertia_tensor
+                                    * mass_center_coll_point_2.cross(&tang_impulse);
+                            }
                         } else {
                             // both are immovable (should not happen due to the check earlier)
                             panic!("tried to seperate two immovable objects");
