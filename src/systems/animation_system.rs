@@ -247,7 +247,7 @@ impl AnimationSystem {
                                 angular_vel.0 += rb_2.inv_inertia_tensor
                                     * mass_center_coll_point_2.cross(&tang_impulse);
                             }
-                        } else if is_dynamic_2 {
+                        } else if is_dynamic_1 {
                             // only 1 is movable
                             *entity_data[i].0.data_mut() += collison_data.translation_vec;
 
@@ -510,7 +510,7 @@ impl Collider<'_> {
         // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
         // assume the normal vector is form the point of view of 1
         // the normal vector in the collision data should be normalized
-        return match self.hitbox {
+        match self.hitbox {
             Hitbox::Mesh(_) => match other.hitbox {
                 Hitbox::Mesh(_) => None,
                 Hitbox::ConvexMesh(_) => None,
@@ -535,7 +535,7 @@ impl Collider<'_> {
                 Hitbox::Ellipsoid(dim2) => None,
                 Hitbox::Box(dim2) => None,
             },
-        };
+        }
     }
 }
 
