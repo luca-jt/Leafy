@@ -132,7 +132,8 @@ macro_rules! impl_ref_query {
                 &self,
                 filter: Vec<Box<dyn QueryFilter>>,
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
-                self.ecs.$fname::<$($ret), +, $($ret_opt), *>(filter)
+                // SAFETY: this is only treated as an immutable reference and the pointer is always valid
+                unsafe { &*self.ecs.get() }.$fname::<$($ret), +, $($ret_opt), *>(filter)
             }
         }
     };
@@ -220,7 +221,7 @@ macro_rules! impl_mut_query {
                 &self,
                 filter: Vec<Box<dyn QueryFilter>>,
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
-                (*(&self.ecs as *const ECS as *mut ECS)).$fname::<$($ret), +, $($ret_opt), *>(filter)
+                (&mut *self.ecs.get()).$fname::<$($ret), +, $($ret_opt), *>(filter)
             }
         }
     };

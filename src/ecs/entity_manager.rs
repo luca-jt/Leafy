@@ -4,6 +4,7 @@ use crate::rendering::data::TextureMap;
 use crate::rendering::mesh::{Hitbox, Mesh};
 use crate::utils::file::*;
 use std::any::{Any, TypeId};
+use std::cell::UnsafeCell;
 use std::collections::hash_map::Keys;
 use std::collections::{HashMap, VecDeque};
 
@@ -17,7 +18,7 @@ macro_rules! components {
 
 /// the main ressource manager holding both the ECS and the asset data
 pub struct EntityManager {
-    pub(crate) ecs: ECS,
+    pub(crate) ecs: UnsafeCell<ECS>,
     asset_register: HashMap<MeshType, Mesh>,
     pub(crate) texture_map: TextureMap,
     hitbox_register: HashMap<(MeshType, HitboxType), Hitbox>,
@@ -28,7 +29,7 @@ impl EntityManager {
     /// creates a new entitiy manager
     pub fn new() -> Self {
         Self {
-            ecs: ECS::new(),
+            ecs: UnsafeCell::new(ECS::new()),
             asset_register: HashMap::new(),
             texture_map: TextureMap::new(),
             hitbox_register: HashMap::new(),
@@ -38,7 +39,7 @@ impl EntityManager {
 
     /// stores a new entity and returns the id of the new entity
     pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
-        let entity = self.ecs.create_entity(components);
+        let entity = self.ecs.get_mut().create_entity(components);
         // load mesh if necessary
         self.add_command(AssetCommand::AddMesh(entity));
         // load texture if necessary
@@ -97,19 +98,19 @@ impl EntityManager {
 
     /// deletes an entity from the register by id and returns the removed entity
     pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), ()> {
-        if self.ecs.has_component::<MeshType>(entity) {
+        if unsafe { &*self.ecs.get() }.has_component::<MeshType>(entity) {
             self.add_command(AssetCommand::CleanMeshes);
             self.add_command(AssetCommand::CleanHitboxes);
             self.add_command(AssetCommand::CleanTextures);
         }
-        self.ecs.delete_entity(entity)?;
+        self.ecs.get_mut().delete_entity(entity)?;
         self.exec_commands();
         Ok(())
     }
 
     /// yields the component data reference of an entity if present
     pub fn get_component<T: Any>(&self, entity: EntityID) -> Option<&T> {
-        self.ecs.get_component::<T>(entity)
+        unsafe { &*self.ecs.get() }.get_component::<T>(entity)
     }
 
     /// yields the mutable component data reference of an entity if present
@@ -132,12 +133,12 @@ impl EntityManager {
             self.add_command(AssetCommand::CleanTextures);
         }
         self.exec_commands();
-        self.ecs.get_component_mut::<T>(entity)
+        self.ecs.get_mut().get_component_mut::<T>(entity)
     }
 
     /// adds a component to an existing entity (returns Err(()) if the component is already present)
     pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) -> Result<(), ()> {
-        self.ecs.add_component::<T>(entity, component)?;
+        self.ecs.get_mut().add_component::<T>(entity, component)?;
         // add mesh to the register if necessary
         if TypeId::of::<T>() == TypeId::of::<MeshType>() {
             self.add_command(AssetCommand::AddMesh(entity));
@@ -162,12 +163,12 @@ impl EntityManager {
 
     /// checks wether or not an entity has a component of given type associated with it
     pub fn has_component<T: Any>(&self, entity: EntityID) -> bool {
-        self.ecs.has_component::<T>(entity)
+        unsafe { &*self.ecs.get() }.has_component::<T>(entity)
     }
 
     /// removes a component from an entity and returns the component data if present
     pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
-        let removed = self.ecs.remove_component::<T>(entity);
+        let removed = self.ecs.get_mut().remove_component::<T>(entity);
         if removed.is_some() {
             if TypeId::of::<T>() == TypeId::of::<MeshType>() {
                 self.add_command(AssetCommand::CleanMeshes);
@@ -188,7 +189,7 @@ impl EntityManager {
 
     /// iterate over all of the stored entities
     pub fn all_ids_iter(&self) -> Keys<'_, EntityID, EntityRecord> {
-        self.ecs.entity_index.keys()
+        unsafe { &*self.ecs.get() }.entity_index.keys()
     }
 
     /// makes mesh data available for a given mesh type
@@ -210,7 +211,9 @@ impl EntityManager {
         while let Some(command) = self.commands.pop_front() {
             match command {
                 AssetCommand::AddMesh(entity) => {
-                    if let Some(mesh_type) = self.ecs.get_component::<MeshType>(entity) {
+                    if let Some(mesh_type) =
+                        unsafe { &*self.ecs.get() }.get_component::<MeshType>(entity)
+                    {
                         if !self.asset_register.keys().any(|t| t == mesh_type) {
                             let mesh = match mesh_type {
                                 MeshType::Triangle => Mesh::from_bytes(TRIANGLE_MESH),
@@ -229,8 +232,7 @@ impl EntityManager {
                 }
                 AssetCommand::CleanMeshes => {
                     self.asset_register.retain(|mesh_type, _| {
-                        let delete = self
-                            .ecs
+                        let delete = unsafe { &*self.ecs.get() }
                             .query1::<MeshType>(vec![])
                             .filter(|&mt| mt == mesh_type)
                             .count()
@@ -243,8 +245,8 @@ impl EntityManager {
                 }
                 AssetCommand::AddHitbox(entity) => {
                     if let (Some(mesh_type), Some(box_type)) = (
-                        self.ecs.get_component::<MeshType>(entity),
-                        self.ecs.get_component::<HitboxType>(entity),
+                        unsafe { &*self.ecs.get() }.get_component::<MeshType>(entity),
+                        unsafe { &*self.ecs.get() }.get_component::<HitboxType>(entity),
                     ) {
                         self.hitbox_register
                             .entry((mesh_type.clone(), *box_type))
@@ -263,8 +265,7 @@ impl EntityManager {
                 }
                 AssetCommand::CleanHitboxes => {
                     self.hitbox_register.retain(|(mesh_type, box_type), _| {
-                        let delete = self
-                            .ecs
+                        let delete = unsafe { &*self.ecs.get() }
                             .query2::<MeshType, HitboxType>(vec![])
                             .filter(|(mt, ht)| mesh_type == *mt && box_type == *ht)
                             .count()
@@ -280,31 +281,45 @@ impl EntityManager {
                     });
                 }
                 AssetCommand::UpdateRigidBody(entity) => {
-                    if self.ecs.has_component::<MeshType>(entity)
-                        && self.ecs.has_component::<RigidBody>(entity)
+                    if unsafe { &*self.ecs.get() }.has_component::<MeshType>(entity)
+                        && unsafe { &*self.ecs.get() }.has_component::<RigidBody>(entity)
                     {
-                        let mt = self.ecs.get_component::<MeshType>(entity).unwrap();
+                        let mt = unsafe { &*self.ecs.get() }
+                            .get_component::<MeshType>(entity)
+                            .unwrap();
                         let mesh = self.asset_from_type(mt).unwrap();
-                        let scale = self.ecs.get_component::<Scale>(entity).copied();
-                        let density = self.ecs.get_component::<RigidBody>(entity).unwrap().density;
+                        let scale = unsafe { &*self.ecs.get() }
+                            .get_component::<Scale>(entity)
+                            .copied();
+                        let density = unsafe { &*self.ecs.get() }
+                            .get_component::<RigidBody>(entity)
+                            .unwrap()
+                            .density;
                         let (inv_inertia_tensor, center_of_mass, mass) =
                             mesh.intertia_data(density, &scale.unwrap_or_default());
-                        let body = self.ecs.get_component_mut::<RigidBody>(entity).unwrap();
+                        let body = self
+                            .ecs
+                            .get_mut()
+                            .get_component_mut::<RigidBody>(entity)
+                            .unwrap();
                         body.inv_inertia_tensor = inv_inertia_tensor;
                         body.center_of_mass = center_of_mass;
                         body.mass = mass;
                     }
                 }
                 AssetCommand::AddLightID(entity) => {
-                    self.ecs.add_component(entity, LightSrcID(entity)).unwrap();
+                    self.ecs
+                        .get_mut()
+                        .add_component(entity, LightSrcID(entity))
+                        .unwrap();
                 }
                 AssetCommand::DeleteLightID(entity) => {
-                    self.ecs.remove_component::<LightSrcID>(entity);
+                    self.ecs.get_mut().remove_component::<LightSrcID>(entity);
                 }
                 AssetCommand::AddTexture(entity) => {
-                    if self.ecs.has_component::<MeshType>(entity) {
+                    if unsafe { &*self.ecs.get() }.has_component::<MeshType>(entity) {
                         if let Some(MeshAttribute::Textured(texture)) =
-                            self.ecs.get_component::<MeshAttribute>(entity)
+                            unsafe { &*self.ecs.get() }.get_component::<MeshAttribute>(entity)
                         {
                             if self.texture_map.get_tex_id(texture).is_none() {
                                 self.texture_map.add_texture(texture);
@@ -314,7 +329,7 @@ impl EntityManager {
                 }
                 AssetCommand::CleanTextures => {
                     self.texture_map.retain(|texture| {
-                        self.ecs
+                        unsafe { &*self.ecs.get() }
                             .query1::<MeshAttribute>(vec![])
                             .filter(|&ma| ma.texture().map(|t| t == texture).unwrap_or(false))
                             .count()
