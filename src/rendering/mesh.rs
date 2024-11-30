@@ -60,8 +60,11 @@ impl AOSMesh {
     /// creates a hitbox in the form of a simplified version of the mesh
     fn simplified(mut self) -> Self {
         let target_triangle_count = (self.faces.len() / 2).max(4);
-        while self.faces.len() < target_triangle_count {
-            self.simplify(target_triangle_count);
+        let mut vertex_errors: Vec<glm::Mat4> = self.calculate_vertex_errors();
+        let mut edge_queue = self.build_edge_queue(&vertex_errors);
+        while self.faces.len() > target_triangle_count && !edge_queue.is_empty() {
+            let edge = edge_queue.pop().unwrap();
+            self.collapse_edge(edge, &mut vertex_errors);
         }
         self.remove_unused_vertices();
         self
@@ -85,17 +88,6 @@ impl AOSMesh {
             if i == self.vertices.len() {
                 break;
             }
-        }
-    }
-
-    /// simplifys the hitbox mesh for one iteration
-    fn simplify(&mut self, target_triangle_count: usize) {
-        let mut vertex_errors: Vec<glm::Mat4> = self.calculate_vertex_errors();
-        let mut edge_queue = self.build_edge_queue(&vertex_errors);
-
-        while self.faces.len() > target_triangle_count && !edge_queue.is_empty() {
-            let edge = edge_queue.pop().unwrap();
-            self.collapse_edge(edge, &mut vertex_errors);
         }
     }
 
@@ -446,6 +438,9 @@ impl HitboxMesh {
             "mesh must be at least as complex as a tetrahedron for it to have a convex hull hitbox"
         );
         // TODO
+        // find initial tetrahedron
+        // for each face find the furthest point away from it
+        // do this as long as there are points outside of the faces
         self
     }
 

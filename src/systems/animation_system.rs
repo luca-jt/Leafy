@@ -610,7 +610,7 @@ impl ColliderData<'_> {
     }
 }
 
-// for convex GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders trivial, the rest is triangle intersection tests
+// for convex GJK for detection and EPA for penetration depth calculation or SAT
 // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
 // assume the normal vector is form the point of view of 1
 // the normal vector in the collision data should be normalized
@@ -623,6 +623,7 @@ fn ellipsoid_collision(
     coll1: &Collider,
     coll2: &Collider,
 ) -> Option<CollisionData> {
+    // x^2/a^2 + y^2/b^2 + z^2/c^2 = 1
     None
 }
 
