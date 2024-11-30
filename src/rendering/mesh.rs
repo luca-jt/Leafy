@@ -1,4 +1,4 @@
-use crate::ecs::component::{HitboxType, Scale};
+use crate::ecs::component::Scale;
 use crate::glm;
 use crate::utils::constants::ORIGIN;
 use crate::utils::tools::to_vec4;
@@ -187,7 +187,7 @@ pub(crate) struct Mesh {
     pub(crate) texture_coords: Vec<glm::Vec2>,
     pub(crate) normals: Vec<glm::Vec3>,
     pub(crate) indices: Vec<GLuint>,
-    max_reach: glm::Vec3,
+    pub(crate) max_reach: glm::Vec3,
 }
 
 impl Mesh {
@@ -260,12 +260,6 @@ impl Mesh {
     #[inline]
     pub(crate) fn num_indices(&self) -> usize {
         self.indices.len()
-    }
-
-    /// yields the highest x, y, and z values of all vertex positions in the mesh
-    #[inline]
-    pub fn max_reach(&self) -> &glm::Vec3 {
-        &self.max_reach
     }
 
     /// generates the AOS mesh for easier data parsing
@@ -362,21 +356,10 @@ impl Mesh {
     pub(crate) fn generate_hitbox(&self, hitbox: &HitboxType) -> Hitbox {
         match hitbox {
             HitboxType::ConvexHull => Hitbox::ConvexMesh(self.aos_mesh().hitbox_mesh().convex_hull()),
-            HitboxType::Simplified => Hitbox::Mesh(self.aos_mesh().simplified().hitbox_mesh()),
-            HitboxType::Unaltered => Hitbox::Mesh(self.aos_mesh().hitbox_mesh()),
-            HitboxType::Ellipsiod => self.ellipsoid_hitbox(),
-            HitboxType::Box => self.box_hitbox(),
+            HitboxType::SimplifiedConvexHull => Hitbox::ConvexMesh(self.aos_mesh().simplified().hitbox_mesh().convex_hull()),
+            HitboxType::Ellipsiod => Hitbox::Ellipsoid(self.max_reach),
+            HitboxType::Box => Hitbox::Box(HitboxMesh::box_from_dimensions(&self.max_reach)),
         }
-    }
-
-    /// creates a hitbox in the form of a box collider of the mesh
-    fn box_hitbox(&self) -> Hitbox {
-        Hitbox::Box(self.max_reach)
-    }
-
-    /// creates a hitbox in the form of an ellipsiod approximation of the mesh
-    fn ellipsoid_hitbox(&self) -> Hitbox {
-        Hitbox::Ellipsoid(self.max_reach)
     }
 }
 
@@ -403,12 +386,20 @@ fn inertia_product(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize, j: us
         + triangle.1[i] * triangle.0[j]
 }
 
+/// hitbox type specifier for an entity (enables collision physics, requires MeshType to work)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HitboxType {
+    ConvexHull,
+    SimplifiedConvexHull,
+    Ellipsiod,
+    Box,
+}
+
 /// all possible versions of hitboxes
 pub(crate) enum Hitbox {
-    Mesh(HitboxMesh),
     ConvexMesh(HitboxMesh),
     Ellipsoid(glm::Vec3),
-    Box(glm::Vec3),
+    Box(HitboxMesh),
 }
 
 /// contains all of the hitbox vertex data
@@ -418,13 +409,34 @@ pub(crate) struct HitboxMesh {
 }
 
 impl HitboxMesh {
-    /// yields all of the points corresponding to the face of the given index
-    fn face_points(&self, face_idx: usize) -> (glm::Vec3, glm::Vec3, glm::Vec3) {
-        (
-            self.vertices[self.faces[face_idx][0]],
-            self.vertices[self.faces[face_idx][1]],
-            self.vertices[self.faces[face_idx][2]],
-        )
+    /// creates a box mesh from reach dimensions
+    fn box_from_dimensions(dim: &glm::Vec3) -> Self {
+        Self {
+            vertices: vec![
+                glm::vec3(-dim.x, -dim.y, dim.z),
+                glm::vec3(-dim.x, dim.y, dim.z),
+                glm::vec3(-dim.x, -dim.y, -dim.z),
+                glm::vec3(-dim.x, dim.y, -dim.z),
+                glm::vec3(dim.x, -dim.y, dim.z),
+                glm::vec3(dim.x, dim.y, dim.z),
+                glm::vec3(dim.x, -dim.y, -dim.z),
+                glm::vec3(dim.x, dim.y, -dim.z),
+            ],
+            faces: vec![
+                [1, 2, 0],
+                [3, 6, 2],
+                [7, 4, 6],
+                [5, 0, 4],
+                [6, 0, 2],
+                [3, 5, 7],
+                [1, 3, 2],
+                [3, 7, 6],
+                [7, 5, 4],
+                [5, 1, 0],
+                [6, 4, 0],
+                [3, 1, 5],
+            ],
+        }
     }
 
     /// creates a hitbox in the form of a convex hull of the mesh
@@ -433,136 +445,8 @@ impl HitboxMesh {
             self.vertices.len() >= 4,
             "mesh must be at least as complex as a tetrahedron for it to have a convex hull hitbox"
         );
-        let (a, b, c, d) = self.find_initial_tetrahedron();
-        let initial_faces = vec![[a, b, c], [a, b, d], [a, c, d], [b, c, d]];
-        self.faces = initial_faces;
-        let mut outside_sets = self.partition_points();
-        while !outside_sets.is_empty() {
-            let (face, far_point) = self.find_furthest_point(&mut outside_sets);
-            self.expand_hull(face, far_point, &mut outside_sets);
-        }
-        self.remove_unused_vertices();
+        // TODO
         self
-    }
-
-    /// find the base tetrahedron for the convex hull algorithm
-    fn find_initial_tetrahedron(&self) -> (usize, usize, usize, usize) {
-        // find two extreme points along x axis
-        let (min_x_idx, max_x_idx) =
-            self.vertices
-                .iter()
-                .enumerate()
-                .fold((0, 0), |(min_idx, max_idx), (i, v)| {
-                    let mut updated = (min_idx, max_idx);
-                    if v.x < self.vertices[min_idx].x {
-                        updated.0 = i;
-                    }
-                    if v.x > self.vertices[max_idx].x {
-                        updated.1 = 1;
-                    }
-                    updated
-                });
-        // find the point farthest from the line formed by the two points
-        let line_vec = self.vertices[max_x_idx] - self.vertices[min_x_idx];
-        let third_idx = self
-            .vertices
-            .iter()
-            .enumerate()
-            .filter(|&(i, _)| i != min_x_idx && i != max_x_idx)
-            .map(|(i, v)| {
-                (
-                    i,
-                    glm::cross(&line_vec, &(v - self.vertices[min_x_idx])).norm(),
-                )
-            })
-            .max_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap())
-            .unwrap()
-            .0;
-        // find the fourth point that forms a valid tetrahedron
-        let normal = (self.vertices[max_x_idx] - self.vertices[min_x_idx])
-            .cross(&(self.vertices[third_idx] - self.vertices[min_x_idx]))
-            .normalize();
-        let fourth_idx = self
-            .vertices
-            .iter()
-            .enumerate()
-            .filter(|&(i, _)| i != min_x_idx && i != max_x_idx && i != third_idx)
-            .map(|(i, v)| (i, (v - self.vertices[min_x_idx]).dot(&normal)))
-            .max_by(|(_, dot1), (_, dot2)| dot1.partial_cmp(dot2).unwrap())
-            .unwrap()
-            .0;
-
-        (min_x_idx, max_x_idx, third_idx, fourth_idx)
-    }
-
-    /// partition points into outside sets for each face of the initial tetrahedron for the convex hull algorithm
-    fn partition_points(&self) -> Vec<Vec<usize>> {
-        let mut outside_sets: Vec<Vec<usize>> = vec![Vec::new(); 4];
-        for (i, point) in self
-            .vertices
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| self.faces.iter().flatten().all(|idx| idx != i))
-        {
-            for face_idx in 0..self.faces.len() {
-                let (v0, v1, v2) = self.face_points(face_idx);
-                let normal = (v1 - v0).cross(&(v2 - v0)).normalize();
-                let distance = (point - v0).dot(&normal);
-                if distance > 0.0 {
-                    outside_sets[face_idx].push(i);
-                }
-            }
-        }
-        outside_sets
-    }
-
-    /// find the point furthest from a given face
-    fn find_furthest_point(&self, outside_sets: &mut Vec<Vec<usize>>) -> (usize, usize) {
-        let mut max_distance = -f32::INFINITY;
-        let mut best_face_idx = 0;
-        let mut best_point_idx = 0;
-        for (face_idx, face_points) in outside_sets.iter().enumerate() {
-            let (v0, v1, v2) = self.face_points(face_idx);
-            let normal = (v1 - v0).cross(&(v2 - v0)).normalize();
-            for &point_idx in face_points {
-                let point = self.vertices[point_idx];
-                let distance = (point - v0).dot(&normal);
-                if distance > max_distance {
-                    max_distance = distance;
-                    best_face_idx = face_idx;
-                    best_point_idx = point_idx;
-                }
-            }
-        }
-        (best_face_idx, best_point_idx)
-    }
-
-    /// expand the hull by adding a new point and creating new faces for the convex hull algorithm
-    fn expand_hull(&mut self, f_idx: usize, p_idx: usize, outside_sets: &mut Vec<Vec<usize>>) {
-        let old_face = self.faces[f_idx];
-        self.faces.swap_remove(f_idx);
-        outside_sets.swap_remove(f_idx);
-        self.faces.push([old_face[0], old_face[1], p_idx]);
-        self.faces.push([old_face[1], old_face[2], p_idx]);
-        self.faces.push([old_face[2], old_face[0], p_idx]);
-        outside_sets.append(&mut vec![Vec::new(); 3]);
-
-        let used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
-        for (i, point) in self
-            .vertices
-            .iter()
-            .enumerate()
-            .filter(|(index, _)| !used_indices.contains(index))
-        {
-            for face_idx in self.faces.len() - 3..self.faces.len() {
-                let (v0, v1, v2) = self.face_points(face_idx);
-                let normal = (v1 - v0).cross(&(v2 - v0)).normalize();
-                let distance = (point - v0).dot(&normal);
-                if distance > 0.0 {
-                    outside_sets[face_idx].push(i);
-                }
-            }
-        }
     }
 
     /// removes vertices that are not used by a face and corrects the face indices

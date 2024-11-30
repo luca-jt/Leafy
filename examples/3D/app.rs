@@ -3,6 +3,7 @@ use falling_leaf::ecs::component::*;
 use falling_leaf::ecs::entity::EntityID;
 use falling_leaf::engine::{Engine, FallingLeafApp};
 use falling_leaf::glm;
+use falling_leaf::rendering::mesh::HitboxType;
 use falling_leaf::systems::audio_system::VolumeType;
 use falling_leaf::systems::event_system::events::*;
 use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, Y_AXIS};
@@ -57,7 +58,11 @@ impl FallingLeafApp for App {
             Scale::from_factor(5.0),
             MeshType::Plane,
             MeshAttribute::Textured(Texture::Wall),
-            HitboxType::Unaltered
+            Collider {
+                hitbox_type: HitboxType::ConvexHull,
+                offset: ORIGIN,
+                scale: Scale::default(),
+            }
         ));
         self.player = entity_manager.create_basic_dynamic(
             Position::new(0.0, 4.0, 0.0),

@@ -1,11 +1,12 @@
 controller events
-sampled animations from files
+animations
 cascaded shadow mapping
 shadow anti-aliasing -> pcss
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system -> serialization (serde)
-voxelized meshes -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
+voxelized meshes + hitboxes (for non-convex cases) -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
 ---------------------------------------------------------------------
+collision resolvement of things that should not slide downhill possible?
 2D sprite hitboxes with seperate collision checking
 cube shadow maps for point lights
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
@@ -20,3 +21,5 @@ ui basics + font rendering + events for ui struct
 sprite renderer -> depth layers configurable, sprite component
 for on collision event functions for entities -> info about the collision is stored inside the collider component
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
+
+convex hull algorithm rewrite

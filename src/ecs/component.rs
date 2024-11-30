@@ -1,5 +1,6 @@
 use crate::ecs::entity::EntityID;
 use crate::glm;
+use crate::rendering::mesh::HitboxType;
 use crate::systems::audio_system::SoundHandleID;
 use crate::utils::constants::*;
 use gl::types::GLfloat;
@@ -402,7 +403,7 @@ impl RigidBody {
         self
     }
 
-    /// changes the friction of the rigid body
+    /// changes the friction of the rigid body (should be in [0, 1])
     pub fn with_friction(mut self, friction: f32) -> Self {
         self.friction = friction;
         self
@@ -427,14 +428,12 @@ pub struct SoundController {
     pub(crate) id: SoundHandleID,
 }
 
-/// hitbox type specifier for an entity (enables collision physics, requires MeshType to work)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum HitboxType {
-    ConvexHull,
-    Simplified,
-    Unaltered,
-    Ellipsiod,
-    Box,
+/// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Collider {
+    pub hitbox_type: HitboxType,
+    pub offset: glm::Vec3,
+    pub scale: Scale,
 }
 
 /// marks an entity as a point light source for the rendering system, needs a position attached to work

@@ -3,7 +3,7 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine::{Engine, EngineMode, FallingLeafApp};
 use crate::glm;
 use crate::rendering::data::calc_model_matrix;
-use crate::rendering::mesh::Hitbox;
+use crate::rendering::mesh::{Hitbox, HitboxMesh};
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::internal::*;
@@ -70,12 +70,13 @@ impl AnimationSystem {
     fn handle_collisions(&self, entity_manager: &mut EntityManager) {
         let mut entity_data = unsafe {
             entity_manager
-                .query9_mut_opt6::<Position, HitboxType, MeshType, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags, Orientation>(vec![])
+                .query9_mut_opt6::<Position, Collider, MeshType, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags, Orientation>(vec![])
                 .map(|(p, hb, mt, v, av, s, rb, f, o)| {
                     (
                         p,
-                        entity_manager.hitbox_from_data(mt, hb).unwrap(),
+                        entity_manager.hitbox_from_data(mt, &hb.hitbox_type).unwrap(),
                         entity_manager.asset_from_type(mt).unwrap(),
+                        hb,
                         v,
                         av,
                         s,
@@ -102,7 +103,7 @@ impl AnimationSystem {
                 .map(|tuple| {
                     (
                         *tuple.0.data(),
-                        (copied_or_default(&tuple.5).scale_matrix() * to_vec4(tuple.2.max_reach()))
+                        (copied_or_default(&tuple.6).scale_matrix() * to_vec4(&tuple.2.max_reach))
                             .xyz()
                             .norm(),
                     )
@@ -115,8 +116,8 @@ impl AnimationSystem {
                         continue;
                     }
                     // check what entities are fixed
-                    let is_dynamic_1 = entity_data[i].3.is_some();
-                    let is_dynamic_2 = entity_data[j].3.is_some();
+                    let is_dynamic_1 = entity_data[i].4.is_some();
+                    let is_dynamic_2 = entity_data[j].4.is_some();
 
                     if !is_dynamic_1 && !is_dynamic_2 {
                         // both are immovable
@@ -124,33 +125,37 @@ impl AnimationSystem {
                     }
 
                     // rigid bodies
-                    let rb_1 = copied_or_default(&entity_data[i].6);
-                    let rb_2 = copied_or_default(&entity_data[j].6);
+                    let rb_1 = copied_or_default(&entity_data[i].7);
+                    let rb_2 = copied_or_default(&entity_data[j].7);
 
-                    let collider_1 = Collider {
+                    //  translate the colliders to the positional offset of the hitbox
+                    let collider_1 = ColliderData {
                         hitbox: entity_data[i].1,
-                        model_matrix: calc_model_matrix(
+                        model: calc_model_matrix(
                             entity_data[i].0,
-                            &copied_or_default(&entity_data[i].5),
-                            &copied_or_default(&entity_data[i].8),
+                            &copied_or_default(&entity_data[i].6),
+                            &copied_or_default(&entity_data[i].9),
                             &rb_1.center_of_mass,
                         ),
+                        collider: entity_data[i].3,
                     };
-                    let collider_2 = Collider {
+                    let collider_2 = ColliderData {
                         hitbox: entity_data[j].1,
-                        model_matrix: calc_model_matrix(
+                        model: calc_model_matrix(
                             entity_data[j].0,
-                            &copied_or_default(&entity_data[j].5),
-                            &copied_or_default(&entity_data[j].8),
+                            &copied_or_default(&entity_data[j].6),
+                            &copied_or_default(&entity_data[j].9),
                             &rb_2.center_of_mass,
                         ),
+                        collider: entity_data[j].3,
                     };
+                    // check for collision
                     if let Some(collison_data) = collider_1.collides_with(&collider_2) {
                         // set collision flags
-                        if let Some(flags) = &mut entity_data[i].7 {
+                        if let Some(flags) = &mut entity_data[i].8 {
                             flags.set_bit(COLLISION, true);
                         }
-                        if let Some(flags) = &mut entity_data[j].7 {
+                        if let Some(flags) = &mut entity_data[j].8 {
                             flags.set_bit(COLLISION, true);
                         }
 
@@ -164,8 +169,8 @@ impl AnimationSystem {
                             collison_data.collision_point - rb_2.center_of_mass;
 
                         // relative velocity
-                        let v_rel = copied_or_default(&entity_data[i].3).data()
-                            - copied_or_default(&entity_data[j].3).data();
+                        let v_rel = copied_or_default(&entity_data[i].4).data()
+                            - copied_or_default(&entity_data[j].4).data();
 
                         // components of the relative velocity
                         let normal_component = collison_data.collision_normal.dot(&v_rel) * v_rel;
@@ -175,7 +180,7 @@ impl AnimationSystem {
                         let coll_tangent = tangential_component.normalize();
 
                         let restitution_coefficient = 0.0; // TODO: change that in the future with component data
-                        let min_friction = rb_1.friction.min(rb_2.friction);
+                        let min_friction = rb_1.friction.min(rb_2.friction).clamp(0.0, 1.0);
 
                         //
                         // do all of the impulse computations for both the normal and tangential components
@@ -234,16 +239,16 @@ impl AnimationSystem {
                             //
                             // apply impulses
                             //
-                            *entity_data[i].3.as_mut().unwrap().data_mut() +=
+                            *entity_data[i].4.as_mut().unwrap().data_mut() +=
                                 (normal_impulse + tang_impulse) / rb_1.mass;
-                            *entity_data[j].3.as_mut().unwrap().data_mut() +=
+                            *entity_data[j].4.as_mut().unwrap().data_mut() +=
                                 -(normal_impulse + tang_impulse) / rb_2.mass;
 
-                            if let Some(angular_vel) = entity_data[i].4.as_mut() {
+                            if let Some(angular_vel) = entity_data[i].5.as_mut() {
                                 angular_vel.0 += rb_1.inv_inertia_tensor
                                     * mass_center_coll_point_1.cross(&tang_impulse);
                             }
-                            if let Some(angular_vel) = entity_data[j].4.as_mut() {
+                            if let Some(angular_vel) = entity_data[j].5.as_mut() {
                                 angular_vel.0 += rb_2.inv_inertia_tensor
                                     * mass_center_coll_point_2.cross(&tang_impulse);
                             }
@@ -273,10 +278,10 @@ impl AnimationSystem {
                             //
                             // apply impulses
                             //
-                            *entity_data[i].3.as_mut().unwrap().data_mut() +=
+                            *entity_data[i].4.as_mut().unwrap().data_mut() +=
                                 (normal_impulse + tang_impulse) / rb_1.mass;
 
-                            if let Some(angular_vel) = entity_data[i].4.as_mut() {
+                            if let Some(angular_vel) = entity_data[i].5.as_mut() {
                                 angular_vel.0 += rb_1.inv_inertia_tensor
                                     * mass_center_coll_point_1.cross(&tang_impulse);
                             }
@@ -306,10 +311,10 @@ impl AnimationSystem {
                             //
                             // apply impulses
                             //
-                            *entity_data[j].3.as_mut().unwrap().data_mut() +=
+                            *entity_data[j].4.as_mut().unwrap().data_mut() +=
                                 -(normal_impulse + tang_impulse) / rb_2.mass;
 
-                            if let Some(angular_vel) = entity_data[j].4.as_mut() {
+                            if let Some(angular_vel) = entity_data[j].5.as_mut() {
                                 angular_vel.0 += rb_2.inv_inertia_tensor
                                     * mass_center_coll_point_2.cross(&tang_impulse);
                             }
@@ -496,47 +501,149 @@ struct CollisionData {
     translation_vec: glm::Vec3,
 }
 
-/// collider that is used in collision checking
-struct Collider<'a> {
+/// collider data that is used in collision checking
+struct ColliderData<'a> {
     hitbox: &'a Hitbox,
-    model_matrix: glm::Mat4,
+    model: glm::Mat4,
+    collider: &'a Collider,
 }
 
-impl Collider<'_> {
+impl ColliderData<'_> {
     /// checks if two hitboxes collide with each other
     pub(crate) fn collides_with(&self, other: &Self) -> Option<CollisionData> {
-        // TODO:
-        // for convex GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders trivial, the rest is triangle intersection tests
-        // calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
-        // assume the normal vector is form the point of view of 1
-        // the normal vector in the collision data should be normalized
         match self.hitbox {
-            Hitbox::Mesh(_) => match other.hitbox {
-                Hitbox::Mesh(_) => None,
-                Hitbox::ConvexMesh(_) => None,
-                Hitbox::Ellipsoid(_) => None,
-                Hitbox::Box(_) => None,
-            },
-            Hitbox::ConvexMesh(_) => match other.hitbox {
-                Hitbox::Mesh(_) => None,
-                Hitbox::ConvexMesh(_) => None,
-                Hitbox::Ellipsoid(_) => None,
-                Hitbox::Box(_) => None,
+            Hitbox::ConvexMesh(mesh1) => match other.hitbox {
+                Hitbox::ConvexMesh(mesh2) => seperating_axis(
+                    mesh1,
+                    mesh2,
+                    &self.model,
+                    &other.model,
+                    self.collider,
+                    other.collider,
+                ),
+                Hitbox::Ellipsoid(dim) => mesh_ellipsoid_collision(
+                    mesh1,
+                    dim,
+                    &self.model,
+                    &other.model,
+                    self.collider,
+                    other.collider,
+                ),
+                Hitbox::Box(mesh2) => seperating_axis(
+                    mesh1,
+                    mesh2,
+                    &self.model,
+                    &other.model,
+                    self.collider,
+                    other.collider,
+                ),
             },
             Hitbox::Ellipsoid(dim1) => match other.hitbox {
-                Hitbox::Mesh(_) => None,
-                Hitbox::ConvexMesh(_) => None,
-                Hitbox::Ellipsoid(dim2) => None,
-                Hitbox::Box(dim2) => None,
+                Hitbox::ConvexMesh(mesh) => {
+                    mesh_ellipsoid_collision(
+                        mesh,
+                        dim1,
+                        &other.model,
+                        &self.model,
+                        other.collider,
+                        self.collider,
+                    )
+                    .map(|mut cd| {
+                        // invert the vectors because the order changed in the function parameters
+                        cd.translation_vec = -cd.translation_vec;
+                        cd.collision_normal = -cd.collision_normal;
+                        cd
+                    })
+                }
+                Hitbox::Ellipsoid(dim2) => ellipsoid_collision(
+                    dim1,
+                    dim2,
+                    &self.model,
+                    &other.model,
+                    self.collider,
+                    other.collider,
+                ),
+                Hitbox::Box(mesh) => {
+                    mesh_ellipsoid_collision(
+                        mesh,
+                        dim1,
+                        &other.model,
+                        &self.model,
+                        other.collider,
+                        self.collider,
+                    )
+                    .map(|mut cd| {
+                        // invert the vectors because the order changed in the function parameters
+                        cd.translation_vec = -cd.translation_vec;
+                        cd.collision_normal = -cd.collision_normal;
+                        cd
+                    })
+                }
             },
-            Hitbox::Box(dim1) => match other.hitbox {
-                Hitbox::Mesh(_) => None,
-                Hitbox::ConvexMesh(_) => None,
-                Hitbox::Ellipsoid(dim2) => None,
-                Hitbox::Box(dim2) => None,
+            Hitbox::Box(mesh1) => match other.hitbox {
+                Hitbox::ConvexMesh(mesh2) => seperating_axis(
+                    mesh1,
+                    mesh2,
+                    &self.model,
+                    &other.model,
+                    self.collider,
+                    other.collider,
+                ),
+                Hitbox::Ellipsoid(dim) => mesh_ellipsoid_collision(
+                    mesh1,
+                    dim,
+                    &self.model,
+                    &other.model,
+                    self.collider,
+                    other.collider,
+                ),
+                Hitbox::Box(mesh2) => seperating_axis(
+                    mesh1,
+                    mesh2,
+                    &self.model,
+                    &other.model,
+                    self.collider,
+                    other.collider,
+                ),
             },
         }
     }
 }
 
-pub struct SampledAnimation {}
+// for convex GJK for detection and EPA for penetration depth calculation, ellipsiods and box colliders trivial, the rest is triangle intersection tests
+// calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
+// assume the normal vector is form the point of view of 1
+// the normal vector in the collision data should be normalized
+
+fn ellipsoid_collision(
+    ell1: &glm::Vec3,
+    ell2: &glm::Vec3,
+    m1: &glm::Mat4,
+    m2: &glm::Mat4,
+    coll1: &Collider,
+    coll2: &Collider,
+) -> Option<CollisionData> {
+    None
+}
+
+fn mesh_ellipsoid_collision(
+    bx: &HitboxMesh,
+    ell: &glm::Vec3,
+    m1: &glm::Mat4,
+    m2: &glm::Mat4,
+    coll1: &Collider,
+    coll2: &Collider,
+) -> Option<CollisionData> {
+    None
+}
+
+fn seperating_axis(
+    mesh1: &HitboxMesh,
+    mesh2: &HitboxMesh,
+    m1: &glm::Mat4,
+    m2: &glm::Mat4,
+    coll1: &Collider,
+    coll2: &Collider,
+) -> Option<CollisionData> {
+    None
+}

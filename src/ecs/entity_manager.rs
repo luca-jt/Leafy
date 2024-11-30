@@ -1,7 +1,8 @@
 use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::TextureMap;
-use crate::rendering::mesh::{Hitbox, Mesh};
+use crate::rendering::mesh::{Hitbox, HitboxType, Mesh};
+use crate::utils::constants::ORIGIN;
 use crate::utils::file::*;
 use std::any::{Any, TypeId};
 use std::cell::UnsafeCell;
@@ -67,7 +68,11 @@ impl EntityManager {
             Orientation::default(),
             AngularVelocity::zero(),
             Acceleration::zero(),
-            HitboxType::Ellipsiod,
+            Collider {
+                hitbox_type: HitboxType::ConvexHull,
+                offset: ORIGIN,
+                scale: Scale::default()
+            },
             RigidBody::default(),
             EntityFlags::default()
         ))
@@ -124,7 +129,7 @@ impl EntityManager {
             || TypeId::of::<T>() == TypeId::of::<RigidBody>()
         {
             self.add_command(AssetCommand::UpdateRigidBody(entity));
-        } else if TypeId::of::<T>() == TypeId::of::<HitboxType>() {
+        } else if TypeId::of::<T>() == TypeId::of::<Collider>() {
             self.add_command(AssetCommand::AddHitbox(entity));
             self.add_command(AssetCommand::CleanHitboxes);
         } else if TypeId::of::<T>() == TypeId::of::<MeshAttribute>() {
@@ -176,7 +181,7 @@ impl EntityManager {
                 self.add_command(AssetCommand::CleanTextures);
             } else if TypeId::of::<T>() == TypeId::of::<Scale>() {
                 self.add_command(AssetCommand::UpdateRigidBody(entity));
-            } else if TypeId::of::<T>() == TypeId::of::<HitboxType>() {
+            } else if TypeId::of::<T>() == TypeId::of::<Collider>() {
                 self.add_command(AssetCommand::CleanHitboxes);
             } else if TypeId::of::<T>() == TypeId::of::<PointLight>() {
                 self.add_command(AssetCommand::DeleteLightID(entity));
@@ -243,30 +248,30 @@ impl EntityManager {
                     });
                 }
                 AssetCommand::AddHitbox(entity) => {
-                    if let (Some(mesh_type), Some(box_type)) = (
+                    if let (Some(mesh_type), Some(collider)) = (
                         unsafe { &*self.ecs.get() }.get_component::<MeshType>(entity),
-                        unsafe { &*self.ecs.get() }.get_component::<HitboxType>(entity),
+                        unsafe { &*self.ecs.get() }.get_component::<Collider>(entity),
                     ) {
                         self.hitbox_register
-                            .entry((mesh_type.clone(), *box_type))
+                            .entry((mesh_type.clone(), collider.hitbox_type))
                             .or_insert_with(|| {
                                 log::debug!(
                                     "inserted hitbox '{:?}' in register for mesh '{:?}'",
-                                    box_type,
+                                    collider.hitbox_type,
                                     mesh_type
                                 );
                                 self.asset_register
                                     .get(mesh_type)
                                     .unwrap()
-                                    .generate_hitbox(box_type)
+                                    .generate_hitbox(&collider.hitbox_type)
                             });
                     }
                 }
                 AssetCommand::CleanHitboxes => {
                     self.hitbox_register.retain(|(mesh_type, box_type), _| {
                         let delete = unsafe { &*self.ecs.get() }
-                            .query2::<MeshType, HitboxType>(vec![])
-                            .filter(|(mt, ht)| mesh_type == *mt && box_type == *ht)
+                            .query2::<MeshType, Collider>(vec![])
+                            .filter(|(mt, ht)| mesh_type == *mt && *box_type == ht.hitbox_type)
                             .count()
                             == 0;
                         if delete {
