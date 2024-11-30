@@ -5,7 +5,6 @@ use crate::rendering::mesh::{Hitbox, Mesh};
 use crate::utils::file::*;
 use std::any::{Any, TypeId};
 use std::cell::UnsafeCell;
-use std::collections::hash_map::Keys;
 use std::collections::{HashMap, VecDeque};
 
 /// create a component list for entity creation
@@ -188,7 +187,7 @@ impl EntityManager {
     }
 
     /// iterate over all of the stored entities
-    pub fn all_ids_iter(&self) -> Keys<'_, EntityID, EntityRecord> {
+    pub fn all_ids_iter(&self) -> impl Iterator<Item = &EntityID> {
         unsafe { &*self.ecs.get() }.entity_index.keys()
     }
 

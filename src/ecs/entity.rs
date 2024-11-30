@@ -61,7 +61,7 @@ impl Index<usize> for EntityType {
 pub(crate) type ArchetypeID = u64;
 
 /// entity meta data
-pub struct EntityRecord {
+pub(crate) struct EntityRecord {
     pub(crate) archetype_id: ArchetypeID,
     pub(crate) row: usize,
 }
