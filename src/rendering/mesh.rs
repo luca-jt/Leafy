@@ -19,6 +19,7 @@ struct MeshVertex {
 }
 
 /// mesh containing vertex structs as opposed to the regular soa mesh which allows for easier processing
+#[derive(Clone)]
 struct AOSMesh {
     vertices: Vec<MeshVertex>,
     faces: Vec<[usize; 3]>,
@@ -333,13 +334,16 @@ impl Mesh {
     }
 
     /// generates all the simpified meshes for the lod levels
-    #[rustfmt::skip]
     pub(crate) fn generate_lods(&self) -> [Mesh; 4] {
+        let lod1 = self.aos_mesh().simplified();
+        let lod2 = lod1.clone().simplified();
+        let lod3 = lod2.clone().simplified();
+        let lod4 = lod3.clone().simplified();
         [
-            self.aos_mesh().simplified().to_mesh(),
-            self.aos_mesh().simplified().simplified().to_mesh(),
-            self.aos_mesh().simplified().simplified().simplified().to_mesh(),
-            self.aos_mesh().simplified().simplified().simplified().simplified().to_mesh(),
+            lod1.to_mesh(),
+            lod2.to_mesh(),
+            lod3.to_mesh(),
+            lod4.to_mesh(),
         ]
     }
 
@@ -438,8 +442,7 @@ impl HitboxMesh {
             "mesh must be at least as complex as a tetrahedron for it to have a convex hull hitbox"
         );
         let (a, b, c, d) = self.find_initial_tetrahedron();
-        // TODO: *PROBLEM* we need to make shure that the faces are in correct rotational representation as finding the points furthest away from the faces depend on the direction of the normal vector
-        self.faces = vec![[a, b, c], [a, b, d], [a, c, d], [b, c, d]];
+        self.faces = vec![[a, b, c], [b, a, d], [d, a, c], [b, d, c]];
         // for each face find the furthest point away from it
         // create new faces for
         // do this as long as there are points outside of the faces
@@ -483,18 +486,35 @@ impl HitboxMesh {
             .unwrap()
             .0;
         // find the fourth point that forms a valid tetrahedron
-        let normal = line_vec.cross(&(self.vertices[third_idx] - self.vertices[min_x_idx]));
-        let fourth_idx = self
+        // we have to check for the max to be greater than 0 because the we want to make shure the triangles are in CCW order
+        // taking the min value in in the absence of a positive value means the indeces sould be ordered differently
+        let normal = (self.vertices[third_idx] - self.vertices[min_x_idx]).cross(&line_vec);
+        let fourth_options = self
             .vertices
             .iter()
             .enumerate()
             .filter(|&(i, _)| i != min_x_idx && i != max_x_idx && i != third_idx)
-            .map(|(i, v)| (i, (v.dot(&normal) * normal).norm_squared()))
-            .max_by(|(_, dot1), (_, dot2)| dot1.partial_cmp(dot2).unwrap())
-            .unwrap()
-            .0;
-
-        (min_x_idx, max_x_idx, third_idx, fourth_idx)
+            .map(|(i, v)| (i as i64, v))
+            .fold(
+                (-1, ORIGIN, -1, ORIGIN),
+                |(mut min_idx, mut min_vec, mut max_idx, mut max_vec), (i, v)| {
+                    let dotp_to_compare = v.dot(&normal);
+                    if dotp_to_compare > max_vec.dot(&normal) {
+                        max_idx = i;
+                        max_vec = *v;
+                    }
+                    if dotp_to_compare < min_vec.dot(&normal) {
+                        min_idx = i;
+                        min_vec = *v;
+                    }
+                    (min_idx, min_vec, max_idx, max_vec)
+                },
+            );
+        if fourth_options.2 >= 0 {
+            (min_x_idx, max_x_idx, third_idx, fourth_options.2 as usize)
+        } else {
+            (max_x_idx, min_x_idx, third_idx, fourth_options.2 as usize)
+        }
     }
 
     /// removes vertices that are not used by a face and corrects the face indices
