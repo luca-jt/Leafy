@@ -74,7 +74,7 @@ impl AOSMesh {
     fn remove_unused_vertices(&mut self) {
         let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
         for i in 0..self.vertices.len() {
-            while !used_indices.contains(&i) {
+            while !used_indices.contains(&i) && i < self.vertices.len() {
                 self.vertices.swap_remove(i);
                 self.faces
                     .iter_mut()
@@ -85,7 +85,7 @@ impl AOSMesh {
                     used_indices.insert(i);
                 }
             }
-            if i == self.vertices.len() {
+            if i >= self.vertices.len() - 1 {
                 break;
             }
         }
@@ -437,18 +437,71 @@ impl HitboxMesh {
             self.vertices.len() >= 4,
             "mesh must be at least as complex as a tetrahedron for it to have a convex hull hitbox"
         );
-        // TODO
-        // find initial tetrahedron
+        let (a, b, c, d) = self.find_initial_tetrahedron();
+        // TODO: *PROBLEM* we need to make shure that the faces are in correct rotational representation as finding the points furthest away from the faces depend on the direction of the normal vector
+        self.faces = vec![[a, b, c], [a, b, d], [a, c, d], [b, c, d]];
         // for each face find the furthest point away from it
+        // create new faces for
         // do this as long as there are points outside of the faces
+        self.remove_unused_vertices();
         self
+    }
+
+    /// find the base tetrahedron for the convex hull algorithm
+    fn find_initial_tetrahedron(&self) -> (usize, usize, usize, usize) {
+        // find two extreme points along x axis
+        let (min_x_idx, max_x_idx) =
+            self.vertices
+                .iter()
+                .enumerate()
+                .fold((0, 0), |(min_idx, max_idx), (i, v)| {
+                    let mut updated = (min_idx, max_idx);
+                    if v.x < self.vertices[min_idx].x {
+                        updated.0 = i;
+                    }
+                    if v.x > self.vertices[max_idx].x {
+                        updated.1 = i;
+                    }
+                    updated
+                });
+        // find the point farthest from the line formed by the two points
+        let line_vec = self.vertices[max_x_idx] - self.vertices[min_x_idx];
+        let third_idx = self
+            .vertices
+            .iter()
+            .enumerate()
+            .filter(|&(i, _)| i != min_x_idx && i != max_x_idx)
+            .map(|(i, v)| {
+                (
+                    i,
+                    line_vec
+                        .cross(&(v - self.vertices[min_x_idx]))
+                        .norm_squared(),
+                )
+            })
+            .max_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap())
+            .unwrap()
+            .0;
+        // find the fourth point that forms a valid tetrahedron
+        let normal = line_vec.cross(&(self.vertices[third_idx] - self.vertices[min_x_idx]));
+        let fourth_idx = self
+            .vertices
+            .iter()
+            .enumerate()
+            .filter(|&(i, _)| i != min_x_idx && i != max_x_idx && i != third_idx)
+            .map(|(i, v)| (i, (v.dot(&normal) * normal).norm_squared()))
+            .max_by(|(_, dot1), (_, dot2)| dot1.partial_cmp(dot2).unwrap())
+            .unwrap()
+            .0;
+
+        (min_x_idx, max_x_idx, third_idx, fourth_idx)
     }
 
     /// removes vertices that are not used by a face and corrects the face indices
     fn remove_unused_vertices(&mut self) {
         let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
         for i in 0..self.vertices.len() {
-            while !used_indices.contains(&i) {
+            while !used_indices.contains(&i) && i < self.vertices.len() {
                 self.vertices.swap_remove(i);
                 self.faces
                     .iter_mut()
@@ -459,7 +512,7 @@ impl HitboxMesh {
                     used_indices.insert(i);
                 }
             }
-            if i == self.vertices.len() {
+            if i >= self.vertices.len() - 1 {
                 break;
             }
         }
