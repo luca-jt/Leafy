@@ -443,11 +443,82 @@ impl HitboxMesh {
         );
         let (a, b, c, d) = self.find_initial_tetrahedron();
         self.faces = vec![[a, b, c], [b, a, d], [d, a, c], [b, d, c]];
-        // for each face find the furthest point away from it
-        // create new faces for
-        // do this as long as there are points outside of the faces
+
+        // find the points outside the initial tetrahedron
+        let mut outside_points =
+            self.find_outside_points(self.faces.iter(), (0..self.vertices.len()).collect());
+
+        while outside_points.iter().any(|p| !p.is_empty()) {
+            let mut new_faces = vec![None; outside_points.len()]; // indices are face indices to delete after every iteration
+
+            dbg!(outside_points.iter().map(|x| x.len()).max().unwrap());
+            // TODO: loops infinitely
+
+            for (i, points) in outside_points.iter().enumerate() {
+                if !points.is_empty() {
+                    let [a, b, c] = self.faces[i];
+                    let (v1, v2, v3) = (self.vertices[a], self.vertices[b], self.vertices[c]);
+                    let face_normal = (v2 - v1).cross(&(v3 - v1));
+                    // find furthest point
+                    let point = points
+                        .iter()
+                        .map(|j| (j, self.vertices[*j] - v1))
+                        .map(|(j, v)| (j, face_normal.dot(&v)))
+                        .filter(|(_, dotp)| *dotp > 0.0)
+                        .max_by(|(_, dp1), (_, dp2)| dp1.partial_cmp(dp2).unwrap())
+                        .map(|(j, _)| *j)
+                        .unwrap();
+                    // create new faces with the point
+                    new_faces[i] = Some([[c, point, a], [b, point, c], [a, point, b]]);
+                }
+            }
+            // the order of the outside sets and the faces is preserved as they are both mutated the same way
+            for idx in (0..new_faces.len()).rev() {
+                if let Some(faces) = new_faces[idx] {
+                    // delete old faces
+                    self.faces.swap_remove(idx);
+                    let outside_set = outside_points.swap_remove(idx);
+                    // add new faces
+                    self.faces.push(faces[0]);
+                    self.faces.push(faces[1]);
+                    self.faces.push(faces[2]);
+                    // construct 3 outside sets from a given point cloud the same way it was done in the beginning
+                    let new_outside_points = self.find_outside_points(faces.iter(), outside_set);
+                    debug_assert_eq!(new_outside_points.len(), 3);
+                    outside_points.extend(new_outside_points);
+                }
+            }
+        }
         self.remove_unused_vertices();
         self
+    }
+
+    /// find the points outside of each face
+    fn find_outside_points<'a>(
+        &self,
+        faces: impl Iterator<Item = &'a [usize; 3]>,
+        point_cloud: Vec<usize>,
+    ) -> Vec<Vec<usize>> {
+        let faces = faces.collect::<Vec<_>>();
+        let mut point_sets = Vec::with_capacity(faces.len());
+        for face in faces {
+            let (v1, v2, v3) = (
+                self.vertices[face[0]],
+                self.vertices[face[1]],
+                self.vertices[face[2]],
+            );
+            let face_normal = (v2 - v1).cross(&(v3 - v1));
+            point_sets.push(
+                point_cloud
+                    .iter()
+                    .map(|i| (i, self.vertices[*i] - v1))
+                    .map(|(i, v)| (i, face_normal.dot(&v)))
+                    .filter(|(_, dotp)| *dotp > 0.0)
+                    .map(|(i, _)| *i)
+                    .collect(),
+            );
+        }
+        point_sets
     }
 
     /// find the base tetrahedron for the convex hull algorithm
@@ -494,26 +565,32 @@ impl HitboxMesh {
             .iter()
             .enumerate()
             .filter(|&(i, _)| i != min_x_idx && i != max_x_idx && i != third_idx)
-            .map(|(i, v)| (i as i64, v))
             .fold(
-                (-1, ORIGIN, -1, ORIGIN),
+                (None, ORIGIN, None, ORIGIN),
                 |(mut min_idx, mut min_vec, mut max_idx, mut max_vec), (i, v)| {
                     let dotp_to_compare = v.dot(&normal);
                     if dotp_to_compare > max_vec.dot(&normal) {
-                        max_idx = i;
+                        max_idx = Some(i);
                         max_vec = *v;
                     }
                     if dotp_to_compare < min_vec.dot(&normal) {
-                        min_idx = i;
+                        min_idx = Some(i);
                         min_vec = *v;
                     }
                     (min_idx, min_vec, max_idx, max_vec)
                 },
             );
-        if fourth_options.2 >= 0 {
-            (min_x_idx, max_x_idx, third_idx, fourth_options.2 as usize)
+        if let Some(fourth_idx) = fourth_options.2 {
+            (min_x_idx, max_x_idx, third_idx, fourth_idx)
+        } else if let Some(fourth_idx) = fourth_options.0 {
+            (max_x_idx, min_x_idx, third_idx, fourth_idx)
         } else {
-            (max_x_idx, min_x_idx, third_idx, fourth_options.2 as usize)
+            // in this case other points are only on the same plane -> just return the first one that exists
+            let fourth_idx = (0..self.vertices.len())
+                .filter(|&i| i != min_x_idx && i != max_x_idx && i != third_idx)
+                .next()
+                .unwrap();
+            (min_x_idx, max_x_idx, third_idx, fourth_idx)
         }
     }
 
