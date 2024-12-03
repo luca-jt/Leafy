@@ -450,10 +450,6 @@ impl HitboxMesh {
 
         while outside_points.iter().any(|p| !p.is_empty()) {
             let mut new_faces = vec![None; outside_points.len()]; // indices are face indices to delete after every iteration
-
-            dbg!(outside_points.iter().map(|x| x.len()).max().unwrap());
-            // TODO: loops infinitely
-
             for (i, points) in outside_points.iter().enumerate() {
                 if !points.is_empty() {
                     let [a, b, c] = self.faces[i];
@@ -477,7 +473,8 @@ impl HitboxMesh {
                 if let Some(faces) = new_faces[idx] {
                     // delete old faces
                     self.faces.swap_remove(idx);
-                    let outside_set = outside_points.swap_remove(idx);
+                    let mut outside_set = outside_points.swap_remove(idx);
+                    outside_set.retain(|p| !faces.iter().flatten().any(|fp| fp == p));
                     // add new faces
                     self.faces.push(faces[0]);
                     self.faces.push(faces[1]);
@@ -501,6 +498,7 @@ impl HitboxMesh {
     ) -> Vec<Vec<usize>> {
         let faces = faces.collect::<Vec<_>>();
         let mut point_sets = Vec::with_capacity(faces.len());
+        let mut points_used = HashSet::new();
         for face in faces {
             let (v1, v2, v3) = (
                 self.vertices[face[0]],
@@ -508,15 +506,18 @@ impl HitboxMesh {
                 self.vertices[face[2]],
             );
             let face_normal = (v2 - v1).cross(&(v3 - v1));
-            point_sets.push(
-                point_cloud
-                    .iter()
-                    .map(|i| (i, self.vertices[*i] - v1))
-                    .map(|(i, v)| (i, face_normal.dot(&v)))
-                    .filter(|(_, dotp)| *dotp > 0.0)
-                    .map(|(i, _)| *i)
-                    .collect(),
-            );
+            let fitting_points = point_cloud
+                .iter()
+                .filter(|i| !points_used.contains(*i))
+                .map(|i| (i, self.vertices[*i] - v1))
+                .map(|(i, v)| (i, face_normal.dot(&v)))
+                .filter(|(_, dotp)| *dotp > 0.0)
+                .map(|(i, _)| *i)
+                .collect::<Vec<_>>();
+            for fitting in fitting_points.iter() {
+                points_used.insert(*fitting);
+            }
+            point_sets.push(fitting_points);
         }
         point_sets
     }
