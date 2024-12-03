@@ -66,12 +66,15 @@ impl FallingLeafApp for App {
         ));
         self.player = entity_manager.create_basic_dynamic(
             Position::new(0.0, 4.0, 0.0),
-            MeshType::Sphere,
+            MeshType::Cube,
             MeshAttribute::Colored(Color32::RED),
         );
         *entity_manager
             .get_component_mut::<Scale>(self.player)
             .unwrap() = Scale::from_factor(0.2);
+        *entity_manager
+            .get_component_mut::<Orientation>(self.player)
+            .unwrap() = Orientation::new(45.0, &Y_AXIS);
 
         let sound = engine.audio_system_mut().new_sound_controller();
         let heli_position = Position::new(0.0, 1.0, 1.0);
@@ -85,9 +88,8 @@ impl FallingLeafApp for App {
 
         self.cube = entity_manager.create_entity(components!(
             heli_position,
-            Scale::from_factor(0.1),
-            Orientation::new(45.0, &Y_AXIS),
-            MeshType::Cube,
+            Scale::from_factor(0.2),
+            MeshType::Sphere,
             MeshAttribute::Colored(Color32::BLUE),
             sound,
             TouchTime::now()

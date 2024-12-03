@@ -48,6 +48,8 @@ impl EntityManager {
         self.add_command(AssetCommand::AddHitbox(entity));
         // do rigid body calculations if necessary
         self.add_command(AssetCommand::UpdateRigidBody(entity));
+        // add the light id if necessary
+        self.add_command(AssetCommand::AddLightID(entity));
         self.exec_commands();
         entity
     }
@@ -81,8 +83,6 @@ impl EntityManager {
     /// creates a new default point light source for the rendering system without other components attached (invisible)
     pub fn create_point_light(&mut self, position: Position) -> EntityID {
         let light = self.create_entity(components!(position, PointLight::default()));
-        self.add_command(AssetCommand::AddLightID(light));
-        self.exec_commands();
         light
     }
 
@@ -95,8 +95,6 @@ impl EntityManager {
             MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
             Scale::from_factor(0.1)
         ));
-        self.add_command(AssetCommand::AddLightID(light));
-        self.exec_commands();
         light
     }
 
@@ -312,10 +310,12 @@ impl EntityManager {
                     }
                 }
                 AssetCommand::AddLightID(entity) => {
-                    self.ecs
-                        .get_mut()
-                        .add_component(entity, LightSrcID(entity))
-                        .unwrap();
+                    if unsafe { &*self.ecs.get() }.has_component::<PointLight>(entity) {
+                        self.ecs
+                            .get_mut()
+                            .add_component(entity, LightSrcID(entity))
+                            .unwrap();
+                    }
                 }
                 AssetCommand::DeleteLightID(entity) => {
                     self.ecs.get_mut().remove_component::<LightSrcID>(entity);
