@@ -4,8 +4,7 @@ use crate::utils::constants::ORIGIN;
 use crate::utils::tools::to_vec4;
 use gl::types::*;
 use obj::{load_obj, Obj, TexturedVertex};
-use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -61,116 +60,56 @@ impl AOSMesh {
     /// creates a hitbox in the form of a simplified version of the mesh
     fn simplified(mut self) -> Self {
         let target_triangle_count = (self.faces.len() / 2).max(4);
-        let mut vertex_errors: Vec<glm::Mat4> = self.calculate_vertex_errors();
-        let mut edge_queue = self.build_edge_queue(&vertex_errors);
-        while self.faces.len() > target_triangle_count && !edge_queue.is_empty() {
-            let edge = edge_queue.pop().unwrap();
-            self.collapse_edge(edge, &mut vertex_errors);
+
+        // SELECTING VALID PAIRS FOR THE CONSTRACTIONS
+        // -> one of two cases: v1->v2 is edge or distance(v1, v2) < t with t being a threshold parameter
+        // -> t = 0 would be equivalent to a regular edge contraction algo
+
+        // CALCULATING THE ERRORS
+        // calculate the error for each vertex v = [x, y, z, 1]^T to be the quadric form delta(v) = v^T*Q*v
+        // initial matrices are constructed like this:
+        //
+        // for each vertex find all the triangles that meet at that vertex
+        // for each triangle plane calculate p = [a, b, c, d]^T where the plane is defined by the equation ax + by + cz + d = 0 where a^2 + b^2 + c^2 = 1
+        // the error quadric then becomes delta(v) = v^T * sum(K_p for p in planes) * v where K_p = p * p^T
+        //
+        // for each contraction we have to approximate the error at the new location of the merged vertices with Q_1 + Q_2 = Q_new
+        // to find the new location of the produced vertex we find the minimum of the error function which is a linear problem:
+        // sum of partial derivatives of the delta function for x, y, z shall be = 0
+        // that is equivalent to solving |q11 q12 q13 q14 |
+        //                               |q12 q22 q23 q24 |
+        //                               |q13 q23 q33 q34 | * v_new = (0, 0, 0, 1)
+        //                               | 0   0   0   1  |
+        //
+        // which is the same as doing         |q11 q12 q13 q14 |^-1
+        //                                    |q12 q22 q23 q24 |
+        //                            v_new = |q13 q23 q33 q34 |   * (0, 0, 0, 1)
+        //                                    | 0   0   0   1  |
+        // if the matrix is invertible
+        // if that is not the case we fall back to trying to find the optimal point along the segment v1 v2
+        // if this also fails we fall back on choosing v_new from amongst the endpoints and the midpoint
+
+        // SUMMARY:
+        // 1. find all the valid vertex pairs
+        // 2. compute the initial matrices Q
+        // 3. compute the contraction target for each pair with contraction cost v_new^T * (Q_1 + Q_2) * v_new
+        // 4. put all the in a heap keyed on cost with the minimum cost pair at the top
+        // 5. iteratively remove the pair v1 v2 of least cost from the heap, contract this pair, and update the costs of all valid pairs involving v1
+
+        while self.faces.len() > target_triangle_count {
+            // TODO
         }
-        self.remove_unused_vertices();
         self
     }
 
-    /// removes vertices that are not used by a face and corrects the face indices
-    fn remove_unused_vertices(&mut self) {
-        let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
-        for i in 0..self.vertices.len() {
-            while !used_indices.contains(&i) && i < self.vertices.len() {
-                self.vertices.swap_remove(i);
-                self.faces
-                    .iter_mut()
-                    .flatten()
-                    .filter(|index| **index == self.vertices.len())
-                    .for_each(|index| *index = i);
-                if used_indices.remove(&self.vertices.len()) {
-                    used_indices.insert(i);
-                }
-            }
-            if i >= self.vertices.len() - 1 {
-                break;
-            }
-        }
-    }
-
-    /// calculate the initial error metrics (quadrics) for all vertices
-    fn calculate_vertex_errors(&self) -> Vec<glm::Mat4> {
-        let mut vertex_errors = vec![glm::Mat4::zeros(); self.vertices.len()];
-        for face in self.faces.iter() {
-            let (v0, v1, v2) = (
-                self.vertices[face[0]].position,
-                self.vertices[face[1]].position,
-                self.vertices[face[2]].position,
-            );
-            let normal = (v1 - v0).cross(&(v2 - v0)).normalize();
-            let d = -normal.dot(&v0);
-
-            let quadric = glm::mat4(
-                normal.x * normal.x,
-                normal.x * normal.y,
-                normal.x * normal.z,
-                normal.x * d,
-                normal.y * normal.x,
-                normal.y * normal.y,
-                normal.y * normal.z,
-                normal.y * d,
-                normal.z * normal.x,
-                normal.z * normal.y,
-                normal.z * normal.z,
-                normal.z * d,
-                d * normal.x,
-                d * normal.y,
-                d * normal.z,
-                d * d,
-            );
-            for vi in face {
-                vertex_errors[*vi] += quadric;
-            }
-        }
-        vertex_errors
-    }
-
-    /// build a min heap of edges prioritized by error metrics
-    fn build_edge_queue(&self, vertex_errors: &[glm::Mat4]) -> BinaryHeap<Edge> {
-        let mut edge_queue = BinaryHeap::new();
-        let mut edge_set = HashMap::new();
-        for face in &self.faces {
-            for i in 0..3 {
-                let (v1, v2) = (face[i], face[(i + 1) % 3]);
-                if !edge_set.contains_key(&(v1.min(v2), v1.max(v2))) {
-                    let error = self.calculate_edge_error(v1, v2, vertex_errors);
-                    edge_queue.push(Edge { v1, v2, error });
-                    edge_set.insert((v1.min(v2), v1.max(v2)), true);
-                }
-            }
-        }
-        edge_queue
-    }
-
-    /// calculate the error for collapsing an edge between vertices v1 and v2
-    fn calculate_edge_error(&self, v1: usize, v2: usize, vertex_errors: &[glm::Mat4]) -> f32 {
-        let quadric = vertex_errors[v1] + vertex_errors[v2];
-        let midpoint = (self.vertices[v1].position + self.vertices[v2].position) * 0.5;
-        let midpoint_hom = glm::vec4(midpoint.x, midpoint.y, midpoint.z, 1.0);
-        (midpoint_hom.transpose() * quadric * midpoint_hom).sum()
-    }
-
-    /// collapse an edge and update the mesh structure
-    fn collapse_edge(&mut self, edge: Edge, vertex_errors: &mut [glm::Mat4]) {
-        let Edge { v1, v2, .. } = edge;
-        self.vertices[v1] = MeshVertex {
-            position: (self.vertices[v1].position + self.vertices[v2].position) * 0.5,
-            uv: (self.vertices[v1].uv + self.vertices[v2].uv) * 0.5,
-            normal: (self.vertices[v1].normal + self.vertices[v2].normal) * 0.5,
-        };
-        vertex_errors[v1] += vertex_errors[v2];
-        self.faces.retain_mut(|face| {
-            for v in face.iter_mut() {
-                if *v == v2 {
-                    *v = v1;
-                }
-            }
-            face[0] != face[1] && face[1] != face[2] && face[2] != face[0]
-        });
+    /// contracts a pair in the mesh simplification algorithm and modifies the relevant pairs and error data
+    fn contract_pair(&mut self, v1: usize, v2: usize, new_pos: glm::Vec3) {
+        // move v1 to new position
+        // connect all of v2's edges to v1
+        // delete v2
+        // remove degenerate faces and edges
+        // -> when contracting a set of vertices, not only are the edges of the two vertices combined, but also the valid pair partners
+        // -> recompute some pairs as the merged location might not be the same as the old location of v1
     }
 }
 
@@ -335,6 +274,7 @@ impl Mesh {
 
     /// generates all the simpified meshes for the lod levels
     pub(crate) fn generate_lods(&self) -> [Mesh; 4] {
+        // TODO: do all of the lods in one iteration of the algorithm -> more performant
         let lod1 = self.aos_mesh().simplified();
         let lod2 = lod1.clone().simplified();
         let lod3 = lod2.clone().simplified();
@@ -474,7 +414,7 @@ impl HitboxMesh {
                     // delete old faces
                     self.faces.swap_remove(idx);
                     let mut outside_set = outside_points.swap_remove(idx);
-                    outside_set.retain(|p| !faces.iter().flatten().any(|fp| fp == p));
+                    outside_set.retain(|p| faces.iter().flatten().all(|fp| fp != p));
                     // add new faces
                     self.faces.push(faces[0]);
                     self.faces.push(faces[1]);
@@ -614,27 +554,5 @@ impl HitboxMesh {
                 break;
             }
         }
-    }
-}
-
-/// represents one edge in a mesh with an error metric
-#[derive(PartialEq)]
-struct Edge {
-    v1: usize,
-    v2: usize,
-    error: f32,
-}
-
-impl Eq for Edge {}
-
-impl PartialOrd<Self> for Edge {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.error.partial_cmp(&other.error)
-    }
-}
-
-impl Ord for Edge {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Less)
     }
 }
