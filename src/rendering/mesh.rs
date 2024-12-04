@@ -4,13 +4,16 @@ use crate::utils::constants::ORIGIN;
 use crate::utils::tools::to_vec4;
 use gl::types::*;
 use obj::{load_obj, Obj, TexturedVertex};
-use std::collections::HashSet;
+use petgraph::stable_graph::{NodeIndex, StableUnGraph};
+use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashSet};
 use std::fs::File;
 use std::io::BufReader;
+use std::ops::IndexMut;
 use std::path::Path;
 
 /// vertex used in the AOS meshes
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 struct MeshVertex {
     position: glm::Vec3,
     uv: glm::Vec2,
@@ -66,20 +69,21 @@ impl AOSMesh {
         // -> t = 0 would be equivalent to a regular edge contraction algo
 
         // CALCULATING THE ERRORS
-        // calculate the error for each vertex v = [x, y, z, 1]^T to be the quadric form delta(v) = v^T*Q*v
+        // the error for each vertex v = (x, y, z, 1) is the quadric form delta(v) = v^T*Q*v
         // initial matrices are constructed like this:
         //
         // for each vertex find all the triangles that meet at that vertex
         // for each triangle plane calculate p = [a, b, c, d]^T where the plane is defined by the equation ax + by + cz + d = 0 where a^2 + b^2 + c^2 = 1
-        // the error quadric then becomes delta(v) = v^T * sum(K_p for p in planes) * v where K_p = p * p^T
+        // the error quadric then becomes delta(v) = v^T * sum(K_p for p in planes) * v where K_p = p*p^T and sum(K_p for p in planes) = Q
         //
         // for each contraction we have to approximate the error at the new location of the merged vertices with Q_1 + Q_2 = Q_new
         // to find the new location of the produced vertex we find the minimum of the error function which is a linear problem:
         // sum of partial derivatives of the delta function for x, y, z shall be = 0
-        // that is equivalent to solving |q11 q12 q13 q14 |
-        //                               |q12 q22 q23 q24 |
-        //                               |q13 q23 q33 q34 | * v_new = (0, 0, 0, 1)
-        //                               | 0   0   0   1  |
+        //
+        // that is equivalent to solving    |q11 q12 q13 q14 |
+        //                                  |q12 q22 q23 q24 |
+        //                                  |q13 q23 q33 q34 | * v_new = (0, 0, 0, 1)
+        //                                  | 0   0   0   1  |
         //
         // which is the same as doing         |q11 q12 q13 q14 |^-1
         //                                    |q12 q22 q23 q24 |
@@ -96,20 +100,93 @@ impl AOSMesh {
         // 4. put all the in a heap keyed on cost with the minimum cost pair at the top
         // 5. iteratively remove the pair v1 v2 of least cost from the heap, contract this pair, and update the costs of all valid pairs involving v1
 
-        while self.faces.len() > target_triangle_count {
+        let mut mesh_graph = MeshErrorGraph::from_edges(
+            self.faces
+                .iter()
+                .map(|face| [(face[0], face[1]), (face[1], face[2]), (face[2], face[0])])
+                .flatten(),
+        );
+
+        // calculate the error matrix Q for a all vertices
+        for i in 0..self.vertices.len() {
+            let vertex_data = mesh_graph.index_mut(NodeIndex::new(i));
             // TODO
+            let error_matrix = glm::Mat4::identity();
+            *vertex_data = ErrorVertexData {
+                mesh_vertex: self.vertices[i],
+                error_matrix,
+            };
         }
+
+        let error_threshold = 0_f32;
+        let mut valid_pairs = Self::find_all_valid_pairs(error_threshold, &mesh_graph);
+
+        while self.faces.len() > target_triangle_count && !valid_pairs.is_empty() {
+            let pair_to_contract = valid_pairs.pop().unwrap();
+            contract_pair(pair_to_contract, &mut mesh_graph);
+        }
+
+        // TODO: reconstruct the mesh from the final graph data
         self
     }
 
-    /// contracts a pair in the mesh simplification algorithm and modifies the relevant pairs and error data
-    fn contract_pair(&mut self, v1: usize, v2: usize, new_pos: glm::Vec3) {
-        // move v1 to new position
-        // connect all of v2's edges to v1
-        // delete v2
-        // remove degenerate faces and edges
-        // -> when contracting a set of vertices, not only are the edges of the two vertices combined, but also the valid pair partners
-        // -> recompute some pairs as the merged location might not be the same as the old location of v1
+    /// find all the vaild vertex pairs that are either edges or have a distance that is smaller than error_threshold
+    fn find_all_valid_pairs(
+        error_threshold: f32,
+        mesh_graph: &MeshErrorGraph,
+    ) -> BinaryHeap<ErrorVertexPair> {
+        let valid_pairs = BinaryHeap::new();
+        // TODO
+        valid_pairs
+    }
+}
+
+/// contracts a pair in the mesh simplification algorithm and modifies the relevant pairs and error data
+fn contract_pair(pair: ErrorVertexPair, mesh_graph: &mut MeshErrorGraph) {
+    // move v1 to new position
+    // connect all of v2's edges to v1
+    // delete v2
+    // remove degenerate faces and edges
+    // -> when contracting a set of vertices, not only are the edges of the two vertices combined, but also the valid pair partners
+    // -> recompute some pairs as the merged location might not be the same as the old location of v1
+    todo!()
+}
+
+type MeshErrorGraph = StableUnGraph<ErrorVertexData, (), usize>;
+
+#[derive(Default)]
+struct ErrorVertexData {
+    mesh_vertex: MeshVertex,
+    error_matrix: glm::Mat4,
+}
+
+/// stores one vertex pair with error data that is used in the mesh simplification algorithm
+struct ErrorVertexPair {
+    v1: NodeIndex<usize>,
+    v2: NodeIndex<usize>,
+    error: f32, // maybe store the whole matrix to be able to update the vertex error array
+    v_new: glm::Vec3,
+}
+
+impl PartialEq<Self> for ErrorVertexPair {
+    fn eq(&self, other: &Self) -> bool {
+        // we want the error pairs to be unordered, so this accounts for that
+        self.v1 == other.v1 && self.v2 == other.v2 || self.v1 == other.v2 && self.v2 == other.v1
+    }
+}
+
+impl Eq for ErrorVertexPair {}
+
+impl PartialOrd<Self> for ErrorVertexPair {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        other.error.partial_cmp(&self.error)
+    }
+}
+
+impl Ord for ErrorVertexPair {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // this is for a max heap so the implementation has to account for that if we want to have a min heap for errors
+        other.error.partial_cmp(&self.error).unwrap()
     }
 }
 
