@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashSet};
 use std::fs::File;
 use std::io::BufReader;
-use std::ops::IndexMut;
+use std::ops::{Index, IndexMut};
 use std::path::Path;
 
 /// vertex used in the AOS meshes
@@ -74,6 +74,8 @@ impl AOSMesh {
         //
         // for each vertex find all the triangles that meet at that vertex
         // for each triangle plane calculate p = [a, b, c, d]^T where the plane is defined by the equation ax + by + cz + d = 0 where a^2 + b^2 + c^2 = 1
+        // that can be done using the plane normal vector n = (a, b, c) as the plane equation then is <(x, y, z), n> = 0
+        // that means that <(x, y, z), n> = d has to be satisfied -> d = cos(alpha) * ||(x, y, z)|| with n and (x, y, z) normalized
         // the error quadric then becomes delta(v) = v^T * sum(K_p for p in planes) * v where K_p = p*p^T and sum(K_p for p in planes) = Q
         //
         // for each contraction we have to approximate the error at the new location of the merged vertices with Q_1 + Q_2 = Q_new
@@ -118,53 +120,110 @@ impl AOSMesh {
             };
         }
 
-        let error_threshold = 0_f32;
-        let mut valid_pairs = Self::find_all_valid_pairs(error_threshold, &mesh_graph);
+        let error_threshold = 0.2;
+        let mut valid_pairs = find_all_valid_pairs(error_threshold, &mesh_graph);
 
         while self.faces.len() > target_triangle_count && !valid_pairs.is_empty() {
             let pair_to_contract = valid_pairs.pop().unwrap();
-            contract_pair(pair_to_contract, &mut mesh_graph);
+            contract_pair(pair_to_contract, &mut mesh_graph, &mut valid_pairs);
         }
 
-        // TODO: reconstruct the mesh from the final graph data
+        // reconstruct the mesh from the final graph data
+        let final_faces = mesh_graph
+            .edge_indices()
+            .map(|edge_idx| [0, 0, 0])
+            .collect::<Vec<_>>(); // TODO + how to preserve CCW order
+
+        self.faces = final_faces;
+        self.remove_unused_vertices();
         self
     }
 
-    /// find all the vaild vertex pairs that are either edges or have a distance that is smaller than error_threshold
-    fn find_all_valid_pairs(
-        error_threshold: f32,
-        mesh_graph: &MeshErrorGraph,
-    ) -> BinaryHeap<ErrorVertexPair> {
-        let valid_pairs = BinaryHeap::new();
-        // TODO
-        valid_pairs
+    /// removes vertices that are not used by a face and corrects the face indices
+    fn remove_unused_vertices(&mut self) {
+        let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
+        for i in 0..self.vertices.len() {
+            while !used_indices.contains(&i) && i < self.vertices.len() {
+                self.vertices.swap_remove(i);
+                self.faces
+                    .iter_mut()
+                    .flatten()
+                    .filter(|index| **index == self.vertices.len())
+                    .for_each(|index| *index = i);
+                if used_indices.remove(&self.vertices.len()) {
+                    used_indices.insert(i);
+                }
+            }
+            if i >= self.vertices.len() - 1 {
+                break;
+            }
+        }
     }
 }
 
-/// contracts a pair in the mesh simplification algorithm and modifies the relevant pairs and error data
-fn contract_pair(pair: ErrorVertexPair, mesh_graph: &mut MeshErrorGraph) {
-    // move v1 to new position
-    // connect all of v2's edges to v1
-    // delete v2
-    // remove degenerate faces and edges
-    // -> when contracting a set of vertices, not only are the edges of the two vertices combined, but also the valid pair partners
-    // -> recompute some pairs as the merged location might not be the same as the old location of v1
-    todo!()
+/// find all vaild vertex pairs for contraction that are either edges or have a distance < error_threshold
+fn find_all_valid_pairs(
+    error_threshold: f32,
+    mesh_graph: &MeshErrorGraph,
+) -> BinaryHeap<ErrorVertexPair> {
+    let valid_pairs = BinaryHeap::new();
+    // TODO
+    valid_pairs
 }
 
+/// contracts a pair in the mesh simplification algorithm and modifies the relevant pairs and error data
+fn contract_pair(
+    pair: ErrorVertexPair,
+    mesh_graph: &mut MeshErrorGraph,
+    valid_pairs: &mut BinaryHeap<ErrorVertexPair>,
+) {
+    // move v1 to new position stored in the pair
+    let vertex1 = *mesh_graph.index(pair.v1);
+    let vertex2 = *mesh_graph.index(pair.v2);
+    let v1_ref = mesh_graph.index_mut(pair.v1);
+
+    v1_ref.mesh_vertex.position = pair.v_new;
+    v1_ref.mesh_vertex.normal = (vertex1.mesh_vertex.normal + vertex2.mesh_vertex.normal) / 2.0;
+    v1_ref.mesh_vertex.uv = (vertex1.mesh_vertex.uv + vertex2.mesh_vertex.uv) / 2.0;
+    v1_ref.error_matrix = vertex1.error_matrix + vertex2.error_matrix;
+
+    // connect all of v2's edges to v1
+    let connected_to_v2 = mesh_graph
+        .neighbors(pair.v2)
+        .filter(|neighbor| *neighbor != pair.v1)
+        .collect::<Vec<_>>();
+
+    for node in connected_to_v2 {
+        mesh_graph.add_edge(pair.v1, node, ());
+    }
+    // delete v2
+    mesh_graph.remove_node(pair.v2);
+
+    // -> when contracting a set of vertices, also the valid pair partners are combined
+    // -> recompute some pairs as the merged location might not be the same as the old location of v1
+
+    valid_pairs.retain(|pair| {
+        // remove all pairs containing v1 or v2
+        // add new pairs for v1
+        todo!()
+    });
+}
+
+/// used for the graph representation of a mesh that is required for some algorithmic things
 type MeshErrorGraph = StableUnGraph<ErrorVertexData, (), usize>;
 
-#[derive(Default)]
+#[derive(Debug, Default, Copy, Clone)]
 struct ErrorVertexData {
     mesh_vertex: MeshVertex,
     error_matrix: glm::Mat4,
 }
 
 /// stores one vertex pair with error data that is used in the mesh simplification algorithm
+#[derive(Debug, Copy, Clone)]
 struct ErrorVertexPair {
     v1: NodeIndex<usize>,
     v2: NodeIndex<usize>,
-    error: f32, // maybe store the whole matrix to be able to update the vertex error array
+    error: f32,
     v_new: glm::Vec3,
 }
 
