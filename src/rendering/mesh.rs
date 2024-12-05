@@ -109,7 +109,7 @@ impl AOSMesh {
                 .flatten(),
         );
 
-        // calculate the error matrix Q for a all vertices
+        // calculate the inital error matrix Q for a all vertices
         for i in 0..self.vertices.len() {
             let vertex_data = mesh_graph.index_mut(NodeIndex::new(i));
             // TODO
@@ -166,9 +166,59 @@ fn find_all_valid_pairs(
     error_threshold: f32,
     mesh_graph: &MeshErrorGraph,
 ) -> BinaryHeap<ErrorVertexPair> {
-    let valid_pairs = BinaryHeap::new();
-    // TODO
+    let mut valid_pairs = BinaryHeap::new();
+    // add all edges as valid pairs
+    for edge_idx in mesh_graph.edge_indices() {
+        let (v1, v2) = mesh_graph.edge_endpoints(edge_idx).unwrap();
+        add_valid_vertex_pair(v1, v2, mesh_graph, &mut valid_pairs);
+    }
+    // add all pairs that have a distance < error_threshold
+    for v1 in mesh_graph.node_indices() {
+        for v2 in mesh_graph.node_indices().skip(v1.index()) {
+            if mesh_graph.contains_edge(v1, v2) {
+                continue;
+            }
+            let pos1 = mesh_graph.index(v1).mesh_vertex.position;
+            let pos2 = mesh_graph.index(v2).mesh_vertex.position;
+            if glm::distance(&pos1, &pos2) <= error_threshold {
+                add_valid_vertex_pair(v1, v2, mesh_graph, &mut valid_pairs);
+            }
+        }
+    }
     valid_pairs
+}
+
+/// adds a new error vertex pair to the heap of valid pairs
+fn add_valid_vertex_pair(
+    v1: NodeIndex<usize>,
+    v2: NodeIndex<usize>,
+    mesh_graph: &MeshErrorGraph,
+    valid_pairs: &mut BinaryHeap<ErrorVertexPair>,
+) {
+    let vertex1 = mesh_graph.index(v1);
+    let vertex2 = mesh_graph.index(v2);
+
+    let q_new = vertex1.error_matrix + vertex2.error_matrix; // new error matrix
+    let partial_derivative_mat = glm::mat4(
+        q_new.m11, q_new.m12, q_new.m13, q_new.m14, q_new.m12, q_new.m22, q_new.m23, q_new.m24,
+        q_new.m13, q_new.m23, q_new.m33, q_new.m34, 0.0, 0.0, 0.0, 1.0,
+    );
+    let v_new = if let Some(inv_deriv_mat) = partial_derivative_mat.try_inverse() {
+        inv_deriv_mat * glm::vec4(0.0, 0.0, 0.0, 1.0)
+    } else {
+        // fall back on choosing v_new as the midpoint
+        to_vec4(&((vertex1.mesh_vertex.position + vertex2.mesh_vertex.position) / 2.0))
+        // NOTE: the fallback to finding the optimal point along the segment v1 v2 is not used for perfomance
+        // maybe this will be added in the future
+    };
+
+    let new_pair = ErrorVertexPair {
+        v1,
+        v2,
+        error: (v_new.transpose() * q_new * v_new).x,
+        v_new: v_new.xyz(),
+    };
+    valid_pairs.push(new_pair);
 }
 
 /// contracts a pair in the mesh simplification algorithm and modifies the relevant pairs and error data
@@ -183,6 +233,7 @@ fn contract_pair(
     let v1_ref = mesh_graph.index_mut(pair.v1);
 
     v1_ref.mesh_vertex.position = pair.v_new;
+    // TODO: solve the following with a transform as the new vertex might not be the mid point
     v1_ref.mesh_vertex.normal = (vertex1.mesh_vertex.normal + vertex2.mesh_vertex.normal) / 2.0;
     v1_ref.mesh_vertex.uv = (vertex1.mesh_vertex.uv + vertex2.mesh_vertex.uv) / 2.0;
     v1_ref.error_matrix = vertex1.error_matrix + vertex2.error_matrix;
@@ -202,11 +253,14 @@ fn contract_pair(
     // -> when contracting a set of vertices, also the valid pair partners are combined
     // -> recompute some pairs as the merged location might not be the same as the old location of v1
 
-    valid_pairs.retain(|pair| {
-        // remove all pairs containing v1 or v2
-        // add new pairs for v1
-        todo!()
-    });
+    // remove all pairs containing v1 or v2
+    valid_pairs
+        .retain(|p| p.v1 != pair.v1 && p.v1 != pair.v2 && p.v2 != pair.v1 && p.v2 != pair.v2);
+    // add new pairs for v1
+    for neighbor in mesh_graph.neighbors(pair.v1) {
+        add_valid_vertex_pair(pair.v1, neighbor, &mesh_graph, valid_pairs);
+        // NOTE: at this point we dont add the ones with the error threshold for performance reasons
+    }
 }
 
 /// used for the graph representation of a mesh that is required for some algorithmic things
