@@ -4,6 +4,7 @@ use crate::rendering::data::TextureMap;
 use crate::rendering::mesh::{Hitbox, HitboxType, Mesh};
 use crate::utils::constants::ORIGIN;
 use crate::utils::file::*;
+use crate::utils::tools::types_eq;
 use std::any::{Any, TypeId};
 use std::cell::UnsafeCell;
 use std::collections::{HashMap, VecDeque};
@@ -20,6 +21,7 @@ macro_rules! components {
 pub struct EntityManager {
     pub(crate) ecs: UnsafeCell<ECS>,
     asset_register: HashMap<MeshType, Mesh>,
+    lod_register: HashMap<MeshType, [Mesh; 4]>,
     pub(crate) texture_map: TextureMap,
     hitbox_register: HashMap<(MeshType, HitboxType), Hitbox>,
     commands: VecDeque<AssetCommand>,
@@ -31,6 +33,7 @@ impl EntityManager {
         Self {
             ecs: UnsafeCell::new(ECS::new()),
             asset_register: HashMap::new(),
+            lod_register: HashMap::new(),
             texture_map: TextureMap::new(),
             hitbox_register: HashMap::new(),
             commands: VecDeque::new(),
@@ -50,6 +53,8 @@ impl EntityManager {
         self.add_command(AssetCommand::UpdateRigidBody(entity));
         // add the light id if necessary
         self.add_command(AssetCommand::AddLightID(entity));
+        // add LODs if necessary
+        self.add_command(AssetCommand::AddLODs(entity));
         self.exec_commands();
         entity
     }
@@ -104,6 +109,7 @@ impl EntityManager {
             self.add_command(AssetCommand::CleanMeshes);
             self.add_command(AssetCommand::CleanHitboxes);
             self.add_command(AssetCommand::CleanTextures);
+            self.add_command(AssetCommand::CleanLODs);
         }
         self.ecs.get_mut().delete_entity(entity)?;
         self.exec_commands();
@@ -117,20 +123,18 @@ impl EntityManager {
 
     /// yields the mutable component data reference of an entity if present
     pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
-        if TypeId::of::<T>() == TypeId::of::<MeshType>() {
+        if types_eq::<T, MeshType>() {
             self.add_command(AssetCommand::UpdateRigidBody(entity));
             self.add_command(AssetCommand::AddMesh(entity));
             self.add_command(AssetCommand::CleanMeshes);
             self.add_command(AssetCommand::AddHitbox(entity));
             self.add_command(AssetCommand::CleanHitboxes);
-        } else if TypeId::of::<T>() == TypeId::of::<Scale>()
-            || TypeId::of::<T>() == TypeId::of::<RigidBody>()
-        {
+        } else if types_eq::<T, Scale>() || types_eq::<T, RigidBody>() {
             self.add_command(AssetCommand::UpdateRigidBody(entity));
-        } else if TypeId::of::<T>() == TypeId::of::<Collider>() {
+        } else if types_eq::<T, Collider>() {
             self.add_command(AssetCommand::AddHitbox(entity));
             self.add_command(AssetCommand::CleanHitboxes);
-        } else if TypeId::of::<T>() == TypeId::of::<MeshAttribute>() {
+        } else if types_eq::<T, MeshAttribute>() {
             self.add_command(AssetCommand::AddTexture(entity));
             self.add_command(AssetCommand::CleanTextures);
         }
@@ -142,21 +146,23 @@ impl EntityManager {
     pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) -> Result<(), ()> {
         self.ecs.get_mut().add_component::<T>(entity, component)?;
         // add mesh to the register if necessary
-        if TypeId::of::<T>() == TypeId::of::<MeshType>() {
+        if types_eq::<T, MeshType>() {
             self.add_command(AssetCommand::AddMesh(entity));
         }
         // add the texture if necessary
         self.add_command(AssetCommand::AddTexture(entity));
         // add hitbox to the register if necessary
         self.add_command(AssetCommand::AddHitbox(entity));
+        // add LODs to the register if necessary
+        if types_eq::<T, LOD>() {
+            self.add_command(AssetCommand::AddLODs(entity));
+        }
         // add the light source id component if necessary
-        if TypeId::of::<T>() == TypeId::of::<PointLight>() {
+        if types_eq::<T, PointLight>() {
             self.add_command(AssetCommand::AddLightID(entity));
         }
         // recalculate the inertia tensor if necessary
-        if TypeId::of::<T>() == TypeId::of::<Scale>()
-            || TypeId::of::<T>() == TypeId::of::<RigidBody>()
-        {
+        if types_eq::<T, Scale>() || types_eq::<T, RigidBody>() {
             self.add_command(AssetCommand::UpdateRigidBody(entity));
         }
         self.exec_commands();
@@ -172,17 +178,20 @@ impl EntityManager {
     pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
         let removed = self.ecs.get_mut().remove_component::<T>(entity);
         if removed.is_some() {
-            if TypeId::of::<T>() == TypeId::of::<MeshType>() {
+            if types_eq::<T, MeshType>() {
                 self.add_command(AssetCommand::CleanMeshes);
                 self.add_command(AssetCommand::CleanHitboxes);
-            } else if TypeId::of::<T>() == TypeId::of::<MeshAttribute>() {
+                self.add_command(AssetCommand::CleanLODs);
+            } else if types_eq::<T, MeshAttribute>() {
                 self.add_command(AssetCommand::CleanTextures);
-            } else if TypeId::of::<T>() == TypeId::of::<Scale>() {
+            } else if types_eq::<T, Scale>() {
                 self.add_command(AssetCommand::UpdateRigidBody(entity));
-            } else if TypeId::of::<T>() == TypeId::of::<Collider>() {
+            } else if types_eq::<T, Collider>() {
                 self.add_command(AssetCommand::CleanHitboxes);
-            } else if TypeId::of::<T>() == TypeId::of::<PointLight>() {
+            } else if types_eq::<T, PointLight>() {
                 self.add_command(AssetCommand::DeleteLightID(entity));
+            } else if types_eq::<T, LOD>() {
+                self.add_command(AssetCommand::CleanLODs);
             }
             self.exec_commands();
         }
@@ -340,6 +349,32 @@ impl EntityManager {
                             == 0
                     });
                 }
+                AssetCommand::AddLODs(entity) => {
+                    if let (Some(mesh_type), Some(_)) = (
+                        unsafe { &*self.ecs.get() }.get_component::<MeshType>(entity),
+                        unsafe { &*self.ecs.get() }.get_component::<LOD>(entity),
+                    ) {
+                        if !self.lod_register.keys().any(|t| t == mesh_type) {
+                            let mesh = self.asset_from_type(mesh_type).unwrap(); // assumes mesh data to be present
+                            let lod_array = mesh.generate_lods();
+                            self.lod_register.insert(mesh_type.clone(), lod_array);
+                            log::debug!("inserted LODs in register for mesh: '{:?}'", mesh_type);
+                        }
+                    }
+                }
+                AssetCommand::CleanLODs => {
+                    self.lod_register.retain(|mesh_type, _| {
+                        let delete = unsafe { &*self.ecs.get() }
+                            .query2::<MeshType, LOD>(vec![])
+                            .filter(|&(mt, _)| mt == mesh_type)
+                            .count()
+                            == 0;
+                        if delete {
+                            log::debug!("deleted LODs from register for mesh: '{:?}'", mesh_type);
+                        }
+                        delete
+                    });
+                }
             }
         }
     }
@@ -377,6 +412,8 @@ enum AssetCommand {
     DeleteLightID(EntityID),
     AddTexture(EntityID),
     CleanTextures,
+    AddLODs(EntityID),
+    CleanLODs,
 }
 
 /// the entity component system that manages all the data associated with an entity

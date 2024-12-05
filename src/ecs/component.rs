@@ -479,6 +479,9 @@ impl EntityFlags {
     }
 }
 
+/// sets the level of detail for a mesh if used in combination with a ``MeshType``, must be in range [0, 4]
+pub struct LOD(pub u8);
+
 /// holds data for sprite rendering
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sprite;

@@ -1,5 +1,5 @@
 use crate::glm;
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Sub};
 use std::rc::{Rc, Weak};
@@ -37,6 +37,11 @@ pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
 /// calculates the padding necessary for offsets in uniform buffers (multiple of 16)
 pub(crate) fn padding<T>() -> usize {
     16 - (size_of::<T>() % 16)
+}
+
+/// checks two types for equality
+pub fn types_eq<A: ?Sized + 'static, B: ?Sized + 'static>() -> bool {
+    TypeId::of::<A>() == TypeId::of::<B>()
 }
 
 /// generic octree data structure
