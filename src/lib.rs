@@ -7,6 +7,8 @@ pub mod systems;
 pub mod utils;
 
 pub use env_logger;
+pub use itertools;
 pub use log;
 pub use nalgebra_glm as glm;
+pub use petgraph;
 pub use winit;

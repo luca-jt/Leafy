@@ -313,7 +313,7 @@ impl RenderingSystem {
                     .push(Instance(rd.spec.clone(), rd.m_attr.clone(), renderer, true));
             }
         }
-        self.renderers.sort();
+        self.renderers.sort_unstable();
     }
 
     /// updates the camera if it is attached to an entity

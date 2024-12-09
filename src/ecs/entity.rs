@@ -19,7 +19,7 @@ impl EntityType {
     /// adds a component to the entity type and re-sorts
     pub(crate) fn add_component<T: Any>(&mut self) {
         self.0.push(TypeId::of::<T>());
-        self.0.sort();
+        self.0.sort_unstable();
     }
 
     /// removes a component from the entity type and re-sorts
@@ -30,21 +30,21 @@ impl EntityType {
             .filter(|id| **id != TypeId::of::<T>())
             .map(|id| *id)
             .collect();
-        self.0.sort();
+        self.0.sort_unstable();
     }
 }
 
 impl From<&Vec<Box<dyn Any>>> for EntityType {
     fn from(value: &Vec<Box<dyn Any>>) -> Self {
         let mut converted: Vec<_> = value.iter().map(|c| (**c).type_id()).collect();
-        converted.sort();
+        converted.sort_unstable();
         EntityType(converted)
     }
 }
 
 impl From<Vec<TypeId>> for EntityType {
     fn from(mut value: Vec<TypeId>) -> Self {
-        value.sort();
+        value.sort_unstable();
         EntityType(value)
     }
 }

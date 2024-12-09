@@ -115,14 +115,14 @@ impl TextureMap {
         F: FnMut(&Texture) -> bool,
     {
         self.textures.retain(|texture, id| {
-            let deleted = f(texture);
-            if deleted {
+            let contains = f(texture);
+            if !contains {
                 log::debug!("deleted texture: '{:?}'", texture);
                 unsafe {
                     gl::DeleteTextures(1, id);
                 }
             }
-            deleted
+            contains
         });
     }
 

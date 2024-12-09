@@ -159,9 +159,49 @@ impl AOSMesh {
 
 /// converts the graph representation of the mesh into the triangle face representation
 fn convert_graph_edges_to_triangles(mesh_graph: &MeshErrorGraph) -> Vec<[usize; 3]> {
-    let triangles = HashSet::new();
-    // TODO
-    triangles.into_iter().collect_vec()
+    let mut triangles = HashSet::new();
+    for (node1, node2) in mesh_graph
+        .edge_indices()
+        .map(|idx| mesh_graph.edge_endpoints(idx).unwrap())
+    {
+        for neighbor in mesh_graph
+            .neighbors(node1)
+            .filter(|nb| mesh_graph.neighbors(node2).contains(nb))
+        {
+            let triangle = MeshTriangle::new([node1.index(), node2.index(), neighbor.index()]);
+            triangles.insert(triangle);
+        }
+    }
+    triangles
+        .into_iter()
+        .map(|triangle| to_ccw_order(triangle.0, mesh_graph))
+        .collect_vec()
+}
+
+/// ensures that a given triangle is in counter clock whise order
+fn to_ccw_order(triangle: [usize; 3], mesh_graph: &MeshErrorGraph) -> [usize; 3] {
+    let [v1, v2, v3] = triangle;
+    let vertex1 = mesh_graph.index(NodeIndex::new(v1)).mesh_vertex.position;
+    let vertex2 = mesh_graph.index(NodeIndex::new(v2)).mesh_vertex.position;
+    let vertex3 = mesh_graph.index(NodeIndex::new(v3)).mesh_vertex.position;
+    // TODO: not sure how to do this
+    let normal = (vertex2 - vertex1).cross(&(vertex2 - vertex3));
+    if true {
+        return [v1, v3, v2];
+    }
+    [v1, v2, v3]
+}
+
+/// represents a single sorted triangle face in a 3D mesh that is used in internal algorithms
+#[derive(Hash, Eq, PartialEq)]
+struct MeshTriangle([usize; 3]);
+
+impl MeshTriangle {
+    /// sorting in this constructor ensures that we exclude duplicate triangles
+    fn new(mut array: [usize; 3]) -> Self {
+        array.sort_unstable();
+        Self(array)
+    }
 }
 
 /// calculates the initital error matrix for a vertex at index
@@ -199,16 +239,14 @@ fn find_all_valid_pairs(
         add_valid_vertex_pair(v1, v2, mesh_graph, &mut valid_pairs);
     }
     // add all pairs that have a distance < error_threshold
-    for v1 in mesh_graph.node_indices() {
-        for v2 in mesh_graph.node_indices().skip(v1.index()) {
-            if mesh_graph.contains_edge(v1, v2) {
-                continue;
-            }
-            let pos1 = mesh_graph.index(v1).mesh_vertex.position;
-            let pos2 = mesh_graph.index(v2).mesh_vertex.position;
-            if glm::distance(&pos1, &pos2) <= error_threshold {
-                add_valid_vertex_pair(v1, v2, mesh_graph, &mut valid_pairs);
-            }
+    for (v1, v2) in mesh_graph.node_indices().tuple_combinations() {
+        if mesh_graph.contains_edge(v1, v2) {
+            continue;
+        }
+        let pos1 = mesh_graph.index(v1).mesh_vertex.position;
+        let pos2 = mesh_graph.index(v2).mesh_vertex.position;
+        if glm::distance(&pos1, &pos2) <= error_threshold {
+            add_valid_vertex_pair(v1, v2, mesh_graph, &mut valid_pairs);
         }
     }
     valid_pairs

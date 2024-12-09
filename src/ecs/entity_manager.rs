@@ -247,15 +247,13 @@ impl EntityManager {
                 }
                 AssetCommand::CleanMeshes => {
                     self.asset_register.retain(|mesh_type, _| {
-                        let delete = unsafe { &*self.ecs.get() }
+                        let contains = unsafe { &*self.ecs.get() }
                             .query1::<MeshType>(vec![])
-                            .filter(|&mt| mt == mesh_type)
-                            .count()
-                            == 0;
-                        if delete {
+                            .contains(mesh_type);
+                        if !contains {
                             log::debug!("deleted mesh from register: '{:?}'", mesh_type);
                         }
-                        delete
+                        contains
                     });
                 }
                 AssetCommand::AddHitbox(entity) => {
@@ -280,19 +278,18 @@ impl EntityManager {
                 }
                 AssetCommand::CleanHitboxes => {
                     self.hitbox_register.retain(|(mesh_type, box_type), _| {
-                        let delete = unsafe { &*self.ecs.get() }
+                        let contains = unsafe { &*self.ecs.get() }
                             .query2::<MeshType, Collider>(vec![])
-                            .filter(|(mt, ht)| mesh_type == *mt && *box_type == ht.hitbox_type)
-                            .count()
-                            == 0;
-                        if delete {
+                            .map(|(mt, coll)| (mt, &coll.hitbox_type))
+                            .contains(&(mesh_type, box_type));
+                        if !contains {
                             log::debug!(
                                 "deleted hitbox '{:?}' from register for mesh '{:?}'",
                                 box_type,
                                 mesh_type
                             );
                         }
-                        delete
+                        contains
                     });
                 }
                 AssetCommand::UpdateRigidBody(entity) => {
@@ -348,9 +345,8 @@ impl EntityManager {
                     self.texture_map.retain(|texture| {
                         unsafe { &*self.ecs.get() }
                             .query1::<MeshAttribute>(vec![])
-                            .filter(|&ma| ma.texture().map(|t| t == texture).unwrap_or(false))
-                            .count()
-                            == 0
+                            .filter_map(|ma| ma.texture())
+                            .contains(texture)
                     });
                 }
                 AssetCommand::AddLODs(entity) => {
@@ -368,15 +364,14 @@ impl EntityManager {
                 }
                 AssetCommand::CleanLODs => {
                     self.lod_register.retain(|mesh_type, _| {
-                        let delete = unsafe { &*self.ecs.get() }
+                        let contains = unsafe { &*self.ecs.get() }
                             .query2::<MeshType, LOD>(vec![])
-                            .filter(|&(mt, _)| mt == mesh_type)
-                            .count()
-                            == 0;
-                        if delete {
+                            .map(|(mt, _)| mt)
+                            .contains(mesh_type);
+                        if !contains {
                             log::debug!("deleted LODs from register for mesh: '{:?}'", mesh_type);
                         }
-                        delete
+                        contains
                     });
                 }
             }
