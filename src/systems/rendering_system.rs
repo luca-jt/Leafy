@@ -102,7 +102,7 @@ impl RenderingSystem {
         // collect entity data
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
         let mut render_data = entity_manager
-            .query8_opt6::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight>(vec![])
+            .query9_opt7::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight, LOD>(vec![])
             .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
             .collect::<Vec<_>>();
@@ -115,7 +115,7 @@ impl RenderingSystem {
         });
 
         // add entity data to the renderers
-        for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light) in render_data {
+        for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light, lod) in render_data {
             let default_attr = Colored(Color32::WHITE);
             let trafo = calc_model_matrix(
                 position,
@@ -124,15 +124,17 @@ impl RenderingSystem {
                 &rb.copied().unwrap_or_default().center_of_mass,
             );
             let shader_type = light.map_or(ShaderType::Basic, |_| ShaderType::Passthrough);
+            let lod = lod.copied().unwrap_or_default();
 
             let render_data = RenderData {
                 spec: RenderSpec {
                     mesh_type: mesh_type.clone(),
                     shader_type,
+                    lod,
                 },
                 trafo: &trafo,
                 m_attr: mesh_attr.unwrap_or(&default_attr),
-                mesh: entity_manager.asset_from_type(mesh_type).unwrap(),
+                mesh: entity_manager.asset_from_type(mesh_type, lod).unwrap(),
                 tex_map: &entity_manager.texture_map,
             };
 
@@ -470,6 +472,7 @@ impl EventObserver<WindowResize> for RenderingSystem {
 struct RenderSpec {
     mesh_type: MeshType,
     shader_type: ShaderType,
+    lod: LOD,
 }
 
 /// all variants of renderer architecture

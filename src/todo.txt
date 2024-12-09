@@ -20,4 +20,3 @@ ui basics + font rendering + events for ui struct
 sprite renderer -> depth layers configurable, sprite component
 for on collision event functions for entities -> info about the collision is stored inside the collider component
 collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
-dynamic mesh LOD usage in rendering -> lod to be stored in RenderSpec?

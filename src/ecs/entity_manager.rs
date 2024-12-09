@@ -204,8 +204,11 @@ impl EntityManager {
     }
 
     /// makes mesh data available for a given mesh type
-    pub(crate) fn asset_from_type(&self, mesh_type: &MeshType) -> Option<&Mesh> {
-        self.asset_register.get(mesh_type)
+    pub(crate) fn asset_from_type(&self, mesh_type: &MeshType, lod: LOD) -> Option<&Mesh> {
+        match lod {
+            LOD::None => self.asset_register.get(mesh_type),
+            _ => Some(self.lod_register.get(mesh_type)?.get(lod as usize).unwrap()),
+        }
     }
 
     /// makes hitbox data available for given entity data
@@ -298,7 +301,7 @@ impl EntityManager {
                         let mt = unsafe { &*self.ecs.get() }
                             .get_component::<MeshType>(entity)
                             .unwrap();
-                        let mesh = self.asset_from_type(mt).unwrap();
+                        let mesh = self.asset_from_type(mt, LOD::None).unwrap();
                         let scale = unsafe { &*self.ecs.get() }
                             .get_component::<Scale>(entity)
                             .copied();
@@ -355,7 +358,7 @@ impl EntityManager {
                         unsafe { &*self.ecs.get() }.get_component::<LOD>(entity),
                     ) {
                         if !self.lod_register.keys().any(|t| t == mesh_type) {
-                            let mesh = self.asset_from_type(mesh_type).unwrap(); // assumes mesh data to be present
+                            let mesh = self.asset_from_type(mesh_type, LOD::None).unwrap(); // assumes mesh data to be present
                             let lod_array = mesh.generate_lods();
                             self.lod_register.insert(mesh_type.clone(), lod_array);
                             log::debug!("inserted LODs in register for mesh: '{:?}'", mesh_type);

@@ -75,7 +75,7 @@ impl AnimationSystem {
                     (
                         p,
                         entity_manager.hitbox_from_data(mt, &hb.hitbox_type).unwrap(),
-                        entity_manager.asset_from_type(mt).unwrap(),
+                        entity_manager.asset_from_type(mt, LOD::None).unwrap(),
                         hb,
                         v,
                         av,
