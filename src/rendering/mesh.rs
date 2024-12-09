@@ -3,6 +3,7 @@ use crate::glm;
 use crate::utils::constants::ORIGIN;
 use crate::utils::tools::to_vec4;
 use gl::types::*;
+use itertools::Itertools;
 use obj::{load_obj, Obj, TexturedVertex};
 use petgraph::stable_graph::{NodeIndex, StableUnGraph};
 use std::cmp::Ordering;
@@ -74,8 +75,8 @@ impl AOSMesh {
         //
         // for each vertex find all the triangles that meet at that vertex
         // for each triangle plane calculate p = [a, b, c, d]^T where the plane is defined by the equation ax + by + cz + d = 0 where a^2 + b^2 + c^2 = 1
-        // that can be done using the plane normal vector n = (a, b, c) as the plane equation then is <(x, y, z), n> = 0
-        // that means that <(x, y, z), n> = d has to be satisfied -> d = cos(alpha) * ||(x, y, z)|| with n and (x, y, z) normalized
+        // that can be done using the plane normal vector n = (a, b, c) as the plane equation then is <(x, y, z), n> + d = 0
+        // that means that d is the distance from the origin
         // the error quadric then becomes delta(v) = v^T * sum(K_p for p in planes) * v where K_p = p*p^T and sum(K_p for p in planes) = Q
         //
         // for each contraction we have to approximate the error at the new location of the merged vertices with Q_1 + Q_2 = Q_new
@@ -111,9 +112,9 @@ impl AOSMesh {
 
         // calculate the inital error matrix Q for a all vertices
         for i in 0..self.vertices.len() {
-            let vertex_data = mesh_graph.index_mut(NodeIndex::new(i));
-            // TODO
-            let error_matrix = glm::Mat4::identity();
+            let index = NodeIndex::new(i);
+            let error_matrix = calculate_error_matrix(&mesh_graph, index);
+            let vertex_data = mesh_graph.index_mut(index);
             *vertex_data = ErrorVertexData {
                 mesh_vertex: self.vertices[i],
                 error_matrix,
@@ -159,6 +160,29 @@ impl AOSMesh {
             }
         }
     }
+}
+
+/// calculates the initital error matrix for a vertex at index
+fn calculate_error_matrix(mesh_graph: &MeshErrorGraph, index: NodeIndex<usize>) -> glm::Mat4 {
+    let mut accumulator = glm::Mat4::zeros();
+
+    let incident_triangles = mesh_graph
+        .neighbors(index)
+        .tuple_combinations()
+        .filter(|&(neighbor1, neighbor2)| mesh_graph.contains_edge(neighbor1, neighbor2))
+        .map(|(neighbor1, neighbor2)| [index, neighbor1, neighbor2]);
+
+    for triangle in incident_triangles {
+        let vertex1 = mesh_graph.index(triangle[0]).mesh_vertex.position;
+        let vertex2 = mesh_graph.index(triangle[1]).mesh_vertex.position;
+        let vertex3 = mesh_graph.index(triangle[2]).mesh_vertex.position;
+        let plane_normal = (vertex2 - vertex1).cross(&(vertex3 - vertex1)).normalize();
+        let distance_from_origin = -plane_normal.dot(&vertex1);
+        let mut p = to_vec4(&plane_normal);
+        p.w = distance_from_origin;
+        accumulator += p * p.transpose();
+    }
+    accumulator
 }
 
 /// find all vaild vertex pairs for contraction that are either edges or have a distance < error_threshold
@@ -233,8 +257,12 @@ fn contract_pair(
     let v1_ref = mesh_graph.index_mut(pair.v1);
 
     v1_ref.mesh_vertex.position = pair.v_new;
-    // TODO: solve the following with a transform as the new vertex might not be the mid point
-    v1_ref.mesh_vertex.normal = (vertex1.mesh_vertex.normal + vertex2.mesh_vertex.normal) / 2.0;
+    let shift_transform = glm::Mat3::from_diagonal(&glm::vec3(
+        vertex1.mesh_vertex.position.x / vertex2.mesh_vertex.position.x,
+        vertex1.mesh_vertex.position.y / vertex2.mesh_vertex.position.y,
+        vertex1.mesh_vertex.position.z / vertex2.mesh_vertex.position.z,
+    )); // this is done in case a point other than the mid point is chosen
+    v1_ref.mesh_vertex.normal = shift_transform * vertex1.mesh_vertex.normal;
     v1_ref.mesh_vertex.uv = (vertex1.mesh_vertex.uv + vertex2.mesh_vertex.uv) / 2.0;
     v1_ref.error_matrix = vertex1.error_matrix + vertex2.error_matrix;
 
