@@ -5,6 +5,7 @@ use crate::rendering::mesh::{Hitbox, HitboxType, Mesh};
 use crate::utils::constants::ORIGIN;
 use crate::utils::file::*;
 use crate::utils::tools::types_eq;
+use itertools::Itertools;
 use std::any::{Any, TypeId};
 use std::cell::UnsafeCell;
 use std::collections::{HashMap, VecDeque};
@@ -390,7 +391,7 @@ impl EntityManager {
     /// fully recompute all internal asset data that is influenced by entities' components (performance heavy)
     /// (might be useful when modifying specific component data in queries)
     pub fn full_recompute(&mut self) {
-        let ids = self.all_ids_iter().copied().collect::<Vec<_>>();
+        let ids = self.all_ids_iter().copied().collect_vec();
         for entity in ids {
             self.add_command(AssetCommand::AddMesh(entity));
             self.add_command(AssetCommand::CleanMeshes);

@@ -10,6 +10,7 @@ use crate::utils::constants::bits::internal::*;
 use crate::utils::constants::bits::user_level::*;
 use crate::utils::constants::{G, Y_AXIS};
 use crate::utils::tools::{copied_or_default, to_vec4};
+use itertools::Itertools;
 use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
 
@@ -88,7 +89,7 @@ impl AnimationSystem {
                         o
                     )
                 })
-                .collect::<Vec<_>>()
+                .collect_vec()
         };
         if entity_data.len() <= 1 {
             return;
@@ -108,7 +109,7 @@ impl AnimationSystem {
                             .norm(),
                     )
                 })
-                .collect::<Vec<_>>();
+                .collect_vec();
 
             for i in 0..spheres.len() {
                 for j in i..spheres.len() {

@@ -130,12 +130,7 @@ impl AOSMesh {
         }
 
         // reconstruct the mesh from the final graph data
-        let final_faces = mesh_graph
-            .edge_indices()
-            .map(|edge_idx| [0, 0, 0])
-            .collect::<Vec<_>>(); // TODO + how to preserve CCW order
-
-        self.faces = final_faces;
+        self.faces = convert_graph_edges_to_triangles(&mesh_graph);
         self.remove_unused_vertices();
         self
     }
@@ -160,6 +155,13 @@ impl AOSMesh {
             }
         }
     }
+}
+
+/// converts the graph representation of the mesh into the triangle face representation
+fn convert_graph_edges_to_triangles(mesh_graph: &MeshErrorGraph) -> Vec<[usize; 3]> {
+    let triangles = HashSet::new();
+    // TODO
+    triangles.into_iter().collect_vec()
 }
 
 /// calculates the initital error matrix for a vertex at index
@@ -270,7 +272,7 @@ fn contract_pair(
     let connected_to_v2 = mesh_graph
         .neighbors(pair.v2)
         .filter(|neighbor| *neighbor != pair.v1)
-        .collect::<Vec<_>>();
+        .collect_vec();
 
     for node in connected_to_v2 {
         mesh_graph.add_edge(pair.v1, node, ());
@@ -654,9 +656,10 @@ impl HitboxMesh {
         faces: impl Iterator<Item = &'a [usize; 3]>,
         point_cloud: Vec<usize>,
     ) -> Vec<Vec<usize>> {
-        let faces = faces.collect::<Vec<_>>();
+        let faces = faces.collect_vec();
         let mut point_sets = Vec::with_capacity(faces.len());
         let mut points_used = HashSet::new();
+
         for face in faces {
             let (v1, v2, v3) = (
                 self.vertices[face[0]],
@@ -664,6 +667,7 @@ impl HitboxMesh {
                 self.vertices[face[2]],
             );
             let face_normal = (v2 - v1).cross(&(v3 - v1));
+
             let fitting_points = point_cloud
                 .iter()
                 .filter(|i| !points_used.contains(*i))
@@ -671,7 +675,8 @@ impl HitboxMesh {
                 .map(|(i, v)| (i, face_normal.dot(&v)))
                 .filter(|(_, dotp)| *dotp > 0.0)
                 .map(|(i, _)| *i)
-                .collect::<Vec<_>>();
+                .collect_vec();
+
             for fitting in fitting_points.iter() {
                 points_used.insert(*fitting);
             }

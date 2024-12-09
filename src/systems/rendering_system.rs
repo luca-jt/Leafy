@@ -14,6 +14,7 @@ use crate::utils::constants::bits::user_level::INVISIBLE;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
 use crate::utils::tools::{padding, to_vec4};
 use gl::types::*;
+use itertools::Itertools;
 use std::cmp::Ordering;
 use RendererType::*;
 
@@ -62,7 +63,7 @@ impl RenderingSystem {
         let lights = entity_manager
             .query3_opt1::<Position, PointLight, LightSrcID>(vec![])
             .map(|(p, s, l)| (p, s, l.unwrap().0))
-            .collect::<Vec<_>>();
+            .collect_vec();
         // remove deleted shadow maps
         self.light_sources
             .retain(|src| lights.iter().any(|(_, _, id)| *id == src.0));
@@ -75,7 +76,7 @@ impl RenderingSystem {
         let new_lights = lights
             .into_iter()
             .filter(|&(_, _, entity)| !self.light_sources.iter().any(|(id, _)| entity == *id))
-            .collect::<Vec<_>>();
+            .collect_vec();
 
         for (pos, src, entity) in new_lights {
             if self.light_sources.len() == MAX_LIGHT_SRC_COUNT {
@@ -105,7 +106,7 @@ impl RenderingSystem {
             .query9_opt7::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight, LOD>(vec![])
             .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
-            .collect::<Vec<_>>();
+            .collect_vec();
 
         // sort the render data from furthest to nearest (reverse order) for correct transparency rendering
         render_data.sort_by(|(pos1, ..), (pos2, ..)| {
@@ -178,11 +179,7 @@ impl RenderingSystem {
     /// render all the geometry data stored in the renderers
     fn render_geometry(&mut self) {
         self.update_uniform_buffers();
-        let shadow_maps = self
-            .light_sources
-            .iter()
-            .map(|(_, map)| map)
-            .collect::<Vec<_>>();
+        let shadow_maps = self.light_sources.iter().map(|(_, map)| map).collect_vec();
 
         let mut current_shader = None;
         for renderer_type in self.renderers.iter_mut() {
@@ -359,7 +356,7 @@ impl RenderingSystem {
                 intensity: map.light.intensity,
                 padding_12bytes: Default::default(),
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
 
         let ambient_config = LightConfig {
             color: self.ambient_light.0.to_vec4(),
