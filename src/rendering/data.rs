@@ -41,7 +41,7 @@ fn generate_texture(data: Image<u8>, filtering: &Filtering) -> GLuint {
                 gl::TexParameteri(
                     gl::TEXTURE_2D,
                     gl::TEXTURE_MIN_FILTER,
-                    gl::LINEAR_MIPMAP_NEAREST as GLint,
+                    gl::NEAREST_MIPMAP_LINEAR as GLint,
                 );
             }
         }

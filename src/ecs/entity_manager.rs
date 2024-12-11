@@ -339,7 +339,7 @@ impl EntityManager {
                         .get_mut()
                         .remove_component::<LightSrcID>(entity)
                         .and_then(|id| {
-                            log::debug!("added light source ID for enitity: {:?}", entity);
+                            log::debug!("deleted light source ID for enitity: {:?}", entity);
                             Some(id)
                         });
                 }
