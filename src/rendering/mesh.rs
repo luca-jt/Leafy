@@ -125,7 +125,7 @@ impl AOSMesh {
             vertex_data.error_matrix = error_matrix;
         }
 
-        let error_threshold = 0.1;
+        let error_threshold = 0.02;
         let mut valid_pairs = find_all_valid_pairs(error_threshold, &mesh_graph);
 
         while mesh_graph.node_count() > target_node_count && !valid_pairs.is_empty() {
@@ -171,7 +171,7 @@ fn convert_graph_edges_to_triangles(mesh_graph: &MeshErrorGraph) -> Vec<[usize; 
     {
         for neighbor in mesh_graph
             .neighbors(node1)
-            .filter(|nb| mesh_graph.neighbors(node2).contains(nb))
+            .filter(|&nb| mesh_graph.contains_edge(node2, nb))
         {
             let triangle = MeshTriangle::new([node1.index(), node2.index(), neighbor.index()]);
             triangles.insert(triangle);
@@ -189,13 +189,8 @@ fn to_ccw_order(triangle: [usize; 3], mesh_graph: &MeshErrorGraph) -> [usize; 3]
     let vertex1 = mesh_graph.index(NodeIndex::new(v1)).mesh_vertex.position;
     let vertex2 = mesh_graph.index(NodeIndex::new(v2)).mesh_vertex.position;
     let vertex3 = mesh_graph.index(NodeIndex::new(v3)).mesh_vertex.position;
-    // TODO: not sure if this is correct with mesh parts that are flipped
-    let normal = (vertex2 - vertex1).cross(&(vertex3 - vertex1));
-    let outward_direction = vertex1 + vertex2 + vertex3;
-    if normal.dot(&outward_direction) > 0.0 {
-        return [v1, v2, v3];
-    }
-    [v1, v3, v2]
+    // TODO
+    [v1, v2, v3]
 }
 
 /// represents a single sorted triangle face in a 3D mesh that is used in internal algorithms
@@ -299,6 +294,8 @@ fn contract_pair(
     mesh_graph: &mut MeshErrorGraph,
     valid_pairs: &mut BinaryHeap<ErrorVertexPair>,
 ) {
+    // TODO: in the future account for flipping of face normals to prevent two faces folding in on each other
+
     // move v1 to new position stored in the pair
     let vertex1 = *mesh_graph.index(pair.v1);
     let vertex2 = *mesh_graph.index(pair.v2);

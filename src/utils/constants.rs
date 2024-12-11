@@ -20,6 +20,9 @@ pub const Z_AXIS: glm::Vec3 = glm::Vec3::new(0.0, 0.0, 1.0);
 /// placeholder for an empty entity slot (will never point to an entity)
 pub const NO_ENTITY: EntityID = 0;
 
+/// the number of the LOD's available
+pub const NUM_LODS: i32 = 5;
+
 /// contains all built-in bit flag constants
 pub mod bits {
     /// flags that are used for internal processing and should not be set manually, but can be read by anybody

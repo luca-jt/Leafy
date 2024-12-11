@@ -2,12 +2,11 @@ use falling_leaf::ecs::component::*;
 use falling_leaf::ecs::entity::EntityID;
 use falling_leaf::engine::{Engine, FallingLeafApp};
 use falling_leaf::systems::event_system::events::{CamPositionChange, KeyPress};
-use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN};
+use falling_leaf::utils::constants::{NO_ENTITY, NUM_LODS, ORIGIN};
 use falling_leaf::{components, glm};
 use std::path::Path;
 use winit::keyboard::KeyCode;
 
-const MAX_LOD: i32 = 5;
 const CAM_MOVE_SPEED: f32 = 4.5;
 const CAM_MOUSE_SPEED: f32 = 4.0;
 
@@ -51,7 +50,7 @@ impl FallingLeafApp for App {
 
         self.mesh = entity_manager.create_entity(components!(
             Position::new(0.0, 2.0, 0.0),
-            MeshType::Custom(Path::new("examples/simplification/ape.obj").into()),
+            MeshType::Torus,
             MeshAttribute::Colored(Color32::YELLOW),
             LOD::None
         ));
@@ -71,9 +70,9 @@ fn change_mesh_lod(event: &KeyPress, engine: &Engine<App>) {
         .unwrap();
 
     if event.key == KeyCode::ArrowRight {
-        *lod = i32_to_lod((*lod as i32 + 1) % MAX_LOD).unwrap()
+        *lod = i32_to_lod((*lod as i32 + 1) % NUM_LODS).unwrap()
     } else if event.key == KeyCode::ArrowLeft {
-        *lod = i32_to_lod((*lod as i32 + MAX_LOD - 1) % MAX_LOD).unwrap()
+        *lod = i32_to_lod((*lod as i32 + NUM_LODS - 1) % NUM_LODS).unwrap()
     }
 }
 

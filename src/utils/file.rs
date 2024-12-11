@@ -55,41 +55,14 @@ pub(crate) const INSTANCE_SHADOW_VERT: &str = include_str!(shader_path!("inst_sh
 pub(crate) const BATCH_SHADOW_FRAG: &str = include_str!(shader_path!("batch_shadow.frag"));
 pub(crate) const BATCH_SHADOW_VERT: &str = include_str!(shader_path!("batch_shadow.vert"));
 
-// optional mesh features
-#[cfg(feature = "triangle_mesh")]
+// optional included meshes
 pub(crate) const TRIANGLE_MESH: &[u8] = include_bytes!(model_path!("triangle.obj"));
-#[cfg(not(feature = "triangle_mesh"))]
-pub(crate) const TRIANGLE_MESH: &[u8] = &[0];
-
-#[cfg(feature = "plane_mesh")]
 pub(crate) const PLANE_MESH: &[u8] = include_bytes!(model_path!("plane.obj"));
-#[cfg(not(feature = "plane_mesh"))]
-pub(crate) const PLANE_MESH: &[u8] = &[0];
-
-#[cfg(feature = "cube_mesh")]
 pub(crate) const CUBE_MESH: &[u8] = include_bytes!(model_path!("cube.obj"));
-#[cfg(not(feature = "cube_mesh"))]
-pub(crate) const CUBE_MESH: &[u8] = &[0];
-
-#[cfg(feature = "cone_mesh")]
 pub(crate) const CONE_MESH: &[u8] = include_bytes!(model_path!("cone.obj"));
-#[cfg(not(feature = "cone_mesh"))]
-pub(crate) const CONE_MESH: &[u8] = &[0];
-
-#[cfg(feature = "cylinder_mesh")]
 pub(crate) const CYLINDER_MESH: &[u8] = include_bytes!(model_path!("cylinder.obj"));
-#[cfg(not(feature = "cylinder_mesh"))]
-pub(crate) const CYLINDER_MESH: &[u8] = &[0];
-
-#[cfg(feature = "sphere_mesh")]
 pub(crate) const SPHERE_MESH: &[u8] = include_bytes!(model_path!("sphere.obj"));
-#[cfg(not(feature = "sphere_mesh"))]
-pub(crate) const SPHERE_MESH: &[u8] = &[0];
-
-#[cfg(feature = "torus_mesh")]
 pub(crate) const TORUS_MESH: &[u8] = include_bytes!(model_path!("torus.obj"));
-#[cfg(not(feature = "torus_mesh"))]
-pub(crate) const TORUS_MESH: &[u8] = &[0];
 
 // audio data
 pub(crate) const HRTF_SPHERE: &[u8] = include_bytes!(audio_path!("IRC_1002_C.bin"));
