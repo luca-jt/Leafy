@@ -1,4 +1,4 @@
-use falling_leaf::ecs::component::Color32;
+use falling_leaf::ecs::component::utils::Color32;
 use falling_leaf::engine::{Engine, FallingLeafApp};
 
 pub struct App;
