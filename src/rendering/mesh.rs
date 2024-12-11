@@ -1,3 +1,4 @@
+use crate::ecs::component::utils::HitboxType;
 use crate::ecs::component::Scale;
 use crate::glm;
 use crate::utils::constants::ORIGIN;
@@ -21,6 +22,9 @@ struct MeshVertex {
     uv: glm::Vec2,
     normal: glm::Vec3,
 }
+
+#[derive(Copy, Clone)]
+struct AOSMeshIndex(usize, usize);
 
 /// mesh containing vertex structs as opposed to the regular soa mesh which allows for easier processing
 #[derive(Clone)]
@@ -630,15 +634,6 @@ fn inertia_product(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize, j: us
         + 2.0 * triangle.2[i] * triangle.2[j]
         + triangle.0[i] * triangle.1[j]
         + triangle.1[i] * triangle.0[j]
-}
-
-/// hitbox type specifier for an entity (enables collision physics, requires MeshType to work)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum HitboxType {
-    ConvexHull,
-    SimplifiedConvexHull,
-    Ellipsiod,
-    Box,
 }
 
 /// all possible versions of hitboxes

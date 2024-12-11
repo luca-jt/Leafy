@@ -1,13 +1,12 @@
 use crate::ecs::entity::EntityID;
 use crate::glm;
-use crate::rendering::mesh::HitboxType;
 use crate::systems::audio_system::SoundHandleID;
 use crate::utils::constants::*;
 use gl::types::GLfloat;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::path::Path;
 use std::rc::Rc;
-use std::time::Instant;
+use utils::*;
 use MeshAttribute::*;
 
 macro_rules! impl_arithmetic_basics {
@@ -239,59 +238,6 @@ impl Default for AngularVelocity {
     }
 }
 
-/// efficient 32bit color representation
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
-pub struct Color32([u8; 4]);
-
-impl Color32 {
-    pub const WHITE: Self = Self::from_rgb(255, 255, 255);
-    pub const BLACK: Self = Self::from_rgb(0, 0, 0);
-    pub const TRANSPARENT: Self = Self([0, 0, 0, 0]);
-    pub const RED: Self = Self::from_rgb(255, 0, 0);
-    pub const GREEN: Self = Self::from_rgb(0, 255, 0);
-    pub const BLUE: Self = Self::from_rgb(0, 0, 255);
-    pub const YELLOW: Self = Self::from_rgb(255, 255, 0);
-    pub const CYAN: Self = Self::from_rgb(0, 255, 255);
-    pub const PURPLE: Self = Self::from_rgb(255, 0, 255);
-
-    pub const fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self([r, g, b, 255])
-    }
-
-    pub fn r(&self) -> u8 {
-        self.0[0]
-    }
-
-    pub fn g(&self) -> u8 {
-        self.0[1]
-    }
-
-    pub fn b(&self) -> u8 {
-        self.0[2]
-    }
-
-    pub fn a(&self) -> u8 {
-        self.0[3]
-    }
-
-    /// converts to a float rgba vector
-    pub fn to_vec4(&self) -> glm::Vec4 {
-        let r = self.r() as f32 / 255.0;
-        let g = self.g() as f32 / 255.0;
-        let b = self.b() as f32 / 255.0;
-        let a = self.a() as f32 / 255.0;
-
-        glm::vec4(r, g, b, a)
-    }
-}
-
-impl Default for Color32 {
-    fn default() -> Self {
-        Self::WHITE
-    }
-}
-
 /// all of the known mesh types
 #[derive(Debug, Clone, PartialOrd, PartialEq, Hash, Eq)]
 pub enum MeshType {
@@ -308,10 +254,10 @@ pub enum MeshType {
 /// represents all texture types with path data
 #[derive(Debug, PartialOrd, PartialEq, Clone, Hash, Eq)]
 pub enum Texture {
-    Ice,
-    Sand,
-    Wall,
-    Custom(Rc<Path>),
+    Ice(Filtering),
+    Sand(Filtering),
+    Wall(Filtering),
+    Custom(Rc<Path>, Filtering),
 }
 
 /// wether or not a mesh is colored or textured
@@ -351,41 +297,6 @@ pub enum Material {
     Custom(Rc<Path>),
 }
 
-/// component wrapper struct for `std::time::Instant` to track physics time
-#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
-pub struct TouchTime(Instant);
-
-impl TouchTime {
-    /// wrapper for Instant::now()
-    pub fn now() -> Self {
-        TouchTime(Instant::now())
-    }
-
-    /// reset the internal time point to Instant::now()
-    pub fn reset(&mut self) {
-        self.0 = Instant::now();
-    }
-
-    /// generate the delta time since the last reset in seconds
-    pub fn delta_time(&self) -> TimeDuration {
-        TimeDuration(self.0.elapsed().as_secs_f32())
-    }
-}
-
-/// time duration unit in seconds used for physics computations
-#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
-pub struct TimeDuration(pub f32);
-
-impl_arithmetic_basics!(TimeDuration);
-
-impl Div<TimeDuration> for TimeDuration {
-    type Output = f32;
-
-    fn div(self, rhs: TimeDuration) -> Self::Output {
-        self.0 / rhs.0
-    }
-}
-
 /// enables gravity physics and is used for all computations involving forces
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct RigidBody {
@@ -422,13 +333,13 @@ impl Default for RigidBody {
     }
 }
 
-/// stores all of the associated sound controller ids for an entity
+/// stores all of the associated sound controller ids for an entity (obtainable via the audio system)
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SoundController {
     pub(crate) id: SoundHandleID,
 }
 
-/// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's
+/// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's (requires ``MeshType`` to work)
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Collider {
     pub hitbox_type: HitboxType,
@@ -493,3 +404,114 @@ pub enum LOD {
 /// holds data for sprite rendering
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sprite;
+
+/// data structures that are not internally useful as a sole component but might have purpose in relation to other components
+pub mod utils {
+    use crate::glm;
+    use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+    use std::time::Instant;
+
+    /// efficient 32bit color representation
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
+    pub struct Color32([u8; 4]);
+
+    impl Color32 {
+        pub const WHITE: Self = Self::from_rgb(255, 255, 255);
+        pub const BLACK: Self = Self::from_rgb(0, 0, 0);
+        pub const TRANSPARENT: Self = Self([0, 0, 0, 0]);
+        pub const RED: Self = Self::from_rgb(255, 0, 0);
+        pub const GREEN: Self = Self::from_rgb(0, 255, 0);
+        pub const BLUE: Self = Self::from_rgb(0, 0, 255);
+        pub const YELLOW: Self = Self::from_rgb(255, 255, 0);
+        pub const CYAN: Self = Self::from_rgb(0, 255, 255);
+        pub const PURPLE: Self = Self::from_rgb(255, 0, 255);
+
+        pub const fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+            Self([r, g, b, 255])
+        }
+
+        pub fn r(&self) -> u8 {
+            self.0[0]
+        }
+
+        pub fn g(&self) -> u8 {
+            self.0[1]
+        }
+
+        pub fn b(&self) -> u8 {
+            self.0[2]
+        }
+
+        pub fn a(&self) -> u8 {
+            self.0[3]
+        }
+
+        /// converts to a float rgba vector
+        pub fn to_vec4(&self) -> glm::Vec4 {
+            let r = self.r() as f32 / 255.0;
+            let g = self.g() as f32 / 255.0;
+            let b = self.b() as f32 / 255.0;
+            let a = self.a() as f32 / 255.0;
+
+            glm::vec4(r, g, b, a)
+        }
+    }
+
+    impl Default for Color32 {
+        fn default() -> Self {
+            Self::WHITE
+        }
+    }
+
+    /// component wrapper struct for `std::time::Instant` to track time
+    #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
+    pub struct TouchTime(Instant);
+
+    impl TouchTime {
+        /// wrapper for Instant::now()
+        pub fn now() -> Self {
+            TouchTime(Instant::now())
+        }
+
+        /// reset the internal time point to Instant::now()
+        pub fn reset(&mut self) {
+            self.0 = Instant::now();
+        }
+
+        /// generate the delta time since the last reset in seconds
+        pub fn delta_time(&self) -> TimeDuration {
+            TimeDuration(self.0.elapsed().as_secs_f32())
+        }
+    }
+
+    /// time duration unit in seconds used for physics computations
+    #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
+    pub struct TimeDuration(pub f32);
+
+    impl_arithmetic_basics!(TimeDuration);
+
+    impl Div<TimeDuration> for TimeDuration {
+        type Output = f32;
+
+        fn div(self, rhs: TimeDuration) -> Self::Output {
+            self.0 / rhs.0
+        }
+    }
+
+    /// texture filtering option for rendering
+    #[derive(Debug, PartialOrd, PartialEq, Clone, Hash, Eq)]
+    pub enum Filtering {
+        Linear,
+        Nearest,
+    }
+
+    /// hitbox type specifier for an entity
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub enum HitboxType {
+        ConvexHull,
+        SimplifiedConvexHull,
+        Ellipsiod,
+        Box,
+    }
+}

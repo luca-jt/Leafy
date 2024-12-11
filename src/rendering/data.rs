@@ -1,3 +1,4 @@
+use crate::ecs::component::utils::{Color32, Filtering};
 use crate::ecs::component::*;
 use crate::glm;
 use crate::utils::constants::*;
@@ -9,7 +10,7 @@ use std::path::Path;
 use std::ptr;
 
 /// generates a gl texture from given image data
-fn generate_texture(data: Image<u8>) -> GLuint {
+fn generate_texture(data: Image<u8>, filtering: &Filtering) -> GLuint {
     let mut tex_id = 0;
     unsafe {
         gl::GenTextures(1, &mut tex_id);
@@ -25,17 +26,33 @@ fn generate_texture(data: Image<u8>) -> GLuint {
             gl::UNSIGNED_BYTE,
             data.data.as_ptr() as *const GLvoid,
         );
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+        gl::GenerateMipmap(gl::TEXTURE_2D);
+        match filtering {
+            Filtering::Linear => {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+                gl::TexParameteri(
+                    gl::TEXTURE_2D,
+                    gl::TEXTURE_MIN_FILTER,
+                    gl::LINEAR_MIPMAP_LINEAR as GLint,
+                );
+            }
+            Filtering::Nearest => {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+                gl::TexParameteri(
+                    gl::TEXTURE_2D,
+                    gl::TEXTURE_MIN_FILTER,
+                    gl::LINEAR_MIPMAP_NEAREST as GLint,
+                );
+            }
+        }
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
-        gl::GenerateMipmap(gl::TEXTURE_2D);
     }
     tex_id
 }
 
 /// loads an opengl texture from a file path
-pub(crate) fn load_texture_from_path(file_path: impl AsRef<Path>) -> GLuint {
+pub(crate) fn load_texture_from_path(file_path: impl AsRef<Path>, filtering: &Filtering) -> GLuint {
     let texture: Image<u8>;
     match stb_image::image::load_with_depth(file_path, 4, false) {
         LoadResult::ImageU8(im) => {
@@ -45,11 +62,11 @@ pub(crate) fn load_texture_from_path(file_path: impl AsRef<Path>) -> GLuint {
             panic!("error loading texture")
         }
     }
-    generate_texture(texture)
+    generate_texture(texture, filtering)
 }
 
 /// loads an opengl texture from bytes
-pub(crate) fn load_texture_from_bytes(bytes: &[u8]) -> GLuint {
+pub(crate) fn load_texture_from_bytes(bytes: &[u8], filtering: &Filtering) -> GLuint {
     let texture: Image<u8>;
     match stb_image::image::load_from_memory_with_depth(bytes, 4, false) {
         LoadResult::ImageU8(im) => {
@@ -59,7 +76,7 @@ pub(crate) fn load_texture_from_bytes(bytes: &[u8]) -> GLuint {
             panic!("error loading texture from memory")
         }
     }
-    generate_texture(texture)
+    generate_texture(texture, filtering)
 }
 
 /// data for a single vertex
@@ -90,21 +107,27 @@ impl TextureMap {
     pub(crate) fn add_texture(&mut self, texture: &Texture) {
         log::debug!("loaded texture: '{:?}'", texture);
         match texture {
-            Texture::Ice => {
-                self.textures
-                    .insert(texture.clone(), load_texture_from_bytes(ICE_TEXTURE));
+            Texture::Ice(filtering) => {
+                self.textures.insert(
+                    texture.clone(),
+                    load_texture_from_bytes(ICE_TEXTURE, filtering),
+                );
             }
-            Texture::Sand => {
-                self.textures
-                    .insert(texture.clone(), load_texture_from_bytes(SAND_TEXTURE));
+            Texture::Sand(filtering) => {
+                self.textures.insert(
+                    texture.clone(),
+                    load_texture_from_bytes(SAND_TEXTURE, filtering),
+                );
             }
-            Texture::Wall => {
-                self.textures
-                    .insert(texture.clone(), load_texture_from_bytes(WALL_TEXTURE));
+            Texture::Wall(filtering) => {
+                self.textures.insert(
+                    texture.clone(),
+                    load_texture_from_bytes(WALL_TEXTURE, filtering),
+                );
             }
-            Texture::Custom(path) => {
+            Texture::Custom(path, filtering) => {
                 self.textures
-                    .insert(texture.clone(), load_texture_from_path(path));
+                    .insert(texture.clone(), load_texture_from_path(path, filtering));
             }
         }
     }
@@ -274,6 +297,7 @@ pub(crate) struct ShadowMap {
 impl ShadowMap {
     /// creates a new shadow map with given size (width, height)
     pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &PointLight) -> Self {
+        log::debug!("created new shadow map");
         let mut dbo = 0;
         let mut shadow_map = 0;
 
@@ -293,8 +317,8 @@ impl ShadowMap {
                 ptr::null(),
             );
 
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
             gl::TexParameteri(
                 gl::TEXTURE_2D,
                 gl::TEXTURE_WRAP_S,
@@ -406,6 +430,7 @@ impl ShadowMap {
 
 impl Drop for ShadowMap {
     fn drop(&mut self) {
+        log::debug!("dropped shadow map");
         unsafe {
             gl::DeleteTextures(1, &self.shadow_map);
             gl::DeleteFramebuffers(1, &self.dbo);

@@ -1,3 +1,4 @@
+use crate::ecs::component::utils::*;
 use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::{Engine, EngineMode, FallingLeafApp};

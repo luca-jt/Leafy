@@ -1,4 +1,4 @@
-use crate::ecs::component::TouchTime;
+use crate::ecs::component::utils::TouchTime;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine_builder::EngineAttributes;
 use crate::systems::animation_system::{move_cam, stop_cam, AnimationSystem};

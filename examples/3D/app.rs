@@ -1,9 +1,10 @@
 use falling_leaf::components;
+use falling_leaf::ecs::component::utils::Filtering;
+use falling_leaf::ecs::component::utils::*;
 use falling_leaf::ecs::component::*;
 use falling_leaf::ecs::entity::EntityID;
 use falling_leaf::engine::{Engine, FallingLeafApp};
 use falling_leaf::glm;
-use falling_leaf::rendering::mesh::HitboxType;
 use falling_leaf::systems::audio_system::VolumeType;
 use falling_leaf::systems::event_system::events::*;
 use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, Y_AXIS};
@@ -57,7 +58,7 @@ impl FallingLeafApp for App {
             Position::origin(),
             Scale::from_factor(5.0),
             MeshType::Plane,
-            MeshAttribute::Textured(Texture::Wall),
+            MeshAttribute::Textured(Texture::Wall(Filtering::Nearest)),
             Collider {
                 hitbox_type: HitboxType::ConvexHull,
                 offset: ORIGIN,

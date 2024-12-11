@@ -1,6 +1,6 @@
 use super::data::ShadowMap;
 use super::shader::*;
-use crate::ecs::component::Color32;
+use crate::ecs::component::utils::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::MAX_LIGHT_SRC_COUNT;

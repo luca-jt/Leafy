@@ -1,4 +1,4 @@
-use crate::ecs::component::MeshAttribute::*;
+use crate::ecs::component::utils::Color32;
 use crate::ecs::component::*;
 use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
@@ -118,7 +118,7 @@ impl RenderingSystem {
 
         // add entity data to the renderers
         for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light, lod) in render_data {
-            let default_attr = Colored(Color32::WHITE);
+            let default_attr = MeshAttribute::Colored(Color32::WHITE);
             let trafo = calc_model_matrix(
                 position,
                 scale.unwrap_or(&Scale::default()),
@@ -239,7 +239,7 @@ impl RenderingSystem {
                 if *spec == rd.spec {
                     *used = true;
                     return match rd.m_attr {
-                        Textured(path) => {
+                        MeshAttribute::Textured(path) => {
                             renderer.draw_tex_mesh(
                                 rd.trafo,
                                 rd.tex_map.get_tex_id(path).unwrap(),
@@ -248,7 +248,7 @@ impl RenderingSystem {
                             );
                             true
                         }
-                        Colored(color) => {
+                        MeshAttribute::Colored(color) => {
                             renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
                             true
                         }
@@ -257,14 +257,14 @@ impl RenderingSystem {
             } else if let Instance(spec, m_attr, renderer, used) = r_type {
                 if *spec == rd.spec && m_attr == rd.m_attr {
                     match rd.m_attr {
-                        Textured(path) => {
+                        MeshAttribute::Textured(path) => {
                             if rd.tex_map.get_tex_id(path).unwrap() == renderer.tex_id {
                                 renderer.add_position(rd.trafo, rd.mesh);
                                 *used = true;
                                 return true;
                             }
                         }
-                        Colored(color) => {
+                        MeshAttribute::Colored(color) => {
                             if *color == renderer.color {
                                 renderer.add_position(rd.trafo, rd.mesh);
                                 *used = true;
@@ -281,14 +281,15 @@ impl RenderingSystem {
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
         log::debug!("added new renderer for: '{:?}'", rd.spec.mesh_type);
+
         match rd.spec.mesh_type {
             MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
                 let mut renderer = BatchRenderer::new(rd.mesh, rd.spec.shader_type);
                 match rd.m_attr {
-                    Colored(color) => {
+                    MeshAttribute::Colored(color) => {
                         renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
                     }
-                    Textured(path) => {
+                    MeshAttribute::Textured(path) => {
                         renderer.draw_tex_mesh(
                             rd.trafo,
                             rd.tex_map.get_tex_id(path).unwrap(),
@@ -302,10 +303,10 @@ impl RenderingSystem {
             _ => {
                 let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.shader_type);
                 match rd.m_attr {
-                    Textured(path) => {
+                    MeshAttribute::Textured(path) => {
                         renderer.tex_id = rd.tex_map.get_tex_id(path).unwrap();
                     }
-                    Colored(color) => {
+                    MeshAttribute::Colored(color) => {
                         renderer.color = *color;
                     }
                 }

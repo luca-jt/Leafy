@@ -1,7 +1,8 @@
+use crate::ecs::component::utils::{Color32, HitboxType};
 use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::TextureMap;
-use crate::rendering::mesh::{Hitbox, HitboxType, Mesh};
+use crate::rendering::mesh::{Hitbox, Mesh};
 use crate::utils::constants::ORIGIN;
 use crate::utils::file::*;
 use crate::utils::tools::types_eq;
@@ -326,6 +327,7 @@ impl EntityManager {
                 }
                 AssetCommand::AddLightID(entity) => {
                     if unsafe { &*self.ecs.get() }.has_component::<PointLight>(entity) {
+                        log::debug!("added light source ID for enitity: {:?}", entity);
                         self.ecs
                             .get_mut()
                             .add_component(entity, LightSrcID(entity))
@@ -333,7 +335,13 @@ impl EntityManager {
                     }
                 }
                 AssetCommand::DeleteLightID(entity) => {
-                    self.ecs.get_mut().remove_component::<LightSrcID>(entity);
+                    self.ecs
+                        .get_mut()
+                        .remove_component::<LightSrcID>(entity)
+                        .and_then(|id| {
+                            log::debug!("added light source ID for enitity: {:?}", entity);
+                            Some(id)
+                        });
                 }
                 AssetCommand::AddTexture(entity) => {
                     if unsafe { &*self.ecs.get() }.has_component::<MeshType>(entity) {
