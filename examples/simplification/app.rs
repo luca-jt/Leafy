@@ -1,0 +1,95 @@
+use falling_leaf::ecs::component::*;
+use falling_leaf::ecs::entity::EntityID;
+use falling_leaf::engine::{Engine, FallingLeafApp};
+use falling_leaf::systems::event_system::events::{CamPositionChange, KeyPress};
+use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN};
+use falling_leaf::{components, glm};
+use std::path::Path;
+use winit::keyboard::KeyCode;
+
+const MAX_LOD: i32 = 5;
+const CAM_MOVE_SPEED: f32 = 4.5;
+const CAM_MOUSE_SPEED: f32 = 4.0;
+
+pub struct App {
+    mesh: EntityID,
+}
+
+impl App {
+    pub fn new() -> Self {
+        Self { mesh: NO_ENTITY }
+    }
+}
+
+impl FallingLeafApp for App {
+    fn init(&mut self, engine: &Engine<Self>) {
+        let start_pos = glm::vec3(0.0, 3.0, 5.0);
+        engine.trigger_event(CamPositionChange {
+            new_pos: start_pos,
+            new_look: ORIGIN - start_pos,
+        });
+        engine
+            .video_system_mut()
+            .set_mouse_fpp_cam_control(Some(CAM_MOUSE_SPEED));
+        engine
+            .animation_system_mut()
+            .set_flying_cam_movement(Some(CAM_MOVE_SPEED));
+
+        engine
+            .rendering_system_mut()
+            .set_ambient_light(Color32::WHITE, 0.4);
+
+        let mut entity_manager = engine.entity_manager_mut();
+        entity_manager.create_point_light(Position::new(1.0, 10.0, 1.0));
+
+        let _floor = entity_manager.create_entity(components!(
+            Position::origin(),
+            Scale::from_factor(5.0),
+            MeshType::Plane,
+            MeshAttribute::Colored(Color32::GREEN)
+        ));
+
+        self.mesh = entity_manager.create_entity(components!(
+            Position::new(0.0, 2.0, 0.0),
+            MeshType::Custom(Path::new("examples/simplification/ape.obj").into()),
+            MeshAttribute::Colored(Color32::YELLOW),
+            LOD::None
+        ));
+
+        engine.event_system_mut().add_modifier(change_mesh_lod);
+        engine.event_system_mut().add_modifier(quit_app);
+    }
+
+    fn on_frame_update(&mut self, _engine: &Engine<Self>) {}
+}
+
+fn change_mesh_lod(event: &KeyPress, engine: &Engine<App>) {
+    let mesh_entity = engine.app().mesh;
+    let mut entity_manager = engine.entity_manager_mut();
+    let lod = entity_manager
+        .get_component_mut::<LOD>(mesh_entity)
+        .unwrap();
+
+    if event.key == KeyCode::ArrowRight {
+        *lod = i32_to_lod((*lod as i32 + 1) % MAX_LOD).unwrap()
+    } else if event.key == KeyCode::ArrowLeft {
+        *lod = i32_to_lod((*lod as i32 + MAX_LOD - 1) % MAX_LOD).unwrap()
+    }
+}
+
+fn quit_app(event: &KeyPress, engine: &Engine<App>) {
+    if event.key == KeyCode::Escape {
+        engine.quit();
+    }
+}
+
+fn i32_to_lod(value: i32) -> Result<LOD, ()> {
+    match value {
+        x if x == LOD::None as i32 => Ok(LOD::None),
+        x if x == LOD::LVL1 as i32 => Ok(LOD::LVL1),
+        x if x == LOD::LVL2 as i32 => Ok(LOD::LVL2),
+        x if x == LOD::LVL3 as i32 => Ok(LOD::LVL3),
+        x if x == LOD::LVL4 as i32 => Ok(LOD::LVL4),
+        _ => Err(()),
+    }
+}

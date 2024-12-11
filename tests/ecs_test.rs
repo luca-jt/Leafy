@@ -28,7 +28,7 @@ fn render_data() {
     let l = ecs.create_point_light_visible(Position::origin());
     let r1 = ecs.create_basic_dynamic(
         Position::origin(),
-        MeshType::Triangle,
+        MeshType::Cone,
         MeshAttribute::Colored(Color32::WHITE),
     );
     let r2 = ecs.create_basic_dynamic(

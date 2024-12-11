@@ -40,6 +40,10 @@ path = "examples/ui/main.rs"
 name = "conways_game_of_life"
 path = "examples/conways_game_of_life/main.rs"
 
+[[example]]
+name = "simplification"
+path = "examples/simplification/main.rs"
+
 [[test]]
 name = "ecs"
 path = "tests/ecs_test.rs"

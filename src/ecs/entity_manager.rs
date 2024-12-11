@@ -208,7 +208,12 @@ impl EntityManager {
     pub(crate) fn asset_from_type(&self, mesh_type: &MeshType, lod: LOD) -> Option<&Mesh> {
         match lod {
             LOD::None => self.asset_register.get(mesh_type),
-            _ => Some(self.lod_register.get(mesh_type)?.get(lod as usize).unwrap()),
+            _ => Some(
+                self.lod_register
+                    .get(mesh_type)?
+                    .get(lod as usize - 1)
+                    .unwrap(),
+            ),
         }
     }
 

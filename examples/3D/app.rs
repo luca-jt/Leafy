@@ -10,8 +10,8 @@ use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, Y_AXIS};
 use falling_leaf::winit::keyboard::KeyCode;
 use std::f32::consts::FRAC_PI_2;
 
-pub const CAM_MOVE_SPEED: f32 = 4.5;
-pub const CAM_MOUSE_SPEED: f32 = 4.0;
+const CAM_MOVE_SPEED: f32 = 4.5;
+const CAM_MOUSE_SPEED: f32 = 4.0;
 
 /// example app
 pub struct App {

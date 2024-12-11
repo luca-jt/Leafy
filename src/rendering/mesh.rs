@@ -4,7 +4,7 @@ use crate::utils::constants::ORIGIN;
 use crate::utils::tools::to_vec4;
 use gl::types::*;
 use itertools::Itertools;
-use obj::{load_obj, Obj, TexturedVertex};
+use obj::{load_obj, Obj, TexturedVertex, Vertex};
 use petgraph::stable_graph::{NodeIndex, StableUnGraph};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashSet};
@@ -12,6 +12,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::ops::{Index, IndexMut};
 use std::path::Path;
+use std::rc::Rc;
 
 /// vertex used in the AOS meshes
 #[derive(Debug, Copy, Clone, Default)]
@@ -63,7 +64,7 @@ impl AOSMesh {
 
     /// creates a hitbox in the form of a simplified version of the mesh
     fn simplified(mut self) -> Self {
-        let target_triangle_count = (self.faces.len() / 2).max(4);
+        let target_node_count = (self.vertices.len() / 2).max(4);
 
         // SELECTING VALID PAIRS FOR THE CONSTRACTIONS
         // -> one of two cases: v1->v2 is edge or distance(v1, v2) < t with t being a threshold parameter
@@ -110,21 +111,24 @@ impl AOSMesh {
                 .flatten(),
         );
 
+        // insert vertex positions
+        for i in 0..self.vertices.len() {
+            let index = NodeIndex::new(i);
+            let vertex_data = mesh_graph.index_mut(index);
+            vertex_data.mesh_vertex = self.vertices[i];
+        }
         // calculate the inital error matrix Q for a all vertices
         for i in 0..self.vertices.len() {
             let index = NodeIndex::new(i);
             let error_matrix = calculate_error_matrix(&mesh_graph, index);
             let vertex_data = mesh_graph.index_mut(index);
-            *vertex_data = ErrorVertexData {
-                mesh_vertex: self.vertices[i],
-                error_matrix,
-            };
+            vertex_data.error_matrix = error_matrix;
         }
 
-        let error_threshold = 0.2;
+        let error_threshold = 0.1;
         let mut valid_pairs = find_all_valid_pairs(error_threshold, &mesh_graph);
 
-        while self.faces.len() > target_triangle_count && !valid_pairs.is_empty() {
+        while mesh_graph.node_count() > target_node_count && !valid_pairs.is_empty() {
             let pair_to_contract = valid_pairs.pop().unwrap();
             contract_pair(pair_to_contract, &mut mesh_graph, &mut valid_pairs);
         }
@@ -150,6 +154,7 @@ impl AOSMesh {
                     used_indices.insert(i);
                 }
             }
+            debug_assert!(self.vertices.len() > 0);
             if i >= self.vertices.len() - 1 {
                 break;
             }
@@ -184,12 +189,13 @@ fn to_ccw_order(triangle: [usize; 3], mesh_graph: &MeshErrorGraph) -> [usize; 3]
     let vertex1 = mesh_graph.index(NodeIndex::new(v1)).mesh_vertex.position;
     let vertex2 = mesh_graph.index(NodeIndex::new(v2)).mesh_vertex.position;
     let vertex3 = mesh_graph.index(NodeIndex::new(v3)).mesh_vertex.position;
-    // TODO: not sure how to do this
-    let normal = (vertex2 - vertex1).cross(&(vertex2 - vertex3));
-    if true {
-        return [v1, v3, v2];
+    // TODO: not sure if this is correct with mesh parts that are flipped
+    let normal = (vertex2 - vertex1).cross(&(vertex3 - vertex1));
+    let outward_direction = vertex1 + vertex2 + vertex3;
+    if normal.dot(&outward_direction) > 0.0 {
+        return [v1, v2, v3];
     }
-    [v1, v2, v3]
+    [v1, v3, v2]
 }
 
 /// represents a single sorted triangle face in a 3D mesh that is used in internal algorithms
@@ -266,7 +272,9 @@ fn add_valid_vertex_pair(
     let partial_derivative_mat = glm::mat4(
         q_new.m11, q_new.m12, q_new.m13, q_new.m14, q_new.m12, q_new.m22, q_new.m23, q_new.m24,
         q_new.m13, q_new.m23, q_new.m33, q_new.m34, 0.0, 0.0, 0.0, 1.0,
-    );
+    )
+    .transpose(); // this is done as the glm matrices are column major
+
     let v_new = if let Some(inv_deriv_mat) = partial_derivative_mat.try_inverse() {
         inv_deriv_mat * glm::vec4(0.0, 0.0, 0.0, 1.0)
     } else {
@@ -309,14 +317,15 @@ fn contract_pair(
     // connect all of v2's edges to v1
     let connected_to_v2 = mesh_graph
         .neighbors(pair.v2)
-        .filter(|neighbor| *neighbor != pair.v1)
+        .filter(|&neighbor| neighbor != pair.v1)
+        .filter(|&neighbor| !mesh_graph.contains_edge(neighbor, pair.v1))
         .collect_vec();
 
     for node in connected_to_v2 {
         mesh_graph.add_edge(pair.v1, node, ());
     }
     // delete v2
-    mesh_graph.remove_node(pair.v2);
+    mesh_graph.remove_node(pair.v2).unwrap();
 
     // -> when contracting a set of vertices, also the valid pair partners are combined
     // -> recompute some pairs as the merged location might not be the same as the old location of v1
@@ -382,21 +391,67 @@ pub(crate) struct Mesh {
 
 impl Mesh {
     /// creates a new Mesh from an obj file path
-    pub(crate) fn from_path(file_path: impl AsRef<Path>) -> Self {
-        let data = BufReader::new(File::open(file_path).expect("file not found"));
-        let model: Obj<TexturedVertex, GLuint> = load_obj(data).unwrap();
-        Self::from_obj(model)
+    pub(crate) fn from_path(file_path: &Rc<Path>) -> Self {
+        if let Ok(model) = load_obj(BufReader::new(
+            File::open(file_path).expect("file not found"),
+        )) {
+            Self::from_tex_obj(model)
+        } else {
+            let model: Obj<Vertex, GLuint> = load_obj(BufReader::new(
+                File::open(file_path).expect("file not found"),
+            ))
+            .expect("model must contain normals");
+            Self::from_obj(model)
+        }
     }
 
     /// creates a new Mesh from a byte array
     pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
         let data = BufReader::new(bytes);
         let model: Obj<TexturedVertex, GLuint> = load_obj(data).unwrap();
-        Self::from_obj(model)
+        Self::from_tex_obj(model)
+    }
+
+    fn from_obj(obj: Obj<Vertex, GLuint>) -> Self {
+        // convert the data into the required format
+        let positions: Vec<glm::Vec3> = obj
+            .vertices
+            .iter()
+            .map(|vertex| glm::vec3(vertex.position[0], vertex.position[1], vertex.position[2]))
+            .collect();
+
+        let normals: Vec<glm::Vec3> = obj
+            .vertices
+            .iter()
+            .map(|vertex| glm::vec3(vertex.normal[0], vertex.normal[1], vertex.normal[2]))
+            .collect();
+
+        let indices: Vec<GLuint> = obj.indices;
+        assert_eq!(indices.len() % 3, 0, "mesh has to be triangulated");
+
+        let max_reach =
+            positions
+                .iter()
+                .copied()
+                .map(|p| p.abs())
+                .fold(ORIGIN, |mut current, p| {
+                    current.x = current.x.max(p.x);
+                    current.y = current.y.max(p.y);
+                    current.z = current.z.max(p.z);
+                    current
+                });
+
+        Self {
+            positions,
+            texture_coords: vec![glm::Vec2::zeros(); obj.vertices.len()],
+            normals,
+            indices,
+            max_reach,
+        }
     }
 
     /// converts the obj file format into the required data structures
-    fn from_obj(obj: Obj<TexturedVertex, GLuint>) -> Self {
+    fn from_tex_obj(obj: Obj<TexturedVertex, GLuint>) -> Self {
         // convert the data into the required format
         let positions: Vec<glm::Vec3> = obj
             .vertices
@@ -811,6 +866,7 @@ impl HitboxMesh {
                     used_indices.insert(i);
                 }
             }
+            debug_assert!(self.vertices.len() > 0);
             if i >= self.vertices.len() - 1 {
                 break;
             }
