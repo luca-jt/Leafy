@@ -164,7 +164,10 @@ impl InstanceRenderer {
         let add_size: usize = self.max_num_instances * 2;
         self.max_num_instances += add_size;
         self.models.reserve_exact(add_size);
+        self.models.extend(vec![glm::Mat4::identity(); add_size]);
         self.normal_matrices.reserve_exact(add_size);
+        self.normal_matrices
+            .extend(vec![glm::Mat3::identity(); add_size]);
         log::debug!("resized instance renderer to: {:?}", self.max_num_instances);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);

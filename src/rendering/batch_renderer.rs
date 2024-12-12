@@ -235,6 +235,8 @@ impl Batch {
         let add_size: usize = self.max_num_meshes * 2;
         self.max_num_meshes += add_size;
         self.obj_buffer.reserve_exact(add_size);
+        self.obj_buffer
+            .extend(vec![Vertex::default(); mesh.num_vertices() * add_size]);
         log::debug!("resized batch renderer to: {:?}", self.max_num_meshes);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
