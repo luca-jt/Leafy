@@ -8,68 +8,102 @@ use itertools::Itertools;
 use obj::{load_obj, Obj, TexturedVertex, Vertex};
 use petgraph::stable_graph::{NodeIndex, StableUnGraph};
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fs::File;
 use std::io::BufReader;
 use std::ops::{Index, IndexMut};
 use std::path::Path;
 use std::rc::Rc;
 
-/// vertex used in the AOS meshes
+/// identifier for a triangle in the AOS mesh, maps to triangles that only use the unique vertices
+type TriangleID = u64;
+
+/// a single version of a vertex position with specific normal vector and texture coordinate
 #[derive(Debug, Copy, Clone, Default)]
-struct MeshVertex {
-    position: glm::Vec3,
-    uv: glm::Vec2,
+struct VertexManifestation {
     normal: glm::Vec3,
+    uv: glm::Vec2,
 }
 
-#[derive(Copy, Clone)]
-struct AOSMeshIndex(usize, usize);
+// TODO: me need to use triangle ids instead of indeces to make deletion of triangles more easy -> then we can also move the other manifestations from one vertex to another on a contraction
+// -> we need ids for the triangles first -> also need to access them later when reconstructing the mesh
 
-/// mesh containing vertex structs as opposed to the regular soa mesh which allows for easier processing
-#[derive(Clone)]
-struct AOSMesh {
-    vertices: Vec<MeshVertex>,
+/// mesh containing vertex structs as opposed to the regular SOA mesh which allows for easier processing
+#[derive(Debug, Clone)]
+struct AlgorithmMesh {
+    vertices: Vec<glm::Vec3>,
     faces: Vec<[usize; 3]>,
+    triangle_map: HashMap<usize, HashSet<TriangleID>>,
+    manifestations: HashMap<(TriangleID, usize), VertexManifestation>,
 }
 
-impl AOSMesh {
+impl AlgorithmMesh {
     /// converts back to a regular mesh
     fn to_mesh(self) -> Mesh {
+        let mut positions = Vec::new();
+        let mut texture_coords = Vec::new();
+        let mut normals = Vec::new();
+        let mut indices = Vec::new();
+
+        for face in self.faces.iter() {
+            let position1 = self.vertices[face[0]];
+            let position2 = self.vertices[face[1]];
+            let position3 = self.vertices[face[2]];
+            let triangle_id = self.triangle_id_from_indices(*face);
+            let manifestation1 = self.manifestations.get(&(triangle_id, face[0])).unwrap();
+            let manifestation2 = self.manifestations.get(&(triangle_id, face[1])).unwrap();
+            let manifestation3 = self.manifestations.get(&(triangle_id, face[2])).unwrap();
+
+            // TODO: check if this config exists already and then use that index, otherwhise do the following
+
+            positions.extend_from_slice(&[position1, position2, position3]);
+            texture_coords.extend_from_slice(&[
+                manifestation1.uv,
+                manifestation2.uv,
+                manifestation3.uv,
+            ]);
+            normals.extend_from_slice(&[
+                manifestation1.normal,
+                manifestation2.normal,
+                manifestation3.normal,
+            ]);
+            indices.extend_from_slice(&[
+                (positions.len() - 3) as GLuint,
+                (positions.len() - 2) as GLuint,
+                (positions.len() - 1) as GLuint,
+            ]);
+        }
+
         Mesh {
-            positions: self.vertices.iter().map(|v| v.position).collect(),
-            texture_coords: self.vertices.iter().map(|v| v.uv).collect(),
-            normals: self.vertices.iter().map(|v| v.normal).collect(),
-            indices: self
-                .faces
-                .into_iter()
-                .flatten()
-                .map(|i| i as GLuint)
-                .collect(),
-            max_reach: self.vertices.iter().map(|v| v.position.abs()).fold(
-                ORIGIN,
-                |mut current, p| {
+            positions,
+            texture_coords,
+            normals,
+            indices,
+            max_reach: self
+                .vertices
+                .iter()
+                .map(|v| v.abs())
+                .fold(ORIGIN, |mut current, p| {
                     current.x = current.x.max(p.x);
                     current.y = current.y.max(p.y);
                     current.z = current.z.max(p.z);
                     current
-                },
-            ),
+                }),
         }
     }
 
     /// creates a hitbox in the form of a unaltered version of the mesh
     fn hitbox_mesh(self) -> HitboxMesh {
-        HitboxMesh {
-            vertices: self.vertices.into_iter().map(|v| v.position).collect(),
+        let mut hitbox_mesh = HitboxMesh {
+            vertices: self.vertices,
             faces: self.faces,
-        }
+        };
+        hitbox_mesh.remove_unused_vertices();
+        hitbox_mesh
     }
 
     /// creates a hitbox in the form of a simplified version of the mesh
     fn simplified(mut self) -> Self {
-        let target_node_count = (self.vertices.len() / 2).max(4);
-
         // SELECTING VALID PAIRS FOR THE CONSTRACTIONS
         // -> one of two cases: v1->v2 is edge or distance(v1, v2) < t with t being a threshold parameter
         // -> t = 0 would be equivalent to a regular edge contraction algo
@@ -108,19 +142,37 @@ impl AOSMesh {
         // 4. put all the in a heap keyed on cost with the minimum cost pair at the top
         // 5. iteratively remove the pair v1 v2 of least cost from the heap, contract this pair, and update the costs of all valid pairs involving v1
 
-        let mut mesh_graph = MeshErrorGraph::from_edges(
-            self.faces
-                .iter()
-                .map(|face| [(face[0], face[1]), (face[1], face[2]), (face[2], face[0])])
-                .flatten(),
-        );
+        let target_node_count = (self.vertices.len() / 2).max(4);
 
-        // insert vertex positions
-        for i in 0..self.vertices.len() {
-            let index = NodeIndex::new(i);
-            let vertex_data = mesh_graph.index_mut(index);
-            vertex_data.mesh_vertex = self.vertices[i];
+        let edges = self
+            .faces
+            .iter()
+            .map(|&face| [[face[0], face[1]], [face[1], face[2]], [face[2], face[0]]])
+            .flatten()
+            .map(|mut edge| {
+                edge.sort_unstable();
+                edge
+            })
+            .collect::<HashSet<_>>();
+
+        let mut mesh_graph = MeshErrorGraph::default();
+
+        // add vertices with positions
+        for vertex in self.vertices.iter() {
+            mesh_graph.add_node(ErrorVertex {
+                position: *vertex,
+                error_matrix: glm::Mat4::default(),
+            });
         }
+
+        // add unique edges
+        for (node1, node2) in edges
+            .into_iter()
+            .map(|[n1, n2]| (NodeIndex::new(n1), NodeIndex::new(n2)))
+        {
+            mesh_graph.add_edge(node1, node2, ());
+        }
+
         // calculate the inital error matrix Q for a all vertices
         for i in 0..self.vertices.len() {
             let index = NodeIndex::new(i);
@@ -134,40 +186,131 @@ impl AOSMesh {
 
         while mesh_graph.node_count() > target_node_count && !valid_pairs.is_empty() {
             let pair_to_contract = valid_pairs.pop().unwrap();
-            contract_pair(pair_to_contract, &mut mesh_graph, &mut valid_pairs);
+            self.contract_pair(pair_to_contract, &mut mesh_graph, &mut valid_pairs);
         }
 
         // reconstruct the mesh from the final graph data
         self.faces = convert_graph_edges_to_triangles(&mesh_graph);
-        self.remove_unused_vertices();
+        self.convert_graph_nodes_to_vertices(&mesh_graph);
         self
     }
 
-    /// removes vertices that are not used by a face and corrects the face indices
-    fn remove_unused_vertices(&mut self) {
-        let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
-        for i in 0..self.vertices.len() {
-            while !used_indices.contains(&i) && i < self.vertices.len() {
-                self.vertices.swap_remove(i);
-                self.faces
-                    .iter_mut()
-                    .flatten()
-                    .filter(|index| **index == self.vertices.len())
-                    .for_each(|index| *index = i);
-                if used_indices.remove(&self.vertices.len()) {
-                    used_indices.insert(i);
-                }
-            }
-            debug_assert!(self.vertices.len() > 0);
-            if i >= self.vertices.len() - 1 {
-                break;
+    /// converts the nodes currently stored in the graph to the mesh vertex positions
+    fn convert_graph_nodes_to_vertices(&mut self, mesh_graph: &MeshErrorGraph) {
+        for node_idx in mesh_graph.node_indices() {
+            let vertex = mesh_graph.index(node_idx).position;
+            self.vertices[node_idx.index()] = vertex;
+        }
+    }
+
+    /// yields the triangle id for a given set of indices
+    fn triangle_id_from_indices(&self, face: [usize; 3]) -> TriangleID {
+        let triangles1 = self.triangle_map.get(&face[0]).unwrap();
+        let triangles2 = self.triangle_map.get(&face[1]).unwrap();
+        let triangles3 = self.triangle_map.get(&face[2]).unwrap();
+
+        let mut common_id_iter = triangles1
+            .iter()
+            .filter(|&id| triangles2.contains(id) && triangles3.contains(id));
+        let triangle_id = *common_id_iter.next().unwrap();
+        debug_assert!(
+            common_id_iter.next().is_none(),
+            "more than one common triangle id"
+        );
+        triangle_id
+    }
+
+    /// contracts a pair in the mesh simplification algorithm and modifies the relevant pairs and error data
+    fn contract_pair(
+        &mut self,
+        pair: ErrorVertexPair,
+        mesh_graph: &mut MeshErrorGraph,
+        valid_pairs: &mut BinaryHeap<ErrorVertexPair>,
+    ) {
+        // TODO: in the future account for flipping of face normals to prevent two faces folding in on each other
+
+        // for all triangles that are effectively deleted remove entries from triangle map and manifestations (only relevant for pairs that are edges)
+        if mesh_graph.contains_edge(pair.v1, pair.v2) {
+            for neighbor in mesh_graph
+                .neighbors(pair.v1)
+                .filter(|&nb| mesh_graph.contains_edge(nb, pair.v2))
+            {
+                let triangle_id = self.triangle_id_from_indices([
+                    pair.v1.index(),
+                    pair.v2.index(),
+                    neighbor.index(),
+                ]);
+
+                self.triangle_map.values_mut().for_each(|ids| {
+                    ids.remove(&triangle_id);
+                });
+                self.manifestations.retain(|(id, _), _| *id != triangle_id);
             }
         }
+
+        // move v1 to new position stored in the pair
+        let vertex1 = *mesh_graph.index(pair.v1);
+        let vertex2 = *mesh_graph.index(pair.v2);
+        let v1_ref = mesh_graph.index_mut(pair.v1);
+
+        v1_ref.position = pair.v_new;
+        v1_ref.error_matrix = vertex1.error_matrix + vertex2.error_matrix;
+
+        // delete v2's manifestations and insert them into the map's entries for v1
+        let v2_manifests = self
+            .triangle_map
+            .get(&pair.v2.index())
+            .unwrap()
+            .iter()
+            .map(|id| {
+                (
+                    *id,
+                    self.manifestations.remove(&(*id, pair.v2.index())).unwrap(),
+                )
+            })
+            .collect_vec();
+
+        for manifest in v2_manifests {
+            self.manifestations
+                .insert((manifest.0, pair.v1.index()), manifest.1);
+        }
+
+        // delete v2's associated triangles and insert them into the map's entry for v1
+        let triangles_of_v2 = self.triangle_map.remove(&pair.v2.index()).unwrap();
+        self.triangle_map
+            .get_mut(&pair.v1.index())
+            .unwrap()
+            .extend(triangles_of_v2);
+
+        // connect all of v2's edges to v1 and add new valid pairs
+        let connected_to_v2 = mesh_graph
+            .neighbors(pair.v2)
+            .filter(|&neighbor| neighbor != pair.v1)
+            .filter(|&neighbor| !mesh_graph.contains_edge(neighbor, pair.v1))
+            .collect_vec();
+
+        for node in connected_to_v2 {
+            mesh_graph.add_edge(pair.v1, node, ());
+            add_valid_vertex_pair(pair.v1, node, &mesh_graph, valid_pairs);
+            // NOTE: at this point we dont add the ones with the error threshold for performance reasons
+        }
+        // delete v2
+        mesh_graph.remove_node(pair.v2).unwrap();
+
+        // remove all pairs containing v2
+        valid_pairs.retain(|p| p.v1 != pair.v2 && p.v2 != pair.v2);
     }
 }
 
 /// converts the graph representation of the mesh into the triangle face representation
 fn convert_graph_edges_to_triangles(mesh_graph: &MeshErrorGraph) -> Vec<[usize; 3]> {
+    #[derive(Hash, Eq, PartialEq)]
+    struct SortedTriangle([usize; 3]);
+    fn sorted_triangle(mut array: [usize; 3]) -> SortedTriangle {
+        array.sort_unstable();
+        SortedTriangle(array)
+    }
+
     let mut triangles = HashSet::new();
     for (node1, node2) in mesh_graph
         .edge_indices()
@@ -177,7 +320,7 @@ fn convert_graph_edges_to_triangles(mesh_graph: &MeshErrorGraph) -> Vec<[usize; 
             .neighbors(node1)
             .filter(|&nb| mesh_graph.contains_edge(node2, nb))
         {
-            let triangle = MeshTriangle::new([node1.index(), node2.index(), neighbor.index()]);
+            let triangle = sorted_triangle([node1.index(), node2.index(), neighbor.index()]);
             triangles.insert(triangle);
         }
     }
@@ -190,23 +333,11 @@ fn convert_graph_edges_to_triangles(mesh_graph: &MeshErrorGraph) -> Vec<[usize; 
 /// ensures that a given triangle is in counter clock whise order
 fn to_ccw_order(triangle: [usize; 3], mesh_graph: &MeshErrorGraph) -> [usize; 3] {
     let [v1, v2, v3] = triangle;
-    let vertex1 = mesh_graph.index(NodeIndex::new(v1)).mesh_vertex.position;
-    let vertex2 = mesh_graph.index(NodeIndex::new(v2)).mesh_vertex.position;
-    let vertex3 = mesh_graph.index(NodeIndex::new(v3)).mesh_vertex.position;
+    let vertex1 = mesh_graph.index(NodeIndex::new(v1)).position;
+    let vertex2 = mesh_graph.index(NodeIndex::new(v2)).position;
+    let vertex3 = mesh_graph.index(NodeIndex::new(v3)).position;
     // TODO
     [v1, v2, v3]
-}
-
-/// represents a single sorted triangle face in a 3D mesh that is used in internal algorithms
-#[derive(Hash, Eq, PartialEq)]
-struct MeshTriangle([usize; 3]);
-
-impl MeshTriangle {
-    /// sorting in this constructor ensures that we exclude duplicate triangles
-    fn new(mut array: [usize; 3]) -> Self {
-        array.sort_unstable();
-        Self(array)
-    }
 }
 
 /// calculates the initital error matrix for a vertex at index
@@ -220,9 +351,9 @@ fn calculate_error_matrix(mesh_graph: &MeshErrorGraph, index: NodeIndex<usize>) 
         .map(|(neighbor1, neighbor2)| [index, neighbor1, neighbor2]);
 
     for triangle in incident_triangles {
-        let vertex1 = mesh_graph.index(triangle[0]).mesh_vertex.position;
-        let vertex2 = mesh_graph.index(triangle[1]).mesh_vertex.position;
-        let vertex3 = mesh_graph.index(triangle[2]).mesh_vertex.position;
+        let vertex1 = mesh_graph.index(triangle[0]).position;
+        let vertex2 = mesh_graph.index(triangle[1]).position;
+        let vertex3 = mesh_graph.index(triangle[2]).position;
         let plane_normal = (vertex2 - vertex1).cross(&(vertex3 - vertex1)).normalize();
         let distance_from_origin = -plane_normal.dot(&vertex1);
         let mut p = to_vec4(&plane_normal);
@@ -248,8 +379,8 @@ fn find_all_valid_pairs(
         if mesh_graph.contains_edge(v1, v2) {
             continue;
         }
-        let pos1 = mesh_graph.index(v1).mesh_vertex.position;
-        let pos2 = mesh_graph.index(v2).mesh_vertex.position;
+        let pos1 = mesh_graph.index(v1).position;
+        let pos2 = mesh_graph.index(v2).position;
         if glm::distance(&pos1, &pos2) <= error_threshold {
             add_valid_vertex_pair(v1, v2, mesh_graph, &mut valid_pairs);
         }
@@ -268,17 +399,18 @@ fn add_valid_vertex_pair(
     let vertex2 = mesh_graph.index(v2);
 
     let q_new = vertex1.error_matrix + vertex2.error_matrix; // new error matrix
-    let partial_derivative_mat = glm::mat4(
-        q_new.m11, q_new.m12, q_new.m13, q_new.m14, q_new.m12, q_new.m22, q_new.m23, q_new.m24,
-        q_new.m13, q_new.m23, q_new.m33, q_new.m34, 0.0, 0.0, 0.0, 1.0,
-    )
-    .transpose(); // this is done as the glm matrices are column major
+    let partial_derivative_mat = glm::Mat4::from_columns(&[
+        glm::vec4(q_new.m11, q_new.m12, q_new.m13, 0.0),
+        glm::vec4(q_new.m12, q_new.m22, q_new.m23, 0.0),
+        glm::vec4(q_new.m13, q_new.m23, q_new.m33, 0.0),
+        glm::vec4(q_new.m14, q_new.m24, q_new.m34, 1.0),
+    ]);
 
     let v_new = if let Some(inv_deriv_mat) = partial_derivative_mat.try_inverse() {
         inv_deriv_mat * glm::vec4(0.0, 0.0, 0.0, 1.0)
     } else {
         // fall back on choosing v_new as the midpoint
-        to_vec4(&((vertex1.mesh_vertex.position + vertex2.mesh_vertex.position) / 2.0))
+        to_vec4(&((vertex1.position + vertex2.position) / 2.0))
         // NOTE: the fallback to finding the optimal point along the segment v1 v2 is not used for perfomance
         // maybe this will be added in the future
     };
@@ -292,61 +424,12 @@ fn add_valid_vertex_pair(
     valid_pairs.push(new_pair);
 }
 
-/// contracts a pair in the mesh simplification algorithm and modifies the relevant pairs and error data
-fn contract_pair(
-    pair: ErrorVertexPair,
-    mesh_graph: &mut MeshErrorGraph,
-    valid_pairs: &mut BinaryHeap<ErrorVertexPair>,
-) {
-    // TODO: in the future account for flipping of face normals to prevent two faces folding in on each other
-
-    // move v1 to new position stored in the pair
-    let vertex1 = *mesh_graph.index(pair.v1);
-    let vertex2 = *mesh_graph.index(pair.v2);
-    let v1_ref = mesh_graph.index_mut(pair.v1);
-
-    v1_ref.mesh_vertex.position = pair.v_new;
-    let shift_transform = glm::Mat3::from_diagonal(&glm::vec3(
-        vertex1.mesh_vertex.position.x / vertex2.mesh_vertex.position.x,
-        vertex1.mesh_vertex.position.y / vertex2.mesh_vertex.position.y,
-        vertex1.mesh_vertex.position.z / vertex2.mesh_vertex.position.z,
-    )); // this is done in case a point other than the mid point is chosen
-    v1_ref.mesh_vertex.normal = shift_transform * vertex1.mesh_vertex.normal;
-    v1_ref.mesh_vertex.uv = (vertex1.mesh_vertex.uv + vertex2.mesh_vertex.uv) / 2.0;
-    v1_ref.error_matrix = vertex1.error_matrix + vertex2.error_matrix;
-
-    // connect all of v2's edges to v1
-    let connected_to_v2 = mesh_graph
-        .neighbors(pair.v2)
-        .filter(|&neighbor| neighbor != pair.v1)
-        .filter(|&neighbor| !mesh_graph.contains_edge(neighbor, pair.v1))
-        .collect_vec();
-
-    for node in connected_to_v2 {
-        mesh_graph.add_edge(pair.v1, node, ());
-    }
-    // delete v2
-    mesh_graph.remove_node(pair.v2).unwrap();
-
-    // -> when contracting a set of vertices, also the valid pair partners are combined
-    // -> recompute some pairs as the merged location might not be the same as the old location of v1
-
-    // remove all pairs containing v1 or v2
-    valid_pairs
-        .retain(|p| p.v1 != pair.v1 && p.v1 != pair.v2 && p.v2 != pair.v1 && p.v2 != pair.v2);
-    // add new pairs for v1
-    for neighbor in mesh_graph.neighbors(pair.v1) {
-        add_valid_vertex_pair(pair.v1, neighbor, &mesh_graph, valid_pairs);
-        // NOTE: at this point we dont add the ones with the error threshold for performance reasons
-    }
-}
-
 /// used for the graph representation of a mesh that is required for some algorithmic things
-type MeshErrorGraph = StableUnGraph<ErrorVertexData, (), usize>;
+type MeshErrorGraph = StableUnGraph<ErrorVertex, (), usize>;
 
 #[derive(Debug, Default, Copy, Clone)]
-struct ErrorVertexData {
-    mesh_vertex: MeshVertex,
+struct ErrorVertex {
+    position: glm::Vec3,
     error_matrix: glm::Mat4,
 }
 
@@ -382,6 +465,7 @@ impl Ord for ErrorVertexPair {
 }
 
 /// a mesh that can be rendered in gl
+#[derive(Clone)]
 pub(crate) struct Mesh {
     pub(crate) positions: Vec<glm::Vec3>,
     pub(crate) texture_coords: Vec<glm::Vec2>,
@@ -509,24 +593,56 @@ impl Mesh {
     }
 
     /// generates the AOS mesh for easier data parsing
-    fn aos_mesh(&self) -> AOSMesh {
-        let mut faces = vec![[0, 0, 0]; self.indices.len() / 3];
+    fn aos_mesh(&self) -> AlgorithmMesh {
+        let mut original_mesh_faces = vec![[0, 0, 0]; self.indices.len() / 3];
         for (i, index) in self.indices.iter().enumerate() {
-            faces[i / 3][i % 3] = *index as usize;
+            original_mesh_faces[i / 3][i % 3] = *index as usize;
         }
-        AOSMesh {
-            vertices: self
-                .positions
-                .iter()
-                .zip(self.texture_coords.iter())
-                .zip(self.normals.iter())
-                .map(|data| MeshVertex {
-                    position: *data.0 .0,
-                    uv: *data.0 .1,
-                    normal: *data.1,
-                })
-                .collect(),
+
+        let mut vertices: Vec<glm::Vec3> = Vec::new();
+        let mut faces = Vec::with_capacity(original_mesh_faces.len());
+        let mut triangle_map: HashMap<usize, HashSet<TriangleID>> = HashMap::new();
+        let mut manifestations: HashMap<(TriangleID, usize), VertexManifestation> = HashMap::new();
+
+        for (i, face) in original_mesh_faces.into_iter().enumerate() {
+            let mut aos_indices = [0_usize; 3];
+            let triangle_id = i as TriangleID;
+
+            for (i, index) in face.into_iter().enumerate() {
+                let position = self.positions[index];
+                let manifestation = VertexManifestation {
+                    normal: self.normals[index],
+                    uv: self.texture_coords[index],
+                };
+
+                let vertex_index = vertices
+                    .iter()
+                    .enumerate()
+                    .find(|(_, point)| **point == position)
+                    .map(|(i, _)| i)
+                    .unwrap_or_else(|| {
+                        vertices.push(position);
+                        vertices.len() - 1
+                    });
+
+                aos_indices[i] = vertex_index;
+
+                let insert_result =
+                    manifestations.insert((triangle_id, vertex_index), manifestation);
+                debug_assert!(insert_result.is_none());
+
+                triangle_map
+                    .entry(vertex_index)
+                    .or_default()
+                    .insert(triangle_id);
+            }
+            faces.push(aos_indices);
+        }
+        AlgorithmMesh {
+            vertices,
             faces,
+            triangle_map,
+            manifestations,
         }
     }
 
@@ -588,17 +704,11 @@ impl Mesh {
 
     /// generates all the simpified meshes for the lod levels
     pub(crate) fn generate_lods(&self) -> [Mesh; 4] {
-        // TODO: do all of the lods in one iteration of the algorithm -> more performant
-        let lod1 = self.aos_mesh().simplified();
-        let lod2 = lod1.clone().simplified();
-        let lod3 = lod2.clone().simplified();
-        let lod4 = lod3.clone().simplified();
-        [
-            lod1.to_mesh(),
-            lod2.to_mesh(),
-            lod3.to_mesh(),
-            lod4.to_mesh(),
-        ]
+        let lod1 = self.aos_mesh().simplified().to_mesh();
+        //let lod2 = lod1.aos_mesh().simplified().to_mesh();
+        //let lod3 = lod2.aos_mesh().simplified().to_mesh();
+        //let lod4 = lod3.aos_mesh().simplified().to_mesh();
+        [lod1.clone(), lod1.clone(), lod1.clone(), lod1]
     }
 
     /// generates the meshes' hitbox for the given hitbox type
