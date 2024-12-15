@@ -411,6 +411,16 @@ impl EntityManager {
         }
         self.exec_commands();
     }
+
+    /// clears all of the stored entites and their associated data and invalidates all of the entity IDs yielded from the system up to this point
+    pub fn clear(&mut self) {
+        self.ecs.get_mut().clear();
+        self.asset_register.clear();
+        self.lod_register.clear();
+        self.texture_map.clear();
+        self.hitbox_register.clear();
+        self.commands.clear();
+    }
 }
 
 /// allows for additional entity data or asset data to be added
@@ -643,6 +653,13 @@ impl ECS {
         record.row = new_row;
 
         component
+    }
+
+    /// erases all of the stored entity data
+    pub(crate) fn clear(&mut self) {
+        self.entity_index.clear();
+        self.archetypes.clear();
+        self.type_to_archetype.clear();
     }
 
     /// gets the archetype id of an entity type and creates a new archetype if necessary

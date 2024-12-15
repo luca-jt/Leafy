@@ -240,7 +240,7 @@ impl AlgorithmMesh {
             .iter()
             .filter(|&id| triangles2.contains(id) && triangles3.contains(id));
         let triangle_id = *common_id_iter.next().expect("no common triangle id");
-        debug_assert!(
+        assert!(
             common_id_iter.next().is_none(),
             "more than one common triangle id"
         );
@@ -335,7 +335,7 @@ impl AlgorithmMesh {
                 .any(|nb| mesh_graph.contains_edge(nb, pair.v1))
             {
                 // avoid adding invalid triangles
-                // TODO: this is probably not precise enough, maybe actually create new triangles?
+                // TODO: this is probably not precise enough, maybe actually create new triangles? Just recompute the manifestations in the end?
                 continue;
             }
             mesh_graph.add_edge(pair.v1, node, ());

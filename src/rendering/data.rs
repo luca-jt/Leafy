@@ -153,6 +153,16 @@ impl TextureMap {
     pub(crate) fn get_tex_id(&self, texture: &Texture) -> Option<GLuint> {
         self.textures.get(texture).copied()
     }
+
+    /// clears the texture map and deletes all of the stored textures
+    pub(crate) fn clear(&mut self) {
+        unsafe {
+            for (_, texture) in self.textures.iter() {
+                gl::DeleteTextures(1, texture);
+            }
+        }
+        self.textures.clear();
+    }
 }
 
 impl Drop for TextureMap {

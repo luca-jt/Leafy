@@ -34,10 +34,6 @@ impl FallingLeafApp for App {
             .animation_system_mut()
             .set_flying_cam_movement(Some(CAM_MOVE_SPEED));
 
-        engine
-            .rendering_system_mut()
-            .set_ambient_light(Color32::WHITE, 0.4);
-
         let mut entity_manager = engine.entity_manager_mut();
         entity_manager.create_point_light(Position::new(1.0, 10.0, 1.0));
 
