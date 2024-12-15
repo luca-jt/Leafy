@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .write_style_or("LOG_STYLE", "always");
     env_logger::init_from_env(env); // only for testing purposes (not necessary)
 
-    let app = App;
+    let app = App::new();
     let mut engine = EngineAttributes::new()
         .with_transparent(true)
         .with_blur(true)

@@ -25,9 +25,6 @@ struct VertexManifestation {
     uv: glm::Vec2,
 }
 
-// TODO: me need to use triangle ids instead of indeces to make deletion of triangles more easy -> then we can also move the other manifestations from one vertex to another on a contraction
-// -> we need ids for the triangles first -> also need to access them later when reconstructing the mesh
-
 /// mesh containing vertex structs as opposed to the regular SOA mesh which allows for easier processing
 #[derive(Debug, Clone)]
 struct AlgorithmMesh {
@@ -53,8 +50,6 @@ impl AlgorithmMesh {
             let manifestation1 = self.manifestations.get(&(triangle_id, face[0])).unwrap();
             let manifestation2 = self.manifestations.get(&(triangle_id, face[1])).unwrap();
             let manifestation3 = self.manifestations.get(&(triangle_id, face[2])).unwrap();
-
-            // TODO: check if this config exists already and then use that index, otherwhise do the following
 
             positions.extend_from_slice(&[position1, position2, position3]);
             texture_coords.extend_from_slice(&[
@@ -94,15 +89,13 @@ impl AlgorithmMesh {
 
     /// creates a hitbox in the form of a unaltered version of the mesh
     fn hitbox_mesh(self) -> HitboxMesh {
-        let mut hitbox_mesh = HitboxMesh {
+        HitboxMesh {
             vertices: self.vertices,
             faces: self.faces,
-        };
-        hitbox_mesh.remove_unused_vertices();
-        hitbox_mesh
+        }
     }
 
-    /// creates a hitbox in the form of a simplified version of the mesh
+    /// creates a simplified version of the mesh that is used for LOD and hitboxes
     fn simplified(mut self) -> Self {
         // SELECTING VALID PAIRS FOR THE CONSTRACTIONS
         // -> one of two cases: v1->v2 is edge or distance(v1, v2) < t with t being a threshold parameter
@@ -139,7 +132,7 @@ impl AlgorithmMesh {
         // 1. find all the valid vertex pairs
         // 2. compute the initial matrices Q
         // 3. compute the contraction target for each pair with contraction cost v_new^T * (Q_1 + Q_2) * v_new
-        // 4. put all the in a heap keyed on cost with the minimum cost pair at the top
+        // 4. put all the pairs in a heap keyed on cost with the minimum cost pair at the top
         // 5. iteratively remove the pair v1 v2 of least cost from the heap, contract this pair, and update the costs of all valid pairs involving v1
 
         let target_node_count = (self.vertices.len() / 2).max(4);
@@ -192,7 +185,41 @@ impl AlgorithmMesh {
         // reconstruct the mesh from the final graph data
         self.faces = convert_graph_edges_to_triangles(&mesh_graph);
         self.convert_graph_nodes_to_vertices(&mesh_graph);
+        self.remove_unused_vertices();
         self
+    }
+
+    /// removes vertices that are not used by a face and corrects the face indices
+    fn remove_unused_vertices(&mut self) {
+        let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
+        for i in 0..self.vertices.len() {
+            while !used_indices.contains(&i) && i < self.vertices.len() {
+                self.vertices.swap_remove(i);
+                self.faces
+                    .iter_mut()
+                    .flatten()
+                    .filter(|index| **index == self.vertices.len())
+                    .for_each(|index| *index = i);
+
+                if let Some(ids) = self.triangle_map.remove(&self.vertices.len()) {
+                    for id in ids.iter() {
+                        if let Some(manifs) =
+                            self.manifestations.remove(&(*id, self.vertices.len()))
+                        {
+                            self.manifestations.insert((*id, i), manifs);
+                        }
+                    }
+                    self.triangle_map.insert(i, ids);
+                }
+                if used_indices.remove(&self.vertices.len()) {
+                    used_indices.insert(i);
+                }
+            }
+            debug_assert!(self.vertices.len() > 0);
+            if i >= self.vertices.len() - 1 {
+                break;
+            }
+        }
     }
 
     /// converts the nodes currently stored in the graph to the mesh vertex positions
@@ -212,7 +239,7 @@ impl AlgorithmMesh {
         let mut common_id_iter = triangles1
             .iter()
             .filter(|&id| triangles2.contains(id) && triangles3.contains(id));
-        let triangle_id = *common_id_iter.next().unwrap();
+        let triangle_id = *common_id_iter.next().expect("no common triangle id");
         debug_assert!(
             common_id_iter.next().is_none(),
             "more than one common triangle id"
@@ -241,10 +268,22 @@ impl AlgorithmMesh {
                     neighbor.index(),
                 ]);
 
-                self.triangle_map.values_mut().for_each(|ids| {
-                    ids.remove(&triangle_id);
-                });
-                self.manifestations.retain(|(id, _), _| *id != triangle_id);
+                let triangles_v1 = self.triangle_map.get_mut(&pair.v1.index()).unwrap();
+                assert!(triangles_v1.remove(&triangle_id));
+                let triangles_v2 = self.triangle_map.get_mut(&pair.v2.index()).unwrap();
+                assert!(triangles_v2.remove(&triangle_id));
+                let triangles_neighbor = self.triangle_map.get_mut(&neighbor.index()).unwrap();
+                assert!(triangles_neighbor.remove(&triangle_id));
+
+                self.manifestations
+                    .remove(&(triangle_id, pair.v1.index()))
+                    .unwrap();
+                self.manifestations
+                    .remove(&(triangle_id, pair.v2.index()))
+                    .unwrap();
+                self.manifestations
+                    .remove(&(triangle_id, neighbor.index()))
+                    .unwrap();
             }
         }
 
@@ -290,9 +329,18 @@ impl AlgorithmMesh {
             .collect_vec();
 
         for node in connected_to_v2 {
+            if mesh_graph
+                .neighbors(node)
+                .filter(|&nb| nb != pair.v2 && !mesh_graph.contains_edge(nb, pair.v2))
+                .any(|nb| mesh_graph.contains_edge(nb, pair.v1))
+            {
+                // avoid adding invalid triangles
+                // TODO: this is probably not precise enough, maybe actually create new triangles?
+                continue;
+            }
             mesh_graph.add_edge(pair.v1, node, ());
             add_valid_vertex_pair(pair.v1, node, &mesh_graph, valid_pairs);
-            // NOTE: at this point we dont add the ones with the error threshold for performance reasons
+            // NOTE: at this point we dont add the ones with the error threshold for performance reasons -> TODO
         }
         // delete v2
         mesh_graph.remove_node(pair.v2).unwrap();
@@ -304,13 +352,6 @@ impl AlgorithmMesh {
 
 /// converts the graph representation of the mesh into the triangle face representation
 fn convert_graph_edges_to_triangles(mesh_graph: &MeshErrorGraph) -> Vec<[usize; 3]> {
-    #[derive(Hash, Eq, PartialEq)]
-    struct SortedTriangle([usize; 3]);
-    fn sorted_triangle(mut array: [usize; 3]) -> SortedTriangle {
-        array.sort_unstable();
-        SortedTriangle(array)
-    }
-
     let mut triangles = HashSet::new();
     for (node1, node2) in mesh_graph
         .edge_indices()
@@ -320,13 +361,14 @@ fn convert_graph_edges_to_triangles(mesh_graph: &MeshErrorGraph) -> Vec<[usize; 
             .neighbors(node1)
             .filter(|&nb| mesh_graph.contains_edge(node2, nb))
         {
-            let triangle = sorted_triangle([node1.index(), node2.index(), neighbor.index()]);
+            let mut triangle = [node1.index(), node2.index(), neighbor.index()];
+            triangle.sort_unstable();
             triangles.insert(triangle);
         }
     }
     triangles
         .into_iter()
-        .map(|triangle| to_ccw_order(triangle.0, mesh_graph))
+        .map(|triangle| to_ccw_order(triangle, mesh_graph))
         .collect_vec()
 }
 
@@ -336,7 +378,13 @@ fn to_ccw_order(triangle: [usize; 3], mesh_graph: &MeshErrorGraph) -> [usize; 3]
     let vertex1 = mesh_graph.index(NodeIndex::new(v1)).position;
     let vertex2 = mesh_graph.index(NodeIndex::new(v2)).position;
     let vertex3 = mesh_graph.index(NodeIndex::new(v3)).position;
-    // TODO
+
+    // TODO: this ony works on faces that are outward facing of the origin
+
+    let normal = (vertex2 - vertex1).cross(&(vertex3 - vertex1));
+    if normal.dot(&(vertex1 - ORIGIN)) < 0.0 {
+        return [v1, v3, v2];
+    }
     [v1, v2, v3]
 }
 
@@ -592,8 +640,8 @@ impl Mesh {
         self.indices.len()
     }
 
-    /// generates the AOS mesh for easier data parsing
-    fn aos_mesh(&self) -> AlgorithmMesh {
+    /// generates the AOS based algorithm mesh for easier data parsing
+    fn algorithm_mesh(&self) -> AlgorithmMesh {
         let mut original_mesh_faces = vec![[0, 0, 0]; self.indices.len() / 3];
         for (i, index) in self.indices.iter().enumerate() {
             original_mesh_faces[i / 3][i % 3] = *index as usize;
@@ -704,19 +752,19 @@ impl Mesh {
 
     /// generates all the simpified meshes for the lod levels
     pub(crate) fn generate_lods(&self) -> [Mesh; 4] {
-        let lod1 = self.aos_mesh().simplified().to_mesh();
-        //let lod2 = lod1.aos_mesh().simplified().to_mesh();
-        //let lod3 = lod2.aos_mesh().simplified().to_mesh();
-        //let lod4 = lod3.aos_mesh().simplified().to_mesh();
-        [lod1.clone(), lod1.clone(), lod1.clone(), lod1]
+        let lod1 = self.algorithm_mesh().simplified().to_mesh();
+        let lod2 = lod1.algorithm_mesh().simplified().to_mesh();
+        let lod3 = lod2.algorithm_mesh().simplified().to_mesh();
+        let lod4 = lod3.algorithm_mesh().simplified().to_mesh();
+        [lod1, lod2, lod3, lod4]
     }
 
     /// generates the meshes' hitbox for the given hitbox type
     #[rustfmt::skip]
     pub(crate) fn generate_hitbox(&self, hitbox: &HitboxType) -> Hitbox {
         match hitbox {
-            HitboxType::ConvexHull => Hitbox::ConvexMesh(self.aos_mesh().hitbox_mesh().convex_hull()),
-            HitboxType::SimplifiedConvexHull => Hitbox::ConvexMesh(self.aos_mesh().simplified().hitbox_mesh().convex_hull()),
+            HitboxType::ConvexHull => Hitbox::ConvexMesh(self.algorithm_mesh().hitbox_mesh().convex_hull()),
+            HitboxType::SimplifiedConvexHull => Hitbox::ConvexMesh(self.algorithm_mesh().simplified().hitbox_mesh().convex_hull()),
             HitboxType::Ellipsiod => Hitbox::Ellipsoid(self.max_reach),
             HitboxType::Box => Hitbox::Box(HitboxMesh::box_from_dimensions(&self.max_reach)),
         }
