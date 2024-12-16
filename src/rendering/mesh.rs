@@ -31,14 +31,13 @@ struct AlgorithmMesh {
     vertices: Vec<glm::Vec3>,
     faces: Vec<[usize; 3]>,
     triangle_map: HashMap<usize, HashSet<TriangleID>>,
-    manifestations: HashMap<(TriangleID, usize), VertexManifestation>,
+    windings: HashMap<TriangleID, [usize; 3]>,
 }
 
 impl AlgorithmMesh {
     /// converts back to a regular mesh
     fn to_mesh(self) -> Mesh {
         let mut positions = Vec::new();
-        let mut texture_coords = Vec::new();
         let mut normals = Vec::new();
         let mut indices = Vec::new();
 
@@ -46,22 +45,15 @@ impl AlgorithmMesh {
             let position1 = self.vertices[face[0]];
             let position2 = self.vertices[face[1]];
             let position3 = self.vertices[face[2]];
-            let triangle_id = self.triangle_id_from_indices(*face);
-            let manifestation1 = self.manifestations.get(&(triangle_id, face[0])).unwrap();
-            let manifestation2 = self.manifestations.get(&(triangle_id, face[1])).unwrap();
-            let manifestation3 = self.manifestations.get(&(triangle_id, face[2])).unwrap();
 
             positions.extend_from_slice(&[position1, position2, position3]);
-            texture_coords.extend_from_slice(&[
-                manifestation1.uv,
-                manifestation2.uv,
-                manifestation3.uv,
-            ]);
-            normals.extend_from_slice(&[
-                manifestation1.normal,
-                manifestation2.normal,
-                manifestation3.normal,
-            ]);
+
+            let normal = (position2 - position1)
+                .cross(&(position3 - position1))
+                .normalize();
+
+            normals.extend_from_slice(&[normal, normal, normal]);
+
             indices.extend_from_slice(&[
                 (positions.len() - 3) as GLuint,
                 (positions.len() - 2) as GLuint,
@@ -71,7 +63,7 @@ impl AlgorithmMesh {
 
         Mesh {
             positions,
-            texture_coords,
+            texture_coords: vec![glm::Vec2::zeros(); self.faces.len() * 3],
             normals,
             indices,
             max_reach: self
@@ -183,7 +175,7 @@ impl AlgorithmMesh {
         }
 
         // reconstruct the mesh from the final graph data
-        self.faces = convert_graph_edges_to_triangles(&mesh_graph);
+        self.convert_graph_edges_to_triangles(&mesh_graph);
         self.convert_graph_nodes_to_vertices(&mesh_graph);
         self.remove_unused_vertices();
         self
@@ -193,7 +185,7 @@ impl AlgorithmMesh {
     fn remove_unused_vertices(&mut self) {
         let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
         for i in 0..self.vertices.len() {
-            while !used_indices.contains(&i) && i < self.vertices.len() {
+            while !used_indices.contains(&i) && i < self.vertices.len() - 1 {
                 self.vertices.swap_remove(i);
                 self.faces
                     .iter_mut()
@@ -201,24 +193,18 @@ impl AlgorithmMesh {
                     .filter(|index| **index == self.vertices.len())
                     .for_each(|index| *index = i);
 
-                if let Some(ids) = self.triangle_map.remove(&self.vertices.len()) {
+                if used_indices.remove(&self.vertices.len()) {
+                    used_indices.insert(i);
+                    let ids = self.triangle_map.remove(&self.vertices.len()).unwrap();
                     for id in ids.iter() {
-                        if let Some(manifs) =
-                            self.manifestations.remove(&(*id, self.vertices.len()))
-                        {
-                            self.manifestations.insert((*id, i), manifs);
+                        if let Some(winding) = self.windings.remove(id) {
+                            self.windings.insert(*id, winding);
                         }
                     }
                     self.triangle_map.insert(i, ids);
                 }
-                if used_indices.remove(&self.vertices.len()) {
-                    used_indices.insert(i);
-                }
             }
             debug_assert!(self.vertices.len() > 0);
-            if i >= self.vertices.len() - 1 {
-                break;
-            }
         }
     }
 
@@ -247,6 +233,26 @@ impl AlgorithmMesh {
         triangle_id
     }
 
+    /// converts the graph representation of the mesh into the triangle face representation
+    fn convert_graph_edges_to_triangles(&mut self, mesh_graph: &MeshErrorGraph) {
+        let mut triangles = HashSet::new();
+        for (node1, node2) in mesh_graph
+            .edge_indices()
+            .map(|idx| mesh_graph.edge_endpoints(idx).unwrap())
+        {
+            for neighbor in mesh_graph
+                .neighbors(node1)
+                .filter(|&nb| mesh_graph.contains_edge(node2, nb))
+            {
+                let triangle = [node1.index(), node2.index(), neighbor.index()];
+                let triangle_id = self.triangle_id_from_indices(triangle);
+                let triangle_correct_winding = *self.windings.get(&triangle_id).unwrap();
+                triangles.insert(triangle_correct_winding);
+            }
+        }
+        self.faces = triangles.into_iter().collect_vec();
+    }
+
     /// contracts a pair in the mesh simplification algorithm and modifies the relevant pairs and error data
     fn contract_pair(
         &mut self,
@@ -254,7 +260,18 @@ impl AlgorithmMesh {
         mesh_graph: &mut MeshErrorGraph,
         valid_pairs: &mut BinaryHeap<ErrorVertexPair>,
     ) {
-        // TODO: in the future account for flipping of face normals to prevent two faces folding in on each other
+        // prevent two faces folding in on each other
+        if mesh_graph
+            .neighbors(pair.v1)
+            .filter(|&nb| nb != pair.v2)
+            .tuple_combinations()
+            .filter(|&(nb1, nb2)| mesh_graph.contains_edge(nb1, nb2))
+            .any(|(nb1, nb2)| {
+                mesh_graph.contains_edge(nb1, pair.v2) && mesh_graph.contains_edge(nb2, pair.v2)
+            })
+        {
+            return;
+        }
 
         // for all triangles that are effectively deleted remove entries from triangle map and manifestations (only relevant for pairs that are edges)
         if mesh_graph.contains_edge(pair.v1, pair.v2) {
@@ -275,15 +292,7 @@ impl AlgorithmMesh {
                 let triangles_neighbor = self.triangle_map.get_mut(&neighbor.index()).unwrap();
                 assert!(triangles_neighbor.remove(&triangle_id));
 
-                self.manifestations
-                    .remove(&(triangle_id, pair.v1.index()))
-                    .unwrap();
-                self.manifestations
-                    .remove(&(triangle_id, pair.v2.index()))
-                    .unwrap();
-                self.manifestations
-                    .remove(&(triangle_id, neighbor.index()))
-                    .unwrap();
+                self.windings.remove(&triangle_id).unwrap();
             }
         }
 
@@ -295,33 +304,29 @@ impl AlgorithmMesh {
         v1_ref.position = pair.v_new;
         v1_ref.error_matrix = vertex1.error_matrix + vertex2.error_matrix;
 
-        // delete v2's manifestations and insert them into the map's entries for v1
-        let v2_manifests = self
-            .triangle_map
-            .get(&pair.v2.index())
-            .unwrap()
-            .iter()
-            .map(|id| {
-                (
-                    *id,
-                    self.manifestations.remove(&(*id, pair.v2.index())).unwrap(),
-                )
-            })
-            .collect_vec();
-
-        for manifest in v2_manifests {
-            self.manifestations
-                .insert((manifest.0, pair.v1.index()), manifest.1);
+        // exchange v2 for v1 in the windings of triangles that it was a part of
+        for id in self.triangle_map.get(&pair.v2.index()).unwrap().iter() {
+            let triangle = self.windings.get_mut(id).unwrap();
+            debug_assert!(!triangle.contains(&pair.v1.index()));
+            let index_to_switch = triangle
+                .iter_mut()
+                .find(|i| **i == pair.v2.index())
+                .unwrap();
+            *index_to_switch = pair.v1.index();
         }
 
-        // delete v2's associated triangles and insert them into the map's entry for v1
+        // delete v2's associated triangles and insert them into the ones for v1
         let triangles_of_v2 = self.triangle_map.remove(&pair.v2.index()).unwrap();
         self.triangle_map
             .get_mut(&pair.v1.index())
             .unwrap()
             .extend(triangles_of_v2);
 
-        // connect all of v2's edges to v1 and add new valid pairs
+        // remove all pairs containing v1 or v2
+        valid_pairs
+            .retain(|p| p.v1 != pair.v1 && p.v2 != pair.v1 && p.v1 != pair.v2 && p.v2 != pair.v2);
+
+        // connect all of v2's triangle edges to v1
         let connected_to_v2 = mesh_graph
             .neighbors(pair.v2)
             .filter(|&neighbor| neighbor != pair.v1)
@@ -329,63 +334,18 @@ impl AlgorithmMesh {
             .collect_vec();
 
         for node in connected_to_v2 {
-            if mesh_graph
-                .neighbors(node)
-                .filter(|&nb| nb != pair.v2 && !mesh_graph.contains_edge(nb, pair.v2))
-                .any(|nb| mesh_graph.contains_edge(nb, pair.v1))
-            {
-                // avoid adding invalid triangles
-                // TODO: this is probably not precise enough, maybe actually create new triangles? Just recompute the manifestations in the end?
-                continue;
-            }
             mesh_graph.add_edge(pair.v1, node, ());
-            add_valid_vertex_pair(pair.v1, node, &mesh_graph, valid_pairs);
-            // NOTE: at this point we dont add the ones with the error threshold for performance reasons -> TODO
         }
+
         // delete v2
         mesh_graph.remove_node(pair.v2).unwrap();
 
-        // remove all pairs containing v2
-        valid_pairs.retain(|p| p.v1 != pair.v2 && p.v2 != pair.v2);
-    }
-}
-
-/// converts the graph representation of the mesh into the triangle face representation
-fn convert_graph_edges_to_triangles(mesh_graph: &MeshErrorGraph) -> Vec<[usize; 3]> {
-    let mut triangles = HashSet::new();
-    for (node1, node2) in mesh_graph
-        .edge_indices()
-        .map(|idx| mesh_graph.edge_endpoints(idx).unwrap())
-    {
-        for neighbor in mesh_graph
-            .neighbors(node1)
-            .filter(|&nb| mesh_graph.contains_edge(node2, nb))
-        {
-            let mut triangle = [node1.index(), node2.index(), neighbor.index()];
-            triangle.sort_unstable();
-            triangles.insert(triangle);
+        // compute new valid pairs
+        for neighbor in mesh_graph.neighbors(pair.v1) {
+            add_valid_vertex_pair(pair.v1, neighbor, &mesh_graph, valid_pairs);
+            // NOTE: at this point we dont add the ones with the error threshold for performance reasons -> TODO?
         }
     }
-    triangles
-        .into_iter()
-        .map(|triangle| to_ccw_order(triangle, mesh_graph))
-        .collect_vec()
-}
-
-/// ensures that a given triangle is in counter clock whise order
-fn to_ccw_order(triangle: [usize; 3], mesh_graph: &MeshErrorGraph) -> [usize; 3] {
-    let [v1, v2, v3] = triangle;
-    let vertex1 = mesh_graph.index(NodeIndex::new(v1)).position;
-    let vertex2 = mesh_graph.index(NodeIndex::new(v2)).position;
-    let vertex3 = mesh_graph.index(NodeIndex::new(v3)).position;
-
-    // TODO: this ony works on faces that are outward facing of the origin
-
-    let normal = (vertex2 - vertex1).cross(&(vertex3 - vertex1));
-    if normal.dot(&(vertex1 - ORIGIN)) < 0.0 {
-        return [v1, v3, v2];
-    }
-    [v1, v2, v3]
 }
 
 /// calculates the initital error matrix for a vertex at index
@@ -650,7 +610,7 @@ impl Mesh {
         let mut vertices: Vec<glm::Vec3> = Vec::new();
         let mut faces = Vec::with_capacity(original_mesh_faces.len());
         let mut triangle_map: HashMap<usize, HashSet<TriangleID>> = HashMap::new();
-        let mut manifestations: HashMap<(TriangleID, usize), VertexManifestation> = HashMap::new();
+        let mut windings: HashMap<TriangleID, [usize; 3]> = HashMap::new();
 
         for (i, face) in original_mesh_faces.into_iter().enumerate() {
             let mut aos_indices = [0_usize; 3];
@@ -658,15 +618,11 @@ impl Mesh {
 
             for (i, index) in face.into_iter().enumerate() {
                 let position = self.positions[index];
-                let manifestation = VertexManifestation {
-                    normal: self.normals[index],
-                    uv: self.texture_coords[index],
-                };
 
                 let vertex_index = vertices
                     .iter()
                     .enumerate()
-                    .find(|(_, point)| **point == position)
+                    .find(|&(_, point)| *point == position)
                     .map(|(i, _)| i)
                     .unwrap_or_else(|| {
                         vertices.push(position);
@@ -675,22 +631,19 @@ impl Mesh {
 
                 aos_indices[i] = vertex_index;
 
-                let insert_result =
-                    manifestations.insert((triangle_id, vertex_index), manifestation);
-                debug_assert!(insert_result.is_none());
-
                 triangle_map
                     .entry(vertex_index)
                     .or_default()
                     .insert(triangle_id);
             }
+            assert!(windings.insert(triangle_id, aos_indices).is_none());
             faces.push(aos_indices);
         }
         AlgorithmMesh {
             vertices,
             faces,
             triangle_map,
-            manifestations,
+            windings,
         }
     }
 
@@ -1005,7 +958,7 @@ impl HitboxMesh {
     fn remove_unused_vertices(&mut self) {
         let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
         for i in 0..self.vertices.len() {
-            while !used_indices.contains(&i) && i < self.vertices.len() {
+            while !used_indices.contains(&i) && i < self.vertices.len() - 1 {
                 self.vertices.swap_remove(i);
                 self.faces
                     .iter_mut()
@@ -1017,9 +970,6 @@ impl HitboxMesh {
                 }
             }
             debug_assert!(self.vertices.len() > 0);
-            if i >= self.vertices.len() - 1 {
-                break;
-            }
         }
     }
 }
