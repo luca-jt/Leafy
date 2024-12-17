@@ -138,7 +138,7 @@ impl AlgorithmMesh {
                 edge.sort_unstable();
                 edge
             })
-            .collect::<HashSet<_>>();
+            .unique();
 
         let mut mesh_graph = MeshErrorGraph::default();
 
@@ -217,7 +217,12 @@ impl AlgorithmMesh {
     }
 
     /// yields the triangle id for a given set of indices
-    fn triangle_id_from_indices(&self, face: [usize; 3]) -> TriangleID {
+    fn triangle_id_from_indices(&self, face: [usize; 3]) -> Option<TriangleID> {
+        // @Cleanup: there seem to be some cases where there are triangles created that should not exist
+        // to fix this temporarily we just skip them and return None
+        // this is kind of dirty and should be cleaned up later on
+        // there might be a bigger underlying issue associated with that
+
         let triangles1 = self.triangle_map.get(&face[0]).unwrap();
         let triangles2 = self.triangle_map.get(&face[1]).unwrap();
         let triangles3 = self.triangle_map.get(&face[2]).unwrap();
@@ -225,32 +230,34 @@ impl AlgorithmMesh {
         let mut common_id_iter = triangles1
             .iter()
             .filter(|&id| triangles2.contains(id) && triangles3.contains(id));
-        let triangle_id = *common_id_iter.next().expect("no common triangle id");
+        let triangle_id = *common_id_iter.next()?;
         assert!(
             common_id_iter.next().is_none(),
             "more than one common triangle id"
         );
-        triangle_id
+        Some(triangle_id)
     }
 
     /// converts the graph representation of the mesh into the triangle face representation
     fn convert_graph_edges_to_triangles(&mut self, mesh_graph: &MeshErrorGraph) {
-        let mut triangles = HashSet::new();
-        for (node1, node2) in mesh_graph
+        self.faces = mesh_graph
             .edge_indices()
             .map(|idx| mesh_graph.edge_endpoints(idx).unwrap())
-        {
-            for neighbor in mesh_graph
-                .neighbors(node1)
-                .filter(|&nb| mesh_graph.contains_edge(node2, nb))
-            {
-                let triangle = [node1.index(), node2.index(), neighbor.index()];
-                let triangle_id = self.triangle_id_from_indices(triangle);
-                let triangle_correct_winding = *self.windings.get(&triangle_id).unwrap();
-                triangles.insert(triangle_correct_winding);
-            }
-        }
-        self.faces = triangles.into_iter().collect_vec();
+            .map(|(node1, node2)| {
+                mesh_graph
+                    .neighbors(node1)
+                    .filter(|nb| mesh_graph.contains_edge(node2, *nb))
+                    .filter_map(|nb| {
+                        let triangle = [node1.index(), node2.index(), nb.index()];
+                        let triangle_id = self.triangle_id_from_indices(triangle)?;
+                        let triangle_correct_winding = *self.windings.get(&triangle_id).unwrap();
+                        Some(triangle_correct_winding)
+                    })
+                    .collect_vec()
+            })
+            .flatten()
+            .unique()
+            .collect_vec();
     }
 
     /// contracts a pair in the mesh simplification algorithm and modifies the relevant pairs and error data
@@ -279,20 +286,20 @@ impl AlgorithmMesh {
                 .neighbors(pair.v1)
                 .filter(|&nb| mesh_graph.contains_edge(nb, pair.v2))
             {
-                let triangle_id = self.triangle_id_from_indices([
+                if let Some(triangle_id) = self.triangle_id_from_indices([
                     pair.v1.index(),
                     pair.v2.index(),
                     neighbor.index(),
-                ]);
+                ]) {
+                    let triangles_v1 = self.triangle_map.get_mut(&pair.v1.index()).unwrap();
+                    assert!(triangles_v1.remove(&triangle_id));
+                    let triangles_v2 = self.triangle_map.get_mut(&pair.v2.index()).unwrap();
+                    assert!(triangles_v2.remove(&triangle_id));
+                    let triangles_neighbor = self.triangle_map.get_mut(&neighbor.index()).unwrap();
+                    assert!(triangles_neighbor.remove(&triangle_id));
 
-                let triangles_v1 = self.triangle_map.get_mut(&pair.v1.index()).unwrap();
-                assert!(triangles_v1.remove(&triangle_id));
-                let triangles_v2 = self.triangle_map.get_mut(&pair.v2.index()).unwrap();
-                assert!(triangles_v2.remove(&triangle_id));
-                let triangles_neighbor = self.triangle_map.get_mut(&neighbor.index()).unwrap();
-                assert!(triangles_neighbor.remove(&triangle_id));
-
-                self.windings.remove(&triangle_id).unwrap();
+                    self.windings.remove(&triangle_id).unwrap();
+                }
             }
         }
 
@@ -442,19 +449,12 @@ struct ErrorVertex {
 }
 
 /// stores one vertex pair with error data that is used in the mesh simplification algorithm
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 struct ErrorVertexPair {
     v1: NodeIndex<usize>,
     v2: NodeIndex<usize>,
     error: f32,
     v_new: glm::Vec3,
-}
-
-impl PartialEq<Self> for ErrorVertexPair {
-    fn eq(&self, other: &Self) -> bool {
-        // we want the error pairs to be unordered, so this accounts for that
-        self.v1 == other.v1 && self.v2 == other.v2 || self.v1 == other.v2 && self.v2 == other.v1
-    }
 }
 
 impl Eq for ErrorVertexPair {}
