@@ -718,8 +718,8 @@ impl Mesh {
         match hitbox {
             HitboxType::ConvexHull => Hitbox::ConvexMesh(self.algorithm_mesh().hitbox_mesh().convex_hull()),
             HitboxType::SimplifiedConvexHull => Hitbox::ConvexMesh(self.algorithm_mesh().simplified().hitbox_mesh().convex_hull()),
-            HitboxType::Ellipsiod => Hitbox::Ellipsoid(self.max_reach),
-            HitboxType::Box => Hitbox::Box(HitboxMesh::box_from_dimensions(&self.max_reach)),
+            HitboxType::Sphere => Hitbox::Sphere(self.max_reach.max()),
+            HitboxType::Box => Hitbox::ConvexMesh(HitboxMesh::box_from_dimensions(&self.max_reach)),
         }
     }
 }
@@ -750,14 +750,13 @@ fn inertia_product(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize, j: us
 /// all possible versions of hitboxes
 pub(crate) enum Hitbox {
     ConvexMesh(HitboxMesh),
-    Ellipsoid(glm::Vec3),
-    Box(HitboxMesh),
+    Sphere(f32),
 }
 
 /// contains all of the hitbox vertex data
 pub(crate) struct HitboxMesh {
-    vertices: Vec<glm::Vec3>,
-    faces: Vec<[usize; 3]>,
+    pub(crate) vertices: Vec<glm::Vec3>,
+    pub(crate) faces: Vec<[usize; 3]>,
 }
 
 impl HitboxMesh {

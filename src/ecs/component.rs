@@ -511,7 +511,7 @@ pub mod utils {
     pub enum HitboxType {
         ConvexHull,
         SimplifiedConvexHull,
-        Ellipsiod,
+        Sphere,
         Box,
     }
 }

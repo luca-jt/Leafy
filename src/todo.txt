@@ -19,4 +19,5 @@ conways game of life example
 ui basics + font rendering + events for ui struct
 sprite renderer -> depth layers configurable, sprite component
 for on collision event functions for entities -> info about the collision is stored inside the collider component
-collision + friction -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
+more hitbox options like capsule and cylinder + allow for hitboxes to be detached from entity rotation
+collision -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | https://winter.dev/articles/gjk-algorithm

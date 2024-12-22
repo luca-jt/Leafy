@@ -9,7 +9,7 @@ use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::internal::*;
 use crate::utils::constants::bits::user_level::*;
-use crate::utils::constants::{G, Y_AXIS};
+use crate::utils::constants::{G, ORIGIN, X_AXIS, Y_AXIS};
 use crate::utils::tools::{copied_or_default, to_vec4};
 use itertools::Itertools;
 use std::ops::DerefMut;
@@ -53,19 +53,12 @@ impl AnimationSystem {
         let dt = self.time_of_last_sim.delta_time() * self.animation_speed;
         self.time_accumulated += dt;
         while self.time_accumulated >= self.time_step_size {
-            self.simulate_timestep(engine);
+            self.apply_physics(engine.entity_manager_mut().deref_mut(), self.time_step_size);
+            self.update_cam(engine, self.time_step_size);
             self.time_accumulated -= self.time_step_size;
         }
+        self.handle_collisions(engine.entity_manager_mut().deref_mut()); // TODO: only once per frame for perfomance reasons?
         self.time_of_last_sim.reset();
-    }
-
-    /// simulate one full time step in the system
-    fn simulate_timestep<T: FallingLeafApp>(&mut self, engine: &Engine<T>) {
-        if self.current_mode == EngineMode::Running {
-            self.apply_physics(engine.entity_manager_mut().deref_mut(), self.time_step_size);
-            self.handle_collisions(engine.entity_manager_mut().deref_mut());
-        }
-        self.update_cam(engine, self.time_step_size);
     }
 
     /// checks for collision between entities with hitboxes and resolves them
@@ -513,9 +506,11 @@ struct ColliderData<'a> {
 impl ColliderData<'_> {
     /// checks if two hitboxes collide with each other
     pub(crate) fn collides_with(&self, other: &Self) -> Option<CollisionData> {
+        // assume the normal vector is form the point of view of 1
+        // the normal vector in the collision data should be normalized
         match self.hitbox {
             Hitbox::ConvexMesh(mesh1) => match other.hitbox {
-                Hitbox::ConvexMesh(mesh2) => seperating_axis(
+                Hitbox::ConvexMesh(mesh2) => mesh_collision(
                     mesh1,
                     mesh2,
                     &self.model,
@@ -523,28 +518,20 @@ impl ColliderData<'_> {
                     self.collider,
                     other.collider,
                 ),
-                Hitbox::Ellipsoid(dim) => mesh_ellipsoid_collision(
+                Hitbox::Sphere(radius) => mesh_sphere_collision(
                     mesh1,
-                    dim,
-                    &self.model,
-                    &other.model,
-                    self.collider,
-                    other.collider,
-                ),
-                Hitbox::Box(mesh2) => seperating_axis(
-                    mesh1,
-                    mesh2,
+                    *radius,
                     &self.model,
                     &other.model,
                     self.collider,
                     other.collider,
                 ),
             },
-            Hitbox::Ellipsoid(dim1) => match other.hitbox {
+            Hitbox::Sphere(radius1) => match other.hitbox {
                 Hitbox::ConvexMesh(mesh) => {
-                    mesh_ellipsoid_collision(
+                    mesh_sphere_collision(
                         mesh,
-                        dim1,
+                        *radius1,
                         &other.model,
                         &self.model,
                         other.collider,
@@ -557,51 +544,9 @@ impl ColliderData<'_> {
                         cd
                     })
                 }
-                Hitbox::Ellipsoid(dim2) => ellipsoid_collision(
-                    dim1,
-                    dim2,
-                    &self.model,
-                    &other.model,
-                    self.collider,
-                    other.collider,
-                ),
-                Hitbox::Box(mesh) => {
-                    mesh_ellipsoid_collision(
-                        mesh,
-                        dim1,
-                        &other.model,
-                        &self.model,
-                        other.collider,
-                        self.collider,
-                    )
-                    .map(|mut cd| {
-                        // invert the vectors because the order changed in the function parameters
-                        cd.translation_vec = -cd.translation_vec;
-                        cd.collision_normal = -cd.collision_normal;
-                        cd
-                    })
-                }
-            },
-            Hitbox::Box(mesh1) => match other.hitbox {
-                Hitbox::ConvexMesh(mesh2) => seperating_axis(
-                    mesh1,
-                    mesh2,
-                    &self.model,
-                    &other.model,
-                    self.collider,
-                    other.collider,
-                ),
-                Hitbox::Ellipsoid(dim) => mesh_ellipsoid_collision(
-                    mesh1,
-                    dim,
-                    &self.model,
-                    &other.model,
-                    self.collider,
-                    other.collider,
-                ),
-                Hitbox::Box(mesh2) => seperating_axis(
-                    mesh1,
-                    mesh2,
+                Hitbox::Sphere(radius2) => sphere_collision(
+                    *radius1,
+                    *radius2,
                     &self.model,
                     &other.model,
                     self.collider,
@@ -612,35 +557,59 @@ impl ColliderData<'_> {
     }
 }
 
-// for convex GJK for detection and EPA for penetration depth calculation or SAT
-// calculate the minimum translation vector to seperate the two colliders and calculate the collision normal
-// assume the normal vector is form the point of view of 1
-// the normal vector in the collision data should be normalized
-
-fn ellipsoid_collision(
-    ell1: &glm::Vec3,
-    ell2: &glm::Vec3,
+/// handles the collision of two spheres
+fn sphere_collision(
+    radius1: f32,
+    radius2: f32,
     m1: &glm::Mat4,
     m2: &glm::Mat4,
     coll1: &Collider,
     coll2: &Collider,
 ) -> Option<CollisionData> {
-    // x^2/a^2 + y^2/b^2 + z^2/c^2 = 1
-    None
+    let spec1 = SphereColliderSpec {
+        transformed_dimensions: (m1
+            * coll1.scale.scale_matrix()
+            * glm::translate(&glm::Mat4::identity(), &coll1.offset)
+            * glm::Vec4::from_element(radius1))
+        .xyz(),
+    };
+    let spec2 = SphereColliderSpec {
+        transformed_dimensions: (m2
+            * coll2.scale.scale_matrix()
+            * glm::translate(&glm::Mat4::identity(), &coll2.offset)
+            * glm::Vec4::from_element(radius2))
+        .xyz(),
+    };
+    gjk_epa(spec1, spec2)
 }
 
-fn mesh_ellipsoid_collision(
-    bx: &HitboxMesh,
-    ell: &glm::Vec3,
+/// handles the collision of a sphere and a mesh
+fn mesh_sphere_collision(
+    mesh: &HitboxMesh,
+    radius: f32,
     m1: &glm::Mat4,
     m2: &glm::Mat4,
     coll1: &Collider,
     coll2: &Collider,
 ) -> Option<CollisionData> {
-    None
+    let spec1 = MeshColliderSpec {
+        transform: m1
+            * coll1.scale.scale_matrix()
+            * glm::translate(&glm::Mat4::identity(), &coll1.offset),
+        points: &mesh.vertices,
+    };
+    let spec2 = SphereColliderSpec {
+        transformed_dimensions: (m2
+            * coll2.scale.scale_matrix()
+            * glm::translate(&glm::Mat4::identity(), &coll2.offset)
+            * glm::Vec4::from_element(radius))
+        .xyz(),
+    };
+    gjk_epa(spec1, spec2)
 }
 
-fn seperating_axis(
+/// handles the collision of two meshes
+fn mesh_collision(
     mesh1: &HitboxMesh,
     mesh2: &HitboxMesh,
     m1: &glm::Mat4,
@@ -648,5 +617,215 @@ fn seperating_axis(
     coll1: &Collider,
     coll2: &Collider,
 ) -> Option<CollisionData> {
-    None
+    let spec1 = MeshColliderSpec {
+        transform: m1
+            * coll1.scale.scale_matrix()
+            * glm::translate(&glm::Mat4::identity(), &coll1.offset),
+        points: &mesh1.vertices,
+    };
+    let spec2 = MeshColliderSpec {
+        transform: m2
+            * coll2.scale.scale_matrix()
+            * glm::translate(&glm::Mat4::identity(), &coll2.offset),
+        points: &mesh2.vertices,
+    };
+    gjk_epa(spec1, spec2)
+}
+
+/// allows to find the furthest point in a given direction of a collider generially
+trait ColliderSpec {
+    fn find_furthest_point(&self, direction: glm::Vec3) -> glm::Vec3;
+}
+
+struct SphereColliderSpec {
+    transformed_dimensions: glm::Vec3,
+}
+
+impl ColliderSpec for SphereColliderSpec {
+    fn find_furthest_point(&self, direction: glm::Vec3) -> glm::Vec3 {
+        // x^2/a^2 + y^2/b^2 + z^2/c^2 = 1
+        todo!()
+    }
+}
+
+struct MeshColliderSpec<'a> {
+    transform: glm::Mat4,
+    points: &'a Vec<glm::Vec3>,
+}
+
+impl ColliderSpec for MeshColliderSpec<'_> {
+    fn find_furthest_point(&self, direction: glm::Vec3) -> glm::Vec3 {
+        self.points
+            .iter()
+            .map(|point| (self.transform * to_vec4(point)).xyz())
+            .map(|point| (point, point.dot(&direction)))
+            .max_by(|(_, dot1), (_, dot2)| dot1.partial_cmp(dot2).unwrap())
+            .unwrap()
+            .0
+    }
+}
+
+struct Simplex {
+    points: [glm::Vec3; 4],
+    size: usize,
+}
+
+impl Simplex {
+    fn new() -> Self {
+        Self {
+            points: [ORIGIN, ORIGIN, ORIGIN, ORIGIN],
+            size: 0,
+        }
+    }
+
+    fn num_points(&self) -> usize {
+        4 - self.size
+    }
+
+    fn push_front(&mut self, element: glm::Vec3) {
+        self.points = [element, self.points[0], self.points[1], self.points[2]];
+        self.size = 4.min(self.size + 1)
+    }
+}
+
+/// implementation of the GJK algorithm and EPA algortihm for detecting collisions
+fn gjk_epa(collider1: impl ColliderSpec, collider2: impl ColliderSpec) -> Option<CollisionData> {
+    let mut supp = support(&collider1, &collider2, X_AXIS);
+    let mut simplex = Simplex::new();
+    simplex.push_front(supp);
+    let mut direction = -supp;
+
+    loop {
+        supp = support(&collider1, &collider2, direction);
+        if !is_same_direction(&direction, &supp) {
+            return None;
+        }
+        simplex.push_front(supp);
+        if next_simplex(&mut simplex, &mut direction) {
+            // EPA
+            todo!()
+        }
+    }
+}
+
+/// dispatcher of the different simplex cases that modify the current state of the GJK algorithm
+fn next_simplex(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+    match simplex.num_points() {
+        2 => line(simplex, direction),
+        3 => triangle(simplex, direction),
+        4 => tetrahedron(simplex, direction),
+        _ => panic!("corrupt simplex size"),
+    }
+}
+
+/// handles the line simplex case in GJK
+fn line(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+    let a = simplex.points[0];
+    let b = simplex.points[1];
+    let ab = b - a;
+    let ao = -a;
+
+    if is_same_direction(&ab, &ao) {
+        *direction = ab.cross(&ao).cross(&ab);
+    } else {
+        *simplex = Simplex::new();
+        simplex.push_front(a);
+        *direction = ao;
+    }
+    false
+}
+
+/// handles the traingle simplex case in GJK
+fn triangle(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+    let a = simplex.points[0];
+    let b = simplex.points[1];
+    let c = simplex.points[2];
+    let ab = b - a;
+    let ac = c - a;
+    let ao = -a;
+    let abc = ab.cross(&ac);
+
+    if is_same_direction(&abc.cross(&ac), &ao) {
+        if is_same_direction(&ac, &ao) {
+            *simplex = Simplex::new();
+            simplex.push_front(a);
+            simplex.push_front(c);
+            *direction = ac.cross(&ao).cross(&ac);
+        } else {
+            let mut new_simplex = Simplex::new();
+            simplex.push_front(a);
+            simplex.push_front(b);
+            return line(&mut new_simplex, direction);
+        }
+    } else {
+        if is_same_direction(&ab.cross(&abc), &ao) {
+            let mut new_simplex = Simplex::new();
+            simplex.push_front(a);
+            simplex.push_front(b);
+            return line(&mut new_simplex, direction);
+        } else {
+            if is_same_direction(&abc, &ao) {
+                *direction = abc;
+            } else {
+                *simplex = Simplex::new();
+                simplex.push_front(a);
+                simplex.push_front(c);
+                simplex.push_front(b);
+                *direction = -abc;
+            }
+        }
+    }
+    false
+}
+
+/// handles the tetrahedron simplex case in GJK
+fn tetrahedron(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+    let a = simplex.points[0];
+    let b = simplex.points[1];
+    let c = simplex.points[2];
+    let d = simplex.points[3];
+    let ab = b - a;
+    let ac = c - a;
+    let ad = d - a;
+    let ao = -a;
+    let abc = ab.cross(&ac);
+    let acd = ac.cross(&ad);
+    let adb = ad.cross(&ab);
+
+    if is_same_direction(&abc, &ao) {
+        let mut new_simplex = Simplex::new();
+        simplex.push_front(a);
+        simplex.push_front(b);
+        simplex.push_front(c);
+        return triangle(&mut new_simplex, direction);
+    }
+    if is_same_direction(&acd, &ao) {
+        let mut new_simplex = Simplex::new();
+        simplex.push_front(a);
+        simplex.push_front(c);
+        simplex.push_front(d);
+        return triangle(&mut new_simplex, direction);
+    }
+    if is_same_direction(&adb, &ao) {
+        let mut new_simplex = Simplex::new();
+        simplex.push_front(a);
+        simplex.push_front(d);
+        simplex.push_front(b);
+        return triangle(&mut new_simplex, direction);
+    }
+    true
+}
+
+/// checks if two vectors point in the same direction
+fn is_same_direction(direction: &glm::Vec3, other: &glm::Vec3) -> bool {
+    direction.dot(other) > 0.0
+}
+
+/// computes the support point of the Minkowski difference of the two colliders in a given direction
+fn support(
+    collider1: &impl ColliderSpec,
+    collider2: &impl ColliderSpec,
+    direction: glm::Vec3,
+) -> glm::Vec3 {
+    collider1.find_furthest_point(direction) - collider2.find_furthest_point(-direction)
 }
