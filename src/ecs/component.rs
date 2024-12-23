@@ -217,29 +217,29 @@ impl Default for Acceleration {
     }
 }
 
-/// describes an angular velocity by the rotational axis (rhs rotaion) and its length (velocity in radiants per second)
+/// describes an angular momentum by the rotational axis (rhs rotation) and its length (momentum)
 #[derive(Debug, Clone, PartialEq, Copy)]
-pub struct AngularVelocity(pub glm::Vec3);
+pub struct AngularMomentum(glm::Vec3);
 
-impl_basic_vec_ops!(AngularVelocity);
+impl_basic_vec_ops!(AngularMomentum);
 
-impl AngularVelocity {
-    /// creates a new angular velocity filled with zeros
+impl AngularMomentum {
+    /// creates a new angular momentum filled with zeros
     pub const fn zero() -> Self {
         Self(glm::Vec3::new(0.0, 0.0, 0.0))
     }
 
-    /// creates a new angular velocity from a given axis
+    /// creates a new angular momentum from a given axis
     pub fn from_axis(axis: glm::Vec3) -> Self {
         Self(axis)
     }
 }
 
-impl_arithmetic_basics!(AngularVelocity);
+impl_arithmetic_basics!(AngularMomentum);
 
-impl Default for AngularVelocity {
+impl Default for AngularMomentum {
     fn default() -> Self {
-        AngularVelocity::zero()
+        AngularMomentum::zero()
     }
 }
 

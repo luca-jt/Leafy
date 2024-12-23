@@ -65,7 +65,7 @@ impl AnimationSystem {
     fn handle_collisions(&self, entity_manager: &mut EntityManager) {
         let mut entity_data = unsafe {
             entity_manager
-                .query9_mut_opt6::<Position, Collider, MeshType, Velocity, AngularVelocity, Scale, RigidBody, EntityFlags, Orientation>(vec![])
+                .query9_mut_opt6::<Position, Collider, MeshType, Velocity, AngularMomentum, Scale, RigidBody, EntityFlags, Orientation>(vec![])
                 .map(|(p, hb, mt, v, av, s, rb, f, o)| {
                     (
                         p,
@@ -240,11 +240,11 @@ impl AnimationSystem {
                                 -(normal_impulse + tang_impulse) / rb_2.mass;
 
                             if let Some(angular_vel) = entity_data[i].5.as_mut() {
-                                angular_vel.0 += rb_1.inv_inertia_tensor
+                                *angular_vel.data_mut() += rb_1.inv_inertia_tensor
                                     * mass_center_coll_point_1.cross(&tang_impulse);
                             }
                             if let Some(angular_vel) = entity_data[j].5.as_mut() {
-                                angular_vel.0 += rb_2.inv_inertia_tensor
+                                *angular_vel.data_mut() += rb_2.inv_inertia_tensor
                                     * mass_center_coll_point_2.cross(&tang_impulse);
                             }
                         } else if is_dynamic_1 {
@@ -277,7 +277,7 @@ impl AnimationSystem {
                                 (normal_impulse + tang_impulse) / rb_1.mass;
 
                             if let Some(angular_vel) = entity_data[i].5.as_mut() {
-                                angular_vel.0 += rb_1.inv_inertia_tensor
+                                *angular_vel.data_mut() += rb_1.inv_inertia_tensor
                                     * mass_center_coll_point_1.cross(&tang_impulse);
                             }
                         } else if is_dynamic_2 {
@@ -310,7 +310,7 @@ impl AnimationSystem {
                                 -(normal_impulse + tang_impulse) / rb_2.mass;
 
                             if let Some(angular_vel) = entity_data[j].5.as_mut() {
-                                angular_vel.0 += rb_2.inv_inertia_tensor
+                                *angular_vel.data_mut() += rb_2.inv_inertia_tensor
                                     * mass_center_coll_point_2.cross(&tang_impulse);
                             }
                         } else {
@@ -326,9 +326,9 @@ impl AnimationSystem {
 
     /// performs all relevant physics calculations on entity data
     fn apply_physics(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
-        for (p, v, a_opt, rb_opt, o_opt, av_opt, flags) in unsafe {
+        for (p, v, a_opt, rb_opt, o_opt, am_opt, flags) in unsafe {
             entity_manager
-                .query7_mut_opt5::<Position, Velocity, Acceleration, RigidBody, Orientation, AngularVelocity, EntityFlags>(vec![])
+                .query7_mut_opt5::<Position, Velocity, Acceleration, RigidBody, Orientation, AngularMomentum, EntityFlags>(vec![])
         } {
             let total_a = rb_opt
                 .is_some()
@@ -347,10 +347,11 @@ impl AnimationSystem {
             *v += total_a * time_step;
             *p += *v * time_step;
 
-            if let (Some(av), Some(o)) = (av_opt, o_opt) {
+            if let (Some(am), Some(o)) = (am_opt, o_opt) {
                 let inv_inertia_mat = rb_opt.copied().unwrap_or_default().inv_inertia_tensor;
-                let corr_av = inv_inertia_mat * av.0;
-                o.0 += 0.5 * o.0 * glm::quat(corr_av.x, corr_av.y, corr_av.z, 0.0) * time_step.0;
+                let local_am = glm::quat_rotate_vec3(&o.0, am.data());
+                let ang_vel = inv_inertia_mat * local_am;
+                o.0 += 0.5 * o.0 * glm::quat(ang_vel.x, ang_vel.y, ang_vel.z, 0.0) * time_step.0;
                 o.0.normalize_mut();
             }
         }

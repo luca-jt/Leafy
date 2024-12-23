@@ -8,7 +8,7 @@ use falling_leaf::glm;
 use falling_leaf::systems::audio_system::VolumeType;
 use falling_leaf::systems::event_system::events::*;
 use falling_leaf::utils::constants::bits::user_level::FLOATING;
-use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, Y_AXIS, Z_AXIS};
+use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, X_AXIS, Y_AXIS, Z_AXIS};
 use falling_leaf::winit::keyboard::KeyCode;
 use std::f32::consts::FRAC_PI_2;
 use std::path::Path;
@@ -69,13 +69,13 @@ impl FallingLeafApp for App {
         ));
 
         let _hammer = entity_manager.create_entity(components!(
-            Position::new(6.0, 1.0, 0.0),
+            Position::new(6.0, 2.0, 0.0),
             MeshType::Custom(Path::new("./examples/3D/hammer.obj").into()),
             MeshAttribute::Colored(Color32::GREY),
             Velocity::zero(),
-            RigidBody::default().with_density(5.0),
+            RigidBody::default().with_density(10.0),
             Orientation::default(),
-            AngularVelocity::from_axis(glm::vec3(50.0, 0.0, 1.0)),
+            AngularMomentum::from_axis(X_AXIS * 20.0),
             EntityFlags::from_flags(&[FLOATING])
         ));
 
@@ -86,7 +86,7 @@ impl FallingLeafApp for App {
             MeshAttribute::Colored(Color32::RED),
             Velocity::zero(),
             Orientation::new(45.0, Y_AXIS + Z_AXIS),
-            AngularVelocity::zero(),
+            AngularMomentum::zero(),
             Acceleration::zero(),
             Collider {
                 hitbox_type: HitboxType::ConvexHull,
@@ -94,7 +94,7 @@ impl FallingLeafApp for App {
                 scale: Scale::default()
             },
             RigidBody::default(),
-            EntityFlags::default()
+            EntityFlags::from_flags(&[FLOATING])
         ));
 
         let sound = engine.audio_system_mut().new_sound_controller();
@@ -122,9 +122,6 @@ impl FallingLeafApp for App {
         engine.event_system_mut().add_modifier(toggle_fullscreen);
 
         engine.audio_system().enable_hrtf();
-        engine
-            .audio_system_mut()
-            .play_background_music("examples/3D/drop.wav");
     }
 
     fn on_frame_update(&mut self, engine: &Engine<Self>) {

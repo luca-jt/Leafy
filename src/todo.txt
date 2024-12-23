@@ -19,7 +19,7 @@ sky box cube maps
 conways game of life example
 ui basics + font rendering + events for ui struct
 sprite renderer -> depth layers configurable, sprite component
-intertia matrix application seems to be inccorrect
+intertia matrix application seems to be inccorrect -> angular velocity needs a seperate storage? -> in collision resolvement, there is an update for it
 for on collision event functions for entities -> info about the collision is stored inside the collider component
 more hitbox options like capsule and cylinder + allow for hitboxes to be detached from entity rotation
 collision -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
