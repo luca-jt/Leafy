@@ -8,7 +8,7 @@ use falling_leaf::glm;
 use falling_leaf::systems::audio_system::VolumeType;
 use falling_leaf::systems::event_system::events::*;
 use falling_leaf::utils::constants::bits::user_level::FLOATING;
-use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, X_AXIS, Y_AXIS, Z_AXIS};
+use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, Y_AXIS, Z_AXIS};
 use falling_leaf::winit::keyboard::KeyCode;
 use std::f32::consts::FRAC_PI_2;
 use std::path::Path;
@@ -73,9 +73,9 @@ impl FallingLeafApp for App {
             MeshType::Custom(Path::new("./examples/3D/hammer.obj").into()),
             MeshAttribute::Colored(Color32::GREY),
             Velocity::zero(),
-            RigidBody::default(),
+            RigidBody::default().with_density(5.0),
             Orientation::default(),
-            AngularVelocity::from_axis(X_AXIS * 5.0),
+            AngularVelocity::from_axis(glm::vec3(50.0, 0.0, 1.0)),
             EntityFlags::from_flags(&[FLOATING])
         ));
 

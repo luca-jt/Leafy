@@ -1,10 +1,11 @@
 controller events
 animations
-cascaded shadow mapping
-shadow anti-aliasing -> pcss
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system -> serialization (serde)
 voxelized meshes + hitboxes (for non-convex cases) -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
+raytracing the current scene
+cascaded shadow mapping
+shadow anti-aliasing -> pcss
 ---------------------------------------------------------------------
 collision resolvement of things that should not slide downhill possible?
 2D sprite hitboxes with seperate collision checking
@@ -18,6 +19,8 @@ sky box cube maps
 conways game of life example
 ui basics + font rendering + events for ui struct
 sprite renderer -> depth layers configurable, sprite component
+intertia matrix application seems to be inccorrect
 for on collision event functions for entities -> info about the collision is stored inside the collider component
 more hitbox options like capsule and cylinder + allow for hitboxes to be detached from entity rotation
-collision -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY | https://winter.dev/articles/gjk-algorithm
+collision -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
+prevent meshes with no volume from having a hitbox mesh

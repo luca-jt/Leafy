@@ -3,7 +3,6 @@ use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::TextureMap;
 use crate::rendering::mesh::{Hitbox, Mesh};
-use crate::utils::constants::ORIGIN;
 use crate::utils::file::*;
 use crate::utils::tools::types_eq;
 use itertools::Itertools;

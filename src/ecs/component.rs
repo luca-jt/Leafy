@@ -256,15 +256,6 @@ pub enum MeshType {
     Custom(Rc<Path>),
 }
 
-/// represents all texture types with path data
-#[derive(Debug, PartialOrd, PartialEq, Clone, Hash, Eq)]
-pub enum Texture {
-    Ice(Filtering),
-    Sand(Filtering),
-    Wall(Filtering),
-    Custom(Rc<Path>, Filtering),
-}
-
 /// wether or not a mesh is colored or textured
 #[derive(Debug, PartialEq, Clone)]
 pub enum MeshAttribute {
@@ -295,11 +286,12 @@ impl Default for MeshAttribute {
     }
 }
 
-/// represents all material types with path data
+/// represents a material that influences the rendering of the entity
 #[derive(Debug, PartialOrd, PartialEq, Clone)]
-pub enum Material {
-    Reflective,
-    Custom(Rc<Path>),
+pub struct Material {
+    pub specular: f32,
+    pub diffuse: f32,
+    pub shininess: f32,
 }
 
 /// enables gravity physics and is used for all computations involving forces
@@ -423,6 +415,8 @@ pub struct Sprite;
 pub mod utils {
     use crate::glm;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+    use std::path::Path;
+    use std::rc::Rc;
     use std::time::Instant;
 
     /// efficient 32bit color representation
@@ -516,6 +510,15 @@ pub mod utils {
         fn div(self, rhs: TimeDuration) -> Self::Output {
             self.0 / rhs.0
         }
+    }
+
+    /// represents all texture types with path data
+    #[derive(Debug, PartialOrd, PartialEq, Clone, Hash, Eq)]
+    pub enum Texture {
+        Ice(Filtering),
+        Sand(Filtering),
+        Wall(Filtering),
+        Custom(Rc<Path>, Filtering),
     }
 
     /// texture filtering option for rendering

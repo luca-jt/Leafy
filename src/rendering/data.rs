@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::{Color32, Filtering};
+use crate::ecs::component::utils::{Color32, Filtering, Texture};
 use crate::ecs::component::*;
 use crate::glm;
 use crate::utils::constants::*;
