@@ -34,6 +34,11 @@ pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
     glm::vec4(v.x, v.y, v.z, 1.0)
 }
 
+/// checks if two vectors point in the same direction
+pub fn same_direction(direction: &glm::Vec3, other: &glm::Vec3) -> bool {
+    direction.dot(other) > 0.0
+}
+
 /// calculates the padding necessary for offsets in uniform buffers (multiple of 16)
 pub(crate) fn padding<T>() -> usize {
     16 - (size_of::<T>() % 16)

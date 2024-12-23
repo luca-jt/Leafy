@@ -61,36 +61,9 @@ impl EntityManager {
         entity
     }
 
-    /// creates a new entity with all basic data needed for physics and rendering
-    pub fn create_basic_dynamic(
-        &mut self,
-        at: Position,
-        mesh_type: MeshType,
-        mesh_attribute: MeshAttribute,
-    ) -> EntityID {
-        self.create_entity(components!(
-            at,
-            Scale::default(),
-            mesh_type,
-            mesh_attribute,
-            Velocity::zero(),
-            Orientation::default(),
-            AngularVelocity::zero(),
-            Acceleration::zero(),
-            Collider {
-                hitbox_type: HitboxType::ConvexHull,
-                offset: ORIGIN,
-                scale: Scale::default()
-            },
-            RigidBody::default(),
-            EntityFlags::default()
-        ))
-    }
-
     /// creates a new default point light source for the rendering system without other components attached (invisible)
     pub fn create_point_light(&mut self, position: Position) -> EntityID {
-        let light = self.create_entity(components!(position, PointLight::default()));
-        light
+        self.create_entity(components!(position, PointLight::default()))
     }
 
     /// creates a new default point light source for the rendering system with Scale attached (visible)

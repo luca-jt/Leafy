@@ -122,8 +122,8 @@ pub struct Orientation(pub glm::Quat);
 
 impl Orientation {
     /// creates a new orientation with angle in degrees around axis
-    pub fn new(angle: f32, axis: &glm::Vec3) -> Self {
-        Self(glm::quat_angle_axis(angle.to_radians(), axis))
+    pub fn new(angle: f32, axis: glm::Vec3) -> Self {
+        Self(glm::quat_angle_axis(angle.to_radians(), &axis))
     }
 
     /// generates the rotation matrix for the stored quaternion
@@ -134,7 +134,7 @@ impl Orientation {
 
 impl Default for Orientation {
     fn default() -> Self {
-        Self::new(0.0, &X_AXIS)
+        Self::new(0.0, X_AXIS)
     }
 }
 
@@ -227,6 +227,11 @@ impl AngularVelocity {
     /// creates a new angular velocity filled with zeros
     pub const fn zero() -> Self {
         Self(glm::Vec3::new(0.0, 0.0, 0.0))
+    }
+
+    /// creates a new angular velocity from a given axis
+    pub fn from_axis(axis: glm::Vec3) -> Self {
+        Self(axis)
     }
 }
 
@@ -373,10 +378,19 @@ pub(crate) struct LightSrcID(pub(crate) EntityID);
 /// ### Info
 /// You can use this component independantly of the rest of the engine if you want to.
 /// The bits 3-63 do not influence engine behavior and are free to customize.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct EntityFlags(u64);
 
 impl EntityFlags {
+    /// creates a new ``EntityFlags`` component with the given flags already set
+    pub fn from_flags(flags: &[u64]) -> Self {
+        let mut instance = Self::default();
+        for flag in flags {
+            instance.set_bit(*flag, true);
+        }
+        instance
+    }
+
     /// get the bool value of the ``n'th`` flag bit (``n`` is in ``(0..=63)``)
     /// (bit constants available in ``constants::bits``)
     pub fn get_bit(&self, n: u64) -> bool {
@@ -418,8 +432,9 @@ pub mod utils {
 
     impl Color32 {
         pub const WHITE: Self = Self::from_rgb(255, 255, 255);
+        pub const GREY: Self = Self::from_rgb(128, 128, 128);
         pub const BLACK: Self = Self::from_rgb(0, 0, 0);
-        pub const TRANSPARENT: Self = Self([0, 0, 0, 0]);
+        pub const TRANSPARENT: Self = Self::from_rgba(0, 0, 0, 0);
         pub const RED: Self = Self::from_rgb(255, 0, 0);
         pub const GREEN: Self = Self::from_rgb(0, 255, 0);
         pub const BLUE: Self = Self::from_rgb(0, 0, 255);
@@ -429,6 +444,10 @@ pub mod utils {
 
         pub const fn from_rgb(r: u8, g: u8, b: u8) -> Self {
             Self([r, g, b, 255])
+        }
+
+        pub const fn from_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
+            Self([r, g, b, a])
         }
 
         pub fn r(&self) -> u8 {

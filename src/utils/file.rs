@@ -14,15 +14,6 @@ macro_rules! audio_path {
     };
 }
 
-macro_rules! material_path {
-    ($file:literal) => {
-        concat!(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/materials/"),
-            $file
-        )
-    };
-}
-
 macro_rules! model_path {
     ($file:literal) => {
         concat!(
