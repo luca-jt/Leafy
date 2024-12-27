@@ -3,7 +3,6 @@ use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Sub};
 use std::rc::{Rc, Weak};
-use std::sync::Arc;
 
 /// alias for a Rc<RefCell>
 pub type SharedPtr<T> = Rc<RefCell<T>>;
@@ -49,29 +48,6 @@ pub fn types_eq<A: ?Sized + 'static, B: ?Sized + 'static>() -> bool {
     TypeId::of::<A>() == TypeId::of::<B>()
 }
 
-/// generic octree data structure
-pub enum OctreeNode<T> {
-    Branch {
-        n1: Box<OctreeNode<T>>,
-        n2: Box<OctreeNode<T>>,
-        n3: Box<OctreeNode<T>>,
-        n4: Box<OctreeNode<T>>,
-        n5: Box<OctreeNode<T>>,
-        n6: Box<OctreeNode<T>>,
-        n7: Box<OctreeNode<T>>,
-        n8: Box<OctreeNode<T>>,
-    },
-    Leaf(T),
-}
-
-impl<T> Iterator for OctreeNode<T> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        None
-    }
-}
-
 /// cast anything to Any
 pub trait AnyCast: Any {
     fn as_any(&self) -> &dyn Any;
@@ -98,9 +74,3 @@ where
         .copied()
         .unwrap_or_default()
 }
-
-/// immutable efficient string type
-pub type RcStr = Rc<str>;
-
-/// thread-safe immutable efficient string type
-pub type ArcStr = Arc<str>;

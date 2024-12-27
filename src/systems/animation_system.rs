@@ -66,14 +66,14 @@ impl AnimationSystem {
         let mut entity_data = unsafe {
             entity_manager
                 .query9_mut_opt6::<Position, Collider, MeshType, Velocity, AngularMomentum, Scale, RigidBody, EntityFlags, Orientation>(vec![])
-                .map(|(p, hb, mt, v, av, s, rb, f, o)| {
+                .map(|(p, hb, mt, v, am, s, rb, f, o)| {
                     (
                         p,
                         entity_manager.hitbox_from_data(mt, &hb.hitbox_type).unwrap(),
                         entity_manager.asset_from_type(mt, LOD::None).unwrap(),
                         hb,
                         v,
-                        av,
+                        am,
                         s,
                         rb,
                         f.map(|flags| {
@@ -123,13 +123,17 @@ impl AnimationSystem {
                     let rb_1 = copied_or_default(&entity_data[i].7);
                     let rb_2 = copied_or_default(&entity_data[j].7);
 
+                    // rotations
+                    let rot1 = copied_or_default(&entity_data[i].9);
+                    let rot2 = copied_or_default(&entity_data[j].9);
+
                     //  translate the colliders to the positional offset of the hitbox
                     let collider_1 = ColliderData {
                         hitbox: entity_data[i].1,
                         model: calc_model_matrix(
                             entity_data[i].0,
                             &copied_or_default(&entity_data[i].6),
-                            &copied_or_default(&entity_data[i].9),
+                            &rot1,
                             &rb_1.center_of_mass,
                         ),
                         collider: entity_data[i].3,
@@ -139,7 +143,7 @@ impl AnimationSystem {
                         model: calc_model_matrix(
                             entity_data[j].0,
                             &copied_or_default(&entity_data[j].6),
-                            &copied_or_default(&entity_data[j].9),
+                            &rot2,
                             &rb_2.center_of_mass,
                         ),
                         collider: entity_data[j].3,
@@ -177,6 +181,13 @@ impl AnimationSystem {
                         let restitution_coefficient = 0.0; // TODO: change that in the future with component data
                         let min_friction = rb_1.friction.min(rb_2.friction).clamp(0.0, 1.0);
 
+                        let rotation_mat1 = glm::mat4_to_mat3(&rot1.rotation_matrix());
+                        let rotation_mat2 = glm::mat4_to_mat3(&rot2.rotation_matrix());
+                        let local_inertia_inv_1 =
+                            rotation_mat1 * rb_1.inv_inertia_tensor * rotation_mat1.transpose();
+                        let local_inertia_inv_2 =
+                            rotation_mat2 * rb_2.inv_inertia_tensor * rotation_mat2.transpose();
+
                         //
                         // do all of the impulse computations for both the normal and tangential components
                         //
@@ -188,8 +199,8 @@ impl AnimationSystem {
                         // they are used in a more efficient calculation of K1=[r1]_× * I_world,1^−1 * [r1]_×^T (using the cross matrix)
                         let r1_cross_n = mass_center_coll_point_1.cross(&coll_normal);
                         let r2_cross_n = mass_center_coll_point_2.cross(&coll_normal);
-                        let k1_normal = rb_1.inv_inertia_tensor * r1_cross_n;
-                        let k2_normal = rb_2.inv_inertia_tensor * r2_cross_n;
+                        let k1_normal = local_inertia_inv_1 * r1_cross_n;
+                        let k2_normal = local_inertia_inv_2 * r2_cross_n;
 
                         //
                         // tangential impulse calculations
@@ -197,8 +208,8 @@ impl AnimationSystem {
                         // k's are responsible for the impact the angular motion has on the collision response
                         let r1_cross_t = mass_center_coll_point_1.cross(&coll_tangent);
                         let r2_cross_t = mass_center_coll_point_2.cross(&coll_tangent);
-                        let k1_tang = rb_1.inv_inertia_tensor * r1_cross_t;
-                        let k2_tang = rb_2.inv_inertia_tensor * r2_cross_t;
+                        let k1_tang = local_inertia_inv_1 * r1_cross_t;
+                        let k2_tang = local_inertia_inv_2 * r2_cross_t;
 
                         // resolve the collision depending on what enities are movable
                         // if only one is movable, treat the mass of the immovable entity as infinite
@@ -239,12 +250,12 @@ impl AnimationSystem {
                             *entity_data[j].4.as_mut().unwrap().data_mut() +=
                                 -(normal_impulse + tang_impulse) / rb_2.mass;
 
-                            if let Some(angular_vel) = entity_data[i].5.as_mut() {
-                                *angular_vel.data_mut() += rb_1.inv_inertia_tensor
+                            if let Some(angular_mom) = entity_data[i].5.as_mut() {
+                                *angular_mom.data_mut() += local_inertia_inv_1
                                     * mass_center_coll_point_1.cross(&tang_impulse);
                             }
-                            if let Some(angular_vel) = entity_data[j].5.as_mut() {
-                                *angular_vel.data_mut() += rb_2.inv_inertia_tensor
+                            if let Some(angular_mom) = entity_data[j].5.as_mut() {
+                                *angular_mom.data_mut() += local_inertia_inv_2
                                     * mass_center_coll_point_2.cross(&tang_impulse);
                             }
                         } else if is_dynamic_1 {
@@ -276,8 +287,8 @@ impl AnimationSystem {
                             *entity_data[i].4.as_mut().unwrap().data_mut() +=
                                 (normal_impulse + tang_impulse) / rb_1.mass;
 
-                            if let Some(angular_vel) = entity_data[i].5.as_mut() {
-                                *angular_vel.data_mut() += rb_1.inv_inertia_tensor
+                            if let Some(angular_mom) = entity_data[i].5.as_mut() {
+                                *angular_mom.data_mut() += local_inertia_inv_1
                                     * mass_center_coll_point_1.cross(&tang_impulse);
                             }
                         } else if is_dynamic_2 {
@@ -309,8 +320,8 @@ impl AnimationSystem {
                             *entity_data[j].4.as_mut().unwrap().data_mut() +=
                                 -(normal_impulse + tang_impulse) / rb_2.mass;
 
-                            if let Some(angular_vel) = entity_data[j].5.as_mut() {
-                                *angular_vel.data_mut() += rb_2.inv_inertia_tensor
+                            if let Some(angular_mom) = entity_data[j].5.as_mut() {
+                                *angular_mom.data_mut() += local_inertia_inv_2
                                     * mass_center_coll_point_2.cross(&tang_impulse);
                             }
                         } else {
@@ -349,8 +360,9 @@ impl AnimationSystem {
 
             if let (Some(am), Some(o)) = (am_opt, o_opt) {
                 let inv_inertia_mat = rb_opt.copied().unwrap_or_default().inv_inertia_tensor;
-                let local_am = glm::quat_rotate_vec3(&o.0, am.data());
-                let ang_vel = inv_inertia_mat * local_am;
+                let rot_mat = glm::mat4_to_mat3(&o.rotation_matrix());
+                let local_inertia_mat = rot_mat * inv_inertia_mat * rot_mat.transpose();
+                let ang_vel = local_inertia_mat * am.data();
                 o.0 += 0.5 * o.0 * glm::quat(ang_vel.x, ang_vel.y, ang_vel.z, 0.0) * time_step.0;
                 o.0.normalize_mut();
             }
@@ -581,7 +593,7 @@ fn sphere_collision(
             * glm::Vec4::from_element(radius2))
         .xyz(),
     };
-    gjk_epa(spec1, spec2)
+    gjk(spec1, spec2)
 }
 
 /// handles the collision of a sphere and a mesh
@@ -606,7 +618,7 @@ fn mesh_sphere_collision(
             * glm::Vec4::from_element(radius))
         .xyz(),
     };
-    gjk_epa(spec1, spec2)
+    gjk(spec1, spec2)
 }
 
 /// handles the collision of two meshes
@@ -630,12 +642,12 @@ fn mesh_collision(
             * glm::translate(&glm::Mat4::identity(), &coll2.offset),
         points: &mesh2.vertices,
     };
-    gjk_epa(spec1, spec2)
+    gjk(spec1, spec2)
 }
 
 /// allows to find the furthest point in a given direction of a collider generially
 trait ColliderSpec {
-    fn find_furthest_point(&self, direction: glm::Vec3) -> glm::Vec3;
+    fn find_furthest_point(&self, direction: &glm::Vec3) -> glm::Vec3;
 }
 
 /// specification for a sphere collider used in collision detection
@@ -644,7 +656,7 @@ struct SphereColliderSpec {
 }
 
 impl ColliderSpec for SphereColliderSpec {
-    fn find_furthest_point(&self, direction: glm::Vec3) -> glm::Vec3 {
+    fn find_furthest_point(&self, direction: &glm::Vec3) -> glm::Vec3 {
         // x^2/a^2 + y^2/b^2 + z^2/c^2 = 1
         unimplemented!()
     }
@@ -657,11 +669,11 @@ struct MeshColliderSpec<'a> {
 }
 
 impl ColliderSpec for MeshColliderSpec<'_> {
-    fn find_furthest_point(&self, direction: glm::Vec3) -> glm::Vec3 {
+    fn find_furthest_point(&self, direction: &glm::Vec3) -> glm::Vec3 {
         self.points
             .iter()
             .map(|point| (self.transform * to_vec4(point)).xyz())
-            .map(|point| (point, point.dot(&direction)))
+            .map(|point| (point, point.dot(direction)))
             .max_by(|(_, dot1), (_, dot2)| dot1.partial_cmp(dot2).unwrap())
             .unwrap()
             .0
@@ -669,6 +681,7 @@ impl ColliderSpec for MeshColliderSpec<'_> {
 }
 
 /// holds the data for the current simplex used in the GJK algorithm
+#[derive(Debug)]
 struct Simplex {
     points: [glm::Vec3; 4],
     size: usize,
@@ -690,30 +703,26 @@ impl Simplex {
         instance
     }
 
-    fn num_points(&self) -> usize {
-        4 - self.size
-    }
-
     fn push_front(&mut self, element: glm::Vec3) {
         self.points = [element, self.points[0], self.points[1], self.points[2]];
         self.size = 4.min(self.size + 1)
     }
 }
 
-/// implementation of the GJK algorithm and EPA algortihm for detecting collisions
-fn gjk_epa(collider1: impl ColliderSpec, collider2: impl ColliderSpec) -> Option<CollisionData> {
-    let mut supp = support(&collider1, &collider2, X_AXIS);
-    let mut simplex = Simplex::new();
-    simplex.push_front(supp);
+/// implementation of the GJK algorithm for detecting collisions
+fn gjk(collider1: impl ColliderSpec, collider2: impl ColliderSpec) -> Option<CollisionData> {
+    let mut supp = support(&collider1, &collider2, &X_AXIS);
+    let mut simplex = Simplex::from_points(&[supp]);
     let mut direction = -supp;
 
     loop {
-        supp = support(&collider1, &collider2, direction);
+        supp = support(&collider1, &collider2, &direction);
         if !same_direction(&direction, &supp) {
             return None;
         }
         simplex.push_front(supp);
-        if next_simplex(&mut simplex, &mut direction) {
+        if solve_simplex(&mut simplex, &mut direction) {
+            // use the EPA algorithm in case of a collision
             return Some(epa(collider1, collider2, simplex));
         }
     }
@@ -736,7 +745,7 @@ fn epa(
     while min_distance == f32::MAX {
         min_normal = normals[min_face].xyz();
         min_distance = normals[min_face].w;
-        let supp = support(&collider1, &collider2, min_normal);
+        let supp = support(&collider1, &collider2, &min_normal);
         let s_distance = min_normal.dot(&supp);
 
         if (s_distance - min_distance).abs() > 0.001 {
@@ -748,16 +757,17 @@ fn epa(
                 if same_direction(&normals[i].xyz(), &supp) {
                     let f = i * 3;
 
-                    add_if_unique_edge(&mut unique_edges, &mut indices, f, f + 1);
-                    add_if_unique_edge(&mut unique_edges, &mut indices, f + 1, f + 2);
-                    add_if_unique_edge(&mut unique_edges, &mut indices, f + 2, f);
+                    add_if_unique_edge(&mut unique_edges, &indices, f, f + 1);
+                    add_if_unique_edge(&mut unique_edges, &indices, f + 1, f + 2);
+                    add_if_unique_edge(&mut unique_edges, &indices, f + 2, f);
 
                     indices[f + 2] = indices.pop().unwrap();
                     indices[f + 1] = indices.pop().unwrap();
                     indices[f] = indices.pop().unwrap();
 
                     normals[i] = normals.pop().unwrap();
-                    i -= 1;
+                } else {
+                    i += 1;
                 }
             }
 
@@ -839,17 +849,17 @@ fn face_normals(polytope: &Vec<glm::Vec3>, indices: &Vec<usize>) -> (Vec<glm::Ve
 }
 
 /// dispatcher of the different simplex cases that modify the current state of the GJK algorithm
-fn next_simplex(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
-    match simplex.num_points() {
-        2 => line(simplex, direction),
-        3 => triangle(simplex, direction),
-        4 => tetrahedron(simplex, direction),
+fn solve_simplex(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+    match simplex.size {
+        2 => solve_line(simplex, direction),
+        3 => solve_triangle(simplex, direction),
+        4 => solve_tetrahedron(simplex, direction),
         _ => panic!("corrupt simplex size"),
     }
 }
 
 /// handles the line simplex case in GJK
-fn line(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+fn solve_line(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
     let a = simplex.points[0];
     let b = simplex.points[1];
     let ab = b - a;
@@ -865,7 +875,7 @@ fn line(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
 }
 
 /// handles the traingle simplex case in GJK
-fn triangle(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+fn solve_triangle(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
     let a = simplex.points[0];
     let b = simplex.points[1];
     let c = simplex.points[2];
@@ -880,12 +890,12 @@ fn triangle(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
             *direction = ac.cross(&ao).cross(&ac);
         } else {
             *simplex = Simplex::from_points(&[a, b]);
-            return line(simplex, direction);
+            return solve_line(simplex, direction);
         }
     } else {
         if same_direction(&ab.cross(&abc), &ao) {
             *simplex = Simplex::from_points(&[a, b]);
-            return line(simplex, direction);
+            return solve_line(simplex, direction);
         } else {
             if same_direction(&abc, &ao) {
                 *direction = abc;
@@ -899,30 +909,27 @@ fn triangle(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
 }
 
 /// handles the tetrahedron simplex case in GJK
-fn tetrahedron(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+fn solve_tetrahedron(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
     let a = simplex.points[0];
     let b = simplex.points[1];
     let c = simplex.points[2];
     let d = simplex.points[3];
-    let ab = b - a;
-    let ac = c - a;
-    let ad = d - a;
     let ao = -a;
-    let abc = ab.cross(&ac);
-    let acd = ac.cross(&ad);
-    let adb = ad.cross(&ab);
+    let abc = outward_normal(a, b, c, d);
+    let acd = outward_normal(a, c, d, b);
+    let adb = outward_normal(a, d, b, c);
 
     if same_direction(&abc, &ao) {
         *simplex = Simplex::from_points(&[a, b, c]);
-        return triangle(simplex, direction);
+        return solve_triangle(simplex, direction);
     }
     if same_direction(&acd, &ao) {
         *simplex = Simplex::from_points(&[a, c, d]);
-        return triangle(simplex, direction);
+        return solve_triangle(simplex, direction);
     }
     if same_direction(&adb, &ao) {
         *simplex = Simplex::from_points(&[a, d, b]);
-        return triangle(simplex, direction);
+        return solve_triangle(simplex, direction);
     }
     true
 }
@@ -931,7 +938,16 @@ fn tetrahedron(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
 fn support(
     collider1: &impl ColliderSpec,
     collider2: &impl ColliderSpec,
-    direction: glm::Vec3,
+    direction: &glm::Vec3,
 ) -> glm::Vec3 {
-    collider1.find_furthest_point(direction) - collider2.find_furthest_point(-direction)
+    collider1.find_furthest_point(direction) - collider2.find_furthest_point(&(-direction))
+}
+
+/// computes the normal vector of a tetrahedron face in outward direction in the GJK algorithm
+fn outward_normal(a: glm::Vec3, b: glm::Vec3, c: glm::Vec3, inward_point: glm::Vec3) -> glm::Vec3 {
+    let normal = (b - a).cross(&(c - a));
+    if !same_direction(&normal, &(a - inward_point)) {
+        return -normal;
+    }
+    normal
 }

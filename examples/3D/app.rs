@@ -58,8 +58,8 @@ impl FallingLeafApp for App {
 
         let _floor = entity_manager.create_entity(components!(
             Position::origin(),
-            Scale::from_factor(5.0),
-            MeshType::Plane,
+            Scale::new(5.0, 0.1, 5.0),
+            MeshType::Cube,
             MeshAttribute::Textured(Texture::Wall(Filtering::Nearest)),
             Collider {
                 hitbox_type: HitboxType::Box,
@@ -73,7 +73,7 @@ impl FallingLeafApp for App {
             MeshType::Custom(Path::new("./examples/3D/hammer.obj").into()),
             MeshAttribute::Colored(Color32::GREY),
             Velocity::zero(),
-            RigidBody::default().with_density(10.0),
+            RigidBody::default().with_density(40.0),
             Orientation::default(),
             AngularMomentum::from_axis(X_AXIS * 20.0),
             EntityFlags::from_flags(&[FLOATING])
@@ -94,7 +94,7 @@ impl FallingLeafApp for App {
                 scale: Scale::default()
             },
             RigidBody::default(),
-            EntityFlags::from_flags(&[FLOATING])
+            EntityFlags::default()
         ));
 
         let sound = engine.audio_system_mut().new_sound_controller();
