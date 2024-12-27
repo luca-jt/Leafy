@@ -18,13 +18,6 @@ use std::rc::Rc;
 /// identifier for a triangle in the AOS mesh, maps to triangles that only use the unique vertices
 type TriangleID = u64;
 
-/// a single version of a vertex position with specific normal vector and texture coordinate
-#[derive(Debug, Copy, Clone, Default)]
-struct VertexManifestation {
-    normal: glm::Vec3,
-    uv: glm::Vec2,
-}
-
 /// mesh containing vertex structs as opposed to the regular SOA mesh which allows for easier processing
 #[derive(Debug, Clone)]
 struct AlgorithmMesh {
@@ -36,7 +29,7 @@ struct AlgorithmMesh {
 
 impl AlgorithmMesh {
     /// converts back to a regular mesh
-    fn to_mesh(self) -> Mesh {
+    fn into_mesh(self) -> Mesh {
         let mut positions = Vec::new();
         let mut normals = Vec::new();
         let mut indices = Vec::new();
@@ -132,8 +125,7 @@ impl AlgorithmMesh {
         let edges = self
             .faces
             .iter()
-            .map(|&face| [[face[0], face[1]], [face[1], face[2]], [face[2], face[0]]])
-            .flatten()
+            .flat_map(|&face| [[face[0], face[1]], [face[1], face[2]], [face[2], face[0]]])
             .map(|mut edge| {
                 edge.sort_unstable();
                 edge
@@ -204,7 +196,7 @@ impl AlgorithmMesh {
                     self.triangle_map.insert(i, ids);
                 }
             }
-            debug_assert!(self.vertices.len() > 0);
+            debug_assert!(!self.vertices.is_empty());
         }
     }
 
@@ -243,7 +235,7 @@ impl AlgorithmMesh {
         self.faces = mesh_graph
             .edge_indices()
             .map(|idx| mesh_graph.edge_endpoints(idx).unwrap())
-            .map(|(node1, node2)| {
+            .flat_map(|(node1, node2)| {
                 mesh_graph
                     .neighbors(node1)
                     .filter(|nb| mesh_graph.contains_edge(node2, *nb))
@@ -255,7 +247,6 @@ impl AlgorithmMesh {
                     })
                     .collect_vec()
             })
-            .flatten()
             .unique()
             .collect_vec();
     }
@@ -349,7 +340,7 @@ impl AlgorithmMesh {
 
         // compute new valid pairs
         for neighbor in mesh_graph.neighbors(pair.v1) {
-            add_valid_vertex_pair(pair.v1, neighbor, &mesh_graph, valid_pairs);
+            add_valid_vertex_pair(pair.v1, neighbor, mesh_graph, valid_pairs);
             // NOTE: at this point we dont add the ones with the error threshold for performance reasons -> TODO?
         }
     }
@@ -705,10 +696,10 @@ impl Mesh {
 
     /// generates all the simpified meshes for the lod levels
     pub(crate) fn generate_lods(&self) -> [Mesh; 4] {
-        let lod1 = self.algorithm_mesh().simplified().to_mesh();
-        let lod2 = lod1.algorithm_mesh().simplified().to_mesh();
-        let lod3 = lod2.algorithm_mesh().simplified().to_mesh();
-        let lod4 = lod3.algorithm_mesh().simplified().to_mesh();
+        let lod1 = self.algorithm_mesh().simplified().into_mesh();
+        let lod2 = lod1.algorithm_mesh().simplified().into_mesh();
+        let lod3 = lod2.algorithm_mesh().simplified().into_mesh();
+        let lod4 = lod3.algorithm_mesh().simplified().into_mesh();
         [lod1, lod2, lod3, lod4]
     }
 
@@ -946,8 +937,7 @@ impl HitboxMesh {
         } else {
             // in this case other points are only on the same plane -> just return the first one that exists
             let fourth_idx = (0..self.vertices.len())
-                .filter(|&i| i != min_x_idx && i != max_x_idx && i != third_idx)
-                .next()
+                .find(|&i| i != min_x_idx && i != max_x_idx && i != third_idx)
                 .unwrap();
             (min_x_idx, max_x_idx, third_idx, fourth_idx)
         }
@@ -968,7 +958,7 @@ impl HitboxMesh {
                     used_indices.insert(i);
                 }
             }
-            debug_assert!(self.vertices.len() > 0);
+            debug_assert!(!self.vertices.is_empty());
         }
     }
 }

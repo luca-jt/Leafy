@@ -89,6 +89,12 @@ macro_rules! impl_basic_vec_ops {
                 &mut self.0
             }
         }
+
+        impl From<glm::Vec3> for $component {
+            fn from(value: glm::Vec3) -> Self {
+                Self(value)
+            }
+        }
     };
 }
 
@@ -155,7 +161,7 @@ impl_arithmetic_basics!(Position);
 
 impl Default for Position {
     fn default() -> Self {
-        Position::origin()
+        Self::origin()
     }
 }
 
@@ -184,7 +190,7 @@ impl Mul<TimeDuration> for Velocity {
 
 impl Default for Velocity {
     fn default() -> Self {
-        Velocity::zero()
+        Self::zero()
     }
 }
 
@@ -213,7 +219,7 @@ impl Mul<TimeDuration> for Acceleration {
 
 impl Default for Acceleration {
     fn default() -> Self {
-        Acceleration::zero()
+        Self::zero()
     }
 }
 
@@ -239,7 +245,7 @@ impl_arithmetic_basics!(AngularMomentum);
 
 impl Default for AngularMomentum {
     fn default() -> Self {
-        AngularMomentum::zero()
+        Self::zero()
     }
 }
 

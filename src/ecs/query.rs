@@ -211,7 +211,7 @@ macro_rules! impl_mut_query {
             #[doc = "This should not be a real problem most of the time, as all components that influence what asset data is loaded are typically quite static."]
             #[doc = "E.g. ``Scale`` only influences inertia values of ``RigidBody``'s, which means modifying a scale in a query alone doesn't require a recompute"]
             #[doc = "and modifying a ``MeshAttribute`` in a query only matters if there is texture data at play."]
-            #[doc = "### Unsafe"]
+            #[doc = "### Safety"]
             #[doc = "If you use the same component type twice in the same query, it is possible to aquire two mutable references to the same component,"]
             #[doc = "which harms Rust's borrowing rules. In debug builds the query panics if you do that."]
             #[doc = "In release builds these checks are disabled for performance reasons."]

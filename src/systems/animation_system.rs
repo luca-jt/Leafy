@@ -4,7 +4,7 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine::{Engine, EngineMode, FallingLeafApp};
 use crate::glm;
 use crate::rendering::data::calc_model_matrix;
-use crate::rendering::mesh::{Hitbox, HitboxMesh};
+use crate::rendering::mesh::Hitbox;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::internal::*;
@@ -129,23 +129,19 @@ impl AnimationSystem {
 
                     //  translate the colliders to the positional offset of the hitbox
                     let collider_1 = ColliderData {
+                        position: *entity_data[i].0,
+                        scale: copied_or_default(&entity_data[i].6),
+                        orientation: rot1,
+                        center_of_mass: rb_1.center_of_mass,
                         hitbox: entity_data[i].1,
-                        model: calc_model_matrix(
-                            entity_data[i].0,
-                            &copied_or_default(&entity_data[i].6),
-                            &rot1,
-                            &rb_1.center_of_mass,
-                        ),
                         collider: entity_data[i].3,
                     };
                     let collider_2 = ColliderData {
+                        position: *entity_data[j].0,
+                        scale: copied_or_default(&entity_data[j].6),
+                        orientation: rot2,
+                        center_of_mass: rb_2.center_of_mass,
                         hitbox: entity_data[j].1,
-                        model: calc_model_matrix(
-                            entity_data[j].0,
-                            &copied_or_default(&entity_data[j].6),
-                            &rot2,
-                            &rb_2.center_of_mass,
-                        ),
                         collider: entity_data[j].3,
                     };
                     // check for collision
@@ -511,138 +507,77 @@ struct CollisionData {
 
 /// collider data that is used in collision checking
 struct ColliderData<'a> {
+    position: Position,
+    scale: Scale,
+    orientation: Orientation,
+    center_of_mass: glm::Vec3,
     hitbox: &'a Hitbox,
-    model: glm::Mat4,
     collider: &'a Collider,
 }
 
 impl ColliderData<'_> {
+    /// builds the sphere collider specification data if the hitbox type matches
+    fn sphere_spec(&self) -> Option<SphereColliderSpec> {
+        match self.hitbox {
+            Hitbox::ConvexMesh(_) => None,
+            Hitbox::Sphere(radius) => {
+                let mass_offset = glm::translate(&glm::Mat4::identity(), &self.center_of_mass);
+                let inv_mass_offset = mass_offset.try_inverse().unwrap();
+                Some(SphereColliderSpec {
+                    scale_dimensions: glm::Vec3::from_element(*radius)
+                        .component_mul(self.scale.data())
+                        .component_mul(self.collider.scale.data()),
+                    collider_pos: self.position.data() + self.collider.offset,
+                    rotation_mat: mass_offset
+                        * self.orientation.rotation_matrix()
+                        * inv_mass_offset,
+                })
+            }
+        }
+    }
+
+    /// builds the mesh collider specification data if the hitbox type matches
+    fn mesh_spec(&self) -> Option<MeshColliderSpec> {
+        match self.hitbox {
+            Hitbox::ConvexMesh(mesh) => {
+                let model = calc_model_matrix(
+                    &self.position,
+                    &self.scale,
+                    &self.orientation,
+                    &self.center_of_mass,
+                );
+                Some(MeshColliderSpec {
+                    transform: model
+                        * self.collider.scale.scale_matrix()
+                        * glm::translate(&glm::Mat4::identity(), &self.collider.offset),
+                    points: &mesh.vertices,
+                })
+            }
+            Hitbox::Sphere(_) => None,
+        }
+    }
+
     /// checks if two hitboxes collide with each other
     pub(crate) fn collides_with(&self, other: &Self) -> Option<CollisionData> {
         // assume the normal vector is form the point of view of 1
         // the normal vector in the collision data should be normalized
-        match self.hitbox {
-            Hitbox::ConvexMesh(mesh1) => match other.hitbox {
-                Hitbox::ConvexMesh(mesh2) => mesh_collision(
-                    mesh1,
-                    mesh2,
-                    &self.model,
-                    &other.model,
-                    self.collider,
-                    other.collider,
-                ),
-                Hitbox::Sphere(radius) => mesh_sphere_collision(
-                    mesh1,
-                    *radius,
-                    &self.model,
-                    &other.model,
-                    self.collider,
-                    other.collider,
-                ),
-            },
-            Hitbox::Sphere(radius1) => match other.hitbox {
-                Hitbox::ConvexMesh(mesh) => {
-                    mesh_sphere_collision(
-                        mesh,
-                        *radius1,
-                        &other.model,
-                        &self.model,
-                        other.collider,
-                        self.collider,
-                    )
-                    .map(|mut cd| {
-                        // invert the vectors because the order changed in the function parameters
-                        cd.translation_vec = -cd.translation_vec;
-                        cd.collision_normal = -cd.collision_normal;
-                        cd
-                    })
-                }
-                Hitbox::Sphere(radius2) => sphere_collision(
-                    *radius1,
-                    *radius2,
-                    &self.model,
-                    &other.model,
-                    self.collider,
-                    other.collider,
-                ),
-            },
+        if let Some(spec1) = self.mesh_spec() {
+            if let Some(spec2) = other.mesh_spec() {
+                gjk(spec1, spec2)
+            } else {
+                let spec2 = other.sphere_spec().unwrap();
+                gjk(spec1, spec2)
+            }
+        } else {
+            let spec1 = self.sphere_spec().unwrap();
+            if let Some(spec2) = other.mesh_spec() {
+                gjk(spec1, spec2)
+            } else {
+                let spec2 = other.sphere_spec().unwrap();
+                gjk(spec1, spec2)
+            }
         }
     }
-}
-
-/// handles the collision of two spheres
-fn sphere_collision(
-    radius1: f32,
-    radius2: f32,
-    m1: &glm::Mat4,
-    m2: &glm::Mat4,
-    coll1: &Collider,
-    coll2: &Collider,
-) -> Option<CollisionData> {
-    let spec1 = SphereColliderSpec {
-        transformed_dimensions: (m1
-            * coll1.scale.scale_matrix()
-            * glm::translate(&glm::Mat4::identity(), &coll1.offset)
-            * glm::Vec4::from_element(radius1))
-        .xyz(),
-    };
-    let spec2 = SphereColliderSpec {
-        transformed_dimensions: (m2
-            * coll2.scale.scale_matrix()
-            * glm::translate(&glm::Mat4::identity(), &coll2.offset)
-            * glm::Vec4::from_element(radius2))
-        .xyz(),
-    };
-    gjk(spec1, spec2)
-}
-
-/// handles the collision of a sphere and a mesh
-fn mesh_sphere_collision(
-    mesh: &HitboxMesh,
-    radius: f32,
-    m1: &glm::Mat4,
-    m2: &glm::Mat4,
-    coll1: &Collider,
-    coll2: &Collider,
-) -> Option<CollisionData> {
-    let spec1 = MeshColliderSpec {
-        transform: m1
-            * coll1.scale.scale_matrix()
-            * glm::translate(&glm::Mat4::identity(), &coll1.offset),
-        points: &mesh.vertices,
-    };
-    let spec2 = SphereColliderSpec {
-        transformed_dimensions: (m2
-            * coll2.scale.scale_matrix()
-            * glm::translate(&glm::Mat4::identity(), &coll2.offset)
-            * glm::Vec4::from_element(radius))
-        .xyz(),
-    };
-    gjk(spec1, spec2)
-}
-
-/// handles the collision of two meshes
-fn mesh_collision(
-    mesh1: &HitboxMesh,
-    mesh2: &HitboxMesh,
-    m1: &glm::Mat4,
-    m2: &glm::Mat4,
-    coll1: &Collider,
-    coll2: &Collider,
-) -> Option<CollisionData> {
-    let spec1 = MeshColliderSpec {
-        transform: m1
-            * coll1.scale.scale_matrix()
-            * glm::translate(&glm::Mat4::identity(), &coll1.offset),
-        points: &mesh1.vertices,
-    };
-    let spec2 = MeshColliderSpec {
-        transform: m2
-            * coll2.scale.scale_matrix()
-            * glm::translate(&glm::Mat4::identity(), &coll2.offset),
-        points: &mesh2.vertices,
-    };
-    gjk(spec1, spec2)
 }
 
 /// allows to find the furthest point in a given direction of a collider generially
@@ -652,13 +587,24 @@ trait ColliderSpec {
 
 /// specification for a sphere collider used in collision detection
 struct SphereColliderSpec {
-    transformed_dimensions: glm::Vec3,
+    scale_dimensions: glm::Vec3,
+    collider_pos: glm::Vec3,
+    rotation_mat: glm::Mat4,
 }
 
 impl ColliderSpec for SphereColliderSpec {
     fn find_furthest_point(&self, direction: &glm::Vec3) -> glm::Vec3 {
-        // x^2/a^2 + y^2/b^2 + z^2/c^2 = 1
-        unimplemented!()
+        let local_direction = (self.rotation_mat.transpose() * to_vec4(direction)).xyz();
+        let stretch_factor = 1.0
+            / ((local_direction.x * local_direction.x)
+                / (self.scale_dimensions.x * self.scale_dimensions.x)
+                + (local_direction.y * local_direction.y)
+                    / (self.scale_dimensions.y * self.scale_dimensions.y)
+                + (local_direction.z * local_direction.z)
+                    / (self.scale_dimensions.z * self.scale_dimensions.z))
+                .sqrt();
+        let local_point = local_direction * stretch_factor;
+        (self.rotation_mat * to_vec4(&local_point) + to_vec4(&self.collider_pos)).xyz()
     }
 }
 
@@ -773,8 +719,7 @@ fn epa(
 
             let new_indices = unique_edges
                 .iter()
-                .map(|(edge_idx1, edge_idx2)| [*edge_idx1, *edge_idx2, polytope.len()])
-                .flatten()
+                .flat_map(|(edge_idx1, edge_idx2)| [*edge_idx1, *edge_idx2, polytope.len()])
                 .collect_vec();
 
             polytope.push(supp);
@@ -892,18 +837,14 @@ fn solve_triangle(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
             *simplex = Simplex::from_points(&[a, b]);
             return solve_line(simplex, direction);
         }
+    } else if same_direction(&ab.cross(&abc), &ao) {
+        *simplex = Simplex::from_points(&[a, b]);
+        return solve_line(simplex, direction);
+    } else if same_direction(&abc, &ao) {
+        *direction = abc;
     } else {
-        if same_direction(&ab.cross(&abc), &ao) {
-            *simplex = Simplex::from_points(&[a, b]);
-            return solve_line(simplex, direction);
-        } else {
-            if same_direction(&abc, &ao) {
-                *direction = abc;
-            } else {
-                *simplex = Simplex::from_points(&[a, c, b]);
-                *direction = -abc;
-            }
-        }
+        *simplex = Simplex::from_points(&[a, c, b]);
+        *direction = -abc;
     }
     false
 }

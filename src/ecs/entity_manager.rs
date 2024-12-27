@@ -67,14 +67,13 @@ impl EntityManager {
 
     /// creates a new default point light source for the rendering system with Scale attached (visible)
     pub fn create_point_light_visible(&mut self, position: Position) -> EntityID {
-        let light = self.create_entity(components!(
+        self.create_entity(components!(
             position,
             PointLight::default(),
             MeshType::Cube,
             MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
             Scale::from_factor(0.1)
-        ));
-        light
+        ))
     }
 
     /// deletes an entity from the register by id and returns the removed entity
@@ -310,9 +309,9 @@ impl EntityManager {
                     self.ecs
                         .get_mut()
                         .remove_component::<LightSrcID>(entity)
-                        .and_then(|id| {
+                        .map(|id| {
                             log::debug!("deleted light source ID for enitity: {:?}", entity);
-                            Some(id)
+                            id
                         });
                 }
                 AssetCommand::AddTexture(entity) => {

@@ -233,16 +233,12 @@ impl ShaderCatalog {
 
     /// creates a new shadow rendering shader for the batch renderer
     fn create_batch_shadow() -> ShaderProgram {
-        let program = ShaderProgram::new(BATCH_SHADOW_VERT, BATCH_SHADOW_FRAG);
-
-        program
+        ShaderProgram::new(BATCH_SHADOW_VERT, BATCH_SHADOW_FRAG)
     }
 
     /// creates a new shadow rendering shader for the instance renderer
     fn create_instance_shadow() -> ShaderProgram {
-        let program = ShaderProgram::new(INSTANCE_SHADOW_VERT, INSTANCE_SHADOW_FRAG);
-
-        program
+        ShaderProgram::new(INSTANCE_SHADOW_VERT, INSTANCE_SHADOW_FRAG)
     }
 }
 
