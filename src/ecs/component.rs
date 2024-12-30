@@ -342,7 +342,8 @@ pub struct SoundController {
     pub(crate) id: SoundHandleID,
 }
 
-/// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's (requires ``MeshType`` to work)
+/// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's
+/// (requires ``MeshType`` to work and should only be used with meshes that have a volume)
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Collider {
     pub hitbox_type: HitboxType,

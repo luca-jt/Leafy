@@ -3,6 +3,7 @@ animations
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them in the rendering system -> serialization (serde)
 voxelized meshes + hitboxes (for non-convex cases) -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
+using a different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj
 raytracing the current scene
 cascaded shadow mapping
 shadow anti-aliasing -> pcss
@@ -20,7 +21,5 @@ conways game of life example
 ui basics + font rendering + events for ui struct
 sprite renderer -> depth layers configurable, sprite component
 for on collision event functions for entities -> info about the collision is stored inside the collider component
-more hitbox options like capsule and cylinder + allow for hitboxes to be detached from entity rotation
 collision -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
-prevent meshes with no volume from having a hitbox mesh
 angular velocity needs a seperate storage? -> in collision resolvement, there is an update for it -> might not need to take into account inertia?

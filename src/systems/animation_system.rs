@@ -12,6 +12,7 @@ use crate::utils::constants::bits::user_level::*;
 use crate::utils::constants::{G, ORIGIN, X_AXIS, Y_AXIS};
 use crate::utils::tools::{copied_or_default, same_direction, to_vec4};
 use itertools::Itertools;
+use std::collections::HashSet;
 use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
 
@@ -681,116 +682,96 @@ fn epa(
     simplex: Simplex,
 ) -> CollisionData {
     let mut polytope = simplex.points.to_vec();
-    let mut indices: Vec<usize> = vec![0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 3, 2];
-    let (mut normals, mut min_face) = face_normals(&polytope, &indices);
+    let mut faces = (0..polytope.len())
+        .tuple_combinations::<(usize, usize, usize)>()
+        .collect_vec();
 
-    let mut collision_point = ORIGIN;
-    let mut min_normal = ORIGIN;
-    let mut min_distance = f32::MAX;
-
-    while min_distance == f32::MAX {
-        min_normal = normals[min_face].xyz();
-        min_distance = normals[min_face].w;
+    // iteratively add new points to the polytope until the correct normal is found
+    loop {
+        let (min_normal, min_distance) = find_min_data(&polytope, &faces);
         let supp = support(&collider1, &collider2, &min_normal);
-        let s_distance = min_normal.dot(&supp);
+        let supp_distance = supp.dot(&min_normal);
 
-        if (s_distance - min_distance).abs() > 0.001 {
-            min_distance = f32::MAX;
-            let mut unique_edges: Vec<(usize, usize)> = Vec::new();
-
-            let mut i = 0;
-            while i < normals.len() {
-                if same_direction(&normals[i].xyz(), &supp) {
-                    let f = i * 3;
-
-                    add_if_unique_edge(&mut unique_edges, &indices, f, f + 1);
-                    add_if_unique_edge(&mut unique_edges, &indices, f + 1, f + 2);
-                    add_if_unique_edge(&mut unique_edges, &indices, f + 2, f);
-
-                    indices[f + 2] = indices.pop().unwrap();
-                    indices[f + 1] = indices.pop().unwrap();
-                    indices[f] = indices.pop().unwrap();
-
-                    normals[i] = normals.pop().unwrap();
-                } else {
-                    i += 1;
-                }
-            }
-
-            let new_indices = unique_edges
-                .iter()
-                .flat_map(|(edge_idx1, edge_idx2)| [*edge_idx1, *edge_idx2, polytope.len()])
-                .collect_vec();
-
-            polytope.push(supp);
-            let (new_normals, new_min_face) = face_normals(&polytope, &new_indices);
-
-            let mut old_min_distance = f32::MAX;
-            for i in 0..normals.len() {
-                if normals[i].w < old_min_distance {
-                    old_min_distance = normals[i].w;
-                    min_face = i;
-                }
-            }
-
-            if new_normals[new_min_face].w < old_min_distance {
-                min_face = new_min_face + normals.len();
-            }
-
-            indices.extend(new_indices);
-            normals.extend(new_normals);
+        if supp_distance - min_distance <= 0.001 {
+            // return collision data
+            return CollisionData {
+                collision_normal: min_normal,
+                collision_point: todo!(),
+                translation_vec: min_normal * (supp_distance + 0.001),
+            };
         }
-        collision_point = supp;
-    }
 
-    let collision_normal = min_normal.normalize();
-    CollisionData {
-        collision_normal,
-        collision_point,
-        translation_vec: collision_normal * (min_distance + 0.001),
+        polytope.push(supp);
+        reconstruct_polytope(&polytope, &mut faces, supp);
     }
 }
 
-/// adds a new edge if it is unique and deletes it if the reverse is already present
-fn add_if_unique_edge(edges: &mut Vec<(usize, usize)>, indices: &Vec<usize>, a: usize, b: usize) {
-    let reverse_pos = edges
+/// reconstructs the polytope after a new point was found in the EPA algorithm
+fn reconstruct_polytope(
+    polytope: &[glm::Vec3],
+    faces: &mut Vec<(usize, usize, usize)>,
+    supp: glm::Vec3,
+) {
+    // find faces to remove
+    let mut faces_to_remove = faces
         .iter()
         .enumerate()
-        .find_map(|(i, edge)| (*edge == (indices[b], indices[a])).then_some(i));
+        .filter_map(|(i, face)| {
+            if same_direction(
+                &outward_normal(polytope[face.0], polytope[face.1], polytope[face.2], ORIGIN),
+                &(supp - polytope[face.0]),
+            ) {
+                return Some(i);
+            }
+            None
+        })
+        .collect_vec();
 
-    if let Some(index) = reverse_pos {
-        edges.remove(index);
-    } else {
-        edges.push((indices[a], indices[b]));
+    // find edges that are not shared between faces
+    let mut dangling_edges = HashSet::new();
+    for edge in faces_to_remove
+        .iter()
+        .flat_map(|face_idx| {
+            let face = faces[*face_idx];
+            [[face.0, face.1], [face.1, face.2], [face.2, face.0]]
+        })
+        .map(|mut edge| {
+            edge.sort_unstable();
+            edge
+        })
+    {
+        if dangling_edges.contains(&edge) {
+            dangling_edges.remove(&edge);
+        } else {
+            dangling_edges.insert(edge);
+        }
     }
+
+    // remove faces
+    faces_to_remove.sort_unstable();
+    for face_idx in faces_to_remove.into_iter().rev() {
+        faces.remove(face_idx);
+    }
+
+    // add new faces
+    faces.extend(
+        dangling_edges
+            .into_iter()
+            .map(|edge| (edge[0], edge[1], polytope.len() - 1)),
+    );
 }
 
-/// computes the face normals with the distance in the w component and the triangle index with the minimum distance
-fn face_normals(polytope: &Vec<glm::Vec3>, indices: &Vec<usize>) -> (Vec<glm::Vec4>, usize) {
-    let mut normals = Vec::new();
-    let mut min_triangle = 0;
-    let mut min_distance = f32::MAX;
-
-    for i in (0..indices.len()).step_by(3) {
-        let a = polytope[indices[i]];
-        let b = polytope[indices[i + 1]];
-        let c = polytope[indices[i + 2]];
-
-        let mut normal = (b - a).cross(&(c - a)).normalize();
-        let mut distance = normal.dot(&a);
-        if distance < 0.0 {
-            normal *= -1.0;
-            distance *= -1.0;
-        }
-
-        normals.push(glm::vec4(normal.x, normal.y, normal.z, distance));
-
-        if distance < min_distance {
-            min_triangle = i / 3;
-            min_distance = distance;
-        }
-    }
-    (normals, min_triangle)
+/// finds the currently minimal face data in the EPA algorithm (normal, distance)
+fn find_min_data(polytope: &[glm::Vec3], faces: &[(usize, usize, usize)]) -> (glm::Vec3, f32) {
+    faces
+        .iter()
+        .map(|&(node1, node2, node3)| [polytope[node1], polytope[node2], polytope[node3]])
+        .map(|vertices| {
+            let normal = outward_normal(vertices[0], vertices[1], vertices[2], ORIGIN).normalize();
+            (normal, normal.dot(&vertices[0]))
+        })
+        .min_by(|(_, distance1), (_, distance2)| distance1.partial_cmp(distance2).unwrap())
+        .unwrap()
 }
 
 /// dispatcher of the different simplex cases that modify the current state of the GJK algorithm

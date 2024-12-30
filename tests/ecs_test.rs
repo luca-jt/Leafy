@@ -15,7 +15,7 @@ fn entity_test() {
     ecs.add_component(x, C).unwrap();
     ecs.add_component(x, D).unwrap();
     assert!(ecs.has_component::<D>(x));
-    ecs.remove_component::<D>(x);
+    ecs.remove_component::<D>(x).unwrap();
     assert!(!ecs.has_component::<D>(x));
     assert!(ecs.has_component::<C>(x));
     assert_eq!(ecs.query2::<A, B>(vec![]).count(), 1);
@@ -27,16 +27,16 @@ fn render_data() {
     let mut ecs = EntityManager::new();
     ecs.create_point_light(Position::origin());
     let l = ecs.create_point_light_visible(Position::origin());
-    let r1 = ecs.create_basic_dynamic(
+    let r1 = ecs.create_entity(components!(
         Position::origin(),
         MeshType::Cone,
-        MeshAttribute::Colored(Color32::WHITE),
-    );
-    let r2 = ecs.create_basic_dynamic(
+        MeshAttribute::Colored(Color32::WHITE)
+    ));
+    let r2 = ecs.create_entity(components!(
         Position::origin(),
         MeshType::Cube,
-        MeshAttribute::Colored(Color32::RED),
-    );
+        MeshAttribute::Colored(Color32::RED)
+    ));
     assert_eq!(ecs.query1::<PointLight>(vec![]).count(), 2);
     assert_eq!(ecs.query1::<MeshType>(vec![]).count(), 3);
     assert_eq!(
