@@ -38,6 +38,11 @@ pub fn same_direction(direction: &glm::Vec3, other: &glm::Vec3) -> bool {
     direction.dot(other) > 0.0
 }
 
+/// normalizes a vector if the vector has a length, otherwhise return ``None``
+pub fn normalize_non_zero(v: glm::Vec3) -> Option<glm::Vec3> {
+    v.try_normalize(f32::EPSILON)
+}
+
 /// calculates the padding necessary for offsets in uniform buffers (multiple of 16)
 pub(crate) fn padding<T>() -> usize {
     16 - (size_of::<T>() % 16)
