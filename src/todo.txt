@@ -22,4 +22,3 @@ ui basics + font rendering + events for ui struct
 sprite renderer -> depth layers configurable, sprite component
 for on collision event functions for entities -> info about the collision is stored inside the collider component
 collision -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY
-angular velocity needs a seperate storage? -> in collision resolvement, there is an update for it -> might not need to take into account inertia?

@@ -198,25 +198,6 @@ impl AnimationSystem {
                         let restitution_coefficient = 0.0; // TODO: change that in the future with component data
                         let total_friction = rb_1.friction.min(rb_2.friction).clamp(0.0, 1.0);
 
-                        // effective mass calculations
-                        let eff_mass_n_component =
-                            coll_normal.cross(&mass_center_coll_point_1).dot(
-                                &(local_inertia_inv_1
-                                    * coll_normal.cross(&mass_center_coll_point_1)),
-                            ) + coll_normal.cross(&mass_center_coll_point_2).dot(
-                                &(local_inertia_inv_2
-                                    * coll_normal.cross(&mass_center_coll_point_2)),
-                            );
-
-                        let eff_mass_t_component =
-                            coll_tangent.cross(&mass_center_coll_point_1).dot(
-                                &(local_inertia_inv_1
-                                    * coll_tangent.cross(&mass_center_coll_point_1)),
-                            ) + coll_tangent.cross(&mass_center_coll_point_2).dot(
-                                &(local_inertia_inv_2
-                                    * coll_tangent.cross(&mass_center_coll_point_2)),
-                            );
-
                         // resolve the collision depending on what enities are movable
                         // if only one is movable, treat the mass of the immovable entity as infinite
                         if is_dynamic_1 && is_dynamic_2 {
@@ -227,91 +208,129 @@ impl AnimationSystem {
                             *entity_data[j].0.data_mut() += 0.5 * collison_data.translation_vec;
 
                             // normal impulse
-                            let effective_mass_n =
-                                1.0 / rb_1.mass + 1.0 / rb_2.mass + eff_mass_n_component;
+                            let effective_mass_n = 1.0 / rb_1.mass
+                                + 1.0 / rb_2.mass
+                                + coll_normal.cross(&mass_center_coll_point_1).dot(
+                                    &(local_inertia_inv_1
+                                        * coll_normal.cross(&mass_center_coll_point_1)),
+                                )
+                                + coll_normal.cross(&mass_center_coll_point_2).dot(
+                                    &(local_inertia_inv_2
+                                        * coll_normal.cross(&mass_center_coll_point_2)),
+                                );
+
                             let normal_impulse = -((1.0 + restitution_coefficient)
                                 * normal_component)
                                 / effective_mass_n;
 
                             // tangential impulse
-                            let effective_mass_t =
-                                1.0 / rb_1.mass + 1.0 / rb_2.mass + eff_mass_t_component;
+                            let effective_mass_t = 1.0 / rb_1.mass
+                                + 1.0 / rb_2.mass
+                                + coll_tangent.cross(&mass_center_coll_point_1).dot(
+                                    &(local_inertia_inv_1
+                                        * coll_tangent.cross(&mass_center_coll_point_1)),
+                                )
+                                + coll_tangent.cross(&mass_center_coll_point_2).dot(
+                                    &(local_inertia_inv_2
+                                        * coll_tangent.cross(&mass_center_coll_point_2)),
+                                );
+
                             let tang_impulse = -((1.0 + restitution_coefficient)
                                 * tangential_component)
                                 / effective_mass_t
                                 * total_friction;
 
                             // apply impulses
-                            *entity_data[i].4.as_mut().unwrap().data_mut() +=
-                                normal_impulse / rb_1.mass;
-                            *entity_data[j].4.as_mut().unwrap().data_mut() +=
-                                -normal_impulse / rb_2.mass;
+                            *entity_data[i].4.as_mut().unwrap().data_mut() += (normal_impulse
+                                + tang_impulse.dot(&normal_impulse) * normal_impulse)
+                                / rb_1.mass;
+                            *entity_data[j].4.as_mut().unwrap().data_mut() += -(normal_impulse
+                                + tang_impulse.dot(&normal_impulse) * normal_impulse)
+                                / rb_2.mass;
 
                             if let Some(angular_mom) = entity_data[i].5.as_mut() {
-                                *angular_mom.data_mut() += local_inertia_inv_1
-                                    * mass_center_coll_point_1.cross(&tang_impulse)
-                                    + local_inertia_inv_1
-                                        * mass_center_coll_point_1.cross(&normal_impulse);
+                                *angular_mom.data_mut() += mass_center_coll_point_1
+                                    .cross(&tang_impulse)
+                                    + mass_center_coll_point_1.cross(&normal_impulse);
                             }
                             if let Some(angular_mom) = entity_data[j].5.as_mut() {
-                                *angular_mom.data_mut() += local_inertia_inv_2
-                                    * mass_center_coll_point_2.cross(&(-tang_impulse))
-                                    + local_inertia_inv_2
-                                        * mass_center_coll_point_2.cross(&(-normal_impulse));
+                                *angular_mom.data_mut() += mass_center_coll_point_2
+                                    .cross(&(-tang_impulse))
+                                    + mass_center_coll_point_2.cross(&(-normal_impulse));
                             }
                         } else if is_dynamic_1 {
                             // only 1 is movable
                             *entity_data[i].0.data_mut() += -collison_data.translation_vec;
 
                             // normal impulse
-                            let effective_mass_n = 1.0 / rb_1.mass + eff_mass_n_component;
+                            let effective_mass_n = 1.0 / rb_1.mass
+                                + coll_normal.cross(&mass_center_coll_point_1).dot(
+                                    &(local_inertia_inv_1
+                                        * coll_normal.cross(&mass_center_coll_point_1)),
+                                );
                             let normal_impulse = -((1.0 + restitution_coefficient)
                                 * normal_component)
                                 / effective_mass_n;
 
                             // tangential impulse
-                            let effective_mass_t = 1.0 / rb_1.mass + eff_mass_t_component;
+                            let effective_mass_t = 1.0 / rb_1.mass
+                                + coll_tangent.cross(&mass_center_coll_point_1).dot(
+                                    &(local_inertia_inv_1
+                                        * coll_tangent.cross(&mass_center_coll_point_1)),
+                                );
                             let tang_impulse = -((1.0 + restitution_coefficient)
                                 * tangential_component)
                                 / effective_mass_t
                                 * total_friction;
 
                             // apply impulses
-                            *entity_data[i].4.as_mut().unwrap().data_mut() +=
-                                normal_impulse / rb_1.mass;
+                            *entity_data[i].4.as_mut().unwrap().data_mut() += (normal_impulse
+                                + tang_impulse.dot(&normal_impulse) * normal_impulse)
+                                / rb_1.mass;
+
+                            println!("regular");
 
                             if let Some(angular_mom) = entity_data[i].5.as_mut() {
-                                *angular_mom.data_mut() += local_inertia_inv_1
-                                    * mass_center_coll_point_1.cross(&tang_impulse)
-                                    + local_inertia_inv_1
-                                        * mass_center_coll_point_1.cross(&normal_impulse);
+                                *angular_mom.data_mut() += mass_center_coll_point_1
+                                    .cross(&tang_impulse)
+                                    + mass_center_coll_point_1.cross(&normal_impulse);
                             }
                         } else if is_dynamic_2 {
                             // only 2 is movable
                             *entity_data[j].0.data_mut() += collison_data.translation_vec;
 
                             // normal impulse
-                            let effective_mass_n = 1.0 / rb_2.mass + eff_mass_n_component;
+                            let effective_mass_n = 1.0 / rb_2.mass
+                                + coll_normal.cross(&mass_center_coll_point_2).dot(
+                                    &(local_inertia_inv_2
+                                        * coll_normal.cross(&mass_center_coll_point_2)),
+                                );
                             let normal_impulse = -((1.0 + restitution_coefficient)
                                 * normal_component)
                                 / effective_mass_n;
 
                             // tangential impulse
-                            let effective_mass_t = 1.0 / rb_2.mass + eff_mass_t_component;
+                            let effective_mass_t = 1.0 / rb_2.mass
+                                + coll_tangent.cross(&mass_center_coll_point_2).dot(
+                                    &(local_inertia_inv_2
+                                        * coll_tangent.cross(&mass_center_coll_point_2)),
+                                );
                             let tang_impulse = -((1.0 + restitution_coefficient)
                                 * tangential_component)
                                 / effective_mass_t
                                 * total_friction;
 
                             // apply impulses
-                            *entity_data[j].4.as_mut().unwrap().data_mut() +=
-                                -normal_impulse / rb_2.mass;
+                            *entity_data[j].4.as_mut().unwrap().data_mut() += -(normal_impulse
+                                + tang_impulse.dot(&normal_impulse) * normal_impulse)
+                                / rb_2.mass;
+
+                            println!("reversed");
 
                             if let Some(angular_mom) = entity_data[j].5.as_mut() {
-                                *angular_mom.data_mut() += local_inertia_inv_2
-                                    * mass_center_coll_point_2.cross(&(-tang_impulse))
-                                    + local_inertia_inv_2
-                                        * mass_center_coll_point_2.cross(&(-normal_impulse));
+                                *angular_mom.data_mut() += mass_center_coll_point_2
+                                    .cross(&(-tang_impulse))
+                                    + mass_center_coll_point_2.cross(&(-normal_impulse));
                             }
                         } else {
                             // both are immovable (should not happen due to the check earlier)
