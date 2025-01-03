@@ -25,7 +25,6 @@ pub struct RenderingSystem {
     perspective_camera: PerspectiveCamera,
     ortho_camera: OrthoCamera,
     shader_catalog: ShaderCatalog,
-    cam_position_link: Option<EntityCamConfig>,
     clear_color: Color32,
     render_distance: Option<f32>,
     shadow_resolution: ShadowResolution,
@@ -49,7 +48,6 @@ impl RenderingSystem {
             perspective_camera: PerspectiveCamera::new(-Z_AXIS, ORIGIN),
             ortho_camera: OrthoCamera::from_size(1.0),
             shader_catalog: ShaderCatalog::new(),
-            cam_position_link: None,
             clear_color: Color32::WHITE,
             render_distance: None,
             shadow_resolution: ShadowResolution::High,
@@ -94,7 +92,6 @@ impl RenderingSystem {
 
     /// start the 3D rendering for all renderers
     pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
-        self.update_entity_cam(entity_manager);
         self.reset_renderer_usage();
         clear_gl_screen(self.clear_color);
         enable_3d_gl_modes();
@@ -317,17 +314,6 @@ impl RenderingSystem {
         self.renderers.sort_unstable();
     }
 
-    /// updates the camera if it is attached to an entity
-    fn update_entity_cam(&mut self, entity_manager: &EntityManager) {
-        if let Some(cam_config) = self.cam_position_link.as_ref() {
-            let pos = entity_manager
-                .get_component::<Position>(cam_config.entity)
-                .expect("entity has no position");
-            let focus = (pos.data() - cam_config.offset_vec).normalize();
-            self.perspective_camera.update_cam(pos.data(), &focus);
-        }
-    }
-
     /// updates all the uniform buffers
     fn update_uniform_buffers(&self) {
         self.shader_catalog.matrix_buffer.upload_data(
@@ -404,23 +390,6 @@ impl RenderingSystem {
     pub fn set_fov(&mut self, fov: f32) {
         log::trace!("set FOV: {:?}", fov);
         self.perspective_camera.update_fov(fov);
-    }
-
-    /// link/unlink the 3D camera position to some enities' position
-    pub fn link_cam_to_entity(&mut self, link: Option<EntityID>) {
-        self.cam_position_link = link.map(|entity| EntityCamConfig {
-            entity,
-            offset_vec: ORIGIN,
-        });
-        log::debug!("update cam entity link: {:?}", link);
-    }
-
-    /// updates the entity position link offset if there is a link present
-    pub fn update_entity_cam_offset(&mut self, offset: glm::Vec3) {
-        if let Some(link) = self.cam_position_link.as_mut() {
-            link.offset_vec = offset;
-            log::trace!("update entity cam offset: {:?}", offset);
-        }
     }
 
     /// changes the render distance to `distance` units from the current camera position
@@ -619,10 +588,4 @@ fn disable_3d_gl_modes() {
     unsafe {
         gl::Disable(gl::DEPTH_TEST);
     }
-}
-
-/// holds all the data for the entity cam link
-struct EntityCamConfig {
-    entity: EntityID,
-    offset_vec: glm::Vec3,
 }

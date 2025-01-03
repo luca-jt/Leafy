@@ -4,7 +4,7 @@ use crate::ecs::component::utils::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, MAX_TEXTURE_COUNT};
-use crate::utils::tools::to_vec4;
+use crate::utils::tools::mult_mat4_vec3;
 use gl::types::*;
 use std::collections::HashSet;
 use std::ptr;
@@ -345,9 +345,8 @@ impl Batch {
         }
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_vertices() {
-            let new_pos = trafo * to_vec4(&mesh.positions[i]);
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
-                position: new_pos.xyz(),
+                position: mult_mat4_vec3(trafo, &mesh.positions[i]),
                 color: glm::vec4(1.0, 1.0, 1.0, 1.0),
                 uv_coords: mesh.texture_coords[i],
                 normal: glm::mat4_to_mat3(&trafo.try_inverse().unwrap().transpose())
@@ -371,9 +370,8 @@ impl Batch {
 
         // copy mesh vertex data into the object buffer
         for i in 0..mesh.num_vertices() {
-            let new_pos = trafo * to_vec4(&mesh.positions[i]);
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
-                position: new_pos.xyz(),
+                position: mult_mat4_vec3(trafo, &mesh.positions[i]),
                 color: color.to_vec4(),
                 uv_coords: mesh.texture_coords[i],
                 normal: glm::mat4_to_mat3(&trafo.try_inverse().unwrap().transpose())

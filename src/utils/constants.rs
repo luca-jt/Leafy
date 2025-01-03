@@ -28,7 +28,7 @@ pub mod bits {
     /// flags that are used for internal processing and should not be set manually, but can be read by anybody
     pub mod internal {
         /// is set when a collision with that entity occurs
-        pub const COLLISION: u64 = 1;
+        pub const COLLIDED: u64 = 1;
     }
     /// flags that can be
     pub mod user_level {
@@ -36,5 +36,7 @@ pub mod bits {
         pub const INVISIBLE: u64 = 0;
         /// inidcates wether or not
         pub const FLOATING: u64 = 2;
+        /// makes an entity with a collider only register collisions, not respond to them physics-whise
+        pub const IGNORING_COLLISION: u64 = 3;
     }
 }

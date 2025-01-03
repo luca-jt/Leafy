@@ -15,10 +15,11 @@ particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
 dpi scale factor event handling? -> render res handled by screen texture res (if that setting is in %, maybe scale that or smth)
 materials -> reflection?
 new rendering system with effect shaders that renders to a screen texture (for SSAO?) -> maybe only later
-glsl preprocessor for including shader files and not copy and pasting everything
 sky box cube maps
 conways game of life example
 ui basics + font rendering + events for ui struct
 sprite renderer -> depth layers configurable, sprite component
+glsl preprocessor for including shader files and not copy and pasting everything
+add option to cache certain assets that you dont want to be cleaned up
 for on collision event functions for entities -> info about the collision is stored inside the collider component
 collision -> https://youtu.be/byP6cA71Cgw | https://youtu.be/4r_EvmPKOvY

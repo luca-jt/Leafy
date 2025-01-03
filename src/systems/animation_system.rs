@@ -10,7 +10,7 @@ use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::internal::*;
 use crate::utils::constants::bits::user_level::*;
 use crate::utils::constants::{G, ORIGIN, X_AXIS, Y_AXIS};
-use crate::utils::tools::{copied_or_default, normalize_non_zero, same_direction, to_vec4};
+use crate::utils::tools::*;
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::ops::DerefMut;
@@ -68,21 +68,26 @@ impl AnimationSystem {
         let mut entity_data = unsafe {
             entity_manager
                 .query9_mut_opt6::<Position, Collider, MeshType, Velocity, AngularMomentum, Scale, RigidBody, EntityFlags, Orientation>(vec![])
-                .map(|(p, hb, mt, v, am, s, rb, f, o)| {
+                .map(|(p, coll, mt, v, am, s, rb, f, o)| {
+                    let mesh = entity_manager.asset_from_type(mt, LOD::None).unwrap();
+                    let hitbox = entity_manager.hitbox_from_data(mt, &coll.hitbox_type).unwrap();
+                    let scale_matrix = copied_or_default(&s).scale_matrix() * coll.scale.scale_matrix();
+                    let coll_reach = mesh.max_reach + coll.offset.abs();
                     (
                         p,
-                        entity_manager.hitbox_from_data(mt, &hb.hitbox_type).unwrap(),
-                        entity_manager.asset_from_type(mt, LOD::None).unwrap(),
-                        hb,
+                        hitbox,
+                        mesh,
+                        coll,
                         v,
                         am,
                         s,
                         rb,
                         f.map(|flags| {
-                            flags.set_bit(COLLISION, false);
+                            flags.set_bit(COLLIDED, false);
                             flags
                         }),
-                        o
+                        o,
+                        mult_mat4_vec3(&scale_matrix, &coll_reach).norm()
                     )
                 })
                 .collect_vec()
@@ -94,250 +99,254 @@ impl AnimationSystem {
         let mut any_hits = true;
         while any_hits {
             any_hits = false;
-            // bounding spheres of the mesh for macro level checks
-            let spheres = entity_data
-                .iter()
-                .map(|tuple| {
-                    (
-                        *tuple.0.data(),
-                        (copied_or_default(&tuple.6).scale_matrix() * to_vec4(&tuple.2.max_reach))
-                            .xyz()
-                            .norm(),
-                    )
-                })
-                .collect_vec();
+            for (i, j) in (0..entity_data.len()).tuple_combinations() {
+                // check bounding spheres of the mesh for macro level filtering
+                if !spheres_collide(
+                    entity_data[i].0.data(),
+                    entity_data[i].10,
+                    entity_data[j].0.data(),
+                    entity_data[j].10,
+                ) {
+                    continue;
+                }
+                // check what entities are fixed
+                let is_dynamic_1 = entity_data[i].4.is_some();
+                let is_dynamic_2 = entity_data[j].4.is_some();
 
-            for i in 0..spheres.len() {
-                for j in i..spheres.len() {
-                    if !spheres_collide(&spheres[i].0, spheres[i].1, &spheres[j].0, spheres[j].1) {
+                // check what entities ignore collision resolvement
+                let ingores_collision_1 = entity_data[i]
+                    .8
+                    .as_ref()
+                    .map(|flags| flags.get_bit(IGNORING_COLLISION))
+                    .unwrap_or(false);
+                let ingores_collision_2 = entity_data[j]
+                    .8
+                    .as_ref()
+                    .map(|flags| flags.get_bit(IGNORING_COLLISION))
+                    .unwrap_or(false);
+
+                // rigid bodies
+                let rb_1 = copied_or_default(&entity_data[i].7);
+                let rb_2 = copied_or_default(&entity_data[j].7);
+                // rotations
+                let rot1 = copied_or_default(&entity_data[i].9);
+                let rot2 = copied_or_default(&entity_data[j].9);
+                // scales
+                let scale1 = copied_or_default(&entity_data[i].6);
+                let scale2 = copied_or_default(&entity_data[j].6);
+
+                //  translate the colliders to the positional offset of the hitbox
+                let collider_1 = ColliderData {
+                    position: *entity_data[i].0,
+                    scale: scale1,
+                    orientation: rot1,
+                    center_of_mass: rb_1.center_of_mass,
+                    hitbox: entity_data[i].1,
+                    collider: entity_data[i].3,
+                };
+                let collider_2 = ColliderData {
+                    position: *entity_data[j].0,
+                    scale: scale2,
+                    orientation: rot2,
+                    center_of_mass: rb_2.center_of_mass,
+                    hitbox: entity_data[j].1,
+                    collider: entity_data[j].3,
+                };
+                // check for collision
+                if let Some(collison_data) = collider_1.collides_with(&collider_2) {
+                    // set collision flags
+                    if let Some(flags) = &mut entity_data[i].8 {
+                        flags.set_bit(COLLIDED, true);
+                    }
+                    if let Some(flags) = &mut entity_data[j].8 {
+                        flags.set_bit(COLLIDED, true);
+                    }
+
+                    // ignore collision resolvement if a relevant flag is set or the two objects are immovable
+                    if ingores_collision_1
+                        || ingores_collision_2
+                        || (!is_dynamic_1 && !is_dynamic_2)
+                    {
                         continue;
                     }
-                    // check what entities are fixed
-                    let is_dynamic_1 = entity_data[i].4.is_some();
-                    let is_dynamic_2 = entity_data[j].4.is_some();
 
-                    if !is_dynamic_1 && !is_dynamic_2 {
-                        // both are immovable
-                        continue;
+                    // seperate the two objects
+                    if is_dynamic_1 && is_dynamic_2 {
+                        // both have velocity and therefore are movable
+                        *entity_data[i].0.data_mut() += -0.5 * collison_data.translation_vec;
+                        *entity_data[j].0.data_mut() += 0.5 * collison_data.translation_vec;
+                    } else if is_dynamic_1 {
+                        // only 1 is movable
+                        *entity_data[i].0.data_mut() += -collison_data.translation_vec;
+                    } else if is_dynamic_2 {
+                        // only 2 is movable
+                        *entity_data[j].0.data_mut() += collison_data.translation_vec;
+                    } else {
+                        // both are immovable (should not happen due to the check earlier)
+                        panic!("tried to seperate two immovable objects");
                     }
 
-                    // rigid bodies
-                    let rb_1 = copied_or_default(&entity_data[i].7);
-                    let rb_2 = copied_or_default(&entity_data[j].7);
+                    // to resolve the collision seperate normal and tangential components of the motion in relation to the collision
+                    // INFO: normal, velocity, and translation vector are pov 1 -> 2
 
-                    // rotations
-                    let rot1 = copied_or_default(&entity_data[i].9);
-                    let rot2 = copied_or_default(&entity_data[j].9);
+                    // vectors from the center of mass to the contact point
+                    let model1 =
+                        calc_model_matrix(entity_data[i].0, &scale1, &rot1, &rb_1.center_of_mass);
+                    let model2 =
+                        calc_model_matrix(entity_data[j].0, &scale2, &rot2, &rb_2.center_of_mass);
+                    let mass_center_coll_point_1 = collison_data.collision_point
+                        - mult_mat4_vec3(&model1, &rb_1.center_of_mass);
+                    let mass_center_coll_point_2 = collison_data.collision_point
+                        - mult_mat4_vec3(&model2, &rb_2.center_of_mass);
 
-                    //  translate the colliders to the positional offset of the hitbox
-                    let collider_1 = ColliderData {
-                        position: *entity_data[i].0,
-                        scale: copied_or_default(&entity_data[i].6),
-                        orientation: rot1,
-                        center_of_mass: rb_1.center_of_mass,
-                        hitbox: entity_data[i].1,
-                        collider: entity_data[i].3,
-                    };
-                    let collider_2 = ColliderData {
-                        position: *entity_data[j].0,
-                        scale: copied_or_default(&entity_data[j].6),
-                        orientation: rot2,
-                        center_of_mass: rb_2.center_of_mass,
-                        hitbox: entity_data[j].1,
-                        collider: entity_data[j].3,
-                    };
-                    // check for collision
-                    if let Some(collison_data) = collider_1.collides_with(&collider_2) {
-                        // set collision flags
-                        if let Some(flags) = &mut entity_data[i].8 {
-                            flags.set_bit(COLLISION, true);
+                    // rotation matrices + local inertia matrices
+                    let rotation_mat1 = glm::mat4_to_mat3(&rot1.rotation_matrix());
+                    let rotation_mat2 = glm::mat4_to_mat3(&rot2.rotation_matrix());
+                    let local_inertia_inv_1 =
+                        rotation_mat1 * rb_1.inv_inertia_tensor * rotation_mat1.transpose();
+                    let local_inertia_inv_2 =
+                        rotation_mat2 * rb_2.inv_inertia_tensor * rotation_mat2.transpose();
+
+                    // angular velocities
+                    let av1 = local_inertia_inv_1 * copied_or_default(&entity_data[i].5).data();
+                    let av2 = local_inertia_inv_2 * copied_or_default(&entity_data[j].5).data();
+
+                    // relative velocity
+                    let v_rel = copied_or_default(&entity_data[i].4).data()
+                        + av1.cross(&mass_center_coll_point_1)
+                        - copied_or_default(&entity_data[j].4).data()
+                        - av2.cross(&mass_center_coll_point_2);
+
+                    // components of the relative velocity
+                    let normal_component = collison_data
+                        .collision_normal
+                        .dot(&normalize_non_zero(v_rel).unwrap_or(Y_AXIS))
+                        * v_rel;
+                    let tangential_component = v_rel - normal_component;
+
+                    // other data
+                    let coll_normal = collison_data.collision_normal;
+                    let coll_tangent = normalize_non_zero(tangential_component).unwrap_or(ORIGIN);
+
+                    let restitution_coefficient = 0.0; // TODO: change that in the future with component data
+                    let total_friction = rb_1.friction.min(rb_2.friction).clamp(0.0, 1.0);
+
+                    // resolve the collision depending on what enities are movable
+                    // if only one is movable, treat the mass of the immovable entity as infinite
+                    if is_dynamic_1 && is_dynamic_2 {
+                        // normal impulse
+                        let effective_mass_n = 1.0 / rb_1.mass
+                            + 1.0 / rb_2.mass
+                            + coll_normal.cross(&mass_center_coll_point_1).dot(
+                                &(local_inertia_inv_1
+                                    * coll_normal.cross(&mass_center_coll_point_1)),
+                            )
+                            + coll_normal.cross(&mass_center_coll_point_2).dot(
+                                &(local_inertia_inv_2
+                                    * coll_normal.cross(&mass_center_coll_point_2)),
+                            );
+                        let normal_impulse = -((1.0 + restitution_coefficient) * normal_component)
+                            / effective_mass_n;
+
+                        // tangential impulse
+                        let effective_mass_t = 1.0 / rb_1.mass
+                            + 1.0 / rb_2.mass
+                            + coll_tangent.cross(&mass_center_coll_point_1).dot(
+                                &(local_inertia_inv_1
+                                    * coll_tangent.cross(&mass_center_coll_point_1)),
+                            )
+                            + coll_tangent.cross(&mass_center_coll_point_2).dot(
+                                &(local_inertia_inv_2
+                                    * coll_tangent.cross(&mass_center_coll_point_2)),
+                            );
+                        let tang_impulse = -((1.0 + restitution_coefficient)
+                            * tangential_component)
+                            / effective_mass_t
+                            * total_friction;
+
+                        // apply impulses
+                        *entity_data[i].4.as_mut().unwrap().data_mut() += (normal_impulse
+                            + tang_impulse.dot(&normal_impulse) * normal_impulse)
+                            / rb_1.mass;
+                        *entity_data[j].4.as_mut().unwrap().data_mut() += -(normal_impulse
+                            + tang_impulse.dot(&normal_impulse) * normal_impulse)
+                            / rb_2.mass;
+
+                        if let Some(angular_mom) = entity_data[i].5.as_mut() {
+                            *angular_mom.data_mut() += mass_center_coll_point_1
+                                .cross(&tang_impulse)
+                                + mass_center_coll_point_1.cross(&normal_impulse);
                         }
-                        if let Some(flags) = &mut entity_data[j].8 {
-                            flags.set_bit(COLLISION, true);
+                        if let Some(angular_mom) = entity_data[j].5.as_mut() {
+                            *angular_mom.data_mut() += mass_center_coll_point_2
+                                .cross(&(-tang_impulse))
+                                + mass_center_coll_point_2.cross(&(-normal_impulse));
                         }
+                    } else if is_dynamic_1 {
+                        // normal impulse
+                        let effective_mass_n = 1.0 / rb_1.mass
+                            + coll_normal.cross(&mass_center_coll_point_1).dot(
+                                &(local_inertia_inv_1
+                                    * coll_normal.cross(&mass_center_coll_point_1)),
+                            );
+                        let normal_impulse = -((1.0 + restitution_coefficient) * normal_component)
+                            / effective_mass_n;
 
-                        // to resolve the collision seperate normal and tangential components of the motion in relation to the collision
-                        // INFO: normal, velocity, and translation vector are pov 1 -> 2
+                        // tangential impulse
+                        let effective_mass_t = 1.0 / rb_1.mass
+                            + coll_tangent.cross(&mass_center_coll_point_1).dot(
+                                &(local_inertia_inv_1
+                                    * coll_tangent.cross(&mass_center_coll_point_1)),
+                            );
+                        let tang_impulse = -((1.0 + restitution_coefficient)
+                            * tangential_component)
+                            / effective_mass_t
+                            * total_friction;
 
-                        // vectors from the center of mass to the contact point
-                        let mass_center_coll_point_1 =
-                            collison_data.collision_point - rb_1.center_of_mass;
-                        let mass_center_coll_point_2 =
-                            collison_data.collision_point - rb_2.center_of_mass;
+                        // apply impulses
+                        *entity_data[i].4.as_mut().unwrap().data_mut() += (normal_impulse
+                            + tang_impulse.dot(&normal_impulse) * normal_impulse)
+                            / rb_1.mass;
 
-                        // rotation matrices + local inertia matrices
-                        let rotation_mat1 = glm::mat4_to_mat3(&rot1.rotation_matrix());
-                        let rotation_mat2 = glm::mat4_to_mat3(&rot2.rotation_matrix());
-                        let local_inertia_inv_1 =
-                            rotation_mat1 * rb_1.inv_inertia_tensor * rotation_mat1.transpose();
-                        let local_inertia_inv_2 =
-                            rotation_mat2 * rb_2.inv_inertia_tensor * rotation_mat2.transpose();
-
-                        // angular velocities
-                        let av1 = local_inertia_inv_1 * copied_or_default(&entity_data[i].5).data();
-                        let av2 = local_inertia_inv_2 * copied_or_default(&entity_data[j].5).data();
-
-                        // relative velocity
-                        let v_rel = copied_or_default(&entity_data[i].4).data()
-                            + av1.cross(&mass_center_coll_point_1)
-                            - copied_or_default(&entity_data[j].4).data()
-                            - av2.cross(&mass_center_coll_point_2);
-
-                        // components of the relative velocity
-                        let normal_component = collison_data
-                            .collision_normal
-                            .dot(&normalize_non_zero(v_rel).unwrap_or(Y_AXIS))
-                            * v_rel;
-                        let tangential_component = v_rel - normal_component;
-
-                        // other data
-                        let coll_normal = collison_data.collision_normal;
-                        let coll_tangent =
-                            normalize_non_zero(tangential_component).unwrap_or(ORIGIN);
-
-                        let restitution_coefficient = 0.0; // TODO: change that in the future with component data
-                        let total_friction = rb_1.friction.min(rb_2.friction).clamp(0.0, 1.0);
-
-                        // resolve the collision depending on what enities are movable
-                        // if only one is movable, treat the mass of the immovable entity as infinite
-                        if is_dynamic_1 && is_dynamic_2 {
-                            // both have velocity and therefore are movable
-
-                            // seperate the two objects
-                            *entity_data[i].0.data_mut() += -0.5 * collison_data.translation_vec;
-                            *entity_data[j].0.data_mut() += 0.5 * collison_data.translation_vec;
-
-                            // normal impulse
-                            let effective_mass_n = 1.0 / rb_1.mass
-                                + 1.0 / rb_2.mass
-                                + coll_normal.cross(&mass_center_coll_point_1).dot(
-                                    &(local_inertia_inv_1
-                                        * coll_normal.cross(&mass_center_coll_point_1)),
-                                )
-                                + coll_normal.cross(&mass_center_coll_point_2).dot(
-                                    &(local_inertia_inv_2
-                                        * coll_normal.cross(&mass_center_coll_point_2)),
-                                );
-
-                            let normal_impulse = -((1.0 + restitution_coefficient)
-                                * normal_component)
-                                / effective_mass_n;
-
-                            // tangential impulse
-                            let effective_mass_t = 1.0 / rb_1.mass
-                                + 1.0 / rb_2.mass
-                                + coll_tangent.cross(&mass_center_coll_point_1).dot(
-                                    &(local_inertia_inv_1
-                                        * coll_tangent.cross(&mass_center_coll_point_1)),
-                                )
-                                + coll_tangent.cross(&mass_center_coll_point_2).dot(
-                                    &(local_inertia_inv_2
-                                        * coll_tangent.cross(&mass_center_coll_point_2)),
-                                );
-
-                            let tang_impulse = -((1.0 + restitution_coefficient)
-                                * tangential_component)
-                                / effective_mass_t
-                                * total_friction;
-
-                            // apply impulses
-                            *entity_data[i].4.as_mut().unwrap().data_mut() += (normal_impulse
-                                + tang_impulse.dot(&normal_impulse) * normal_impulse)
-                                / rb_1.mass;
-                            *entity_data[j].4.as_mut().unwrap().data_mut() += -(normal_impulse
-                                + tang_impulse.dot(&normal_impulse) * normal_impulse)
-                                / rb_2.mass;
-
-                            if let Some(angular_mom) = entity_data[i].5.as_mut() {
-                                *angular_mom.data_mut() += mass_center_coll_point_1
-                                    .cross(&tang_impulse)
-                                    + mass_center_coll_point_1.cross(&normal_impulse);
-                            }
-                            if let Some(angular_mom) = entity_data[j].5.as_mut() {
-                                *angular_mom.data_mut() += mass_center_coll_point_2
-                                    .cross(&(-tang_impulse))
-                                    + mass_center_coll_point_2.cross(&(-normal_impulse));
-                            }
-                        } else if is_dynamic_1 {
-                            // only 1 is movable
-                            *entity_data[i].0.data_mut() += -collison_data.translation_vec;
-
-                            // normal impulse
-                            let effective_mass_n = 1.0 / rb_1.mass
-                                + coll_normal.cross(&mass_center_coll_point_1).dot(
-                                    &(local_inertia_inv_1
-                                        * coll_normal.cross(&mass_center_coll_point_1)),
-                                );
-                            let normal_impulse = -((1.0 + restitution_coefficient)
-                                * normal_component)
-                                / effective_mass_n;
-
-                            // tangential impulse
-                            let effective_mass_t = 1.0 / rb_1.mass
-                                + coll_tangent.cross(&mass_center_coll_point_1).dot(
-                                    &(local_inertia_inv_1
-                                        * coll_tangent.cross(&mass_center_coll_point_1)),
-                                );
-                            let tang_impulse = -((1.0 + restitution_coefficient)
-                                * tangential_component)
-                                / effective_mass_t
-                                * total_friction;
-
-                            // apply impulses
-                            *entity_data[i].4.as_mut().unwrap().data_mut() += (normal_impulse
-                                + tang_impulse.dot(&normal_impulse) * normal_impulse)
-                                / rb_1.mass;
-
-                            println!("regular");
-
-                            if let Some(angular_mom) = entity_data[i].5.as_mut() {
-                                *angular_mom.data_mut() += mass_center_coll_point_1
-                                    .cross(&tang_impulse)
-                                    + mass_center_coll_point_1.cross(&normal_impulse);
-                            }
-                        } else if is_dynamic_2 {
-                            // only 2 is movable
-                            *entity_data[j].0.data_mut() += collison_data.translation_vec;
-
-                            // normal impulse
-                            let effective_mass_n = 1.0 / rb_2.mass
-                                + coll_normal.cross(&mass_center_coll_point_2).dot(
-                                    &(local_inertia_inv_2
-                                        * coll_normal.cross(&mass_center_coll_point_2)),
-                                );
-                            let normal_impulse = -((1.0 + restitution_coefficient)
-                                * normal_component)
-                                / effective_mass_n;
-
-                            // tangential impulse
-                            let effective_mass_t = 1.0 / rb_2.mass
-                                + coll_tangent.cross(&mass_center_coll_point_2).dot(
-                                    &(local_inertia_inv_2
-                                        * coll_tangent.cross(&mass_center_coll_point_2)),
-                                );
-                            let tang_impulse = -((1.0 + restitution_coefficient)
-                                * tangential_component)
-                                / effective_mass_t
-                                * total_friction;
-
-                            // apply impulses
-                            *entity_data[j].4.as_mut().unwrap().data_mut() += -(normal_impulse
-                                + tang_impulse.dot(&normal_impulse) * normal_impulse)
-                                / rb_2.mass;
-
-                            println!("reversed");
-
-                            if let Some(angular_mom) = entity_data[j].5.as_mut() {
-                                *angular_mom.data_mut() += mass_center_coll_point_2
-                                    .cross(&(-tang_impulse))
-                                    + mass_center_coll_point_2.cross(&(-normal_impulse));
-                            }
-                        } else {
-                            // both are immovable (should not happen due to the check earlier)
-                            panic!("tried to seperate two immovable objects");
+                        if let Some(angular_mom) = entity_data[i].5.as_mut() {
+                            *angular_mom.data_mut() += mass_center_coll_point_1
+                                .cross(&tang_impulse)
+                                + mass_center_coll_point_1.cross(&normal_impulse);
                         }
-                        any_hits = true;
+                    } else if is_dynamic_2 {
+                        // normal impulse
+                        let effective_mass_n = 1.0 / rb_2.mass
+                            + coll_normal.cross(&mass_center_coll_point_2).dot(
+                                &(local_inertia_inv_2
+                                    * coll_normal.cross(&mass_center_coll_point_2)),
+                            );
+                        let normal_impulse = -((1.0 + restitution_coefficient) * normal_component)
+                            / effective_mass_n;
+
+                        // tangential impulse
+                        let effective_mass_t = 1.0 / rb_2.mass
+                            + coll_tangent.cross(&mass_center_coll_point_2).dot(
+                                &(local_inertia_inv_2
+                                    * coll_tangent.cross(&mass_center_coll_point_2)),
+                            );
+                        let tang_impulse = -((1.0 + restitution_coefficient)
+                            * tangential_component)
+                            / effective_mass_t
+                            * total_friction;
+
+                        // apply impulses
+                        *entity_data[j].4.as_mut().unwrap().data_mut() += -(normal_impulse
+                            + tang_impulse.dot(&normal_impulse) * normal_impulse)
+                            / rb_2.mass;
+
+                        if let Some(angular_mom) = entity_data[j].5.as_mut() {
+                            *angular_mom.data_mut() += mass_center_coll_point_2
+                                .cross(&(-tang_impulse))
+                                + mass_center_coll_point_2.cross(&(-normal_impulse));
+                        }
                     }
+                    // register that a collsion was resolved
+                    any_hits = true;
                 }
             }
         }
@@ -506,8 +515,8 @@ pub(crate) fn stop_cam<T: FallingLeafApp>(event: &KeyRelease, engine: &Engine<T>
 }
 
 /// checks if two broad oject areas represented as spheres at two positions collide
-fn spheres_collide(pos1: &glm::Vec3, box1: f32, pos2: &glm::Vec3, box2: f32) -> bool {
-    (pos1 - pos2).norm() <= box1 + box2
+fn spheres_collide(pos1: &glm::Vec3, radius1: f32, pos2: &glm::Vec3, radius2: f32) -> bool {
+    (pos1 - pos2).norm() < radius1 + radius2
 }
 
 /// contains collision plane normal vector, the point of the collision and the minimal translation vector
@@ -606,7 +615,7 @@ struct SphereColliderSpec {
 
 impl ColliderSpec for SphereColliderSpec {
     fn find_furthest_point(&self, direction: &glm::Vec3) -> glm::Vec3 {
-        let local_direction = (self.rotation_mat.transpose() * to_vec4(direction)).xyz();
+        let local_direction = mult_mat4_vec3(&self.rotation_mat.transpose(), direction);
         let stretch_factor = 1.0
             / ((local_direction.x * local_direction.x)
                 / (self.scale_dimensions.x * self.scale_dimensions.x)
@@ -616,7 +625,7 @@ impl ColliderSpec for SphereColliderSpec {
                     / (self.scale_dimensions.z * self.scale_dimensions.z))
                 .sqrt();
         let local_point = local_direction * stretch_factor;
-        (self.rotation_mat * to_vec4(&local_point) + to_vec4(&self.collider_pos)).xyz()
+        mult_mat4_vec3(&self.rotation_mat, &local_point) + self.collider_pos
     }
 }
 
@@ -630,7 +639,7 @@ impl ColliderSpec for MeshColliderSpec<'_> {
     fn find_furthest_point(&self, direction: &glm::Vec3) -> glm::Vec3 {
         self.points
             .iter()
-            .map(|point| (self.transform * to_vec4(point)).xyz())
+            .map(|point| mult_mat4_vec3(&self.transform, point))
             .map(|point| (point, point.dot(direction)))
             .max_by(|(_, dot1), (_, dot2)| dot1.partial_cmp(dot2).unwrap())
             .unwrap()
@@ -699,58 +708,26 @@ fn epa(
 
     // iteratively add new points to the polytope until the correct normal is found
     loop {
-        let (face_idx, min_normal, min_distance) = find_min_data(&polytope, &faces);
+        let (min_normal, min_distance) = find_min_data(&polytope, &faces);
         let supp = support(&collider1, &collider2, &min_normal);
         let supp_distance = supp.dot(&min_normal);
 
         if supp_distance - min_distance <= 0.001 {
-            let face = faces[face_idx];
-            let triangle = [polytope[face.0], polytope[face.1], polytope[face.2]];
+            let translation_vec = min_normal * (supp_distance + 0.0001);
+            let furthest_point = collider1.find_furthest_point(&min_normal);
+            // TODO: maybe the previous approach is actually better
+            let collision_point = (furthest_point + translation_vec).dot(&min_normal) * min_normal;
             // return collision data
             return CollisionData {
                 collision_normal: min_normal,
-                collision_point: find_collision_point(triangle, min_normal),
-                translation_vec: min_normal * (supp_distance + 0.001),
+                collision_point,
+                translation_vec,
             };
         }
 
         polytope.push(supp);
         reconstruct_polytope(&polytope, &mut faces, supp);
     }
-}
-
-/// finds the collision point from the terminating config of the EPA algorithm
-fn find_collision_point(triangle: [glm::Vec3; 3], normal: glm::Vec3) -> glm::Vec3 {
-    let origin_proj = normal.dot(&triangle[0]) * normal;
-    // check if the point is inside the triangle using barycentric coordinates
-    let u = (triangle[1] - triangle[2])
-        .cross(&(origin_proj - triangle[2]))
-        .dot(&normal);
-    let v = (triangle[2] - triangle[0])
-        .cross(&(origin_proj - triangle[0]))
-        .dot(&normal);
-    let w = 1.0 - u - v;
-
-    if u >= 0.0 && v >= 0.0 && w >= 0.0 {
-        return origin_proj;
-    }
-    // else, find the closest point on the edges
-    let p_edge1 = closest_point_on_segment_from_origin(triangle[0], triangle[1]);
-    let p_edge2 = closest_point_on_segment_from_origin(triangle[0], triangle[2]);
-    let p_edge3 = closest_point_on_segment_from_origin(triangle[1], triangle[2]);
-    // return the closest point
-    [p_edge1, p_edge2, p_edge3]
-        .into_iter()
-        .min_by(|p1, p2| p1.norm_squared().partial_cmp(&p2.norm_squared()).unwrap())
-        .unwrap()
-}
-
-/// finds the closest point from the origin on a segment
-fn closest_point_on_segment_from_origin(p1: glm::Vec3, p2: glm::Vec3) -> glm::Vec3 {
-    let segment = p2 - p1;
-    let t = (-p1).dot(&segment) / segment.norm_squared();
-    let t_clamped = t.clamp(0.0, 1.0);
-    p1 + segment * t_clamped
 }
 
 /// reconstructs the polytope after a new point was found in the EPA algorithm
@@ -809,19 +786,15 @@ fn reconstruct_polytope(
 }
 
 /// finds the currently minimal face data in the EPA algorithm (face_idx, normal, distance)
-fn find_min_data(
-    polytope: &[glm::Vec3],
-    faces: &[(usize, usize, usize)],
-) -> (usize, glm::Vec3, f32) {
+fn find_min_data(polytope: &[glm::Vec3], faces: &[(usize, usize, usize)]) -> (glm::Vec3, f32) {
     faces
         .iter()
-        .enumerate()
-        .map(|(i, &(node1, node2, node3))| (i, [polytope[node1], polytope[node2], polytope[node3]]))
-        .map(|(idx, vertices)| {
+        .map(|&(node1, node2, node3)| [polytope[node1], polytope[node2], polytope[node3]])
+        .map(|vertices| {
             let normal = outward_normal(vertices[0], vertices[1], vertices[2], ORIGIN).normalize();
-            (idx, normal, normal.dot(&vertices[0]))
+            (normal, normal.dot(&vertices[0]))
         })
-        .min_by(|(_, _, distance1), (_, _, distance2)| distance1.partial_cmp(distance2).unwrap())
+        .min_by(|(_, distance1), (_, distance2)| distance1.partial_cmp(distance2).unwrap())
         .unwrap()
 }
 

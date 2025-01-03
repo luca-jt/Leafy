@@ -33,6 +33,11 @@ pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
     glm::vec4(v.x, v.y, v.z, 1.0)
 }
 
+/// converts ``v`` to a ``Vec4`` and right-multiplies it to ``m`` and returns the result converted back
+pub fn mult_mat4_vec3(m: &glm::Mat4, v: &glm::Vec3) -> glm::Vec3 {
+    (m * to_vec4(v)).xyz()
+}
+
 /// checks if two vectors point in the same direction
 pub fn same_direction(direction: &glm::Vec3, other: &glm::Vec3) -> bool {
     direction.dot(other) > 0.0
