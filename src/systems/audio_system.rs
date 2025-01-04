@@ -4,6 +4,7 @@ use crate::engine::EngineMode;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::file::HRTF_SPHERE;
+use crate::utils::tools::vec3_to_vector3;
 use fyrox_resource::io::FsResourceIo;
 use fyrox_resource::untyped::ResourceKind;
 use fyrox_sound::{
@@ -79,7 +80,7 @@ impl AudioSystem {
                 let source = state.source_mut(*handle);
                 source.set_gain(sfx_volume);
                 let pos_data = pos.data();
-                source.set_position(Vector3::new(pos_data.x, pos_data.y, pos_data.z));
+                source.set_position(vec3_to_vector3(pos_data));
             }
         }
         // clean up unused controllers
@@ -147,7 +148,7 @@ impl AudioSystem {
         self.sound_context
             .state()
             .source_mut(handle)
-            .set_position(Vector3::new(pos_data.x, pos_data.y, pos_data.z));
+            .set_position(vec3_to_vector3(pos_data));
     }
 
     /// plays the music from a given file in a loop (overwrites the bg music playing before)
@@ -256,15 +257,8 @@ impl EventObserver<CamPositionChange> for AudioSystem {
     fn on_event(&mut self, event: &CamPositionChange) {
         let mut state = self.sound_context.state();
         let listener = state.listener_mut();
-        listener.set_orientation_lh(
-            Vector3::new(event.new_look.x, event.new_look.y, event.new_look.z),
-            *Vector3::y_axis(),
-        );
-        listener.set_position(Vector3::new(
-            event.new_pos.x,
-            event.new_pos.y,
-            event.new_pos.z,
-        ));
+        listener.set_orientation_lh(vec3_to_vector3(&event.new_look), *Vector3::y_axis());
+        listener.set_position(vec3_to_vector3(&event.new_pos));
     }
 }
 

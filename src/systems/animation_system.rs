@@ -11,6 +11,7 @@ use crate::utils::constants::bits::internal::*;
 use crate::utils::constants::bits::user_level::*;
 use crate::utils::constants::{G, ORIGIN, X_AXIS, Y_AXIS};
 use crate::utils::tools::*;
+use fyrox_sound::math::get_barycentric_coords;
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::ops::DerefMut;
@@ -153,7 +154,7 @@ impl AnimationSystem {
                     collider: entity_data[j].3,
                 };
                 // check for collision
-                if let Some(collison_data) = collider_1.collides_with(&collider_2) {
+                if let Some(collision_data) = collider_1.collides_with(&collider_2) {
                     // set collision flags
                     if let Some(flags) = &mut entity_data[i].8 {
                         flags.set_bit(COLLIDED, true);
@@ -173,14 +174,14 @@ impl AnimationSystem {
                     // seperate the two objects
                     if is_dynamic_1 && is_dynamic_2 {
                         // both have velocity and therefore are movable
-                        *entity_data[i].0.data_mut() += -0.5 * collison_data.translation_vec;
-                        *entity_data[j].0.data_mut() += 0.5 * collison_data.translation_vec;
+                        *entity_data[i].0.data_mut() += 0.5 * collision_data.translation_vec;
+                        *entity_data[j].0.data_mut() += -0.5 * collision_data.translation_vec;
                     } else if is_dynamic_1 {
                         // only 1 is movable
-                        *entity_data[i].0.data_mut() += -collison_data.translation_vec;
+                        *entity_data[i].0.data_mut() += collision_data.translation_vec;
                     } else if is_dynamic_2 {
                         // only 2 is movable
-                        *entity_data[j].0.data_mut() += collison_data.translation_vec;
+                        *entity_data[j].0.data_mut() += -collision_data.translation_vec;
                     } else {
                         // both are immovable (should not happen due to the check earlier)
                         panic!("tried to seperate two immovable objects");
@@ -194,9 +195,9 @@ impl AnimationSystem {
                         calc_model_matrix(entity_data[i].0, &scale1, &rot1, &rb_1.center_of_mass);
                     let model2 =
                         calc_model_matrix(entity_data[j].0, &scale2, &rot2, &rb_2.center_of_mass);
-                    let mass_center_coll_point_1 = collison_data.collision_point
+                    let mass_center_coll_point_1 = collision_data.collision_point
                         - mult_mat4_vec3(&model1, &rb_1.center_of_mass);
-                    let mass_center_coll_point_2 = collison_data.collision_point
+                    let mass_center_coll_point_2 = collision_data.collision_point
                         - mult_mat4_vec3(&model2, &rb_2.center_of_mass);
 
                     // rotation matrices + local inertia matrices
@@ -218,14 +219,14 @@ impl AnimationSystem {
                         - av2.cross(&mass_center_coll_point_2);
 
                     // components of the relative velocity
-                    let normal_component = collison_data
+                    let normal_component = collision_data
                         .collision_normal
                         .dot(&normalize_non_zero(v_rel).unwrap_or(Y_AXIS))
                         * v_rel;
                     let tangential_component = v_rel - normal_component;
 
                     // other data
-                    let coll_normal = collison_data.collision_normal;
+                    let coll_normal = collision_data.collision_normal;
                     let coll_tangent = normalize_non_zero(tangential_component).unwrap_or(ORIGIN);
 
                     let restitution_coefficient = 0.0; // TODO: change that in the future with component data
@@ -520,6 +521,7 @@ fn spheres_collide(pos1: &glm::Vec3, radius1: f32, pos2: &glm::Vec3, radius2: f3
 }
 
 /// contains collision plane normal vector, the point of the collision and the minimal translation vector
+#[derive(Debug)]
 struct CollisionData {
     collision_normal: glm::Vec3,
     collision_point: glm::Vec3,
@@ -650,19 +652,24 @@ impl ColliderSpec for MeshColliderSpec<'_> {
 /// holds the data for the current simplex used in the GJK algorithm
 #[derive(Debug)]
 struct Simplex {
-    points: [glm::Vec3; 4],
+    points: [SupportData; 4],
     size: usize,
 }
 
 impl Simplex {
     fn new() -> Self {
         Self {
-            points: [ORIGIN, ORIGIN, ORIGIN, ORIGIN],
+            points: [
+                SupportData::default(),
+                SupportData::default(),
+                SupportData::default(),
+                SupportData::default(),
+            ],
             size: 0,
         }
     }
 
-    fn from_points(points: &[glm::Vec3]) -> Self {
+    fn from_points(points: &[SupportData]) -> Self {
         let mut instance = Self::new();
         for point in points {
             instance.push_front(*point);
@@ -670,7 +677,7 @@ impl Simplex {
         instance
     }
 
-    fn push_front(&mut self, element: glm::Vec3) {
+    fn push_front(&mut self, element: SupportData) {
         self.points = [element, self.points[0], self.points[1], self.points[2]];
         self.size = 4.min(self.size + 1)
     }
@@ -678,16 +685,16 @@ impl Simplex {
 
 /// implementation of the GJK algorithm for detecting collisions
 fn gjk(collider1: impl ColliderSpec, collider2: impl ColliderSpec) -> Option<CollisionData> {
-    let mut supp = support(&collider1, &collider2, &X_AXIS);
-    let mut simplex = Simplex::from_points(&[supp]);
-    let mut direction = -supp;
+    let mut supp_data = support(&collider1, &collider2, &X_AXIS);
+    let mut simplex = Simplex::from_points(&[supp_data]);
+    let mut direction = -supp_data.support;
 
     loop {
-        supp = support(&collider1, &collider2, &direction);
-        if !same_direction(&direction, &supp) {
+        supp_data = support(&collider1, &collider2, &direction);
+        if !same_direction(&direction, &supp_data.support) {
             return None;
         }
-        simplex.push_front(supp);
+        simplex.push_front(supp_data);
         if solve_simplex(&mut simplex, &mut direction) {
             // use the EPA algorithm in case of a collision
             return Some(epa(collider1, collider2, simplex));
@@ -708,33 +715,40 @@ fn epa(
 
     // iteratively add new points to the polytope until the correct normal is found
     loop {
-        let (min_normal, min_distance) = find_min_data(&polytope, &faces);
-        let supp = support(&collider1, &collider2, &min_normal);
-        let supp_distance = supp.dot(&min_normal);
+        let (face_idx, min_normal, min_distance) = find_min_data(&polytope, &faces);
+        let supp_data = support(&collider1, &collider2, &min_normal);
+        let supp_distance = supp_data.support.dot(&min_normal);
 
         if supp_distance - min_distance <= 0.001 {
-            let translation_vec = min_normal * (supp_distance + 0.0001);
-            let furthest_point = collider1.find_furthest_point(&min_normal);
-            // TODO: maybe the previous approach is actually better
-            let collision_point = (furthest_point + translation_vec).dot(&min_normal) * min_normal;
+            let face = faces[face_idx];
+            let (v1, v2, v3) = (polytope[face.0], polytope[face.1], polytope[face.2]);
+            // project origin onto this closest triangle
+            let origin_proj = min_normal * min_distance;
+            // find the barycentric coordinates for that point
+            let (u, v, w) = get_barycentric_coords(
+                &vec3_to_vector3(&origin_proj),
+                &vec3_to_vector3(&v1.support),
+                &vec3_to_vector3(&v2.support),
+                &vec3_to_vector3(&v3.support),
+            );
             // return collision data
             return CollisionData {
                 collision_normal: min_normal,
-                collision_point,
-                translation_vec,
+                collision_point: u * v1.fp1 + v * v2.fp1 + w * v3.fp1,
+                translation_vec: -min_normal * (supp_distance + 0.0001),
             };
         }
 
-        polytope.push(supp);
-        reconstruct_polytope(&polytope, &mut faces, supp);
+        polytope.push(supp_data);
+        reconstruct_polytope(&polytope, &mut faces, supp_data);
     }
 }
 
 /// reconstructs the polytope after a new point was found in the EPA algorithm
 fn reconstruct_polytope(
-    polytope: &[glm::Vec3],
+    polytope: &[SupportData],
     faces: &mut Vec<(usize, usize, usize)>,
-    supp: glm::Vec3,
+    supp_data: SupportData,
 ) {
     // find faces to remove
     let mut faces_to_remove = faces
@@ -742,8 +756,13 @@ fn reconstruct_polytope(
         .enumerate()
         .filter_map(|(i, face)| {
             if same_direction(
-                &outward_normal(polytope[face.0], polytope[face.1], polytope[face.2], ORIGIN),
-                &(supp - polytope[face.0]),
+                &outward_normal(
+                    polytope[face.0].support,
+                    polytope[face.1].support,
+                    polytope[face.2].support,
+                    ORIGIN,
+                ),
+                &(supp_data.support - polytope[face.0].support),
             ) {
                 return Some(i);
             }
@@ -786,15 +805,25 @@ fn reconstruct_polytope(
 }
 
 /// finds the currently minimal face data in the EPA algorithm (face_idx, normal, distance)
-fn find_min_data(polytope: &[glm::Vec3], faces: &[(usize, usize, usize)]) -> (glm::Vec3, f32) {
+fn find_min_data(
+    polytope: &[SupportData],
+    faces: &[(usize, usize, usize)],
+) -> (usize, glm::Vec3, f32) {
     faces
         .iter()
-        .map(|&(node1, node2, node3)| [polytope[node1], polytope[node2], polytope[node3]])
-        .map(|vertices| {
-            let normal = outward_normal(vertices[0], vertices[1], vertices[2], ORIGIN).normalize();
-            (normal, normal.dot(&vertices[0]))
+        .enumerate()
+        .map(|(i, &(node1, node2, node3))| (i, [polytope[node1], polytope[node2], polytope[node3]]))
+        .map(|(i, vertices)| {
+            let normal = outward_normal(
+                vertices[0].support,
+                vertices[1].support,
+                vertices[2].support,
+                ORIGIN,
+            )
+            .normalize();
+            (i, normal, normal.dot(&vertices[0].support))
         })
-        .min_by(|(_, distance1), (_, distance2)| distance1.partial_cmp(distance2).unwrap())
+        .min_by(|(_, _, distance1), (_, _, distance2)| distance1.partial_cmp(distance2).unwrap())
         .unwrap()
 }
 
@@ -812,8 +841,8 @@ fn solve_simplex(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
 fn solve_line(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
     let a = simplex.points[0];
     let b = simplex.points[1];
-    let ab = b - a;
-    let ao = -a;
+    let ab = b.support - a.support;
+    let ao = -a.support;
 
     if same_direction(&ab, &ao) {
         *direction = ab.cross(&ao).cross(&ab);
@@ -829,9 +858,9 @@ fn solve_triangle(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
     let a = simplex.points[0];
     let b = simplex.points[1];
     let c = simplex.points[2];
-    let ab = b - a;
-    let ac = c - a;
-    let ao = -a;
+    let ab = b.support - a.support;
+    let ac = c.support - a.support;
+    let ao = -a.support;
     let abc = ab.cross(&ac);
 
     if same_direction(&abc.cross(&ac), &ao) {
@@ -860,10 +889,10 @@ fn solve_tetrahedron(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
     let b = simplex.points[1];
     let c = simplex.points[2];
     let d = simplex.points[3];
-    let ao = -a;
-    let abc = outward_normal(a, b, c, d);
-    let acd = outward_normal(a, c, d, b);
-    let adb = outward_normal(a, d, b, c);
+    let ao = -a.support;
+    let abc = outward_normal(a.support, b.support, c.support, d.support);
+    let acd = outward_normal(a.support, c.support, d.support, b.support);
+    let adb = outward_normal(a.support, d.support, b.support, c.support);
 
     if same_direction(&abc, &ao) {
         *simplex = Simplex::from_points(&[a, b, c]);
@@ -880,13 +909,25 @@ fn solve_tetrahedron(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
     true
 }
 
-/// computes the support point of the Minkowski difference of the two colliders in a given direction
+/// computes the support data of the Minkowski difference of the two colliders in a given direction
 fn support(
     collider1: &impl ColliderSpec,
     collider2: &impl ColliderSpec,
     direction: &glm::Vec3,
-) -> glm::Vec3 {
-    collider1.find_furthest_point(direction) - collider2.find_furthest_point(&(-direction))
+) -> SupportData {
+    let fp1 = collider1.find_furthest_point(direction);
+    let fp2 = collider2.find_furthest_point(&(-direction));
+    SupportData {
+        support: fp1 - fp2,
+        fp1,
+    }
+}
+
+/// support data of the Minkowski difference that contains both the support point and the furthest point of collider 1
+#[derive(Debug, Default, Copy, Clone)]
+struct SupportData {
+    support: glm::Vec3,
+    fp1: glm::Vec3,
 }
 
 /// computes the normal vector of a tetrahedron face in outward direction in the GJK algorithm

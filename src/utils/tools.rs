@@ -1,4 +1,5 @@
 use crate::glm;
+use fyrox_sound::algebra::Vector3;
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Sub};
@@ -46,6 +47,11 @@ pub fn same_direction(direction: &glm::Vec3, other: &glm::Vec3) -> bool {
 /// normalizes a vector if the vector has a length, otherwhise return ``None``
 pub fn normalize_non_zero(v: glm::Vec3) -> Option<glm::Vec3> {
     v.try_normalize(f32::EPSILON)
+}
+
+/// easy conversion between vector types
+pub(crate) fn vec3_to_vector3(v: &glm::Vec3) -> Vector3<f32> {
+    Vector3::new(v.x, v.y, v.z)
 }
 
 /// calculates the padding necessary for offsets in uniform buffers (multiple of 16)
