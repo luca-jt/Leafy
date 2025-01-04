@@ -144,6 +144,7 @@ impl AnimationSystem {
                     center_of_mass: rb_1.center_of_mass,
                     hitbox: entity_data[i].1,
                     collider: entity_data[i].3,
+                    is_dynamic: is_dynamic_1,
                 };
                 let collider_2 = ColliderData {
                     position: *entity_data[j].0,
@@ -152,6 +153,7 @@ impl AnimationSystem {
                     center_of_mass: rb_2.center_of_mass,
                     hitbox: entity_data[j].1,
                     collider: entity_data[j].3,
+                    is_dynamic: is_dynamic_2,
                 };
                 // check for collision
                 if let Some(collision_data) = collider_1.collides_with(&collider_2) {
@@ -190,16 +192,6 @@ impl AnimationSystem {
                     // to resolve the collision seperate normal and tangential components of the motion in relation to the collision
                     // INFO: normal, velocity, and translation vector are pov 1 -> 2
 
-                    // vectors from the center of mass to the contact point
-                    let model1 =
-                        calc_model_matrix(entity_data[i].0, &scale1, &rot1, &rb_1.center_of_mass);
-                    let model2 =
-                        calc_model_matrix(entity_data[j].0, &scale2, &rot2, &rb_2.center_of_mass);
-                    let mass_center_coll_point_1 = collision_data.collision_point
-                        - mult_mat4_vec3(&model1, &rb_1.center_of_mass);
-                    let mass_center_coll_point_2 = collision_data.collision_point
-                        - mult_mat4_vec3(&model2, &rb_2.center_of_mass);
-
                     // rotation matrices + local inertia matrices
                     let rotation_mat1 = glm::mat4_to_mat3(&rot1.rotation_matrix());
                     let rotation_mat2 = glm::mat4_to_mat3(&rot2.rotation_matrix());
@@ -207,6 +199,12 @@ impl AnimationSystem {
                         rotation_mat1 * rb_1.inv_inertia_tensor * rotation_mat1.transpose();
                     let local_inertia_inv_2 =
                         rotation_mat2 * rb_2.inv_inertia_tensor * rotation_mat2.transpose();
+
+                    // vectors from the center of mass to the contact point
+                    let mass_center_coll_point_1 = collision_data.collision_point
+                        - rotation_mat1 * (rb_1.center_of_mass + entity_data[i].0.data());
+                    let mass_center_coll_point_2 = collision_data.collision_point
+                        - rotation_mat2 * (rb_2.center_of_mass + entity_data[j].0.data());
 
                     // angular velocities
                     let av1 = local_inertia_inv_1 * copied_or_default(&entity_data[i].5).data();
@@ -536,6 +534,7 @@ struct ColliderData<'a> {
     center_of_mass: glm::Vec3,
     hitbox: &'a Hitbox,
     collider: &'a Collider,
+    is_dynamic: bool,
 }
 
 impl ColliderData<'_> {
@@ -582,22 +581,30 @@ impl ColliderData<'_> {
 
     /// checks if two hitboxes collide with each other
     pub(crate) fn collides_with(&self, other: &Self) -> Option<CollisionData> {
+        // calculate the factor of one colliders translation vector
+        let translate_factor = if self.is_dynamic && other.is_dynamic {
+            0.5
+        } else if self.is_dynamic {
+            1.0
+        } else {
+            0.0
+        };
         // assume the normal vector is form the point of view of 1
         // the normal vector in the collision data should be normalized
         if let Some(spec1) = self.mesh_spec() {
             if let Some(spec2) = other.mesh_spec() {
-                gjk(spec1, spec2)
+                gjk(spec1, spec2, translate_factor)
             } else {
                 let spec2 = other.sphere_spec().unwrap();
-                gjk(spec1, spec2)
+                gjk(spec1, spec2, translate_factor)
             }
         } else {
             let spec1 = self.sphere_spec().unwrap();
             if let Some(spec2) = other.mesh_spec() {
-                gjk(spec1, spec2)
+                gjk(spec1, spec2, translate_factor)
             } else {
                 let spec2 = other.sphere_spec().unwrap();
-                gjk(spec1, spec2)
+                gjk(spec1, spec2, translate_factor)
             }
         }
     }
@@ -684,7 +691,11 @@ impl Simplex {
 }
 
 /// implementation of the GJK algorithm for detecting collisions
-fn gjk(collider1: impl ColliderSpec, collider2: impl ColliderSpec) -> Option<CollisionData> {
+fn gjk(
+    collider1: impl ColliderSpec,
+    collider2: impl ColliderSpec,
+    translate_factor: f32,
+) -> Option<CollisionData> {
     let mut supp_data = support(&collider1, &collider2, &X_AXIS);
     let mut simplex = Simplex::from_points(&[supp_data]);
     let mut direction = -supp_data.support;
@@ -697,7 +708,7 @@ fn gjk(collider1: impl ColliderSpec, collider2: impl ColliderSpec) -> Option<Col
         simplex.push_front(supp_data);
         if solve_simplex(&mut simplex, &mut direction) {
             // use the EPA algorithm in case of a collision
-            return Some(epa(collider1, collider2, simplex));
+            return Some(epa(collider1, collider2, simplex, translate_factor));
         }
     }
 }
@@ -707,6 +718,7 @@ fn epa(
     collider1: impl ColliderSpec,
     collider2: impl ColliderSpec,
     simplex: Simplex,
+    translate_factor: f32,
 ) -> CollisionData {
     let mut polytope = simplex.points.to_vec();
     let mut faces = (0..polytope.len())
@@ -731,11 +743,20 @@ fn epa(
                 &vec3_to_vector3(&v2.support),
                 &vec3_to_vector3(&v3.support),
             );
+            let coll_point = u * v1.fp1 + v * v2.fp1 + w * v3.fp1 - origin_proj * translate_factor;
+            let mut translation_vec = -min_normal * supp_distance;
+            for coord in translation_vec.iter_mut() {
+                if *coord > 0.0 {
+                    *coord += 0.0001;
+                } else if *coord < 0.0 {
+                    *coord -= 0.0001
+                }
+            }
             // return collision data
             return CollisionData {
                 collision_normal: min_normal,
-                collision_point: u * v1.fp1 + v * v2.fp1 + w * v3.fp1,
-                translation_vec: -min_normal * (supp_distance + 0.0001),
+                collision_point: coll_point,
+                translation_vec,
             };
         }
 
