@@ -236,15 +236,10 @@ impl AnimationSystem {
                         - copied_or_default(&entity_data[j].4).data()
                         - av2.cross(&mass_center_coll_point_2);
 
-                    // components of the relative velocity
-                    let normal_component = collision_data
-                        .collision_normal
-                        .dot(&normalize_non_zero(v_rel).unwrap_or(Y_AXIS))
-                        * v_rel;
-                    let tangential_component = v_rel - normal_component;
-
-                    // other data
+                    // components of the relative velocity and the seperation
                     let coll_normal = collision_data.collision_normal;
+                    let normal_component = coll_normal.dot(&v_rel) * coll_normal;
+                    let tangential_component = v_rel - normal_component;
                     let coll_tangent = normalize_non_zero(tangential_component).unwrap_or(ORIGIN);
 
                     let restitution_coefficient = 0.0; // TODO: change that in the future with component data
