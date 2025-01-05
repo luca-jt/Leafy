@@ -2,7 +2,6 @@ use crate::ecs::component::utils::*;
 use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::{Engine, EngineMode, FallingLeafApp};
-use crate::glm;
 use crate::rendering::data::calc_model_matrix;
 use crate::rendering::mesh::Hitbox;
 use crate::systems::event_system::events::*;
@@ -11,6 +10,7 @@ use crate::utils::constants::bits::internal::*;
 use crate::utils::constants::bits::user_level::*;
 use crate::utils::constants::{G, ORIGIN, X_AXIS, Y_AXIS};
 use crate::utils::tools::*;
+use crate::{glm, include_filter};
 use fyrox_sound::math::get_barycentric_coords;
 use itertools::Itertools;
 use std::collections::HashSet;
@@ -61,14 +61,34 @@ impl AnimationSystem {
         }
         self.update_cam(engine, dt);
         self.handle_collisions(engine.entity_manager_mut().deref_mut());
+        self.cut_low_velocities(engine.entity_manager_mut().deref_mut());
         self.time_of_last_sim.reset();
+    }
+
+    /// stops velocities near zero to make behavior more realistic
+    fn cut_low_velocities(&self, entity_manager: &mut EntityManager) {
+        let threshold = 0.001;
+        for velocity in unsafe {
+            entity_manager.query1_mut::<Velocity>((Some(include_filter!(Position)), None))
+        } {
+            if velocity.data().norm_squared() <= threshold * threshold {
+                *velocity *= 0.5;
+            }
+        }
+        for momentum in unsafe {
+            entity_manager.query1_mut::<AngularMomentum>((Some(include_filter!(Position)), None))
+        } {
+            if momentum.data().norm_squared() <= threshold * threshold {
+                *momentum *= 0.5;
+            }
+        }
     }
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager) {
         let mut entity_data = unsafe {
             entity_manager
-                .query9_mut_opt6::<Position, Collider, MeshType, Velocity, AngularMomentum, Scale, RigidBody, EntityFlags, Orientation>(vec![])
+                .query9_mut_opt6::<Position, Collider, MeshType, Velocity, AngularMomentum, Scale, RigidBody, EntityFlags, Orientation>((None, None))
                 .map(|(p, coll, mt, v, am, s, rb, f, o)| {
                     let mesh = entity_manager.asset_from_type(mt, LOD::None).unwrap();
                     let hitbox = entity_manager.hitbox_from_data(mt, &coll.hitbox_type).unwrap();
@@ -202,9 +222,9 @@ impl AnimationSystem {
 
                     // vectors from the center of mass to the contact point
                     let mass_center_coll_point_1 = collision_data.collision_point
-                        - rotation_mat1 * (rb_1.center_of_mass + entity_data[i].0.data());
+                        - (rb_1.center_of_mass + entity_data[i].0.data());
                     let mass_center_coll_point_2 = collision_data.collision_point
-                        - rotation_mat2 * (rb_2.center_of_mass + entity_data[j].0.data());
+                        - (rb_2.center_of_mass + entity_data[j].0.data());
 
                     // angular velocities
                     let av1 = local_inertia_inv_1 * copied_or_default(&entity_data[i].5).data();
@@ -244,8 +264,8 @@ impl AnimationSystem {
                                 &(local_inertia_inv_2
                                     * coll_normal.cross(&mass_center_coll_point_2)),
                             );
-                        let normal_impulse = -((1.0 + restitution_coefficient) * normal_component)
-                            / effective_mass_n;
+                        let normal_impulse =
+                            -(1.0 + restitution_coefficient) * normal_component / effective_mass_n;
 
                         // tangential impulse
                         let effective_mass_t = 1.0 / rb_1.mass
@@ -258,28 +278,21 @@ impl AnimationSystem {
                                 &(local_inertia_inv_2
                                     * coll_tangent.cross(&mass_center_coll_point_2)),
                             );
-                        let tang_impulse = -((1.0 + restitution_coefficient)
-                            * tangential_component)
+                        let tang_impulse = -(1.0 + restitution_coefficient) * tangential_component
                             / effective_mass_t
                             * total_friction;
 
-                        // apply impulses
-                        *entity_data[i].4.as_mut().unwrap().data_mut() += (normal_impulse
-                            + tang_impulse.dot(&normal_impulse) * normal_impulse)
-                            / rb_1.mass;
-                        *entity_data[j].4.as_mut().unwrap().data_mut() += -(normal_impulse
-                            + tang_impulse.dot(&normal_impulse) * normal_impulse)
-                            / rb_2.mass;
+                        // apply impulse
+                        let impulse = normal_impulse + tang_impulse;
+
+                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse / rb_1.mass;
+                        *entity_data[j].4.as_mut().unwrap().data_mut() += -impulse / rb_2.mass;
 
                         if let Some(angular_mom) = entity_data[i].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_1
-                                .cross(&tang_impulse)
-                                + mass_center_coll_point_1.cross(&normal_impulse);
+                            *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse);
                         }
                         if let Some(angular_mom) = entity_data[j].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_2
-                                .cross(&(-tang_impulse))
-                                + mass_center_coll_point_2.cross(&(-normal_impulse));
+                            *angular_mom.data_mut() += mass_center_coll_point_2.cross(&(-impulse));
                         }
                     } else if is_dynamic_1 {
                         // normal impulse
@@ -288,8 +301,8 @@ impl AnimationSystem {
                                 &(local_inertia_inv_1
                                     * coll_normal.cross(&mass_center_coll_point_1)),
                             );
-                        let normal_impulse = -((1.0 + restitution_coefficient) * normal_component)
-                            / effective_mass_n;
+                        let normal_impulse =
+                            -(1.0 + restitution_coefficient) * normal_component / effective_mass_n;
 
                         // tangential impulse
                         let effective_mass_t = 1.0 / rb_1.mass
@@ -297,20 +310,17 @@ impl AnimationSystem {
                                 &(local_inertia_inv_1
                                     * coll_tangent.cross(&mass_center_coll_point_1)),
                             );
-                        let tang_impulse = -((1.0 + restitution_coefficient)
-                            * tangential_component)
+                        let tang_impulse = -(1.0 + restitution_coefficient) * tangential_component
                             / effective_mass_t
                             * total_friction;
 
-                        // apply impulses
-                        *entity_data[i].4.as_mut().unwrap().data_mut() += (normal_impulse
-                            + tang_impulse.dot(&normal_impulse) * normal_impulse)
-                            / rb_1.mass;
+                        // apply impulse
+                        let impulse = normal_impulse + tang_impulse;
+
+                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse / rb_1.mass;
 
                         if let Some(angular_mom) = entity_data[i].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_1
-                                .cross(&tang_impulse)
-                                + mass_center_coll_point_1.cross(&normal_impulse);
+                            *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse);
                         }
                     } else if is_dynamic_2 {
                         // normal impulse
@@ -319,8 +329,8 @@ impl AnimationSystem {
                                 &(local_inertia_inv_2
                                     * coll_normal.cross(&mass_center_coll_point_2)),
                             );
-                        let normal_impulse = -((1.0 + restitution_coefficient) * normal_component)
-                            / effective_mass_n;
+                        let normal_impulse =
+                            -(1.0 + restitution_coefficient) * normal_component / effective_mass_n;
 
                         // tangential impulse
                         let effective_mass_t = 1.0 / rb_2.mass
@@ -328,20 +338,17 @@ impl AnimationSystem {
                                 &(local_inertia_inv_2
                                     * coll_tangent.cross(&mass_center_coll_point_2)),
                             );
-                        let tang_impulse = -((1.0 + restitution_coefficient)
-                            * tangential_component)
+                        let tang_impulse = -(1.0 + restitution_coefficient) * tangential_component
                             / effective_mass_t
                             * total_friction;
 
-                        // apply impulses
-                        *entity_data[j].4.as_mut().unwrap().data_mut() += -(normal_impulse
-                            + tang_impulse.dot(&normal_impulse) * normal_impulse)
-                            / rb_2.mass;
+                        // apply impulse
+                        let impulse = normal_impulse + tang_impulse;
+
+                        *entity_data[j].4.as_mut().unwrap().data_mut() += -impulse / rb_2.mass;
 
                         if let Some(angular_mom) = entity_data[j].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_2
-                                .cross(&(-tang_impulse))
-                                + mass_center_coll_point_2.cross(&(-normal_impulse));
+                            *angular_mom.data_mut() += mass_center_coll_point_2.cross(&(-impulse));
                         }
                     }
                     // register that a collsion was resolved
@@ -355,7 +362,7 @@ impl AnimationSystem {
     fn apply_physics(&self, entity_manager: &mut EntityManager, time_step: TimeDuration) {
         for (p, v, a_opt, rb_opt, o_opt, am_opt, flags) in unsafe {
             entity_manager
-                .query7_mut_opt5::<Position, Velocity, Acceleration, RigidBody, Orientation, AngularMomentum, EntityFlags>(vec![])
+                .query7_mut_opt5::<Position, Velocity, Acceleration, RigidBody, Orientation, AngularMomentum, EntityFlags>((None, None))
         } {
             let total_a = rb_opt
                 .is_some()

@@ -59,7 +59,7 @@ impl RenderingSystem {
     /// adds and removes light sources according to entity data
     pub(crate) fn update_light_sources(&mut self, entity_manager: &EntityManager) {
         let lights = entity_manager
-            .query3_opt1::<Position, PointLight, LightSrcID>(vec![])
+            .query3_opt1::<Position, PointLight, LightSrcID>((None, None))
             .map(|(p, s, l)| (p, s, l.unwrap().0))
             .collect_vec();
         // remove deleted shadow maps
@@ -100,7 +100,7 @@ impl RenderingSystem {
         // collect entity data
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
         let mut render_data = entity_manager
-            .query9_opt7::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight, LOD>(vec![])
+            .query9_opt7::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight, LOD>((None, None))
             .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
             .collect_vec();

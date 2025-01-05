@@ -18,7 +18,7 @@ fn entity_test() {
     ecs.remove_component::<D>(x).unwrap();
     assert!(!ecs.has_component::<D>(x));
     assert!(ecs.has_component::<C>(x));
-    assert_eq!(ecs.query2::<A, B>(vec![]).count(), 1);
+    assert_eq!(ecs.query2::<A, B>(None).count(), 1);
     ecs.delete_entity(x).unwrap();
 }
 
@@ -37,8 +37,8 @@ fn render_data() {
         MeshType::Cube,
         MeshAttribute::Colored(Color32::RED)
     ));
-    assert_eq!(ecs.query1::<PointLight>(vec![]).count(), 2);
-    assert_eq!(ecs.query1::<MeshType>(vec![]).count(), 3);
+    assert_eq!(ecs.query1::<PointLight>(None).count(), 2);
+    assert_eq!(ecs.query1::<MeshType>(None).count(), 3);
     assert_eq!(
         ecs.get_component::<MeshAttribute>(r1)
             .unwrap()

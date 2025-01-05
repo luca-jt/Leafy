@@ -5,17 +5,11 @@ use std::collections::hash_map::{Values, ValuesMut};
 use std::iter::Filter;
 use std::marker::PhantomData;
 
-/// filter functionality for any struct
-pub trait QueryFilter {
-    /// checks wether or not the filter accepts an archetype
-    fn matches(&self, archetype: &Archetype) -> bool;
-}
-
 /// a query filter that requires components to be included in an entity
 #[derive(Debug, Clone)]
 pub struct IncludeFilter(pub Vec<TypeId>);
 
-impl QueryFilter for IncludeFilter {
+impl IncludeFilter {
     fn matches(&self, archetype: &Archetype) -> bool {
         self.0
             .iter()
@@ -26,8 +20,8 @@ impl QueryFilter for IncludeFilter {
 /// easy creation of a boxed include filter from given component types
 #[macro_export]
 macro_rules! include_filter {
-    ($($T:ty),+) => {
-        Box::new($crate::ecs::query::IncludeFilter(vec![$(std::any::TypeId::of::<$T>()), +]))
+    ($($T:ty),*) => {
+        $crate::ecs::query::IncludeFilter(vec![$(std::any::TypeId::of::<$T>()), *])
     };
 }
 
@@ -35,7 +29,7 @@ macro_rules! include_filter {
 #[derive(Debug, Clone)]
 pub struct ExcludeFilter(pub Vec<TypeId>);
 
-impl QueryFilter for ExcludeFilter {
+impl ExcludeFilter {
     fn matches(&self, archetype: &Archetype) -> bool {
         self.0
             .iter()
@@ -46,8 +40,8 @@ impl QueryFilter for ExcludeFilter {
 /// easy creation of a boxed exclude filter from given component types
 #[macro_export]
 macro_rules! exclude_filter {
-    ($($T:ty),+) => {
-        Box::new($crate::ecs::query::ExcludeFilter(vec![$(std::any::TypeId::of::<$T>()), +]))
+    ($($T:ty),*) => {
+        $crate::ecs::query::ExcludeFilter(vec![$(std::any::TypeId::of::<$T>()), *])
     };
 }
 
@@ -77,7 +71,8 @@ macro_rules! impl_ref_query {
             archetype_iter: Filter<Values<'a, ArchetypeID, Archetype>, fn(&&Archetype) -> bool>,
             current_archetype: Option<&'a Archetype>,
             component_index: usize,
-            filter: Vec<Box<dyn QueryFilter>>,
+            include_filter: IncludeFilter,
+            exclude_filter: ExcludeFilter,
             phantom: PhantomData<($($ret), +, $($ret_opt), *)>,
         }
 
@@ -101,7 +96,7 @@ macro_rules! impl_ref_query {
                     }
                 }
                 if let Some(archetype) = self.archetype_iter.next() {
-                    if self.filter.iter().all(|filter| filter.matches(archetype)) {
+                    if self.include_filter.matches(archetype) && self.exclude_filter.matches(archetype) {
                         self.current_archetype = Some(archetype);
                         self.component_index = 0;
                     }
@@ -114,13 +109,14 @@ macro_rules! impl_ref_query {
         impl ECS {
             pub(crate) fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
                 &self,
-                filter: Vec<Box<dyn QueryFilter>>
+                filter: (Option<IncludeFilter>, Option<ExcludeFilter>)
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
                 $sname {
                     archetype_iter: self.archetypes.values().filter(|archetype| {$(archetype.contains::<$ret>()) && +}),
                     current_archetype: None,
                     component_index: 0,
-                    filter,
+                    include_filter: filter.0.unwrap_or(include_filter!()),
+                    exclude_filter: filter.1.unwrap_or(exclude_filter!()),
                     phantom: PhantomData,
                 }
             }
@@ -130,7 +126,7 @@ macro_rules! impl_ref_query {
             #[doc = "immutable query for n components with m optionals"]
             pub fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
                 &self,
-                filter: Vec<Box<dyn QueryFilter>>,
+                filter: (Option<IncludeFilter>, Option<ExcludeFilter>)
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
                 // SAFETY: this is only treated as an immutable reference and the pointer is always valid
                 unsafe { &*self.ecs.get() }.$fname::<$($ret), +, $($ret_opt), *>(filter)
@@ -145,7 +141,8 @@ macro_rules! impl_mut_query {
             archetype_iter: Filter<ValuesMut<'a, ArchetypeID, Archetype>, fn(&&mut Archetype) -> bool>,
             current_archetype: Option<*mut Archetype>,
             component_index: usize,
-            filter: Vec<Box<dyn QueryFilter>>,
+            include_filter: IncludeFilter,
+            exclude_filter: ExcludeFilter,
             phantom: PhantomData<($($ret), +, $($ret_opt), *)>,
         }
 
@@ -172,7 +169,7 @@ macro_rules! impl_mut_query {
                     }
                 }
                 if let Some(archetype) = self.archetype_iter.next() {
-                    if self.filter.iter().all(|filter| filter.matches(archetype)) {
+                    if self.include_filter.matches(archetype) && self.exclude_filter.matches(archetype) {
                         self.current_archetype = Some(archetype);
                         self.component_index = 0;
                     }
@@ -185,14 +182,15 @@ macro_rules! impl_mut_query {
         impl ECS {
             pub(crate) fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
                 &mut self,
-                filter: Vec<Box<dyn QueryFilter>>,
+                filter: (Option<IncludeFilter>, Option<ExcludeFilter>)
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
                 debug_assert!(verify_types!($($ret), + $(, $ret_opt) *));
                 $sname {
                     archetype_iter: self.archetypes.values_mut().filter(|archetype| {$(archetype.contains::<$ret>()) && +}),
                     current_archetype: None,
                     component_index: 0,
-                    filter,
+                    include_filter: filter.0.unwrap_or(include_filter!()),
+                    exclude_filter: filter.1.unwrap_or(exclude_filter!()),
                     phantom: PhantomData,
                 }
             }
@@ -219,7 +217,7 @@ macro_rules! impl_mut_query {
             #[doc = "For this reason this function is marked as ``unsafe`` until this is changed in the future, as there would be borrowing issues otherwhise."]
             pub unsafe fn $fname<$($ret: Any), +, $($ret_opt: Any), *>(
                 &self,
-                filter: Vec<Box<dyn QueryFilter>>,
+                filter: (Option<IncludeFilter>, Option<ExcludeFilter>)
             ) -> $sname<'_, $($ret), +, $($ret_opt), *> {
                 (&mut *self.ecs.get()).$fname::<$($ret), +, $($ret_opt), *>(filter)
             }

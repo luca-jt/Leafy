@@ -226,7 +226,7 @@ impl EntityManager {
                 AssetCommand::CleanMeshes => {
                     self.asset_register.retain(|mesh_type, _| {
                         let contains = unsafe { &*self.ecs.get() }
-                            .query1::<MeshType>(vec![])
+                            .query1::<MeshType>((None, None))
                             .contains(mesh_type);
                         if !contains {
                             log::debug!("deleted mesh from register: '{:?}'", mesh_type);
@@ -257,7 +257,7 @@ impl EntityManager {
                 AssetCommand::CleanHitboxes => {
                     self.hitbox_register.retain(|(mesh_type, box_type), _| {
                         let contains = unsafe { &*self.ecs.get() }
-                            .query2::<MeshType, Collider>(vec![])
+                            .query2::<MeshType, Collider>((None, None))
                             .map(|(mt, coll)| (mt, &coll.hitbox_type))
                             .contains(&(mesh_type, box_type));
                         if !contains {
@@ -328,7 +328,7 @@ impl EntityManager {
                 AssetCommand::CleanTextures => {
                     self.texture_map.retain(|texture| {
                         unsafe { &*self.ecs.get() }
-                            .query1::<MeshAttribute>(vec![])
+                            .query1::<MeshAttribute>((None, None))
                             .filter_map(|ma| ma.texture())
                             .contains(texture)
                     });
@@ -349,7 +349,7 @@ impl EntityManager {
                 AssetCommand::CleanLODs => {
                     self.lod_register.retain(|mesh_type, _| {
                         let contains = unsafe { &*self.ecs.get() }
-                            .query2::<MeshType, LOD>(vec![])
+                            .query2::<MeshType, LOD>((None, None))
                             .map(|(mt, _)| mt)
                             .contains(mesh_type);
                         if !contains {

@@ -84,7 +84,7 @@ impl FallingLeafApp for App {
             Scale::from_factor(0.2),
             MeshType::Cube,
             MeshAttribute::Colored(Color32::RED),
-            Velocity::zero(),
+            Velocity::new(-1.0, 0.0, 0.0),
             Orientation::new(45.0, Y_AXIS + Z_AXIS),
             AngularMomentum::zero(),
             Acceleration::zero(),
@@ -145,7 +145,7 @@ fn jump(event: &KeyPress, engine: &Engine<App>) {
         let v_ref = entity_manager
             .get_component_mut::<Velocity>(engine.app().player)
             .unwrap();
-        *v_ref = Velocity::new(0.0, 5.0, 0.0);
+        v_ref.data_mut().y = 5.0;
     }
 }
 
