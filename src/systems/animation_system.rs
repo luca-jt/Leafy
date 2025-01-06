@@ -57,30 +57,31 @@ impl AnimationSystem {
         self.time_accumulated += transformed_dt;
         while self.time_accumulated >= self.time_step_size {
             self.apply_physics(engine.entity_manager_mut().deref_mut(), self.time_step_size);
+            self.handle_collisions(engine.entity_manager_mut().deref_mut());
+            self.damp_velocities(engine.entity_manager_mut().deref_mut());
             self.time_accumulated -= self.time_step_size;
         }
         self.update_cam(engine, dt);
-        self.handle_collisions(engine.entity_manager_mut().deref_mut());
-        self.cut_low_velocities(engine.entity_manager_mut().deref_mut());
         self.time_of_last_sim.reset();
     }
 
     /// stops velocities near zero to make behavior more realistic
-    fn cut_low_velocities(&self, entity_manager: &mut EntityManager) {
-        let threshold = 0.001;
+    fn damp_velocities(&self, entity_manager: &mut EntityManager) {
         for velocity in unsafe {
             entity_manager.query1_mut::<Velocity>((Some(include_filter!(Position)), None))
         } {
-            if velocity.data().norm_squared() <= threshold * threshold {
-                *velocity *= 0.5;
-            }
+            let ub = 0.1;
+            let vel_norm = velocity.data().norm();
+            let factor = map_range((0.0, ub), (0.999, 1.0), vel_norm.clamp(0.0, ub));
+            *velocity *= factor;
         }
         for momentum in unsafe {
             entity_manager.query1_mut::<AngularMomentum>((Some(include_filter!(Position)), None))
         } {
-            if momentum.data().norm_squared() <= threshold * threshold {
-                *momentum *= 0.5;
-            }
+            let ub = 0.1;
+            let mom_norm = momentum.data().norm();
+            let factor = map_range((0.0, ub), (0.999, 1.0), mom_norm.clamp(0.0, ub));
+            *momentum *= factor;
         }
     }
 
@@ -243,7 +244,7 @@ impl AnimationSystem {
                     let coll_tangent = normalize_non_zero(tangential_component).unwrap_or(ORIGIN);
 
                     let restitution_coefficient = 0.0; // TODO: change that in the future with component data
-                    let total_friction = rb_1.friction.min(rb_2.friction).clamp(0.0, 1.0);
+                    let total_friction = rb_1.friction.min(rb_2.friction);
 
                     // resolve the collision depending on what enities are movable
                     // if only one is movable, treat the mass of the immovable entity as infinite

@@ -1,25 +1,27 @@
 controller events
 animations
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
-scene files and loading of them in the rendering system -> serialization (serde)
+scene files and loading of them -> serialization (serde)
 voxelized meshes + hitboxes (for non-convex cases) -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
-using a different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj
 raytracing the current scene
-cascaded shadow mapping
 shadow anti-aliasing -> pcss
+cascaded shadow mapping
+using a different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj
 ---------------------------------------------------------------------
-collision resolvement of things that should not slide downhill possible?
+rework the inertia and collision stuff
 2D sprite hitboxes with seperate collision checking
 cube shadow maps for point lights
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
 dpi scale factor event handling? -> render res handled by screen texture res (if that setting is in %, maybe scale that or smth)
 materials -> reflection?
 new rendering system with effect shaders that renders to a screen texture (for SSAO?) -> maybe only later
-sky box cube maps
-conways game of life example
 ui basics + font rendering + events for ui struct
+conways game of life example
 sprite renderer -> depth layers configurable, sprite component
+
+sky box cube maps
 glsl preprocessor for including shader files and not copy and pasting everything
 make shure in lighting that shadows always have the same darkness and check if colors/intesity are correct
 add option to cache certain assets that you dont want to be cleaned up
 for on collision event functions for entities -> info about the collision is stored inside the collider component
+collision resolvement of things that should not slide downhill possible?
