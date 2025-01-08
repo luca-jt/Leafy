@@ -30,13 +30,15 @@ pub mod bits {
         /// is set when a collision with that entity occurs
         pub const COLLIDED: u64 = 1;
     }
-    /// flags that can be
+    /// flags that can be set by the user to enable certain behavior in the engine
     pub mod user_level {
         /// makes an entity invisible and skips the rendering process for it
         pub const INVISIBLE: u64 = 0;
-        /// inidcates wether or not
+        /// inidcates wether or not the entity is effected by gravity
         pub const FLOATING: u64 = 2;
         /// makes an entity with a collider only register collisions, not respond to them physics-whise
         pub const IGNORING_COLLISION: u64 = 3;
+        /// seperates entities at collision even whithout velocity component, also ignores dynamic collision responses when used on entities with velocity
+        pub const STATIC_COLLISION: u64 = 4;
     }
 }

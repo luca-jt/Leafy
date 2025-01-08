@@ -376,7 +376,7 @@ pub(crate) struct LightSrcID(pub(crate) EntityID);
 /// 64bit flag bitmap for enabling special entity behavior (default: all turned off, the same as component not present)
 /// ### Info
 /// You can use this component independantly of the rest of the engine if you want to.
-/// The bits 4-63 do not influence engine behavior and are free to customize.
+/// The bits 5-63 do not influence engine behavior and are free to customize.
 #[derive(Debug, Default)]
 pub struct EntityFlags(u64);
 

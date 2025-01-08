@@ -1,14 +1,18 @@
 controller events
 animations
+custom shaders?
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w
 scene files and loading of them -> serialization (serde)
 voxelized meshes + hitboxes (for non-convex cases) -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
+volumetric rendering -> voxels
 raytracing the current scene
 shadow anti-aliasing -> pcss
 cascaded shadow mapping
 using a different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj
+Z buffer culling
 ---------------------------------------------------------------------
-rework the inertia and collision stuff
+shader type is specifyable in component
+rework the inertia and collision stuff -> collision point is slightly off
 2D sprite hitboxes with seperate collision checking
 cube shadow maps for point lights
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
@@ -24,4 +28,3 @@ glsl preprocessor for including shader files and not copy and pasting everything
 make shure in lighting that shadows always have the same darkness and check if colors/intesity are correct
 add option to cache certain assets that you dont want to be cleaned up
 for on collision event functions for entities -> info about the collision is stored inside the collider component
-collision resolvement of things that should not slide downhill possible?

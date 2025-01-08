@@ -19,7 +19,7 @@ const CAM_MOUSE_SPEED: f32 = 4.0;
 /// example app
 pub struct App {
     player: EntityID,
-    cube: EntityID,
+    sphere: EntityID,
     using_mouse_control: bool,
     using_fullscreen: bool,
 }
@@ -28,7 +28,7 @@ impl App {
     pub fn new() -> Self {
         Self {
             player: NO_ENTITY,
-            cube: NO_ENTITY,
+            sphere: NO_ENTITY,
             using_mouse_control: true,
             using_fullscreen: false,
         }
@@ -107,7 +107,7 @@ impl FallingLeafApp for App {
             &heli_position,
         );
 
-        self.cube = entity_manager.create_entity(components!(
+        self.sphere = entity_manager.create_entity(components!(
             heli_position,
             Scale::from_factor(0.2),
             MeshType::Sphere,
@@ -127,11 +127,11 @@ impl FallingLeafApp for App {
     fn on_frame_update(&mut self, engine: &Engine<Self>) {
         let mut entity_manager = engine.entity_manager_mut();
         let secs = entity_manager
-            .get_component_mut::<TouchTime>(self.cube)
+            .get_component_mut::<TouchTime>(self.sphere)
             .unwrap()
             .delta_time();
         let pos = entity_manager
-            .get_component_mut::<Position>(self.cube)
+            .get_component_mut::<Position>(self.sphere)
             .unwrap();
         let av = FRAC_PI_2;
         pos.data_mut().x = (secs * av).0.sin() * 3.0;

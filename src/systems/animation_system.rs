@@ -76,7 +76,8 @@ impl AnimationSystem {
             *velocity *= factor;
         }
         for momentum in unsafe {
-            entity_manager.query1_mut::<AngularMomentum>((Some(include_filter!(Position)), None))
+            entity_manager
+                .query1_mut::<AngularMomentum>((Some(include_filter!(Position, Orientation)), None))
         } {
             let ub = 0.1;
             let mom_norm = momentum.data().norm();
@@ -135,6 +136,18 @@ impl AnimationSystem {
                 let is_dynamic_1 = entity_data[i].4.is_some();
                 let is_dynamic_2 = entity_data[j].4.is_some();
 
+                // check what entities are still colliding statically
+                let static_collision_1 = entity_data[i]
+                    .8
+                    .as_ref()
+                    .map(|flags| flags.get_bit(STATIC_COLLISION))
+                    .unwrap_or(false);
+                let static_collision_2 = entity_data[j]
+                    .8
+                    .as_ref()
+                    .map(|flags| flags.get_bit(STATIC_COLLISION))
+                    .unwrap_or(false);
+
                 // check what entities ignore collision resolvement
                 let ingores_collision_1 = entity_data[i]
                     .8
@@ -186,28 +199,32 @@ impl AnimationSystem {
                         flags.set_bit(COLLIDED, true);
                     }
 
-                    // ignore collision resolvement if a relevant flag is set or the two objects are immovable
-                    if ingores_collision_1
-                        || ingores_collision_2
-                        || (!is_dynamic_1 && !is_dynamic_2)
-                    {
+                    // ignore collision resolvement if a relevant flag is set
+                    if ingores_collision_1 || ingores_collision_2 {
                         continue;
                     }
 
                     // seperate the two objects
-                    if is_dynamic_1 && is_dynamic_2 {
+                    let should_seperate_1 = is_dynamic_1 || static_collision_1;
+                    let should_seperate_2 = is_dynamic_2 || static_collision_2;
+
+                    if should_seperate_1 && should_seperate_2 {
                         // both have velocity and therefore are movable
                         *entity_data[i].0.data_mut() += 0.5 * collision_data.translation_vec;
                         *entity_data[j].0.data_mut() += -0.5 * collision_data.translation_vec;
-                    } else if is_dynamic_1 {
+                    } else if should_seperate_1 {
                         // only 1 is movable
                         *entity_data[i].0.data_mut() += collision_data.translation_vec;
-                    } else if is_dynamic_2 {
+                    } else if should_seperate_2 {
                         // only 2 is movable
                         *entity_data[j].0.data_mut() += -collision_data.translation_vec;
-                    } else {
-                        // both are immovable (should not happen due to the check earlier)
-                        panic!("tried to seperate two immovable objects");
+                    }
+
+                    // ignore the rest of the collision response if both of entities are static or the flag is set
+                    if (!is_dynamic_1 || static_collision_1)
+                        && (!is_dynamic_2 || static_collision_2)
+                    {
+                        continue;
                     }
 
                     // to resolve the collision seperate normal and tangential components of the motion in relation to the collision
@@ -748,6 +765,7 @@ fn epa(
             );
             let coll_point = u * v1.fp1 + v * v2.fp1 + w * v3.fp1 - origin_proj * translate_factor;
             let mut translation_vec = -min_normal * supp_distance;
+            // seperate the colliders a tiny bit more to avoid collision detection problems
             for coord in translation_vec.iter_mut() {
                 if *coord > 0.0 {
                     *coord += 0.0001;
