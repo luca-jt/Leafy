@@ -96,6 +96,7 @@ impl AnimationSystem {
                     let hitbox = entity_manager.hitbox_from_data(mt, &coll.hitbox_type).unwrap();
                     let scale_matrix = copied_or_default(&s).scale_matrix() * coll.scale.scale_matrix();
                     let coll_reach = mesh.max_reach + coll.offset.abs();
+                    coll.last_collision_points.clear();
                     (
                         p,
                         hitbox,
@@ -160,6 +161,11 @@ impl AnimationSystem {
                     .map(|flags| flags.get_bit(IGNORING_COLLISION))
                     .unwrap_or(false);
 
+                // ignore collision resolvement if a relevant flag is set
+                if ingores_collision_1 || ingores_collision_2 {
+                    continue;
+                }
+
                 // rigid bodies
                 let rb_1 = copied_or_default(&entity_data[i].7);
                 let rb_2 = copied_or_default(&entity_data[j].7);
@@ -191,18 +197,21 @@ impl AnimationSystem {
                 };
                 // check for collision
                 if let Some(collision_data) = collider_1.collides_with(&collider_2) {
-                    // set collision flags
+                    // set collision flags/data
                     if let Some(flags) = &mut entity_data[i].8 {
                         flags.set_bit(COLLIDED, true);
                     }
                     if let Some(flags) = &mut entity_data[j].8 {
                         flags.set_bit(COLLIDED, true);
                     }
-
-                    // ignore collision resolvement if a relevant flag is set
-                    if ingores_collision_1 || ingores_collision_2 {
-                        continue;
-                    }
+                    entity_data[i]
+                        .3
+                        .last_collision_points
+                        .push(collision_data.collision_point);
+                    entity_data[j]
+                        .3
+                        .last_collision_points
+                        .push(collision_data.collision_point);
 
                     // seperate the two objects
                     let should_seperate_1 = is_dynamic_1 || static_collision_1;

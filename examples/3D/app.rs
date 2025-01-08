@@ -61,11 +61,7 @@ impl FallingLeafApp for App {
             Scale::new(5.0, 0.1, 5.0),
             MeshType::Cube,
             MeshAttribute::Textured(Texture::Wall(Filtering::Nearest)),
-            Collider {
-                hitbox_type: HitboxType::Box,
-                offset: ORIGIN,
-                scale: Scale::default(),
-            }
+            Collider::new(HitboxType::Box)
         ));
 
         let _hammer = entity_manager.create_entity(components!(
@@ -88,11 +84,7 @@ impl FallingLeafApp for App {
             Orientation::new(45.0, Y_AXIS + Z_AXIS),
             AngularMomentum::zero(),
             Acceleration::zero(),
-            Collider {
-                hitbox_type: HitboxType::ConvexHull,
-                offset: ORIGIN,
-                scale: Scale::default()
-            },
+            Collider::new(HitboxType::ConvexHull),
             RigidBody::default(),
             EntityFlags::default()
         ));

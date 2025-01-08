@@ -344,11 +344,41 @@ pub struct SoundController {
 
 /// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's
 /// (requires ``MeshType`` to work and should only be used with meshes that have a volume)
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Collider {
-    pub hitbox_type: HitboxType,
-    pub offset: glm::Vec3,
-    pub scale: Scale,
+    pub(crate) hitbox_type: HitboxType,
+    pub(crate) offset: glm::Vec3,
+    pub(crate) scale: Scale,
+    pub(crate) last_collision_points: Vec<glm::Vec3>,
+}
+
+impl Collider {
+    /// creates a new collider from a given hitbox type
+    pub fn new(hitbox_type: HitboxType) -> Self {
+        Self {
+            hitbox_type,
+            offset: ORIGIN,
+            scale: Scale::default(),
+            last_collision_points: vec![],
+        }
+    }
+
+    /// sets the offset of the hitbox
+    pub fn with_offset(mut self, offset: glm::Vec3) -> Self {
+        self.offset = offset;
+        self
+    }
+
+    /// sets the scale of the hitbox
+    pub fn with_scale(mut self, scale: Scale) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    /// access to the collision points of the collider from the last iteration
+    pub fn collision_points(&self) -> &[glm::Vec3] {
+        &self.last_collision_points
+    }
 }
 
 /// marks an entity as a point light source for the rendering system, needs a position attached to work
