@@ -8,7 +8,8 @@ use crate::utils::tools::types_eq;
 use itertools::Itertools;
 use std::any::{Any, TypeId};
 use std::cell::UnsafeCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::fmt::Debug;
 use std::rc::Rc;
 
 /// create a component list for entity creation
@@ -27,6 +28,7 @@ pub struct EntityManager {
     pub(crate) texture_map: TextureMap,
     hitbox_register: HashMap<(MeshType, HitboxType), Hitbox>,
     commands: VecDeque<AssetCommand>,
+    cache_instructions: HashSet<AssetCacheInstruction>,
 }
 
 impl EntityManager {
@@ -39,6 +41,7 @@ impl EntityManager {
             texture_map: TextureMap::new(),
             hitbox_register: HashMap::new(),
             commands: VecDeque::new(),
+            cache_instructions: HashSet::new(),
         }
     }
 
@@ -172,6 +175,25 @@ impl EntityManager {
         removed
     }
 
+    /// adds a new kind of asset to the manager that will be cached in the future and not deleted even when there is no entity currently using it,
+    /// returns wether or not this instruction is not already stored
+    pub fn add_cache_instruction(
+        &mut self,
+        instruction: impl Into<AssetCacheInstruction> + Debug,
+    ) -> bool {
+        log::debug!("added asset cache instruction for: '{:?}'", instruction);
+        self.cache_instructions.insert(instruction.into())
+    }
+
+    /// removes a kind of asset from the set of cached assets, returns wether or not the instruction was stored
+    pub fn remove_cache_instruction(
+        &mut self,
+        instruction: impl Into<AssetCacheInstruction> + Debug,
+    ) -> bool {
+        log::debug!("removed asset cache instruction for: '{:?}'", instruction);
+        self.cache_instructions.remove(&instruction.into())
+    }
+
     /// iterate over all of the stored entities
     pub fn all_ids_iter(&self) -> impl Iterator<Item = &EntityID> {
         unsafe { &*self.ecs.get() }.entity_index.keys()
@@ -228,10 +250,14 @@ impl EntityManager {
                         let contains = unsafe { &*self.ecs.get() }
                             .query1::<MeshType>((None, None))
                             .contains(mesh_type);
-                        if !contains {
+                        let is_cached = self
+                            .cache_instructions
+                            .contains(&AssetCacheInstruction::MeshData(mesh_type.clone()));
+                        let should_stay = contains || is_cached;
+                        if !should_stay {
                             log::debug!("deleted mesh from register: '{:?}'", mesh_type);
                         }
-                        contains
+                        should_stay
                     });
                 }
                 AssetCommand::AddHitbox(entity) => {
@@ -260,14 +286,21 @@ impl EntityManager {
                             .query2::<MeshType, Collider>((None, None))
                             .map(|(mt, coll)| (mt, &coll.hitbox_type))
                             .contains(&(mesh_type, box_type));
-                        if !contains {
+                        let is_cached =
+                            self.cache_instructions
+                                .contains(&AssetCacheInstruction::HitboxData(
+                                    *box_type,
+                                    mesh_type.clone(),
+                                ));
+                        let should_stay = contains || is_cached;
+                        if !should_stay {
                             log::debug!(
                                 "deleted hitbox '{:?}' from register for mesh '{:?}'",
                                 box_type,
                                 mesh_type
                             );
                         }
-                        contains
+                        should_stay
                     });
                 }
                 AssetCommand::UpdateRigidBody(entity) => {
@@ -327,10 +360,15 @@ impl EntityManager {
                 }
                 AssetCommand::CleanTextures => {
                     self.texture_map.retain(|texture| {
-                        unsafe { &*self.ecs.get() }
+                        let contains = unsafe { &*self.ecs.get() }
                             .query1::<MeshAttribute>((None, None))
                             .filter_map(|ma| ma.texture())
-                            .contains(texture)
+                            .contains(texture);
+                        let is_cached = self
+                            .cache_instructions
+                            .contains(&AssetCacheInstruction::TextureData(texture.clone()));
+                        let should_stay = contains || is_cached;
+                        should_stay
                     });
                 }
                 AssetCommand::AddLODs(entity) => {
@@ -352,10 +390,14 @@ impl EntityManager {
                             .query2::<MeshType, LOD>((None, None))
                             .map(|(mt, _)| mt)
                             .contains(mesh_type);
-                        if !contains {
+                        let is_cached = self
+                            .cache_instructions
+                            .contains(&AssetCacheInstruction::MeshData(mesh_type.clone()));
+                        let should_stay = contains || is_cached;
+                        if !should_stay {
                             log::debug!("deleted LODs from register for mesh: '{:?}'", mesh_type);
                         }
-                        contains
+                        should_stay
                     });
                 }
             }

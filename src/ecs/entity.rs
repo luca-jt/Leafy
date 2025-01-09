@@ -1,3 +1,5 @@
+use crate::ecs::component::utils::{HitboxType, Texture};
+use crate::ecs::component::MeshType;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::ops::Index;
@@ -113,5 +115,31 @@ impl ComponentStorage for Vec<Box<dyn Any>> {
     fn component_data<T: Any>(&self) -> Option<&T> {
         let i = self.iter().position(|element| element.is::<T>())?;
         self.get(i).unwrap().downcast_ref::<T>()
+    }
+}
+
+/// type that enables caching of loaded assets in the entity manager
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum AssetCacheInstruction {
+    MeshData(MeshType),
+    TextureData(Texture),
+    HitboxData(HitboxType, MeshType),
+}
+
+impl From<MeshType> for AssetCacheInstruction {
+    fn from(value: MeshType) -> Self {
+        Self::MeshData(value)
+    }
+}
+
+impl From<Texture> for AssetCacheInstruction {
+    fn from(value: Texture) -> Self {
+        Self::TextureData(value)
+    }
+}
+
+impl From<(HitboxType, MeshType)> for AssetCacheInstruction {
+    fn from(value: (HitboxType, MeshType)) -> Self {
+        Self::HitboxData(value.0, value.1)
     }
 }

@@ -26,4 +26,4 @@ Z buffer culling -> this will make it possible to not sort the objects for rende
 sky box cube maps -> https://learnopengl.com/Advanced-OpenGL/Cubemaps
 glsl preprocessor for including shader files and not copy and pasting everything
 make shure in lighting that shadows always have the same darkness and check if colors/intesity are correct
-add option to cache certain assets that you dont want to be cleaned up
+make shure to not delete renderers when the only reason it is not used is because the entity is invisible
