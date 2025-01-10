@@ -22,8 +22,7 @@ ui basics + font rendering + events for ui struct
 conways game of life example
 sprite renderer -> depth layers configurable, sprite component
 
-Z buffer culling -> this will make it possible to not sort the objects for rendering transparent objects -> ignore everything that is not translucent in z rendering
+Z buffer culling -> this will make it possible to not sort the objects for rendering transparent objects -> ignore everything that is translucent in z rendering
 sky box cube maps -> https://learnopengl.com/Advanced-OpenGL/Cubemaps
 glsl preprocessor for including shader files and not copy and pasting everything
-make shure in lighting that shadows always have the same darkness and check if colors/intesity are correct
-make shure to not delete renderers when the only reason it is not used is because the entity is invisible
+make shure to not delete renderers when the only reason it is not used is because the entity is invisible -> same with lights

@@ -70,22 +70,23 @@ void main() {
         distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
 
         float diff = min(max(dot(v_normal, light_dir), 0.0) / (pow(distance_to_light, 2) * 4 * PI), 1.0);
-        vec3 src_light = vec3(diff * (1.0 - shadow_calc(frag_pos_light[i], i))) * lights[i].color.rgb * lights[i].intensity;
-        final_light += (vec3(ambient_light.intensity) + src_light * POINT_LIGHT_STRENGTH) / float(num_lights);
+        float shadow = 1.0 - shadow_calc(frag_pos_light[i], i);
+        vec3 src_light = diff * shadow * lights[i].color.rgb * lights[i].intensity;
+        final_light += src_light * POINT_LIGHT_STRENGTH / float(num_lights);
     }
-    final_light = num_lights > 0 ? final_light : vec3(ambient_light.intensity);
+    final_light += vec3(ambient_light.intensity);
     // clamp if final light strength is too high
     for (int i = 0; i < 3; i++) {
         final_light[i] = clamp(final_light[i], 0.0, 1.0);
     }
     // add specular lighting
-    float spec_strenght = 0.4;
+    float spec_strenght = 0.3;
     for (int i = 0; i < num_lights; i++) {
         vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
         vec3 view_dir = normalize(cam_position - frag_pos);
         vec3 reflect_dir = reflect(-light_dir, v_normal);
         float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
-        final_light += spec_strenght * spec * vec3(lights[i].color) / float(num_lights);
+        final_light += spec_strenght * spec * vec3(lights[i].color);
     }
 
     vec4 textured = texture(tex_sampler[sampler_idx], v_uv).rgba * v_color;
