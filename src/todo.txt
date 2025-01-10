@@ -25,4 +25,3 @@ sprite renderer -> depth layers configurable, sprite component
 Z buffer culling -> this will make it possible to not sort the objects for rendering transparent objects -> ignore everything that is translucent in z rendering
 sky box cube maps -> https://learnopengl.com/Advanced-OpenGL/Cubemaps
 glsl preprocessor for including shader files and not copy and pasting everything
-make shure to not delete renderers when the only reason it is not used is because the entity is invisible -> same with lights

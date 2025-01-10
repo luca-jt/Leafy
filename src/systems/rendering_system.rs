@@ -101,7 +101,6 @@ impl RenderingSystem {
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
         let mut render_data = entity_manager
             .query9_opt7::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight, LOD>((None, None))
-            .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
             .collect_vec();
 
@@ -113,7 +112,9 @@ impl RenderingSystem {
         });
 
         // add entity data to the renderers
-        for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light, lod) in render_data {
+        for (position, mesh_type, flags, mesh_attr, scale, orientation, rb, light, lod) in
+            render_data
+        {
             let default_attr = MeshAttribute::Colored(Color32::WHITE);
             let trafo = calc_model_matrix(
                 position,
@@ -134,6 +135,7 @@ impl RenderingSystem {
                 m_attr: mesh_attr.unwrap_or(&default_attr),
                 mesh: entity_manager.asset_from_type(mesh_type, lod).unwrap(),
                 tex_map: &entity_manager.texture_map,
+                is_visible: flags.map_or(true, |f| !f.get_bit(INVISIBLE)),
             };
 
             let is_added = self.try_add_data(&render_data);
@@ -236,16 +238,20 @@ impl RenderingSystem {
                     *used = true;
                     return match rd.m_attr {
                         MeshAttribute::Textured(path) => {
-                            renderer.draw_tex_mesh(
-                                rd.trafo,
-                                rd.tex_map.get_tex_id(path).unwrap(),
-                                rd.mesh,
-                                spec.shader_type,
-                            );
+                            if rd.is_visible {
+                                renderer.draw_tex_mesh(
+                                    rd.trafo,
+                                    rd.tex_map.get_tex_id(path).unwrap(),
+                                    rd.mesh,
+                                    spec.shader_type,
+                                );
+                            }
                             true
                         }
                         MeshAttribute::Colored(color) => {
-                            renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
+                            if rd.is_visible {
+                                renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
+                            }
                             true
                         }
                     };
@@ -255,14 +261,18 @@ impl RenderingSystem {
                     match rd.m_attr {
                         MeshAttribute::Textured(path) => {
                             if rd.tex_map.get_tex_id(path).unwrap() == renderer.tex_id {
-                                renderer.add_position(rd.trafo, rd.mesh);
+                                if rd.is_visible {
+                                    renderer.add_position(rd.trafo, rd.mesh);
+                                }
                                 *used = true;
                                 return true;
                             }
                         }
                         MeshAttribute::Colored(color) => {
                             if *color == renderer.color {
-                                renderer.add_position(rd.trafo, rd.mesh);
+                                if rd.is_visible {
+                                    renderer.add_position(rd.trafo, rd.mesh);
+                                }
                                 *used = true;
                                 return true;
                             }
@@ -277,21 +287,22 @@ impl RenderingSystem {
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
         log::debug!("added new renderer for: '{:?}'", rd.spec.mesh_type);
-
         match rd.spec.mesh_type {
             MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
                 let mut renderer = BatchRenderer::new(rd.mesh, rd.spec.shader_type);
-                match rd.m_attr {
-                    MeshAttribute::Colored(color) => {
-                        renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
-                    }
-                    MeshAttribute::Textured(path) => {
-                        renderer.draw_tex_mesh(
-                            rd.trafo,
-                            rd.tex_map.get_tex_id(path).unwrap(),
-                            rd.mesh,
-                            rd.spec.shader_type,
-                        );
+                if rd.is_visible {
+                    match rd.m_attr {
+                        MeshAttribute::Colored(color) => {
+                            renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
+                        }
+                        MeshAttribute::Textured(path) => {
+                            renderer.draw_tex_mesh(
+                                rd.trafo,
+                                rd.tex_map.get_tex_id(path).unwrap(),
+                                rd.mesh,
+                                rd.spec.shader_type,
+                            );
+                        }
                     }
                 }
                 self.renderers.push(Batch(rd.spec.clone(), renderer, true));
@@ -306,7 +317,9 @@ impl RenderingSystem {
                         renderer.color = *color;
                     }
                 }
-                renderer.add_position(rd.trafo, rd.mesh);
+                if rd.is_visible {
+                    renderer.add_position(rd.trafo, rd.mesh);
+                }
                 self.renderers
                     .push(Instance(rd.spec.clone(), rd.m_attr.clone(), renderer, true));
             }
@@ -543,6 +556,7 @@ struct RenderData<'a> {
     m_attr: &'a MeshAttribute,
     mesh: &'a Mesh,
     tex_map: &'a TextureMap,
+    is_visible: bool,
 }
 
 /// all possible settings for shadow map resolution

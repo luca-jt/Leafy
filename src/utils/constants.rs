@@ -32,7 +32,7 @@ pub mod bits {
     }
     /// flags that can be set by the user to enable certain behavior in the engine
     pub mod user_level {
-        /// makes an entity invisible and skips the rendering process for it
+        /// makes an entity invisible and skips the rendering process for it, but keeps the renderer in storage, only for temporary invisibility
         pub const INVISIBLE: u64 = 0;
         /// inidcates wether or not the entity is effected by gravity
         pub const FLOATING: u64 = 2;
