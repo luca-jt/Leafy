@@ -1,8 +1,17 @@
 // directory paths
-macro_rules! shader_path {
+macro_rules! batch_shader_path {
     ($file:literal) => {
         concat!(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/shaders/"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/shaders/batch/"),
+            $file
+        )
+    };
+}
+
+macro_rules! instance_shader_path {
+    ($file:literal) => {
+        concat!(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/shaders/instance/"),
             $file
         )
     };
@@ -33,18 +42,18 @@ macro_rules! texture_path {
 }
 
 // shader files
-pub(crate) const BATCH_B_FRAG: &str = include_str!(shader_path!("batch_basic.frag"));
-pub(crate) const BATCH_B_VERT: &str = include_str!(shader_path!("batch_basic.vert"));
-pub(crate) const BATCH_PT_FRAG: &str = include_str!(shader_path!("batch_passthrough.frag"));
-pub(crate) const BATCH_PT_VERT: &str = include_str!(shader_path!("batch_passthrough.vert"));
-pub(crate) const INSTANCE_B_FRAG: &str = include_str!(shader_path!("inst_basic.frag"));
-pub(crate) const INSTANCE_B_VERT: &str = include_str!(shader_path!("inst_basic.vert"));
-pub(crate) const INSTANCE_PT_FRAG: &str = include_str!(shader_path!("inst_passthrough.frag"));
-pub(crate) const INSTANCE_PT_VERT: &str = include_str!(shader_path!("inst_passthrough.vert"));
-pub(crate) const INSTANCE_SHADOW_FRAG: &str = include_str!(shader_path!("inst_shadow.frag"));
-pub(crate) const INSTANCE_SHADOW_VERT: &str = include_str!(shader_path!("inst_shadow.vert"));
-pub(crate) const BATCH_SHADOW_FRAG: &str = include_str!(shader_path!("batch_shadow.frag"));
-pub(crate) const BATCH_SHADOW_VERT: &str = include_str!(shader_path!("batch_shadow.vert"));
+pub(crate) const BATCH_B_FRAG: &str = include_str!(batch_shader_path!("basic.frag"));
+pub(crate) const BATCH_B_VERT: &str = include_str!(batch_shader_path!("basic.vert"));
+pub(crate) const BATCH_PT_FRAG: &str = include_str!(batch_shader_path!("passthrough.frag"));
+pub(crate) const BATCH_PT_VERT: &str = include_str!(batch_shader_path!("passthrough.vert"));
+pub(crate) const INSTANCE_B_FRAG: &str = include_str!(instance_shader_path!("basic.frag"));
+pub(crate) const INSTANCE_B_VERT: &str = include_str!(instance_shader_path!("basic.vert"));
+pub(crate) const INSTANCE_PT_FRAG: &str = include_str!(instance_shader_path!("passthrough.frag"));
+pub(crate) const INSTANCE_PT_VERT: &str = include_str!(instance_shader_path!("passthrough.vert"));
+pub(crate) const INSTANCE_SHADOW_FRAG: &str = include_str!(instance_shader_path!("shadow.frag"));
+pub(crate) const INSTANCE_SHADOW_VERT: &str = include_str!(instance_shader_path!("shadow.vert"));
+pub(crate) const BATCH_SHADOW_FRAG: &str = include_str!(batch_shader_path!("shadow.frag"));
+pub(crate) const BATCH_SHADOW_VERT: &str = include_str!(batch_shader_path!("shadow.vert"));
 
 // optional included meshes
 pub(crate) const TRIANGLE_MESH: &[u8] = include_bytes!(model_path!("triangle.obj"));
