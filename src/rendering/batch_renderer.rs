@@ -67,9 +67,11 @@ impl BatchRenderer {
         self.batches.first_mut().unwrap().begin();
     }
 
-    /// ends the last render batch
-    pub(crate) fn end_batch(&self) {
-        self.batches.last().unwrap().end();
+    /// ends all render batches
+    pub(crate) fn end_batches(&self) {
+        for batch in self.batches.iter() {
+            batch.end();
+        }
     }
 
     /// renders to the shadow map
@@ -134,8 +136,6 @@ impl BatchRenderer {
             }
         }
         // add new batch
-        let last_batch = self.batches.last().unwrap();
-        last_batch.end();
         let mut new_batch = Batch::new(mesh, shader_type);
         let res = new_batch.try_add_tex_mesh(trafo, tex_id, mesh);
         debug_assert!(res);

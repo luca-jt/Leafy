@@ -14,7 +14,7 @@ shader type is specifyable in component
 rework the inertia and collision stuff -> collision point is slightly off
 2D sprite hitboxes with seperate collision checking
 cube shadow maps for point lights
-particle system https://youtu.be/GK0jHlv3e3w | -> glPoints?
+particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ...
 dpi scale factor event handling? -> render res handled by screen texture res (if that setting is in %, maybe scale that or smth)
 materials -> reflection?
 new rendering system with effect shaders that renders to a screen texture (for SSAO?) -> maybe only later
@@ -24,4 +24,3 @@ sprite renderer -> depth layers configurable, sprite component
 
 Z buffer culling -> this will make it possible to not sort the objects for rendering transparent objects -> ignore everything that is translucent in z rendering
 sky box cube maps -> https://learnopengl.com/Advanced-OpenGL/Cubemaps
-glsl preprocessor for including shader files and not copy and pasting everything
