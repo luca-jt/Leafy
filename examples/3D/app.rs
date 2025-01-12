@@ -5,6 +5,7 @@ use falling_leaf::ecs::component::*;
 use falling_leaf::ecs::entity::EntityID;
 use falling_leaf::engine::{Engine, FallingLeafApp};
 use falling_leaf::glm;
+use falling_leaf::rendering::data::Skybox;
 use falling_leaf::systems::audio_system::VolumeType;
 use falling_leaf::systems::event_system::events::*;
 use falling_leaf::utils::constants::bits::user_level::FLOATING;
@@ -52,6 +53,10 @@ impl FallingLeafApp for App {
             .audio_system_mut()
             .set_volume(VolumeType::Master, 0.5);
 
+        engine
+            .rendering_system_mut()
+            .set_skybox(Some(Skybox::new(["", "", "", "", "", ""])));
+
         let mut entity_manager = engine.entity_manager_mut();
         entity_manager.create_point_light(Position::new(1.0, 6.0, 1.0));
         entity_manager.create_point_light_visible(Position::new(-1.0, 6.0, -1.0));
@@ -60,7 +65,11 @@ impl FallingLeafApp for App {
             Position::origin(),
             Scale::new(5.0, 0.1, 5.0),
             MeshType::Cube,
-            MeshAttribute::Textured(Texture::Wall(Filtering::Nearest)),
+            MeshAttribute::Textured(Texture {
+                path: Path::new("./examples/3D/wall.png").into(),
+                filtering: Filtering::Nearest,
+                wrapping: Wrapping::Repeat,
+            }),
             Collider::new(HitboxType::Box)
         ));
 

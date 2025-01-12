@@ -551,11 +551,10 @@ pub mod utils {
 
     /// represents all texture types with path data
     #[derive(Debug, PartialOrd, PartialEq, Clone, Hash, Eq)]
-    pub enum Texture {
-        Ice(Filtering),
-        Sand(Filtering),
-        Wall(Filtering),
-        Custom(Rc<Path>, Filtering),
+    pub struct Texture {
+        pub path: Rc<Path>,
+        pub filtering: Filtering,
+        pub wrapping: Wrapping,
     }
 
     /// texture filtering option for rendering
@@ -563,6 +562,15 @@ pub mod utils {
     pub enum Filtering {
         Linear,
         Nearest,
+    }
+
+    /// texture wrapping mode
+    #[derive(Debug, PartialOrd, PartialEq, Clone, Hash, Eq)]
+    pub enum Wrapping {
+        Repeat,
+        MirroredRepeat,
+        ClampToEdge,
+        ClampToBorder,
     }
 
     /// hitbox type specifier for an entity

@@ -217,6 +217,7 @@ impl Batch {
 
             gl::BindVertexArray(0);
         }
+        log::debug!("new batch created");
 
         Self {
             vao,
@@ -237,7 +238,7 @@ impl Batch {
         self.obj_buffer.reserve_exact(add_size);
         self.obj_buffer
             .extend(vec![Vertex::default(); mesh.num_vertices() * add_size]);
-        log::debug!("resized batch renderer to: {:?}", self.max_num_meshes);
+        log::debug!("resized batch to: {:?}", self.max_num_meshes);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferData(
@@ -386,6 +387,7 @@ impl Batch {
 
 impl Drop for Batch {
     fn drop(&mut self) {
+        log::debug!("dropped batch");
         unsafe {
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteBuffers(1, &self.ibo);

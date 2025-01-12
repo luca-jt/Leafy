@@ -29,6 +29,7 @@ pub struct RenderingSystem {
     shadow_resolution: ShadowResolution,
     current_cam_config: (glm::Vec3, glm::Vec3),
     ambient_light: (Color32, f32),
+    skybox: Option<Skybox>,
 }
 
 impl RenderingSystem {
@@ -52,6 +53,7 @@ impl RenderingSystem {
             shadow_resolution: ShadowResolution::High,
             current_cam_config: (-Z_AXIS, Z_AXIS),
             ambient_light: (Color32::WHITE, 0.3),
+            skybox: None,
         }
     }
 
@@ -433,6 +435,11 @@ impl RenderingSystem {
     /// gets the current camera position and look direction vector
     pub fn current_cam_config(&self) -> (glm::Vec3, glm::Vec3) {
         self.current_cam_config
+    }
+
+    /// sets the current skybox that is used in the rendering process (default is ``None``)
+    pub fn set_skybox(&mut self, skybox: Option<Skybox>) {
+        self.skybox = skybox;
     }
 
     /// change OpenGL's background clear color (default is white)

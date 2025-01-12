@@ -1,16 +1,17 @@
-use crate::ecs::component::utils::{Color32, Filtering, Texture};
+use crate::ecs::component::utils::{Color32, Filtering, Texture, Wrapping};
 use crate::ecs::component::*;
 use crate::glm;
 use crate::utils::constants::*;
 use crate::utils::file::*;
 use gl::types::*;
-use stb_image::image::{Image, LoadResult};
+use stb_image::image::Image;
 use std::collections::HashMap;
 use std::path::Path;
 use std::ptr;
 
-/// generates a gl texture from given image data
-fn generate_texture(data: Image<u8>, filtering: &Filtering) -> GLuint {
+/// generates a gl texture from given image data, filtering and wrapping
+#[rustfmt::skip]
+fn generate_texture(data: Image<u8>, filtering: &Filtering, wrapping: &Wrapping) -> GLuint {
     let mut tex_id = 0;
     unsafe {
         gl::GenTextures(1, &mut tex_id);
@@ -27,56 +28,37 @@ fn generate_texture(data: Image<u8>, filtering: &Filtering) -> GLuint {
             data.data.as_ptr() as *const GLvoid,
         );
         gl::GenerateMipmap(gl::TEXTURE_2D);
+
         match filtering {
             Filtering::Linear => {
                 gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
-                gl::TexParameteri(
-                    gl::TEXTURE_2D,
-                    gl::TEXTURE_MIN_FILTER,
-                    gl::LINEAR_MIPMAP_LINEAR as GLint,
-                );
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as GLint);
             }
             Filtering::Nearest => {
                 gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-                gl::TexParameteri(
-                    gl::TEXTURE_2D,
-                    gl::TEXTURE_MIN_FILTER,
-                    gl::NEAREST_MIPMAP_LINEAR as GLint,
-                );
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST_MIPMAP_LINEAR as GLint);
             }
         }
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+        match wrapping {
+            Wrapping::Repeat => {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+            }
+            Wrapping::MirroredRepeat => {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::MIRRORED_REPEAT as GLint);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::MIRRORED_REPEAT as GLint);
+            }
+            Wrapping::ClampToEdge => {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
+            }
+            Wrapping::ClampToBorder => {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as GLint);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as GLint);
+            }
+        }
     }
     tex_id
-}
-
-/// loads an opengl texture from a file path
-pub(crate) fn load_texture_from_path(file_path: impl AsRef<Path>, filtering: &Filtering) -> GLuint {
-    let texture: Image<u8>;
-    match stb_image::image::load_with_depth(file_path, 4, false) {
-        LoadResult::ImageU8(im) => {
-            texture = im;
-        }
-        _ => {
-            panic!("error loading texture")
-        }
-    }
-    generate_texture(texture, filtering)
-}
-
-/// loads an opengl texture from bytes
-pub(crate) fn load_texture_from_bytes(bytes: &[u8], filtering: &Filtering) -> GLuint {
-    let texture: Image<u8>;
-    match stb_image::image::load_from_memory_with_depth(bytes, 4, false) {
-        LoadResult::ImageU8(im) => {
-            texture = im;
-        }
-        _ => {
-            panic!("error loading texture from memory")
-        }
-    }
-    generate_texture(texture, filtering)
 }
 
 /// data for a single vertex
@@ -106,30 +88,9 @@ impl TextureMap {
     /// adds a texture from file
     pub(crate) fn add_texture(&mut self, texture: &Texture) {
         log::debug!("loaded texture: '{:?}'", texture);
-        match texture {
-            Texture::Ice(filtering) => {
-                self.textures.insert(
-                    texture.clone(),
-                    load_texture_from_bytes(ICE_TEXTURE, filtering),
-                );
-            }
-            Texture::Sand(filtering) => {
-                self.textures.insert(
-                    texture.clone(),
-                    load_texture_from_bytes(SAND_TEXTURE, filtering),
-                );
-            }
-            Texture::Wall(filtering) => {
-                self.textures.insert(
-                    texture.clone(),
-                    load_texture_from_bytes(WALL_TEXTURE, filtering),
-                );
-            }
-            Texture::Custom(path, filtering) => {
-                self.textures
-                    .insert(texture.clone(), load_texture_from_path(path, filtering));
-            }
-        }
+        let image = stbi_load_u8_rgba(&texture.path).expect("error loading texture");
+        let tex_id = generate_texture(image, &texture.filtering, &texture.wrapping);
+        self.textures.insert(texture.clone(), tex_id);
     }
 
     /// deletes a stored textures based on a function bool return
@@ -507,6 +468,57 @@ impl Drop for UniformBuffer {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteBuffers(1, &self.ubo);
+        }
+    }
+}
+
+/// a sky box that can be added to the rendering system
+pub struct Skybox {
+    cube_map: GLuint,
+}
+
+impl Skybox {
+    /// creates a new skybox cube map from input texture paths ``[right, left, top, bottom, front, back]``
+    #[rustfmt::skip]
+    pub fn new(paths: [impl AsRef<Path>; 6]) -> Self {
+        let mut cube_map = 0;
+        unsafe {
+            gl::GenTextures(1, &mut cube_map);
+            gl::BindTexture(gl::TEXTURE_CUBE_MAP, cube_map);
+        }
+        for i in 0..6 {
+            let texture =
+                stbi_load_u8_rgba(&paths[i as usize]).expect("error loading skybox texture");
+            unsafe {
+                gl::TexImage2D(
+                    gl::TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    0,
+                    gl::RGBA8 as GLint,
+                    texture.width as GLint,
+                    texture.height as GLint,
+                    0,
+                    gl::RGBA,
+                    gl::UNSIGNED_BYTE,
+                    texture.data.as_ptr() as *const GLvoid,
+                );
+            }
+        }
+        unsafe {
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_R, gl::CLAMP_TO_EDGE as GLint);
+        }
+
+        Self { cube_map }
+    }
+}
+
+impl Drop for Skybox {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(1, &self.cube_map);
         }
     }
 }

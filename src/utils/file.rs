@@ -1,3 +1,6 @@
+use stb_image::image::{load_from_memory_with_depth, load_with_depth, Image, LoadResult};
+use std::path::Path;
+
 // directory paths
 macro_rules! batch_shader_path {
     ($file:literal) => {
@@ -32,15 +35,6 @@ macro_rules! model_path {
     };
 }
 
-macro_rules! texture_path {
-    ($file:literal) => {
-        concat!(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/textures/"),
-            $file
-        )
-    };
-}
-
 // shader files
 pub(crate) const BATCH_B_FRAG: &str = include_str!(batch_shader_path!("basic.frag"));
 pub(crate) const BATCH_B_VERT: &str = include_str!(batch_shader_path!("basic.vert"));
@@ -67,7 +61,18 @@ pub(crate) const TORUS_MESH: &[u8] = include_bytes!(model_path!("torus.obj"));
 // audio data
 pub(crate) const HRTF_SPHERE: &[u8] = include_bytes!(audio_path!("IRC_1002_C.bin"));
 
-// texture data
-pub(crate) const WALL_TEXTURE: &[u8] = include_bytes!(texture_path!("wall.png"));
-pub(crate) const ICE_TEXTURE: &[u8] = include_bytes!(texture_path!("ice.png"));
-pub(crate) const SAND_TEXTURE: &[u8] = include_bytes!(texture_path!("sand.png"));
+/// loads an u8 image (probably PNG) using stb image from a given path
+pub fn stbi_load_u8_rgba(file_path: impl AsRef<Path>) -> Option<Image<u8>> {
+    match load_with_depth(file_path, 4, false) {
+        LoadResult::ImageU8(im) => Some(im),
+        _ => None,
+    }
+}
+
+/// loads an u8 image (probably PNG) using stb image from bytes
+pub fn stbi_load_u8_rgba_from_bytes(bytes: &[u8]) -> Option<Image<u8>> {
+    match load_from_memory_with_depth(bytes, 4, false) {
+        LoadResult::ImageU8(im) => Some(im),
+        _ => None,
+    }
+}
