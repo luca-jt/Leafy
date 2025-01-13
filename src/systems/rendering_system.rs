@@ -144,8 +144,10 @@ impl RenderingSystem {
             }
         }
         self.confirm_data();
+        self.update_uniform_buffers();
         self.render_shadows();
         self.render_geometry();
+        self.render_skybox();
         self.cleanup_renderers();
         disable_3d_gl_modes();
     }
@@ -183,9 +185,16 @@ impl RenderingSystem {
         }
     }
 
+    /// renders the skybox if present
+    fn render_skybox(&self) {
+        if let Some(skybox) = self.skybox.as_ref() {
+            self.shader_catalog.skybox.use_program();
+            skybox.render();
+        }
+    }
+
     /// render all the geometry data stored in the renderers
     fn render_geometry(&mut self) {
-        self.update_uniform_buffers();
         let shadow_maps = self.light_sources.iter().map(|(_, map)| map).collect_vec();
 
         let mut current_shader = None;

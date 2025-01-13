@@ -53,9 +53,14 @@ impl FallingLeafApp for App {
             .audio_system_mut()
             .set_volume(VolumeType::Master, 0.5);
 
-        engine
-            .rendering_system_mut()
-            .set_skybox(Some(Skybox::new(["", "", "", "", "", ""])));
+        engine.rendering_system_mut().set_skybox(Some(Skybox::new([
+            "./examples/3D/skybox/right.jpg",
+            "./examples/3D/skybox/left.jpg",
+            "./examples/3D/skybox/top.jpg",
+            "./examples/3D/skybox/bottom.jpg",
+            "./examples/3D/skybox/front.jpg",
+            "./examples/3D/skybox/back.jpg",
+        ])));
 
         let mut entity_manager = engine.entity_manager_mut();
         entity_manager.create_point_light(Position::new(1.0, 6.0, 1.0));

@@ -139,6 +139,7 @@ pub struct ShaderCatalog {
     instance_passthrough: ShaderProgram,
     batch_shadow: ShaderProgram,
     instance_shadow: ShaderProgram,
+    pub(crate) skybox: ShaderProgram,
     pub(crate) light_buffer: UniformBuffer,
     pub(crate) matrix_buffer: UniformBuffer,
 }
@@ -160,6 +161,7 @@ impl ShaderCatalog {
             instance_passthrough: Self::create_instance_passthrough(&matrix_buffer),
             batch_shadow: Self::create_batch_shadow(),
             instance_shadow: Self::create_instance_shadow(),
+            skybox: Self::create_skybox(&matrix_buffer),
             light_buffer,
             matrix_buffer,
         }
@@ -185,6 +187,15 @@ impl ShaderCatalog {
             RendererArch::Batch => self.batch_shadow.use_program(),
             RendererArch::Instance => self.instance_shadow.use_program(),
         }
+    }
+
+    /// creates a new skybox shader
+    fn create_skybox(matrix_buffer: &UniformBuffer) -> ShaderProgram {
+        let program = ShaderProgram::new(SKYBOX_VERT, SKYBOX_FRAG);
+
+        program.add_unif_buffer("matrix_block", matrix_buffer, 1);
+
+        program
     }
 
     /// creates a new basic batch renderer shader

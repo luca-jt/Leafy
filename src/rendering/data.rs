@@ -475,6 +475,8 @@ impl Drop for UniformBuffer {
 /// a sky box that can be added to the rendering system
 pub struct Skybox {
     cube_map: GLuint,
+    vao: GLuint,
+    vbo: GLuint,
 }
 
 impl Skybox {
@@ -510,15 +512,51 @@ impl Skybox {
             gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
             gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_R, gl::CLAMP_TO_EDGE as GLint);
         }
+        let mut vao = 0;
+        let mut vbo = 0;
+        unsafe {
+            gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
+            gl::CreateBuffers(1, &mut vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (108 * size_of::<f32>()) as GLsizeiptr,
+                SKYBOX_VERTICES.as_ptr() as *const GLvoid,
+                gl::STATIC_DRAW,
+            );
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
+            gl::BindVertexArray(0);
+        }
+        log::debug!("created skybox");
 
-        Self { cube_map }
+        Self { cube_map, vao, vbo }
+    }
+
+    /// renders the skybox
+    pub(crate) fn render(&self) {
+        unsafe {
+            gl::DepthFunc(gl::LEQUAL);
+            gl::DepthMask(gl::FALSE);
+            gl::BindVertexArray(self.vao);
+            gl::BindTexture(gl::TEXTURE_CUBE_MAP, self.cube_map);
+            gl::Uniform1i(0, 0);
+            gl::DrawArrays(gl::TRIANGLES, 0, 36);
+            gl::BindVertexArray(0);
+            gl::DepthMask(gl::TRUE);
+            gl::DepthFunc(gl::LESS);
+        }
     }
 }
 
 impl Drop for Skybox {
     fn drop(&mut self) {
+        log::debug!("dropped skybox");
         unsafe {
             gl::DeleteTextures(1, &self.cube_map);
+            gl::DeleteBuffers(1, &self.vbo);
+            gl::DeleteVertexArrays(1, &self.vao);
         }
     }
 }

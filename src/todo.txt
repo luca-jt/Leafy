@@ -10,17 +10,17 @@ shadow anti-aliasing -> pcss
 cascaded shadow mapping
 using a different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj
 ---------------------------------------------------------------------
-shader type is specifyable in component
+make some engine systems modular with features
 rework the inertia and collision stuff -> collision point is slightly off
 2D sprite hitboxes with seperate collision checking
 cube shadow maps for point lights
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ...
 dpi scale factor event handling? -> render res handled by screen texture res (if that setting is in %, maybe scale that or smth)
-materials -> reflection?
+materials -> reflection with dynamic environment maps?
 new rendering system with effect shaders that renders to a screen texture (for SSAO?) -> maybe only later
 ui basics + font rendering + events for ui struct
 conways game of life example
 sprite renderer -> depth layers configurable, sprite component
 
 Z buffer culling -> this will make it possible to not sort the objects for rendering transparent objects -> ignore everything that is translucent in z rendering
-sky box cube maps -> https://learnopengl.com/Advanced-OpenGL/Cubemaps
+more collision info in the collider component -> like ColliderData
