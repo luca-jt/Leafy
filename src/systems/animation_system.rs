@@ -96,7 +96,7 @@ impl AnimationSystem {
                     let hitbox = entity_manager.hitbox_from_data(mt, &coll.hitbox_type).unwrap();
                     let scale_matrix = copied_or_default(&s).scale_matrix() * coll.scale.scale_matrix();
                     let coll_reach = mesh.max_reach + coll.offset.abs();
-                    coll.last_collision_points.clear();
+                    coll.last_collision_data.clear();
                     (
                         p,
                         hitbox,
@@ -204,14 +204,8 @@ impl AnimationSystem {
                     if let Some(flags) = &mut entity_data[j].8 {
                         flags.set_bit(COLLIDED, true);
                     }
-                    entity_data[i]
-                        .3
-                        .last_collision_points
-                        .push(collision_data.collision_point);
-                    entity_data[j]
-                        .3
-                        .last_collision_points
-                        .push(collision_data.collision_point);
+                    entity_data[i].3.last_collision_data.push(collision_data);
+                    entity_data[j].3.last_collision_data.push(collision_data);
 
                     // seperate the two objects
                     let should_seperate_1 = is_dynamic_1 || static_collision_1;
@@ -548,11 +542,11 @@ fn spheres_collide(pos1: &glm::Vec3, radius1: f32, pos2: &glm::Vec3, radius2: f3
 }
 
 /// contains collision plane normal vector, the point of the collision and the minimal translation vector
-#[derive(Debug)]
-struct CollisionData {
-    collision_normal: glm::Vec3,
-    collision_point: glm::Vec3,
-    translation_vec: glm::Vec3,
+#[derive(Debug, Copy, Clone)]
+pub struct CollisionData {
+    pub collision_normal: glm::Vec3,
+    pub collision_point: glm::Vec3,
+    pub translation_vec: glm::Vec3,
 }
 
 /// collider data that is used in collision checking

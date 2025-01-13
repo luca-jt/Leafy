@@ -54,12 +54,12 @@ impl FallingLeafApp for App {
             .set_volume(VolumeType::Master, 0.5);
 
         engine.rendering_system_mut().set_skybox(Some(Skybox::new([
-            "./examples/3D/skybox/right.jpg",
-            "./examples/3D/skybox/left.jpg",
-            "./examples/3D/skybox/top.jpg",
-            "./examples/3D/skybox/bottom.jpg",
-            "./examples/3D/skybox/front.jpg",
-            "./examples/3D/skybox/back.jpg",
+            "examples/3D/skybox/right.jpg",
+            "examples/3D/skybox/left.jpg",
+            "examples/3D/skybox/top.jpg",
+            "examples/3D/skybox/bottom.jpg",
+            "examples/3D/skybox/front.jpg",
+            "examples/3D/skybox/back.jpg",
         ])));
 
         let mut entity_manager = engine.entity_manager_mut();
@@ -71,7 +71,7 @@ impl FallingLeafApp for App {
             Scale::new(5.0, 0.1, 5.0),
             MeshType::Cube,
             MeshAttribute::Textured(Texture {
-                path: Path::new("./examples/3D/wall.png").into(),
+                path: Path::new("examples/3D/wall.png").into(),
                 filtering: Filtering::Nearest,
                 wrapping: Wrapping::Repeat,
             }),
@@ -80,7 +80,7 @@ impl FallingLeafApp for App {
 
         let _hammer = entity_manager.create_entity(components!(
             Position::new(6.0, 2.0, 0.0),
-            MeshType::Custom(Path::new("./examples/3D/hammer.obj").into()),
+            MeshType::Custom(Path::new("examples/3D/hammer.obj").into()),
             MeshAttribute::Colored(Color32::GREY),
             Velocity::zero(),
             RigidBody::default().with_density(40.0),

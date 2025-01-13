@@ -22,5 +22,5 @@ ui basics + font rendering + events for ui struct
 conways game of life example
 sprite renderer -> depth layers configurable, sprite component
 
+audio system rewrite -> caching of audion sources, correct management of the audio state
 Z buffer culling -> this will make it possible to not sort the objects for rendering transparent objects -> ignore everything that is translucent in z rendering
-more collision info in the collider component -> like ColliderData

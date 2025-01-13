@@ -1,5 +1,6 @@
 use crate::ecs::entity::EntityID;
 use crate::glm;
+use crate::systems::animation_system::CollisionData;
 use crate::systems::audio_system::SoundHandleID;
 use crate::utils::constants::*;
 use gl::types::GLfloat;
@@ -344,12 +345,12 @@ pub struct SoundController {
 
 /// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's
 /// (requires ``MeshType`` to work and should only be used with meshes that have a volume)
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Collider {
     pub(crate) hitbox_type: HitboxType,
     pub(crate) offset: glm::Vec3,
     pub(crate) scale: Scale,
-    pub(crate) last_collision_points: Vec<glm::Vec3>,
+    pub(crate) last_collision_data: Vec<CollisionData>,
 }
 
 impl Collider {
@@ -359,7 +360,7 @@ impl Collider {
             hitbox_type,
             offset: ORIGIN,
             scale: Scale::default(),
-            last_collision_points: vec![],
+            last_collision_data: vec![],
         }
     }
 
@@ -375,9 +376,9 @@ impl Collider {
         self
     }
 
-    /// access to the collision points of the collider from the last iteration
-    pub fn collision_points(&self) -> &[glm::Vec3] {
-        &self.last_collision_points
+    /// access to the collision data of the collider from the last iteration
+    pub fn collision_data(&self) -> &[CollisionData] {
+        &self.last_collision_data
     }
 }
 
