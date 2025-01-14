@@ -98,23 +98,13 @@ impl RenderingSystem {
         enable_3d_gl_modes();
         self.init_renderers();
 
-        // collect entity data
+        // add entity data to the renderers
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        let mut render_data = entity_manager
+        for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light, lod) in entity_manager
             .query9_opt7::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight, LOD>((None, None))
             .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
-            .collect_vec();
-
-        // sort the render data from furthest to nearest (reverse order) for correct transparency rendering
-        render_data.sort_by(|(pos1, ..), (pos2, ..)| {
-            glm::distance2(&cam_pos, pos2.data())
-                .partial_cmp(&glm::distance2(&cam_pos, pos1.data()))
-                .unwrap()
-        });
-
-        // add entity data to the renderers
-        for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light, lod) in render_data {
+        {
             let default_attr = MeshAttribute::Colored(Color32::WHITE);
             let trafo = calc_model_matrix(
                 position,
@@ -444,6 +434,20 @@ impl RenderingSystem {
     /// gets the current camera position and look direction vector
     pub fn current_cam_config(&self) -> (glm::Vec3, glm::Vec3) {
         self.current_cam_config
+    }
+
+    /// sets the anit-aliasing mode for rendering
+    pub fn set_msaa(&self, use_msaa: bool) {
+        log::debug!("set anti-aliasing to {:?}", use_msaa);
+        if use_msaa {
+            unsafe {
+                gl::Enable(gl::MULTISAMPLE);
+            }
+        } else {
+            unsafe {
+                gl::Disable(gl::MULTISAMPLE);
+            }
+        }
     }
 
     /// sets the current skybox that is used in the rendering process (default is ``None``)
