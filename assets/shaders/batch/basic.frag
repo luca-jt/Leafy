@@ -32,8 +32,9 @@ layout (std140, binding = 0, column_major) uniform light_data {
 };
 
 layout(location = 0) uniform int num_lights;
-layout(location = 1) uniform sampler2D shadow_sampler[MAX_LIGHT_SRC_COUNT];
-layout(location = 6) uniform sampler2D tex_sampler[32 - MAX_LIGHT_SRC_COUNT];
+layout(location = 1) uniform bool transparent_pass;
+layout(location = 2) uniform sampler2D shadow_sampler[MAX_LIGHT_SRC_COUNT];
+layout(location = 7) uniform sampler2D tex_sampler[32 - MAX_LIGHT_SRC_COUNT];
 
 float shadow_calc(vec4 fpl, int i) {
     vec3 proj_coords = fpl.xyz / fpl.w;
@@ -90,7 +91,7 @@ void main() {
     }
 
     vec4 textured = texture(tex_sampler[sampler_idx], v_uv).rgba * v_color;
-    if (textured.a < 0.01) {
+    if (textured.a < 0.01 || (textured.a < 0.99 && !transparent_pass) || (textured.a >= 0.99 && transparent_pass)) {
         discard;
     }
     out_color = vec4(textured.rgb * final_light * ambient_light.color.rgb, textured.a);

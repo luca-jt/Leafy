@@ -40,6 +40,8 @@ impl RenderingSystem {
             gl::Enable(gl::SCISSOR_TEST);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::Enable(gl::DEPTH_TEST);
+            gl::DepthFunc(gl::LESS);
         }
 
         Self {
@@ -95,8 +97,6 @@ impl RenderingSystem {
     pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
         self.reset_renderer_usage();
         clear_gl_screen(self.clear_color);
-        enable_3d_gl_modes();
-        self.init_renderers();
 
         // add entity data to the renderers
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
@@ -137,19 +137,22 @@ impl RenderingSystem {
         self.update_uniform_buffers();
         self.render_shadows();
         self.render_geometry();
+        self.render_transparent();
+        self.end_render_passes();
         self.render_skybox();
         self.cleanup_renderers();
-        disable_3d_gl_modes();
     }
 
-    /// initialize all the stored renderers
-    fn init_renderers(&mut self) {
+    /// end all the render passes for all renderers and reset them to the initial state
+    fn end_render_passes(&mut self) {
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                RendererType::Batch {
-                    spec: _, renderer, ..
-                } => renderer.begin_first_batch(),
-                RendererType::Instance { .. } => {}
+                RendererType::Batch { renderer, .. } => {
+                    renderer.end_render_passes();
+                }
+                RendererType::Instance { renderer, .. } => {
+                    renderer.end_render_passes();
+                }
             }
         }
     }
@@ -158,17 +161,10 @@ impl RenderingSystem {
     fn confirm_data(&mut self) {
         for renderer_type in self.renderers.iter_mut() {
             match renderer_type {
-                RendererType::Batch {
-                    spec: _, renderer, ..
-                } => {
-                    renderer.end_batches();
+                RendererType::Batch { renderer, .. } => {
+                    renderer.confirm_data();
                 }
-                RendererType::Instance {
-                    spec: _,
-                    attribute: _,
-                    renderer,
-                    ..
-                } => {
+                RendererType::Instance { renderer, .. } => {
                     renderer.confirm_positions();
                 }
             }
@@ -183,12 +179,21 @@ impl RenderingSystem {
         }
     }
 
+    /// renders all the transparent fragments in the scene
+    fn render_transparent(&self) {
+        unsafe { gl::DepthMask(gl::FALSE) };
+
+        // TODO
+
+        unsafe { gl::DepthMask(gl::TRUE) };
+    }
+
     /// render all the geometry data stored in the renderers
-    fn render_geometry(&mut self) {
+    fn render_geometry(&self) {
         let shadow_maps = self.light_sources.iter().map(|(_, map)| map).collect_vec();
 
         let mut current_shader = None;
-        for renderer_type in self.renderers.iter_mut() {
+        for renderer_type in self.renderers.iter() {
             let new_shader = renderer_type.required_shader();
             if current_shader
                 .map(|shader_spec| shader_spec != new_shader)
@@ -199,15 +204,10 @@ impl RenderingSystem {
             }
             match renderer_type {
                 RendererType::Batch { spec, renderer, .. } => {
-                    renderer.flush(&shadow_maps, spec.shader_type);
+                    renderer.flush(&shadow_maps, spec.shader_type, false);
                 }
-                RendererType::Instance {
-                    spec,
-                    attribute: _,
-                    renderer,
-                    ..
-                } => {
-                    renderer.draw_all(&shadow_maps, spec.shader_type);
+                RendererType::Instance { spec, renderer, .. } => {
+                    renderer.draw_all(&shadow_maps, spec.shader_type, false);
                 }
             }
         }
@@ -230,17 +230,10 @@ impl RenderingSystem {
                     shadow_map.bind_light_matrix();
                 }
                 match renderer_type {
-                    RendererType::Batch {
-                        spec: _, renderer, ..
-                    } => {
+                    RendererType::Batch { renderer, .. } => {
                         renderer.render_shadows();
                     }
-                    RendererType::Instance {
-                        spec: _,
-                        attribute: _,
-                        renderer,
-                        ..
-                    } => {
+                    RendererType::Instance { renderer, .. } => {
                         renderer.render_shadows();
                     }
                 }
@@ -309,7 +302,7 @@ impl RenderingSystem {
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
         match rd.spec.mesh_type {
-            MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
+            MeshType::Triangle | MeshType::Plane | MeshType::Cube | MeshType::Cone => {
                 let mut renderer = BatchRenderer::new(rd.mesh, rd.spec.shader_type);
                 match rd.m_attr {
                     MeshAttribute::Colored(color) => {
@@ -412,19 +405,10 @@ impl RenderingSystem {
     fn reset_renderer_usage(&mut self) {
         for renderer in self.renderers.iter_mut() {
             match renderer {
-                RendererType::Batch {
-                    spec: _,
-                    renderer: _,
-                    used,
-                } => {
+                RendererType::Batch { used, .. } => {
                     *used = false;
                 }
-                RendererType::Instance {
-                    spec: _,
-                    attribute: _,
-                    renderer: _,
-                    used,
-                } => {
+                RendererType::Instance { used, .. } => {
                     *used = false;
                 }
             }
@@ -440,13 +424,9 @@ impl RenderingSystem {
     pub fn set_msaa(&self, use_msaa: bool) {
         log::debug!("set anti-aliasing to {:?}", use_msaa);
         if use_msaa {
-            unsafe {
-                gl::Enable(gl::MULTISAMPLE);
-            }
+            unsafe { gl::Enable(gl::MULTISAMPLE) };
         } else {
-            unsafe {
-                gl::Disable(gl::MULTISAMPLE);
-            }
+            unsafe { gl::Disable(gl::MULTISAMPLE) };
         }
     }
 
@@ -550,17 +530,8 @@ impl RendererType {
     /// returns the value of the renderers use flag
     fn used(&self) -> bool {
         match self {
-            RendererType::Batch {
-                spec: _,
-                renderer: _,
-                used,
-            } => *used,
-            RendererType::Instance {
-                spec: _,
-                attribute: _,
-                renderer: _,
-                used,
-            } => *used,
+            RendererType::Batch { used, .. } => *used,
+            RendererType::Instance { used, .. } => *used,
         }
     }
 
@@ -659,20 +630,5 @@ fn clear_gl_screen(color: Color32) {
     unsafe {
         gl::ClearColor(float_color.x, float_color.y, float_color.z, float_color.w);
         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-    }
-}
-
-/// enables all opengl state modes for 3D rendering
-fn enable_3d_gl_modes() {
-    unsafe {
-        gl::Enable(gl::DEPTH_TEST);
-        gl::DepthFunc(gl::LESS);
-    }
-}
-
-/// disables all opengl state modes for 3D rendering
-fn disable_3d_gl_modes() {
-    unsafe {
-        gl::Disable(gl::DEPTH_TEST);
     }
 }

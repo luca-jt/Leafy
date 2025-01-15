@@ -61,16 +61,10 @@ impl BatchRenderer {
         }
     }
 
-    /// begin the first render batch
-    pub(crate) fn begin_first_batch(&mut self) {
-        self.used_batch_indices.clear();
-        self.batches.first_mut().unwrap().begin();
-    }
-
-    /// ends all render batches
-    pub(crate) fn end_batches(&self) {
+    /// confirms data for all render batches and copys it to the GPU
+    pub(crate) fn confirm_data(&self) {
         for batch in self.batches.iter() {
-            batch.end();
+            batch.confirm_data();
         }
     }
 
@@ -92,15 +86,21 @@ impl BatchRenderer {
     }
 
     /// send data to GPU and reset
-    pub(crate) fn flush(&mut self, shadow_maps: &[&ShadowMap], shader_type: ShaderType) {
+    pub(crate) fn flush(
+        &self,
+        shadow_maps: &[&ShadowMap],
+        shader_type: ShaderType,
+        transparent: bool,
+    ) {
         unsafe {
             // bind uniforms
             if shader_type != ShaderType::Passthrough {
                 gl::Uniform1i(0, shadow_maps.len() as GLsizei);
-                gl::Uniform1iv(1, MAX_LIGHT_SRC_COUNT as GLsizei, &self.shadow_samplers[0]);
+                gl::Uniform1iv(2, MAX_LIGHT_SRC_COUNT as GLsizei, &self.shadow_samplers[0]);
             }
+            gl::Uniform1i(1, transparent as GLint);
             gl::Uniform1iv(
-                6,
+                7,
                 (MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT) as GLsizei,
                 &self.samplers[0],
             );
@@ -110,8 +110,15 @@ impl BatchRenderer {
             }
             gl::BindTextureUnit(MAX_LIGHT_SRC_COUNT as GLuint, self.white_texture);
         }
-        for batch in self.batches.iter_mut() {
+        for batch in self.batches.iter() {
             batch.flush();
+        }
+    }
+
+    /// end the rendering process and reset the renderer to the initial state
+    pub(crate) fn end_render_passes(&mut self) {
+        for batch in self.batches.iter_mut() {
+            batch.end_render_passes();
         }
         // clean up unused batches
         for index in 0..self.batches.len() {
@@ -119,6 +126,7 @@ impl BatchRenderer {
                 self.batches.remove(index);
             }
         }
+        self.used_batch_indices.clear();
     }
 
     /// draws a mesh with a texture
@@ -156,9 +164,7 @@ impl BatchRenderer {
 impl Drop for BatchRenderer {
     fn drop(&mut self) {
         log::debug!("dropped batch renderer");
-        unsafe {
-            gl::DeleteTextures(1, &self.white_texture);
-        }
+        unsafe { gl::DeleteTextures(1, &self.white_texture) };
     }
 }
 
@@ -262,13 +268,8 @@ impl Batch {
         }
     }
 
-    /// begin the render batch
-    fn begin(&mut self) {
-        self.obj_buffer_ptr = 0;
-    }
-
     /// end the render batch
-    fn end(&self) {
+    fn confirm_data(&self) {
         // dynamically copy the the drawn mesh vertex data from object buffer into the vertex buffer on the gpu
         unsafe {
             let vertices_size: GLsizeiptr =
@@ -303,7 +304,7 @@ impl Batch {
     }
 
     /// flushes this batch and renders the stored geometry
-    fn flush(&mut self) {
+    fn flush(&self) {
         unsafe {
             // bind textures
             for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
@@ -319,7 +320,12 @@ impl Batch {
             );
             gl::BindVertexArray(0);
         }
+    }
+
+    /// resets the batch to the initial state
+    fn end_render_passes(&mut self) {
         self.index_count = 0;
+        self.obj_buffer_ptr = 0;
     }
 
     /// adds a mesh with a texture to the batch

@@ -238,7 +238,12 @@ impl InstanceRenderer {
     }
 
     /// draws the mesh at all the positions specified until the call of this and clears the positions
-    pub(crate) fn draw_all(&mut self, shadow_maps: &[&ShadowMap], shader_type: ShaderType) {
+    pub(crate) fn draw_all(
+        &self,
+        shadow_maps: &[&ShadowMap],
+        shader_type: ShaderType,
+        transparent: bool,
+    ) {
         unsafe {
             // bind texture
             gl::BindTextureUnit(0, self.tex_id);
@@ -248,9 +253,10 @@ impl InstanceRenderer {
             // bind uniforms
             if shader_type != ShaderType::Passthrough {
                 gl::Uniform1i(0, shadow_maps.len() as GLsizei);
-                gl::Uniform1iv(2, MAX_LIGHT_SRC_COUNT as GLsizei, &self.shadow_samplers[0]);
+                gl::Uniform1iv(4, MAX_LIGHT_SRC_COUNT as GLsizei, &self.shadow_samplers[0]);
             }
-            gl::Uniform1i(7, 0);
+            gl::Uniform1i(2, 0);
+            gl::Uniform1i(3, transparent as GLint);
             let color_vec = self.color.to_vec4();
             gl::Uniform4fv(1, 1, &color_vec[0]);
 
@@ -265,6 +271,10 @@ impl InstanceRenderer {
             );
             gl::BindVertexArray(0);
         }
+    }
+
+    /// resets the renderer to the initial state
+    pub(crate) fn end_render_passes(&mut self) {
         // reset the positions
         self.index_count = 0;
         self.pos_idx = 0;

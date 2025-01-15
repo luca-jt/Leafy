@@ -7,5 +7,9 @@ out vec4 out_color;
 layout(location = 0) uniform samplerCube cube_map;
 
 void main() {
-    out_color = texture(cube_map, tex_coords_v);
+    vec4 textured = texture(cube_map, tex_coords_v);
+    if (textured.a < 0.01) {
+        discard;
+    }
+    out_color = textured;
 }

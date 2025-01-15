@@ -102,9 +102,7 @@ impl TextureMap {
             let contains = f(texture);
             if !contains {
                 log::debug!("deleted texture: '{:?}'", texture);
-                unsafe {
-                    gl::DeleteTextures(1, id);
-                }
+                unsafe { gl::DeleteTextures(1, id) };
             }
             contains
         });
@@ -117,10 +115,8 @@ impl TextureMap {
 
     /// clears the texture map and deletes all of the stored textures
     pub(crate) fn clear(&mut self) {
-        unsafe {
-            for (_, texture) in self.textures.iter() {
-                gl::DeleteTextures(1, texture);
-            }
+        for (_, texture) in self.textures.iter() {
+            unsafe { gl::DeleteTextures(1, texture) };
         }
         self.textures.clear();
     }
@@ -128,10 +124,8 @@ impl TextureMap {
 
 impl Drop for TextureMap {
     fn drop(&mut self) {
-        unsafe {
-            for (_, texture) in self.textures.iter() {
-                gl::DeleteTextures(1, texture);
-            }
+        for (_, texture) in self.textures.iter() {
+            unsafe { gl::DeleteTextures(1, texture) };
         }
     }
 }
@@ -353,9 +347,7 @@ impl ShadowMap {
 
     /// binds the light matrix uniform to the currently used shader
     pub(crate) fn bind_light_matrix(&self) {
-        unsafe {
-            gl::UniformMatrix4fv(33, 1, gl::FALSE, &self.light_matrix[0]);
-        }
+        unsafe { gl::UniformMatrix4fv(33, 1, gl::FALSE, &self.light_matrix[0]) };
     }
 
     /// unbinds the shadow map and restores the regular viewport
@@ -466,9 +458,7 @@ impl UniformBuffer {
 
 impl Drop for UniformBuffer {
     fn drop(&mut self) {
-        unsafe {
-            gl::DeleteBuffers(1, &self.ubo);
-        }
+        unsafe { gl::DeleteBuffers(1, &self.ubo) };
     }
 }
 

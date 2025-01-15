@@ -96,9 +96,7 @@ impl ShaderProgram {
         let id = link_program(vs, fs);
 
         let c_out_color = CString::new("out_color").unwrap();
-        unsafe {
-            gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()); // maybe do this generically
-        }
+        unsafe { gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()) };
         log::debug!("compiled shader: {:?}", id);
 
         Self { id }
@@ -106,9 +104,7 @@ impl ShaderProgram {
 
     /// binds the shader program
     pub(crate) fn use_program(&self) {
-        unsafe {
-            gl::UseProgram(self.id);
-        }
+        unsafe { gl::UseProgram(self.id) };
     }
 
     /// binds a new uniform buffer
@@ -125,9 +121,7 @@ impl ShaderProgram {
 impl Drop for ShaderProgram {
     fn drop(&mut self) {
         log::debug!("deleted shader: {:?}", self.id);
-        unsafe {
-            gl::DeleteProgram(self.id);
-        }
+        unsafe { gl::DeleteProgram(self.id) };
     }
 }
 

@@ -21,7 +21,9 @@ materials -> reflection with dynamic environment maps, water?
 new rendering system with effect shaders that renders to a screen texture (for SSAO?) -> maybe only later
 ui basics + font rendering + events for ui struct
 conways game of life example
-sprite renderer -> depth layers configurable, sprite component
-
+sprite renderer -> depth layers configurable, sprite component, depth test must be specified
 audio system rewrite -> caching of audion sources, correct management of the audio state
-depth testing: -> use readonly with gl::DepthMask(gl::FALSE) for translucent objects when rendering?, BUT: how to make shure that the rendering happens in the correct order, sorting doesnt really work
+disable face culling for transparent objects
+
+depth testing:
+transparent render pass with gl::DepthMask(gl::FALSE) that contains only the objects that have transparent fragments
