@@ -274,7 +274,7 @@ impl InstanceRenderer {
     }
 
     /// resets the renderer to the initial state
-    pub(crate) fn end_render_passes(&mut self) {
+    pub(crate) fn reset(&mut self) {
         // reset the positions
         self.index_count = 0;
         self.pos_idx = 0;

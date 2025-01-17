@@ -392,13 +392,13 @@ impl AnimationSystem {
                     })
                 })
                 .unwrap_or_default()
-                + a_opt.copied().unwrap_or_default();
+                + copied_or_default(&a_opt);
 
             *v += total_a * time_step;
             *p += *v * time_step;
 
             if let (Some(am), Some(o)) = (am_opt, o_opt) {
-                let inv_inertia_mat = rb_opt.copied().unwrap_or_default().inv_inertia_tensor;
+                let inv_inertia_mat = copied_or_default(&rb_opt).inv_inertia_tensor;
                 let rot_mat = glm::mat4_to_mat3(&o.rotation_matrix());
                 let local_inertia_mat = rot_mat * inv_inertia_mat * rot_mat.transpose();
                 let ang_vel = local_inertia_mat * am.data();

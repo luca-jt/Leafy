@@ -95,13 +95,3 @@ where
 pub fn xor(a: bool, b: bool) -> bool {
     (a || b) && !(a && b)
 }
-
-/// NAND operation on booleans
-pub fn nand(a: bool, b: bool) -> bool {
-    !(a && b)
-}
-
-/// NOR operation on booleans
-pub fn nor(a: bool, b: bool) -> bool {
-    !(a || b)
-}

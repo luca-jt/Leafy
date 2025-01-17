@@ -23,7 +23,4 @@ ui basics + font rendering + events for ui struct
 conways game of life example
 sprite renderer -> depth layers configurable, sprite component, depth test must be specified
 audio system rewrite -> caching of audion sources, correct management of the audio state
-disable face culling for transparent objects
-
-depth testing:
-transparent render pass with gl::DepthMask(gl::FALSE) that contains only the objects that have transparent fragments
+disable face culling for transparent objects -> means transparent objects with some parts not transparent must be rendered fully

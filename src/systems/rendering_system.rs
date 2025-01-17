@@ -93,19 +93,29 @@ impl RenderingSystem {
         }
     }
 
-    /// start the 3D rendering for all renderers
+    /// 3D render all entities
     pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
         self.reset_renderer_usage();
-        clear_gl_screen(self.clear_color);
+        self.clear_gl_screen();
+        self.add_entity_data(entity_manager);
+        self.confirm_data();
+        self.update_uniform_buffers();
+        self.render_shadows();
+        self.render_geometry();
+        self.render_transparent();
+        self.reset_renderers();
+        self.render_skybox();
+        self.cleanup_renderers();
+    }
 
-        // add entity data to the renderers
+    /// add entity data to the renderers
+    fn add_entity_data(&mut self, entity_manager: &EntityManager) {
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
         for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light, lod) in entity_manager
             .query9_opt7::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight, LOD>((None, None))
             .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
         {
-            let default_attr = MeshAttribute::Colored(Color32::WHITE);
             let trafo = calc_model_matrix(
                 position,
                 scale.unwrap_or(&Scale::default()),
@@ -114,6 +124,7 @@ impl RenderingSystem {
             );
             let shader_type = light.map_or(ShaderType::Basic, |_| ShaderType::Passthrough);
             let lod = lod.copied().unwrap_or_default();
+            let m_attr = mesh_attr.cloned().unwrap_or_default();
 
             let render_data = RenderData {
                 spec: RenderSpec {
@@ -122,37 +133,19 @@ impl RenderingSystem {
                     lod,
                 },
                 trafo: &trafo,
-                m_attr: mesh_attr.unwrap_or(&default_attr),
+                m_attr: &m_attr,
                 mesh: entity_manager.asset_from_type(mesh_type, lod).unwrap(),
                 tex_map: &entity_manager.texture_map,
+                transparent: match &m_attr {
+                    MeshAttribute::Colored(color) => color.a() < 255,
+                    MeshAttribute::Textured(texture) => entity_manager.texture_map.is_transparent(texture),
+                }
             };
 
             let is_added = self.try_add_data(&render_data);
             // add new renderer if needed
             if !is_added {
                 self.add_new_renderer(&render_data);
-            }
-        }
-        self.confirm_data();
-        self.update_uniform_buffers();
-        self.render_shadows();
-        self.render_geometry();
-        self.render_transparent();
-        self.end_render_passes();
-        self.render_skybox();
-        self.cleanup_renderers();
-    }
-
-    /// end all the render passes for all renderers and reset them to the initial state
-    fn end_render_passes(&mut self) {
-        for renderer_type in self.renderers.iter_mut() {
-            match renderer_type {
-                RendererType::Batch { renderer, .. } => {
-                    renderer.end_render_passes();
-                }
-                RendererType::Instance { renderer, .. } => {
-                    renderer.end_render_passes();
-                }
             }
         }
     }
@@ -182,16 +175,33 @@ impl RenderingSystem {
     /// renders all the transparent fragments in the scene
     fn render_transparent(&self) {
         unsafe { gl::DepthMask(gl::FALSE) };
-
-        // TODO
-
+        // @copypasta from render_geometry()
+        let shadow_maps = self.light_sources.iter().map(|(_, map)| map).collect_vec();
+        let mut current_shader = None;
+        for renderer_type in self.renderers.iter().filter(|r| r.transparent()) {
+            let new_shader = renderer_type.required_shader();
+            if current_shader
+                .map(|shader_spec| shader_spec != new_shader)
+                .unwrap_or(true)
+            {
+                self.shader_catalog.use_shader(new_shader);
+                current_shader = Some(new_shader);
+            }
+            match renderer_type {
+                RendererType::Batch { spec, renderer, .. } => {
+                    renderer.flush(&shadow_maps, spec.shader_type, true);
+                }
+                RendererType::Instance { spec, renderer, .. } => {
+                    renderer.draw_all(&shadow_maps, spec.shader_type, true);
+                }
+            }
+        }
         unsafe { gl::DepthMask(gl::TRUE) };
     }
 
     /// render all the geometry data stored in the renderers
     fn render_geometry(&self) {
         let shadow_maps = self.light_sources.iter().map(|(_, map)| map).collect_vec();
-
         let mut current_shader = None;
         for renderer_type in self.renderers.iter() {
             let new_shader = renderer_type.required_shader();
@@ -249,9 +259,11 @@ impl RenderingSystem {
                 spec,
                 renderer,
                 used,
+                transp,
             } = r_type
             {
                 if *spec == rd.spec {
+                    *transp = *transp || rd.transparent;
                     *used = true;
                     return match rd.m_attr {
                         MeshAttribute::Textured(path) => {
@@ -274,6 +286,7 @@ impl RenderingSystem {
                 attribute,
                 renderer,
                 used,
+                transp,
             } = r_type
             {
                 if *spec == rd.spec && attribute == rd.m_attr {
@@ -281,6 +294,7 @@ impl RenderingSystem {
                         MeshAttribute::Textured(path) => {
                             if rd.tex_map.get_tex_id(path).unwrap() == renderer.tex_id {
                                 renderer.add_position(rd.trafo, rd.mesh);
+                                *transp = *transp || rd.transparent;
                                 *used = true;
                                 return true;
                             }
@@ -288,6 +302,7 @@ impl RenderingSystem {
                         MeshAttribute::Colored(color) => {
                             if *color == renderer.color {
                                 renderer.add_position(rd.trafo, rd.mesh);
+                                *transp = *transp || rd.transparent;
                                 *used = true;
                                 return true;
                             }
@@ -321,6 +336,7 @@ impl RenderingSystem {
                     spec: rd.spec.clone(),
                     renderer,
                     used: true,
+                    transp: rd.transparent,
                 });
                 log::debug!("added new batch renderer for: '{:?}'", rd.spec.mesh_type);
             }
@@ -340,6 +356,7 @@ impl RenderingSystem {
                     attribute: rd.m_attr.clone(),
                     renderer,
                     used: true,
+                    transp: rd.transparent,
                 });
                 log::debug!("added new instance renderer for: '{:?}'", rd.spec.mesh_type);
             }
@@ -396,22 +413,61 @@ impl RenderingSystem {
         }
     }
 
+    /// resets all renderers to the initial state
+    fn reset_renderers(&mut self) {
+        for renderer_type in self.renderers.iter_mut() {
+            match renderer_type {
+                RendererType::Batch {
+                    renderer, transp, ..
+                } => {
+                    renderer.reset();
+                    *transp = false;
+                }
+                RendererType::Instance {
+                    renderer, transp, ..
+                } => {
+                    renderer.reset();
+                    *transp = false;
+                }
+            }
+        }
+    }
+
     /// drop renderers that are not used anymore
     fn cleanup_renderers(&mut self) {
         self.renderers.retain(|r_type| r_type.used());
+        for renderer_type in self.renderers.iter_mut() {
+            match renderer_type {
+                RendererType::Batch { renderer, .. } => {
+                    renderer.clean_batches();
+                }
+                RendererType::Instance { .. } => {}
+            }
+        }
     }
 
     /// resets the usage flags of all renderers to false
     fn reset_renderer_usage(&mut self) {
         for renderer in self.renderers.iter_mut() {
             match renderer {
-                RendererType::Batch { used, .. } => {
+                RendererType::Batch { used, transp, .. } => {
                     *used = false;
+                    *transp = false;
                 }
-                RendererType::Instance { used, .. } => {
+                RendererType::Instance { used, transp, .. } => {
                     *used = false;
+                    *transp = false;
                 }
             }
+        }
+    }
+
+    /// clears the OpenGL viewport
+    fn clear_gl_screen(&self) {
+        let float_color = self.clear_color.to_vec4();
+        unsafe {
+            gl::ClearColor(float_color.x, float_color.y, float_color.z, float_color.w);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
     }
 
@@ -517,12 +573,14 @@ enum RendererType {
         spec: RenderSpec,
         renderer: BatchRenderer,
         used: bool,
+        transp: bool,
     },
     Instance {
         spec: RenderSpec,
         attribute: MeshAttribute,
         renderer: InstanceRenderer,
         used: bool,
+        transp: bool,
     },
 }
 
@@ -532,6 +590,14 @@ impl RendererType {
         match self {
             RendererType::Batch { used, .. } => *used,
             RendererType::Instance { used, .. } => *used,
+        }
+    }
+
+    /// returns the value of the renderers transparency flag
+    fn transparent(&self) -> bool {
+        match self {
+            RendererType::Batch { transp, .. } => *transp,
+            RendererType::Instance { transp, .. } => *transp,
         }
     }
 
@@ -601,6 +667,7 @@ struct RenderData<'a> {
     m_attr: &'a MeshAttribute,
     mesh: &'a Mesh,
     tex_map: &'a TextureMap,
+    transparent: bool,
 }
 
 /// all possible settings for shadow map resolution
@@ -621,14 +688,5 @@ impl ShadowResolution {
             ShadowResolution::Normal => (1024, 1024),
             ShadowResolution::Low => (512, 512),
         }
-    }
-}
-
-/// clears the opengl viewport
-fn clear_gl_screen(color: Color32) {
-    let float_color = color.to_vec4();
-    unsafe {
-        gl::ClearColor(float_color.x, float_color.y, float_color.z, float_color.w);
-        gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
     }
 }

@@ -116,11 +116,14 @@ impl BatchRenderer {
     }
 
     /// end the rendering process and reset the renderer to the initial state
-    pub(crate) fn end_render_passes(&mut self) {
+    pub(crate) fn reset(&mut self) {
         for batch in self.batches.iter_mut() {
-            batch.end_render_passes();
+            batch.reset();
         }
-        // clean up unused batches
+    }
+
+    /// clean up unused batches
+    pub(crate) fn clean_batches(&mut self) {
         for index in 0..self.batches.len() {
             if !self.used_batch_indices.contains(&index) {
                 self.batches.remove(index);
@@ -323,7 +326,7 @@ impl Batch {
     }
 
     /// resets the batch to the initial state
-    fn end_render_passes(&mut self) {
+    fn reset(&mut self) {
         self.index_count = 0;
         self.obj_buffer_ptr = 0;
     }

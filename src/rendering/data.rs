@@ -75,6 +75,7 @@ pub(crate) struct Vertex {
 /// holds the texture ID's for the App
 pub(crate) struct TextureMap {
     textures: HashMap<Texture, GLuint>,
+    transparency_map: HashMap<Texture, bool>,
 }
 
 impl TextureMap {
@@ -82,6 +83,7 @@ impl TextureMap {
     pub(crate) fn new() -> Self {
         Self {
             textures: HashMap::new(),
+            transparency_map: HashMap::new(),
         }
     }
 
@@ -89,8 +91,10 @@ impl TextureMap {
     pub(crate) fn add_texture(&mut self, texture: &Texture) {
         log::debug!("loaded texture: '{:?}'", texture);
         let image = stbi_load_u8_rgba(&texture.path).expect("error loading texture");
+        let transparent = image.data.iter().skip(3).step_by(4).any(|a| *a < 255);
         let tex_id = generate_texture(image, &texture.filtering, &texture.wrapping);
         self.textures.insert(texture.clone(), tex_id);
+        self.transparency_map.insert(texture.clone(), transparent);
     }
 
     /// deletes a stored textures based on a function bool return
@@ -103,6 +107,7 @@ impl TextureMap {
             if !contains {
                 log::debug!("deleted texture: '{:?}'", texture);
                 unsafe { gl::DeleteTextures(1, id) };
+                self.transparency_map.remove(texture).unwrap();
             }
             contains
         });
@@ -113,12 +118,18 @@ impl TextureMap {
         self.textures.get(texture).copied()
     }
 
+    /// returns wether or not the texture contains transparency (a < 255)
+    pub(crate) fn is_transparent(&self, texture: &Texture) -> bool {
+        *self.transparency_map.get(texture).unwrap()
+    }
+
     /// clears the texture map and deletes all of the stored textures
     pub(crate) fn clear(&mut self) {
         for (_, texture) in self.textures.iter() {
             unsafe { gl::DeleteTextures(1, texture) };
         }
         self.textures.clear();
+        self.transparency_map.clear();
     }
 }
 
