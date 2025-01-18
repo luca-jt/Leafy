@@ -63,6 +63,10 @@ float shadow_calc(vec4 fpl, int i) {
 
 void main() {
     int sampler_idx = int(round(v_tex_idx));
+    vec4 textured = texture(tex_sampler[sampler_idx], v_uv).rgba * v_color;
+    if (textured.a < 0.001 || (textured.a < 0.999 && !transparent_pass)) {
+        discard;
+    }
 
     vec3 final_light = vec3(0.0);
     for (int i = 0; i < num_lights; i++) {
@@ -90,9 +94,5 @@ void main() {
         final_light += spec_strenght * spec * vec3(lights[i].color);
     }
 
-    vec4 textured = texture(tex_sampler[sampler_idx], v_uv).rgba * v_color;
-    if (textured.a < 0.01 || (textured.a < 0.99 && !transparent_pass) || (textured.a >= 0.99 && transparent_pass)) {
-        discard;
-    }
     out_color = vec4(textured.rgb * final_light * ambient_light.color.rgb, textured.a);
 }

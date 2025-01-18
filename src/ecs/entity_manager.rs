@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::{Color32, HitboxType};
+use crate::ecs::component::utils::HitboxType;
 use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::TextureMap;
@@ -62,22 +62,6 @@ impl EntityManager {
         self.add_command(AssetCommand::AddLODs(entity));
         self.exec_commands();
         entity
-    }
-
-    /// creates a new default point light source for the rendering system without other components attached (invisible)
-    pub fn create_point_light(&mut self, position: Position) -> EntityID {
-        self.create_entity(components!(position, PointLight::default()))
-    }
-
-    /// creates a new default point light source for the rendering system with Scale attached (visible)
-    pub fn create_point_light_visible(&mut self, position: Position) -> EntityID {
-        self.create_entity(components!(
-            position,
-            PointLight::default(),
-            MeshType::Cube,
-            MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
-            Scale::from_factor(0.1)
-        ))
     }
 
     /// deletes an entity from the register by id and returns the removed entity

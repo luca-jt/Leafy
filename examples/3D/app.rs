@@ -65,8 +65,20 @@ impl FallingLeafApp for App {
         ])));
 
         let mut entity_manager = engine.entity_manager_mut();
-        entity_manager.create_point_light(Position::new(1.0, 6.0, 1.0));
-        entity_manager.create_point_light_visible(Position::new(-1.0, 6.0, -1.0));
+        let _light1 = entity_manager.create_entity(components!(
+            Position::new(-1.0, 6.0, -1.0),
+            PointLight::default(),
+            MeshType::Cube,
+            MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
+            Scale::from_factor(0.1)
+        ));
+        let _light2 = entity_manager.create_entity(components!(
+            Position::new(1.0, 6.0, 1.0),
+            PointLight::default(),
+            MeshType::Cube,
+            MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
+            Scale::from_factor(0.1)
+        ));
 
         let _floor = entity_manager.create_entity(components!(
             Position::origin(),

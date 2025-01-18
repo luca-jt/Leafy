@@ -35,15 +35,16 @@ impl FallingLeafApp for App {
             .set_flying_cam_movement(Some(CAM_MOVE_SPEED));
 
         let mut entity_manager = engine.entity_manager_mut();
-        entity_manager.create_point_light(Position::new(1.0, 10.0, 1.0));
-
+        entity_manager.create_entity(components!(
+            Position::new(1.0, 10.0, 1.0),
+            PointLight::default()
+        ));
         let _floor = entity_manager.create_entity(components!(
             Position::origin(),
             Scale::from_factor(5.0),
             MeshType::Plane,
             MeshAttribute::Colored(Color32::GREEN)
         ));
-
         self.mesh = entity_manager.create_entity(components!(
             Position::new(0.0, 2.0, 0.0),
             MeshType::Torus,

@@ -382,7 +382,7 @@ impl Collider {
     }
 }
 
-/// marks an entity as a point light source for the rendering system, needs a position attached to work
+/// marks an entity as a point light source for the rendering system (requires a ``Position`` to work)
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PointLight {
     pub color: Color32,

@@ -25,8 +25,7 @@ fn entity_test() {
 #[test]
 fn render_data() {
     let mut ecs = EntityManager::new();
-    ecs.create_point_light(Position::origin());
-    let l = ecs.create_point_light_visible(Position::origin());
+    let _ = ecs.create_entity(components!(Position::origin(), PointLight::default()));
     let r1 = ecs.create_entity(components!(
         Position::origin(),
         MeshType::Cone,
@@ -37,8 +36,8 @@ fn render_data() {
         MeshType::Cube,
         MeshAttribute::Colored(Color32::RED)
     ));
-    assert_eq!(ecs.query1::<PointLight>((None, None)).count(), 2);
-    assert_eq!(ecs.query1::<MeshType>((None, None)).count(), 3);
+    assert_eq!(ecs.query1::<PointLight>((None, None)).count(), 1);
+    assert_eq!(ecs.query1::<MeshType>((None, None)).count(), 2);
     assert_eq!(
         ecs.get_component::<MeshAttribute>(r1)
             .unwrap()
@@ -52,12 +51,5 @@ fn render_data() {
             .color()
             .unwrap(),
         Color32::RED
-    );
-    assert_eq!(
-        ecs.get_component::<MeshAttribute>(l)
-            .unwrap()
-            .color()
-            .unwrap(),
-        Color32::from_rgb(255, 255, 200)
     );
 }

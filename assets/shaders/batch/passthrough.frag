@@ -14,7 +14,7 @@ layout(location = 7) uniform sampler2D tex_sampler[32 - MAX_LIGHT_SRC_COUNT];
 void main() {
     int sampler_idx = int(round(v_tex_idx));
     vec4 textured = texture(tex_sampler[sampler_idx], v_uv).rgba;
-    if (textured.a < 0.01 || (textured.a < 0.99 && !transparent_pass) || (textured.a >= 0.99 && transparent_pass)) {
+    if (textured.a < 0.001 || (textured.a < 0.999 && !transparent_pass)) {
         discard;
     }
     out_color = textured * v_color;

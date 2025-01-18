@@ -22,5 +22,5 @@ new rendering system with effect shaders that renders to a screen texture (for S
 ui basics + font rendering + events for ui struct
 conways game of life example
 sprite renderer -> depth layers configurable, sprite component, depth test must be specified
+
 audio system rewrite -> caching of audion sources, correct management of the audio state
-disable face culling for transparent objects -> means transparent objects with some parts not transparent must be rendered fully

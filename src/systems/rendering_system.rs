@@ -174,7 +174,10 @@ impl RenderingSystem {
 
     /// renders all the transparent fragments in the scene
     fn render_transparent(&self) {
-        unsafe { gl::DepthMask(gl::FALSE) };
+        unsafe {
+            gl::DepthMask(gl::FALSE);
+            gl::Disable(gl::CULL_FACE);
+        }
         // @copypasta from render_geometry()
         let shadow_maps = self.light_sources.iter().map(|(_, map)| map).collect_vec();
         let mut current_shader = None;
@@ -196,7 +199,10 @@ impl RenderingSystem {
                 }
             }
         }
-        unsafe { gl::DepthMask(gl::TRUE) };
+        unsafe {
+            gl::Enable(gl::CULL_FACE);
+            gl::DepthMask(gl::TRUE);
+        }
     }
 
     /// render all the geometry data stored in the renderers

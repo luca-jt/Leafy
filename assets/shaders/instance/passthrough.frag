@@ -10,7 +10,7 @@ layout(location = 3) uniform bool transparent_pass;
 
 void main() {
     vec4 textured = texture(tex_sampler, v_uv).rgba;
-    if (textured.a < 0.01 || (textured.a < 0.99 && !transparent_pass) || (textured.a >= 0.99 && transparent_pass)) {
+    if (textured.a < 0.001 || (textured.a < 0.999 && !transparent_pass)) {
         discard;
     }
     out_color = textured * color;
