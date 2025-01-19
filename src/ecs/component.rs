@@ -1,8 +1,9 @@
 use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::systems::animation_system::CollisionData;
-use crate::systems::audio_system::SoundHandleID;
 use crate::utils::constants::*;
+use fyrox_sound::pool::Handle;
+use fyrox_sound::source::SoundSource;
 use gl::types::GLfloat;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::path::Path;
@@ -337,10 +338,10 @@ impl Default for RigidBody {
     }
 }
 
-/// stores all of the associated sound controller ids for an entity (obtainable via the audio system)
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// stores all of the associated sound handles for an entity
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SoundController {
-    pub(crate) id: SoundHandleID,
+    pub handles: Vec<Handle<SoundSource>>,
 }
 
 /// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's

@@ -56,9 +56,11 @@ impl AnimationSystem {
         let transformed_dt = dt * self.animation_speed;
         self.time_accumulated += transformed_dt;
         while self.time_accumulated >= self.time_step_size {
-            self.apply_physics(engine.entity_manager_mut().deref_mut(), self.time_step_size);
-            self.handle_collisions(engine.entity_manager_mut().deref_mut());
-            self.damp_velocities(engine.entity_manager_mut().deref_mut());
+            if self.current_mode == EngineMode::Running {
+                self.apply_physics(engine.entity_manager_mut().deref_mut(), self.time_step_size);
+                self.handle_collisions(engine.entity_manager_mut().deref_mut());
+                self.damp_velocities(engine.entity_manager_mut().deref_mut());
+            }
             self.time_accumulated -= self.time_step_size;
         }
         self.update_cam(engine, dt);

@@ -6,7 +6,7 @@ use falling_leaf::ecs::entity::EntityID;
 use falling_leaf::engine::{Engine, FallingLeafApp};
 use falling_leaf::glm;
 use falling_leaf::rendering::data::Skybox;
-use falling_leaf::systems::audio_system::VolumeType;
+use falling_leaf::systems::audio_system::{SoundType, VolumeType};
 use falling_leaf::systems::event_system::events::*;
 use falling_leaf::utils::constants::bits::user_level::FLOATING;
 use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, X_AXIS, Y_AXIS, Z_AXIS};
@@ -46,13 +46,16 @@ impl FallingLeafApp for App {
         engine
             .video_system_mut()
             .set_mouse_fpp_cam_control(Some(CAM_MOUSE_SPEED));
+
         engine
             .animation_system_mut()
             .set_flying_cam_movement(Some(CAM_MOVE_SPEED));
+
         engine
             .audio_system_mut()
             .set_volume(VolumeType::Master, 0.5);
 
+        engine.audio_system().enable_hrtf();
         engine.rendering_system().set_msaa(true);
 
         engine.rendering_system_mut().set_skybox(Some(Skybox::new([
@@ -117,22 +120,23 @@ impl FallingLeafApp for App {
             EntityFlags::default()
         ));
 
-        let sound = engine.audio_system_mut().new_sound_controller();
-        let heli_position = Position::new(0.0, 1.0, 1.0);
-
-        engine.audio_system_mut().play_sfx_at(
+        let heli_sound = engine.audio_system_mut().load_sound(
             "examples/3D/helicopter.wav",
+            SoundType::SFX,
             true,
-            &sound,
-            &heli_position,
         );
+        engine.audio_system().alter_source(heli_sound, |src| {
+            src.set_looping(true).play();
+        });
 
         self.sphere = entity_manager.create_entity(components!(
-            heli_position,
+            Position::new(0.0, 1.0, 1.0),
             Scale::from_factor(0.2),
             MeshType::Sphere,
             MeshAttribute::Colored(Color32::BLUE),
-            sound,
+            SoundController {
+                handles: vec![heli_sound]
+            },
             TouchTime::now()
         ));
 
@@ -140,8 +144,6 @@ impl FallingLeafApp for App {
         engine.event_system_mut().add_modifier(quit_app);
         engine.event_system_mut().add_modifier(toggle_cursor);
         engine.event_system_mut().add_modifier(toggle_fullscreen);
-
-        engine.audio_system().enable_hrtf();
     }
 
     fn on_frame_update(&mut self, engine: &Engine<Self>) {
