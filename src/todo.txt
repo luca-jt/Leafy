@@ -23,4 +23,3 @@ sprite renderer -> depth layers configurable, sprite component, depth test must 
 
 audio system rewrite
 -> doppler effect
--> effect chain (example in reverb, maybe allow for multiple busses)

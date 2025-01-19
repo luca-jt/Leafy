@@ -9,7 +9,7 @@ use fyrox_resource::io::FsResourceIo;
 use fyrox_resource::untyped::ResourceKind;
 use fyrox_sound::algebra::Vector3;
 use fyrox_sound::buffer::{DataSource, SoundBufferResource, SoundBufferResourceExtension};
-use fyrox_sound::context::{self, SoundContext};
+use fyrox_sound::context::{SoundContext, SAMPLE_RATE};
 use fyrox_sound::effects::{reverb::Reverb, Effect};
 use fyrox_sound::engine::SoundEngine;
 use fyrox_sound::futures::executor::block_on;
@@ -20,6 +20,7 @@ use fyrox_sound::renderer::Renderer;
 use fyrox_sound::source::{SoundSource, SoundSourceBuilder, Status};
 use std::collections::HashSet;
 use std::path::Path;
+use std::time::Duration;
 
 /// system managing the audio
 pub struct AudioSystem {
@@ -32,6 +33,8 @@ pub struct AudioSystem {
     pitch_on_speed_change: bool,
     active_effect_handles: HashSet<Handle<SoundSource>>,
     active_music_handles: HashSet<Handle<SoundSource>>,
+    using_reverb: bool,
+    using_hrtf: bool,
 }
 
 impl AudioSystem {
@@ -51,6 +54,8 @@ impl AudioSystem {
             pitch_on_speed_change: true,
             active_effect_handles: HashSet::new(),
             active_music_handles: HashSet::new(),
+            using_reverb: false,
+            using_hrtf: false,
         }
     }
 
@@ -63,15 +68,6 @@ impl AudioSystem {
                 source.set_position(vec3_to_vector3(pos.data()));
             }
         }
-    }
-
-    /// access to the sound source corresponding to a handle
-    pub fn alter_source<F>(&self, handle: Handle<SoundSource>, mut f: F)
-    where
-        F: FnMut(&mut SoundSource),
-    {
-        let mut state = self.sound_context.state();
-        f(state.source_mut(handle));
     }
 
     /// loads a sound from file and caches it (default state of the source is stopped and not looping)
@@ -117,21 +113,104 @@ impl AudioSystem {
         state.remove_source(handle);
     }
 
+    /// plays a sound
+    pub fn play(&self, handle: Handle<SoundSource>) {
+        let mut state = self.sound_context.state();
+        state.source_mut(handle).play();
+    }
+
+    /// pauses a sound
+    pub fn pause(&self, handle: Handle<SoundSource>) {
+        let mut state = self.sound_context.state();
+        state.source_mut(handle).pause();
+    }
+
+    /// stops a sound
+    pub fn stop(&self, handle: Handle<SoundSource>) {
+        let mut state = self.sound_context.state();
+        state.source_mut(handle).stop().expect("error rewinding");
+    }
+
+    /// sets wether or not a sound should loop
+    pub fn set_looping(&self, handle: Handle<SoundSource>, looping: bool) {
+        let mut state = self.sound_context.state();
+        state.source_mut(handle).set_looping(looping);
+    }
+
+    /// sets the playback time for a sound
+    pub fn set_playback_time(&self, handle: Handle<SoundSource>, time: Duration) {
+        let mut state = self.sound_context.state();
+        state.source_mut(handle).set_playback_time(time);
+    }
+
+    /// sets the panning for a sound (must be in range ``-1..=1`` where -1 = only left, 0 = both, 1 = only right)
+    pub fn set_panning(&self, handle: Handle<SoundSource>, panning: f32) {
+        let mut state = self.sound_context.state();
+        state.source_mut(handle).set_panning(panning);
+    }
+
+    /// sets the radius around the sound in which no distance attenuation is applied
+    pub fn set_radius(&self, handle: Handle<SoundSource>, radius: f32) {
+        let mut state = self.sound_context.state();
+        state.source_mut(handle).set_radius(radius);
+    }
+
+    /// sets the rolloff factor for a sound in distance attenuation
+    pub fn set_rolloff_factor(&self, handle: Handle<SoundSource>, rolloff: f32) {
+        let mut state = self.sound_context.state();
+        state.source_mut(handle).set_rolloff_factor(rolloff);
+    }
+
+    /// sets maximum distance for a sound until which distance gain will be applicable
+    pub fn set_max_distance(&self, handle: Handle<SoundSource>, distance: f32) {
+        let mut state = self.sound_context.state();
+        state.source_mut(handle).set_max_distance(distance);
+    }
+
+    /// sets the gain for a sound (does not influence the volume settings)
+    pub fn set_gain(&self, handle: Handle<SoundSource>, gain: f32) {
+        let mut state = self.sound_context.state();
+        if self.active_effect_handles.contains(&handle) {
+            state
+                .source_mut(handle)
+                .set_gain(gain * self.absolute_volume(SoundType::SFX));
+        } else if self.active_music_handles.contains(&handle) {
+            state
+                .source_mut(handle)
+                .set_gain(gain * self.absolute_volume(SoundType::Music));
+        } else {
+            panic!("handle not in storage");
+        }
+    }
+
     /// use sound rendering on the hrtf sphere
-    pub fn enable_hrtf(&self) {
+    pub fn enable_hrtf(&mut self) {
         log::trace!("enabled HRTF");
-        let hrir_sphere = HrirSphere::new(HRTF_SPHERE, context::SAMPLE_RATE).unwrap();
+        let hrir_sphere = HrirSphere::new(HRTF_SPHERE, SAMPLE_RATE).unwrap();
         self.sound_context
             .state()
             .set_renderer(Renderer::HrtfRenderer(HrtfRenderer::new(
                 HrirSphereResource::from_hrir_sphere(hrir_sphere, ResourceKind::Embedded),
             )));
+        self.using_hrtf = true;
     }
 
-    /// add a reverb effect (enables hrtf)
-    pub fn add_reverb(&self, decay_time: f32) {
+    /// disable sound rendering on the hrtf sphere
+    pub fn disable_hrtf(&mut self) {
+        log::trace!("disabled HRTF");
+        self.sound_context.state().set_renderer(Renderer::Default);
+        self.using_hrtf = false;
+    }
+
+    /// add a reverb effect (requires hrtf)
+    pub fn add_reverb(&mut self, decay_time: f32) {
+        if !self.using_hrtf {
+            panic!("no hrtf enabled");
+        }
         log::trace!("enabled reverb");
-        self.enable_hrtf();
+        if self.using_reverb {
+            self.disable_reverb();
+        }
         let mut reverb = Reverb::new();
         reverb.set_decay_time(decay_time);
         self.sound_context
@@ -139,72 +218,97 @@ impl AudioSystem {
             .bus_graph_mut()
             .primary_bus_mut()
             .add_effect(Effect::Reverb(reverb));
+        self.using_reverb = true;
     }
 
-    /// disable the reverb effect (does not disable hrtf)
-    pub fn disable_reverb(&self) {
+    /// disable the reverb effect
+    pub fn disable_reverb(&mut self) {
         log::trace!("disabled reverb");
+        if !self.using_reverb {
+            return;
+        }
         self.sound_context
             .state()
             .bus_graph_mut()
             .primary_bus_mut()
             .remove_effect(0);
+        self.using_reverb = false;
     }
 
     /// changes the volume of the given type to the specified value
     pub fn set_volume(&mut self, volume_type: VolumeType, new_volume: f32) {
         log::trace!("set volume {:?} to {:?}", volume_type, new_volume);
+        let mut state = self.sound_context.state();
+        let old_sfx_volume = self.absolute_volume(SoundType::SFX);
+        let old_music_volume = self.absolute_volume(SoundType::Music);
         match volume_type {
             VolumeType::Master => {
                 self.master_volume = new_volume;
-                self.update_sfx_volumes();
-                self.update_music_volumes();
+                for sfx_handle in self.active_effect_handles.iter().copied() {
+                    let sfx_source = state.source_mut(sfx_handle);
+                    sfx_source.set_gain(
+                        sfx_source.gain() / old_sfx_volume * self.absolute_volume(SoundType::SFX),
+                    );
+                }
+                for music_handle in self.active_music_handles.iter().copied() {
+                    let music_source = state.source_mut(music_handle);
+                    music_source.set_gain(
+                        music_source.gain() / old_music_volume
+                            * self.absolute_volume(SoundType::Music),
+                    );
+                }
             }
             VolumeType::SFX => {
                 self.sfx_volume = new_volume;
-                self.update_sfx_volumes()
+                for sfx_handle in self.active_effect_handles.iter().copied() {
+                    let sfx_source = state.source_mut(sfx_handle);
+                    sfx_source.set_gain(
+                        sfx_source.gain() / old_sfx_volume * self.absolute_volume(SoundType::SFX),
+                    );
+                }
             }
             VolumeType::Music => {
                 self.music_volume = new_volume;
-                self.update_music_volumes();
+                for music_handle in self.active_music_handles.iter().copied() {
+                    let music_source = state.source_mut(music_handle);
+                    music_source.set_gain(
+                        music_source.gain() / old_music_volume
+                            * self.absolute_volume(SoundType::Music),
+                    );
+                }
             }
         }
     }
 
-    /// changes the pitch of an entity's sound
+    /// changes the pitch of an entity's sound independantly of the speed pitch change
     pub fn set_pitch(&self, handle: Handle<SoundSource>, pitch: f64) {
         log::trace!("set pitch of handle {:?} to {:?}", handle, pitch);
-        todo!()
+        let mut state = self.sound_context.state();
+        let source = state.source_mut(handle);
+        if self.pitch_on_speed_change {
+            source.set_pitch(pitch * self.current_speed_pitch);
+        } else {
+            source.set_pitch(pitch);
+        }
     }
 
     /// enables/disbles the pitch change on animation speed change (default is true)
     pub fn set_pitch_on_speed_change(&mut self, flag: bool) {
         log::debug!("set pitch on speed change: {:?}", flag);
+        if self.pitch_on_speed_change == flag {
+            return;
+        }
         self.pitch_on_speed_change = flag;
-        let mut state = self.sound_context.state();
-        for source in state.sources_mut().iter_mut() {
-            source.set_pitch(source.pitch() / self.current_speed_pitch);
-        }
-        self.current_speed_pitch = 1.0;
-    }
-
-    /// updates the SFX volumes of all known handles
-    fn update_sfx_volumes(&self) {
-        let mut state = self.sound_context.state();
-        let sfx_volume = self.absolute_volume(SoundType::SFX);
-        for sfx_handle in self.active_effect_handles.iter().copied() {
-            let sfx_source = state.source_mut(sfx_handle);
-            sfx_source.set_gain(sfx_volume);
-        }
-    }
-
-    /// updates the music volumes of all known handles
-    fn update_music_volumes(&self) {
-        let mut state = self.sound_context.state();
-        let music_volume = self.absolute_volume(SoundType::Music);
-        for music_handle in self.active_music_handles.iter().copied() {
-            let music_source = state.source_mut(music_handle);
-            music_source.set_gain(music_volume);
+        if flag {
+            let mut state = self.sound_context.state();
+            for source in state.sources_mut().iter_mut() {
+                source.set_pitch(source.pitch() * self.current_speed_pitch);
+            }
+        } else {
+            let mut state = self.sound_context.state();
+            for source in state.sources_mut().iter_mut() {
+                source.set_pitch(source.pitch() / self.current_speed_pitch);
+            }
         }
     }
 
@@ -228,14 +332,14 @@ impl EventObserver<CamPositionChange> for AudioSystem {
 
 impl EventObserver<AnimationSpeedChange> for AudioSystem {
     fn on_event(&mut self, event: &AnimationSpeedChange) {
+        let new_speed_pitch = event.new_animation_speed as f64;
         if self.pitch_on_speed_change {
-            let new_speed_pitch = event.new_animation_speed as f64;
             let mut state = self.sound_context.state();
             for source in state.sources_mut().iter_mut() {
                 source.set_pitch(source.pitch() / self.current_speed_pitch * new_speed_pitch);
             }
-            self.current_speed_pitch = new_speed_pitch;
         }
+        self.current_speed_pitch = new_speed_pitch;
     }
 }
 
