@@ -1,8 +1,9 @@
-use crate::ecs::component::{Position, SoundController};
+use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
+use crate::utils::constants::bits::user_level::DOPPLER_EFFECT;
 use crate::utils::file::HRTF_SPHERE;
 use crate::utils::tools::vec3_to_vector3;
 use fyrox_resource::io::FsResourceIo;
@@ -35,6 +36,7 @@ pub struct AudioSystem {
     active_music_handles: HashSet<Handle<SoundSource>>,
     using_reverb: bool,
     using_hrtf: bool,
+    removed_handles: HashSet<Handle<SoundSource>>,
 }
 
 impl AudioSystem {
@@ -56,16 +58,35 @@ impl AudioSystem {
             active_music_handles: HashSet::new(),
             using_reverb: false,
             using_hrtf: false,
+            removed_handles: HashSet::new(),
         }
     }
 
     /// update entity sound positions etc (runs every frame)
-    pub(crate) fn update(&mut self, entity_manager: &EntityManager) {
+    pub(crate) fn update(&mut self, entity_manager: &mut EntityManager) {
         let mut state = self.sound_context.state();
-        for (sound, pos) in entity_manager.query2::<SoundController, Position>((None, None)) {
+        for (sound, pos, flags) in unsafe {
+            entity_manager.query3_mut_opt1::<SoundController, Position, EntityFlags>((None, None))
+        } {
+            // remove invalid handles from components
+            sound
+                .handles
+                .retain(|handle| !self.removed_handles.contains(handle));
+            self.removed_handles.clear();
+            // update position and pitch
+            let doppler_effect = flags.map_or(false, |f| f.get_bit(DOPPLER_EFFECT));
             for handle in sound.handles.iter().copied() {
                 let source = state.source_mut(handle);
                 source.set_position(vec3_to_vector3(pos.data()));
+                if doppler_effect {
+                    let base_pitch = source.pitch() / sound.old_doppler_pitch;
+                    source.set_pitch(base_pitch * sound.new_doppler_pitch);
+                } else {
+                    let base_pitch = source.pitch() / sound.old_doppler_pitch;
+                    sound.new_doppler_pitch = 1.0;
+                    sound.old_doppler_pitch = 1.0;
+                    source.set_pitch(base_pitch);
+                }
             }
         }
     }
@@ -111,6 +132,7 @@ impl AudioSystem {
         self.active_music_handles.remove(&handle);
         let mut state = self.sound_context.state();
         state.remove_source(handle);
+        self.removed_handles.insert(handle);
     }
 
     /// plays a sound

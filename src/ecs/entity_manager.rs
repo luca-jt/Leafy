@@ -3,6 +3,7 @@ use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::TextureMap;
 use crate::rendering::mesh::{Hitbox, Mesh};
+use crate::utils::constants::NO_ENTITY;
 use crate::utils::file::*;
 use crate::utils::tools::types_eq;
 use itertools::Itertools;
@@ -46,8 +47,10 @@ impl EntityManager {
     }
 
     /// stores a new entity and returns the id of the new entity
-    pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
+    pub fn create_entity(&mut self, mut components: Vec<Box<dyn Any>>) -> EntityID {
+        components.push(Box::new(NO_ENTITY));
         let entity = self.ecs.get_mut().create_entity(components);
+        *self.get_component_mut::<EntityID>(entity).unwrap() = entity;
         // load mesh if necessary
         self.add_command(AssetCommand::AddMesh(entity));
         // load texture if necessary

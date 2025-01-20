@@ -88,6 +88,7 @@ It controls
 ...
 
 ### Entity Manager
+- always use custom structs for components
 ...
 
 ### UI Library

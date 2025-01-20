@@ -1,9 +1,6 @@
-use crate::engine::{Engine, FallingLeafApp};
 use crate::engine_builder::EngineAttributes;
-use crate::glm;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
-use crate::utils::constants::Y_AXIS;
 use gl::types::GLsizei;
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{
@@ -17,7 +14,6 @@ use glutin_winit::{DisplayBuilder, GlWindow};
 use raw_window_handle::HasWindowHandle;
 use std::cell::Cell;
 use std::error::Error;
-use std::f32::consts::{FRAC_PI_2, PI};
 use std::ffi::{CStr, CString};
 use std::num::NonZeroU32;
 use std::time::{Duration, Instant};
@@ -40,7 +36,7 @@ pub struct VideoSystem {
     stored_config: EngineAttributes,
     skipped_first_resize: bool,
     came_out_of_fs: Cell<bool>,
-    mouse_cam_sens: Option<f32>,
+    pub(crate) mouse_cam_sens: Option<f32>,
 }
 
 impl VideoSystem {
@@ -432,41 +428,5 @@ fn get_gl_string(variant: gl::types::GLenum) -> Option<&'static CStr> {
     unsafe {
         let s = gl::GetString(variant);
         (!s.is_null()).then(|| CStr::from_ptr(s.cast()))
-    }
-}
-
-/// enables 3D camera control with the mouse if the required setting is enabled
-pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: &Engine<T>) {
-    if let Some(sens) = engine.video_system().mouse_cam_sens {
-        let cam_config = engine.rendering_system().current_cam_config();
-        debug_assert!(
-            cam_config.1 != Y_AXIS && cam_config.1 != -Y_AXIS && cam_config.1.norm() > 0.0,
-            "viewing angle must be in interval (-pi, pi] and look vector cannot have length 0"
-        );
-        let look_dir = cam_config.1.normalize(); // new z
-        let right_dir = look_dir.cross(&Y_AXIS).normalize(); // new x
-        let up_dir = right_dir.cross(&look_dir).normalize(); // new y
-        let look_trafo = glm::Mat3::from_columns(&[right_dir, up_dir, look_dir]);
-
-        let forward_dir = glm::vec3(look_dir.x, 0.0, look_dir.z);
-        let forward_dir_norm = forward_dir.norm();
-        let current_vert_angle = forward_dir_norm.acos();
-        let add_angle = sens / 1000.0;
-
-        let hori_factor = forward_dir_norm; // accounts for different circle radii when the vertical angle changes
-        let add_hori_angle = add_angle * event.delta_x as f32 * hori_factor;
-        let look_hori = look_trafo * glm::vec3(add_hori_angle.sin(), 0.0, add_hori_angle.cos());
-
-        let angle_block = PI / 16.0;
-        let add_vert_angle = (add_angle * -event.delta_y as f32).clamp(
-            -FRAC_PI_2 + angle_block + current_vert_angle,
-            FRAC_PI_2 - angle_block - current_vert_angle,
-        );
-        let look_vert = look_trafo * glm::vec3(0.0, add_vert_angle.sin(), add_vert_angle.cos());
-
-        engine.trigger_event(CamPositionChange {
-            new_pos: cam_config.0,
-            new_look: (look_hori + look_vert).normalize(),
-        });
     }
 }

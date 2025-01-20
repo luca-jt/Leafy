@@ -59,8 +59,24 @@ impl RenderingSystem {
         }
     }
 
+    /// 3D render all entities
+    pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
+        self.update_light_sources(entity_manager);
+        self.reset_renderer_usage();
+        self.clear_gl_screen();
+        self.add_entity_data(entity_manager);
+        self.confirm_data();
+        self.update_uniform_buffers();
+        self.render_shadows();
+        self.render_geometry();
+        self.render_transparent();
+        self.reset_renderers();
+        self.render_skybox();
+        self.cleanup_renderers();
+    }
+
     /// adds and removes light sources according to entity data
-    pub(crate) fn update_light_sources(&mut self, entity_manager: &EntityManager) {
+    fn update_light_sources(&mut self, entity_manager: &EntityManager) {
         let lights = entity_manager
             .query3_opt1::<Position, PointLight, LightSrcID>((None, None))
             .map(|(p, s, l)| (p, s, l.unwrap().0))
@@ -91,21 +107,6 @@ impl RenderingSystem {
                 ShadowMap::new(self.shadow_resolution.map_res(), *pos.data(), src),
             ));
         }
-    }
-
-    /// 3D render all entities
-    pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
-        self.reset_renderer_usage();
-        self.clear_gl_screen();
-        self.add_entity_data(entity_manager);
-        self.confirm_data();
-        self.update_uniform_buffers();
-        self.render_shadows();
-        self.render_geometry();
-        self.render_transparent();
-        self.reset_renderers();
-        self.render_skybox();
-        self.cleanup_renderers();
     }
 
     /// add entity data to the renderers

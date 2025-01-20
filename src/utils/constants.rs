@@ -1,3 +1,4 @@
+use crate::ecs::component::utils::TimeDuration;
 use crate::ecs::component::Acceleration;
 use crate::ecs::entity::EntityID;
 use crate::glm;
@@ -8,6 +9,9 @@ pub(crate) const MIN_WIN_HEIGHT: u32 = 450;
 
 pub(crate) const MAX_TEXTURE_COUNT: usize = 32;
 pub(crate) const MAX_LIGHT_SRC_COUNT: usize = 5;
+
+/// a single time step in the animation system
+pub(crate) const TIME_STEP: TimeDuration = TimeDuration(0.001);
 
 /// earth's gravity
 pub const G: Acceleration = Acceleration::new(0.0, -9.81, 0.0);
@@ -40,5 +44,7 @@ pub mod bits {
         pub const IGNORING_COLLISION: u64 = 3;
         /// seperates entities at collision even whithout velocity component, also ignores dynamic collision responses when used on entities with velocity
         pub const STATIC_COLLISION: u64 = 4;
+        /// enables the doppler effect audio pitch for an entity
+        pub const DOPPLER_EFFECT: u64 = 5;
     }
 }

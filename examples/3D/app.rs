@@ -8,14 +8,14 @@ use falling_leaf::glm;
 use falling_leaf::rendering::data::Skybox;
 use falling_leaf::systems::audio_system::{SoundType, VolumeType};
 use falling_leaf::systems::event_system::events::*;
-use falling_leaf::utils::constants::bits::user_level::FLOATING;
+use falling_leaf::utils::constants::bits::user_level::{DOPPLER_EFFECT, FLOATING};
 use falling_leaf::utils::constants::{NO_ENTITY, ORIGIN, X_AXIS, Y_AXIS, Z_AXIS};
 use falling_leaf::winit::keyboard::KeyCode;
 use std::f32::consts::FRAC_PI_2;
 use std::path::Path;
 
-const CAM_MOVE_SPEED: f32 = 4.5;
-const CAM_MOUSE_SPEED: f32 = 4.0;
+const CAM_MOVE_SPEED: f32 = 5.0;
+const CAM_MOUSE_SPEED: f32 = 3.0;
 
 /// example app
 pub struct App {
@@ -133,10 +133,9 @@ impl FallingLeafApp for App {
             Scale::from_factor(0.2),
             MeshType::Sphere,
             MeshAttribute::Colored(Color32::BLUE),
-            SoundController {
-                handles: vec![heli_sound]
-            },
-            TouchTime::now()
+            SoundController::from_handles(&[heli_sound]),
+            TouchTime::now(),
+            EntityFlags::from_flags(&[DOPPLER_EFFECT])
         ));
 
         engine.event_system_mut().add_modifier(jump);

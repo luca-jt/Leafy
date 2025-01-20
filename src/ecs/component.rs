@@ -1,6 +1,5 @@
 use crate::ecs::entity::EntityID;
 use crate::glm;
-use crate::systems::animation_system::CollisionData;
 use crate::utils::constants::*;
 use fyrox_sound::pool::Handle;
 use fyrox_sound::source::SoundSource;
@@ -339,9 +338,34 @@ impl Default for RigidBody {
 }
 
 /// stores all of the associated sound handles for an entity
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone)]
 pub struct SoundController {
     pub handles: Vec<Handle<SoundSource>>,
+    pub(crate) new_doppler_pitch: f64,
+    pub(crate) old_doppler_pitch: f64,
+    pub(crate) last_pos: glm::Vec3,
+}
+
+impl SoundController {
+    /// creates a new default sound controller component with no handles
+    pub fn new() -> Self {
+        Self {
+            handles: vec![],
+            new_doppler_pitch: 1.0,
+            old_doppler_pitch: 1.0,
+            last_pos: ORIGIN,
+        }
+    }
+
+    /// creates a new sound controller with handles attached
+    pub fn from_handles(handles: &[Handle<SoundSource>]) -> Self {
+        Self {
+            handles: handles.to_vec(),
+            new_doppler_pitch: 1.0,
+            old_doppler_pitch: 1.0,
+            last_pos: ORIGIN,
+        }
+    }
 }
 
 /// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's
@@ -351,7 +375,7 @@ pub struct Collider {
     pub(crate) hitbox_type: HitboxType,
     pub(crate) offset: glm::Vec3,
     pub(crate) scale: Scale,
-    pub(crate) last_collision_data: Vec<CollisionData>,
+    pub(crate) last_collisions: Vec<CollisionInfo>,
 }
 
 impl Collider {
@@ -361,7 +385,7 @@ impl Collider {
             hitbox_type,
             offset: ORIGIN,
             scale: Scale::default(),
-            last_collision_data: vec![],
+            last_collisions: vec![],
         }
     }
 
@@ -378,8 +402,8 @@ impl Collider {
     }
 
     /// access to the collision data of the collider from the last iteration
-    pub fn collision_data(&self) -> &[CollisionData] {
-        &self.last_collision_data
+    pub fn collision_info(&self) -> &[CollisionInfo] {
+        &self.last_collisions
     }
 }
 
@@ -408,7 +432,7 @@ pub(crate) struct LightSrcID(pub(crate) EntityID);
 /// 64bit flag bitmap for enabling special entity behavior (default: all turned off, the same as component not present)
 /// ### Info
 /// You can use this component independantly of the rest of the engine if you want to.
-/// The bits 5-63 do not influence engine behavior and are free to customize.
+/// The bits 6-63 do not influence engine behavior and are free to customize.
 #[derive(Debug, Default)]
 pub struct EntityFlags(u64);
 
@@ -582,5 +606,13 @@ pub mod utils {
         SimplifiedConvexHull,
         Sphere,
         Box,
+    }
+
+    /// stores info about the last frames' collisions in the ``Collider`` component
+    #[derive(Debug, Copy, Clone)]
+    pub struct CollisionInfo {
+        pub momentum: glm::Vec3,
+        pub point: glm::Vec3,
+        pub normal: glm::Vec3,
     }
 }

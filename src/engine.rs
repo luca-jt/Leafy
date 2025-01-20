@@ -1,18 +1,20 @@
-use crate::ecs::component::utils::TouchTime;
+use crate::ecs::component::utils::{TimeDuration, TouchTime};
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine_builder::EngineAttributes;
-use crate::systems::animation_system::{move_cam, stop_cam, AnimationSystem};
+use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventSystem;
+use crate::systems::general::*;
 use crate::systems::rendering_system::RenderingSystem;
-use crate::systems::video_system::{mouse_move_cam, VideoSystem};
+use crate::systems::video_system::VideoSystem;
+use crate::utils::constants::TIME_STEP;
 use crate::utils::tools::{shared_ptr, SharedPtr};
 use std::any::Any;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::error::Error;
 use std::fmt::Debug;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -24,12 +26,15 @@ pub struct Engine<A: FallingLeafApp> {
     app: Option<SharedPtr<A>>,
     exit_state: Option<Result<(), Box<dyn Error>>>,
     should_quit: Cell<bool>,
+    pub(crate) mode: Cell<EngineMode>,
     rendering_system: Option<SharedPtr<RenderingSystem>>,
     audio_system: SharedPtr<AudioSystem>,
     event_system: RefCell<EventSystem<A>>,
     animation_system: SharedPtr<AnimationSystem>,
     entity_manager: SharedPtr<EntityManager>,
     video_system: SharedPtr<VideoSystem>,
+    time_accumulated: TimeDuration,
+    time_of_last_sim: TouchTime,
 }
 
 impl<A: FallingLeafApp> Engine<A> {
@@ -46,7 +51,8 @@ impl<A: FallingLeafApp> Engine<A> {
         event_system.add_listener::<AnimationSpeedChange>(&audio_system);
         event_system.add_listener::<EngineModeChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&animation_system);
-        event_system.add_listener::<EngineModeChange>(&animation_system);
+        event_system.add_listener::<CamPositionChange>(&animation_system);
+        event_system.add_modifier(mode_update);
         event_system.add_modifier(mouse_move_cam);
         event_system.add_modifier(move_cam);
         event_system.add_modifier(stop_cam);
@@ -55,12 +61,15 @@ impl<A: FallingLeafApp> Engine<A> {
             app: None,
             exit_state: Some(Ok(())),
             should_quit: Cell::new(false),
+            mode: Cell::new(EngineMode::Running),
             rendering_system: None,
             audio_system,
             event_system: RefCell::new(event_system),
             animation_system,
             entity_manager,
             video_system,
+            time_accumulated: TimeDuration(0.0),
+            time_of_last_sim: TouchTime::now(),
         }
     }
 
@@ -77,16 +86,31 @@ impl<A: FallingLeafApp> Engine<A> {
     fn on_frame_redraw(&mut self) {
         self.app_mut().on_frame_update(self);
 
+        self.time_step_sim();
+
         self.audio_system_mut()
-            .update(self.entity_manager().deref());
-
-        self.animation_system_mut().update(self);
-
-        self.rendering_system_mut()
-            .update_light_sources(self.entity_manager().deref());
+            .update(self.entity_manager_mut().deref_mut());
 
         self.rendering_system_mut()
             .render(self.entity_manager().deref());
+    }
+
+    /// all of the time-sensitive simulations
+    fn time_step_sim(&mut self) {
+        let dt = self.time_of_last_sim.delta_time();
+        let transformed_dt = dt * self.animation_system().animation_speed;
+        self.time_accumulated += transformed_dt;
+        while self.time_accumulated >= TIME_STEP {
+            if self.mode() == EngineMode::Running {
+                self.animation_system_mut().update(self);
+            }
+            self.time_accumulated -= TIME_STEP;
+        }
+        update_cam(self, dt);
+        if self.mode() == EngineMode::Running {
+            update_doppler_data(self, transformed_dt);
+        }
+        self.time_of_last_sim.reset();
     }
 
     /// access to the stored app
@@ -159,6 +183,11 @@ impl<A: FallingLeafApp> Engine<A> {
         self.entity_manager.borrow_mut()
     }
 
+    /// the current mode of the engine
+    pub fn mode(&self) -> EngineMode {
+        self.mode.get()
+    }
+
     /// quits the running engine and exit the event loop
     pub fn quit(&self) {
         self.should_quit.set(true);
@@ -181,7 +210,7 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
             .add_listener::<WindowResize>(self.rendering_system.as_ref().unwrap());
 
         self.app_mut().init(self);
-        self.animation_system_mut().time_of_last_sim = TouchTime::now();
+        self.time_of_last_sim = TouchTime::now();
     }
 
     fn window_event(
