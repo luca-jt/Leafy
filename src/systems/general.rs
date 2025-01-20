@@ -132,26 +132,32 @@ pub(crate) fn update_cam<T: FallingLeafApp>(engine: &Engine<T>, dt: TimeDuration
 /// updates the doppler effect data for the audio system
 pub(crate) fn update_doppler_data<T: FallingLeafApp>(engine: &Engine<T>, dt: TimeDuration) {
     let mut animation_system = engine.animation_system_mut();
-    for (pos, sound) in unsafe {
+    for (pos, sound, flags_opt) in unsafe {
         engine
             .entity_manager()
             .query3_mut_opt1::<Position, SoundController, EntityFlags>((None, None))
-            .filter_map(|(p, s, f_opt)| {
-                if f_opt.map_or(true, |f| !f.get_bit(DOPPLER_EFFECT)) {
-                    return None;
-                }
-                Some((p, s))
-            })
     } {
-        let entity_vel = (pos.data() - sound.last_pos) / dt.0;
-        sound.last_pos = *pos.data();
-        let cam_vel = (animation_system.curr_cam_pos - animation_system.prev_cam_pos) / dt.0;
-        animation_system.prev_cam_pos = animation_system.curr_cam_pos;
-        let rel_vel = entity_vel - cam_vel;
-        let to_cam = (animation_system.curr_cam_pos - pos.data()).normalize();
-        let doppler_coeff = to_cam.dot(&rel_vel).clamp(-256.0, 256.0);
-        let pitch = map_range((-256.0, 256.0), (0.0, 2.0), doppler_coeff).clamp(0.01, 2.0);
-        sound.old_doppler_pitch = sound.new_doppler_pitch;
-        sound.new_doppler_pitch = pitch as f64;
+        let doppler_effect = flags_opt.map_or(false, |f| f.get_bit(DOPPLER_EFFECT));
+        if doppler_effect {
+            let entity_vel = (pos.data() - sound.last_pos) / dt.0;
+            sound.last_pos = *pos.data();
+            let cam_vel = (animation_system.curr_cam_pos - animation_system.prev_cam_pos) / dt.0;
+            animation_system.prev_cam_pos = animation_system.curr_cam_pos;
+            let rel_vel = entity_vel - cam_vel;
+            let to_cam = (animation_system.curr_cam_pos - pos.data()).normalize();
+            let doppler_coeff = to_cam.dot(&rel_vel).clamp(-256.0, 256.0);
+            let pitch =
+                map_range((-256.0, 256.0), (0.0, 2.0), doppler_coeff).clamp(0.01, 2.0) as f64;
+            engine
+                .audio_system()
+                .set_doppler_pitch(sound, sound.doppler_pitch, pitch);
+            sound.doppler_pitch = pitch;
+        } else {
+            let pitch = 1.0;
+            engine
+                .audio_system()
+                .set_doppler_pitch(sound, sound.doppler_pitch, pitch);
+            sound.doppler_pitch = pitch;
+        }
     }
 }

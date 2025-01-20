@@ -22,5 +22,4 @@ cube shadow maps for point lights
 
 dpi scale factor event handling? -> render res handled by screen texture res (if that setting is in %, maybe scale that or smth)
 make some engine systems modular with features
-remove the eventobserver trait?
-do the doppler pitch application inside the calculation function?
+remove the eventobserver trait

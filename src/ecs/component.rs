@@ -341,8 +341,7 @@ impl Default for RigidBody {
 #[derive(Debug, Clone)]
 pub struct SoundController {
     pub handles: Vec<Handle<SoundSource>>,
-    pub(crate) new_doppler_pitch: f64,
-    pub(crate) old_doppler_pitch: f64,
+    pub(crate) doppler_pitch: f64,
     pub(crate) last_pos: glm::Vec3,
 }
 
@@ -351,8 +350,7 @@ impl SoundController {
     pub fn new() -> Self {
         Self {
             handles: vec![],
-            new_doppler_pitch: 1.0,
-            old_doppler_pitch: 1.0,
+            doppler_pitch: 1.0,
             last_pos: ORIGIN,
         }
     }
@@ -361,8 +359,7 @@ impl SoundController {
     pub fn from_handles(handles: &[Handle<SoundSource>]) -> Self {
         Self {
             handles: handles.to_vec(),
-            new_doppler_pitch: 1.0,
-            old_doppler_pitch: 1.0,
+            doppler_pitch: 1.0,
             last_pos: ORIGIN,
         }
     }

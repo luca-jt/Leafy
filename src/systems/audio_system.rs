@@ -3,7 +3,6 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
 use crate::systems::event_system::events::*;
 use crate::systems::event_system::EventObserver;
-use crate::utils::constants::bits::user_level::DOPPLER_EFFECT;
 use crate::utils::file::HRTF_SPHERE;
 use crate::utils::tools::vec3_to_vector3;
 use fyrox_resource::io::FsResourceIo;
@@ -65,33 +64,39 @@ impl AudioSystem {
     /// update entity sound positions etc (runs every frame)
     pub(crate) fn update(&mut self, entity_manager: &mut EntityManager) {
         let mut state = self.sound_context.state();
-        for (sound, pos, flags) in unsafe {
-            entity_manager.query3_mut_opt1::<SoundController, Position, EntityFlags>((None, None))
-        } {
+        for (sound, pos) in
+            unsafe { entity_manager.query2_mut::<SoundController, Position>((None, None)) }
+        {
             // remove invalid handles from components
             sound
                 .handles
                 .retain(|handle| !self.removed_handles.contains(handle));
             self.removed_handles.clear();
-            // update position and pitch
-            let doppler_effect = flags.map_or(false, |f| f.get_bit(DOPPLER_EFFECT));
+            // update position
             for handle in sound.handles.iter().copied() {
                 let source = state.source_mut(handle);
                 source.set_position(vec3_to_vector3(pos.data()));
-                if doppler_effect {
-                    let base_pitch = source.pitch() / sound.old_doppler_pitch;
-                    source.set_pitch(base_pitch * sound.new_doppler_pitch);
-                } else {
-                    let base_pitch = source.pitch() / sound.old_doppler_pitch;
-                    sound.new_doppler_pitch = 1.0;
-                    sound.old_doppler_pitch = 1.0;
-                    source.set_pitch(base_pitch);
-                }
             }
         }
     }
 
-    /// loads a sound from file and caches it (default state of the source is stopped and not looping)
+    /// updates the doppler effect pitch for all handles of a sound controller
+    pub(crate) fn set_doppler_pitch(
+        &self,
+        controller: &SoundController,
+        old_pitch: f64,
+        new_pitch: f64,
+    ) {
+        let mut state = self.sound_context.state();
+        for handle in controller.handles.iter().copied() {
+            let source = state.source_mut(handle);
+            let base_pitch = source.pitch() / old_pitch;
+            source.set_pitch(base_pitch * new_pitch);
+        }
+    }
+
+    /// Loads a sound from file and caches it (default state of the source is stopped and not looping).
+    /// Sounds loaded this way should only be attached to at most one entity!
     pub fn load_sound(
         &mut self,
         file_path: impl AsRef<Path>,
