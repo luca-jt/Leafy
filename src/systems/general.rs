@@ -138,11 +138,13 @@ pub(crate) fn update_doppler_data<T: FallingLeafApp>(engine: &Engine<T>, dt: Tim
             .query3_mut_opt1::<Position, SoundController, EntityFlags>((None, None))
     } {
         let doppler_effect = flags_opt.map_or(false, |f| f.get_bit(DOPPLER_EFFECT));
+
+        let entity_vel = (pos.data() - sound.last_pos) / dt.0;
+        sound.last_pos = *pos.data();
+        let cam_vel = (animation_system.curr_cam_pos - animation_system.prev_cam_pos) / dt.0;
+        animation_system.prev_cam_pos = animation_system.curr_cam_pos;
+
         if doppler_effect {
-            let entity_vel = (pos.data() - sound.last_pos) / dt.0;
-            sound.last_pos = *pos.data();
-            let cam_vel = (animation_system.curr_cam_pos - animation_system.prev_cam_pos) / dt.0;
-            animation_system.prev_cam_pos = animation_system.curr_cam_pos;
             let rel_vel = entity_vel - cam_vel;
             let to_cam = (animation_system.curr_cam_pos - pos.data()).normalize();
             let doppler_coeff = to_cam.dot(&rel_vel).clamp(-256.0, 256.0);
