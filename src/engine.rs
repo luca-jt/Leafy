@@ -23,7 +23,7 @@ use winit::window::WindowId;
 
 /// main engine
 pub struct Engine<A: FallingLeafApp> {
-    app: Option<SharedPtr<A>>,
+    app: Option<RefCell<A>>,
     exit_state: Option<Result<(), Box<dyn Error>>>,
     should_quit: Cell<bool>,
     pub(crate) mode: Cell<EngineMode>,
@@ -75,7 +75,7 @@ impl<A: FallingLeafApp> Engine<A> {
 
     /// runs the main loop
     pub fn run(&mut self, app: A) -> Result<(), Box<dyn Error>> {
-        self.app = Some(shared_ptr(app));
+        self.app = Some(RefCell::new(app));
         let event_loop = EventLoop::new().unwrap();
         event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run_app(self)?;

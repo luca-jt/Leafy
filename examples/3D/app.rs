@@ -106,6 +106,11 @@ impl FallingLeafApp for App {
             EntityFlags::from_flags(&[FLOATING])
         ));
 
+        let hit_sound =
+            engine
+                .audio_system_mut()
+                .load_sound("examples/3D/hit.wav", SoundType::SFX, false);
+
         self.player = entity_manager.create_entity(components!(
             Position::new(0.0, 4.0, 0.0),
             Scale::from_factor(0.2),
@@ -117,7 +122,8 @@ impl FallingLeafApp for App {
             Acceleration::zero(),
             Collider::new(HitboxType::ConvexHull),
             RigidBody::default(),
-            EntityFlags::default()
+            EntityFlags::default(),
+            SoundController::from_handles(&[hit_sound])
         ));
 
         let heli_sound = engine.audio_system_mut().load_sound(
@@ -156,6 +162,20 @@ impl FallingLeafApp for App {
         let av = FRAC_PI_2;
         pos.data_mut().x = (secs * av).0.sin() * 3.0;
         pos.data_mut().z = (secs * av).0.cos() * 3.0;
+
+        let hit_handle = entity_manager
+            .get_component::<SoundController>(self.player)
+            .unwrap()
+            .handles[0];
+        for info in entity_manager
+            .get_component::<Collider>(self.player)
+            .unwrap()
+            .collision_info()
+        {
+            if info.momentum.norm() > 0.1 {
+                engine.audio_system().play(hit_handle);
+            }
+        }
     }
 }
 
