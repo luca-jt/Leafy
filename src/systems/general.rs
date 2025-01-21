@@ -148,8 +148,13 @@ pub(crate) fn update_doppler_data<T: FallingLeafApp>(engine: &Engine<T>, dt: Tim
             let rel_vel = entity_vel - cam_vel;
             let to_cam = (animation_system.curr_cam_pos - pos.data()).normalize();
             let doppler_coeff = to_cam.dot(&rel_vel).clamp(-256.0, 256.0);
-            let pitch =
-                map_range((-256.0, 256.0), (0.0, 2.0), doppler_coeff).clamp(0.01, 2.0) as f64;
+            let pitch = if doppler_coeff < 0.0 {
+                map_range((-256.0, 0.0), (0.5, 1.0), doppler_coeff) as f64
+            } else if doppler_coeff > 0.0 {
+                map_range((0.0, 256.0), (1.0, 2.0), doppler_coeff) as f64
+            } else {
+                1.0
+            };
             engine
                 .audio_system()
                 .set_doppler_pitch(sound, sound.doppler_pitch, pitch);
