@@ -10,16 +10,13 @@ voxelized meshes + hitboxes (for non-convex cases) -> Mesh becomes enum | https:
 volumetric rendering -> voxels
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons
 object outlining with stencil buffer
-rework the inertia and collision stuff -> collision point is slightly off, elastic collisions with restitution coefficient
 2D animation frames
 materials -> reflection with dynamic environment maps, water
 2D sprite hitboxes with seperate collision checking
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
-ui basics + font rendering + events for ui struct
+ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 conways game of life example
 sprite renderer -> depth layers configurable, sprite component, depth test must be specified
 cube shadow maps for point lights
 
-dpi scale factor event handling? -> render res handled by screen texture res (if that setting is in %, maybe scale that or smth)
-make some engine systems modular with features
-remove the eventobserver trait
+rework the inertia and collision stuff -> collision point is slightly off, elastic collisions with restitution coefficient

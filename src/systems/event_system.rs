@@ -169,17 +169,8 @@ impl<A: FallingLeafApp> EventSystem<A> {
             WindowEvent::HoveredFileCancelled => {
                 self.trigger(FileHoverCancelled, engine);
             }
-            WindowEvent::ScaleFactorChanged {
-                scale_factor,
-                inner_size_writer,
-            } => {
-                self.trigger(
-                    DPIScaleFactorChanged {
-                        scale_factor,
-                        size_writer: inner_size_writer,
-                    },
-                    engine,
-                );
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                self.trigger(DPIScaleChange { scale_factor }, engine);
             }
             _ => (),
         }
@@ -240,11 +231,11 @@ pub mod events {
     use crate::engine::EngineMode;
     use crate::glm;
     use std::path::PathBuf;
-    use winit::event::{DeviceId, InnerSizeWriter, MouseButton, TouchPhase};
+    use winit::event::{DeviceId, MouseButton, TouchPhase};
     use winit::keyboard::KeyCode;
 
     /// key press event data
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct KeyPress {
         pub key: KeyCode,
         pub is_synthetic: bool,
@@ -252,7 +243,7 @@ pub mod events {
     }
 
     /// key release event data
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct KeyRelease {
         pub key: KeyCode,
         pub is_synthetic: bool,
@@ -260,14 +251,14 @@ pub mod events {
     }
 
     /// mouse move event data (not for 3D camera control)
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct MouseMove {
         pub to_x: f64,
         pub to_y: f64,
     }
 
     /// mouse scroll event data
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct MouseScroll {
         pub vertical_lines: f32,
         pub horizontal_lines: f32,
@@ -275,34 +266,34 @@ pub mod events {
     }
 
     /// mouse click event data
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct MouseClick {
         pub button: MouseButton,
     }
 
     /// mouse click event data
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct MouseRelease {
         pub button: MouseButton,
     }
 
     /// window resize event data (physical size)
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct WindowResize {
         pub width: u32,
         pub height: u32,
     }
 
     /// window focus lost event
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct WindowLostFocus;
 
     /// window focus gained event
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct WindowGainedFocus;
 
     /// window move event
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct WindowMoved {
         pub to_x: u32,
         pub to_y: u32,
@@ -321,57 +312,56 @@ pub mod events {
     }
 
     /// file hover cancel event
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct FileHoverCancelled;
 
     /// DPI scale factor change event
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct DPIScaleFactorChanged {
+    #[derive(Debug, Copy, Clone, PartialEq)]
+    pub struct DPIScaleChange {
         pub scale_factor: f64,
-        pub size_writer: InnerSizeWriter,
     }
 
     /// triggered if a device (might also be virtual from the OS) is added
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct RawDeviceAdded {
         pub device_id: DeviceId,
     }
 
     /// triggered if a device (might also be virtual from the OS) is removed
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct RawDeviceRemoved {
         pub device_id: DeviceId,
     }
 
     /// raw mouse move data (e.g. useful for game controls)
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct RawMouseMotion {
         pub delta_x: f64,
         pub delta_y: f64,
     }
 
     /// raw mouse scroll data (e.g. useful for game controls)
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct RawMouseScroll {
         pub vertical_delta: f32,
         pub horizontal_delta: f32,
     }
 
     /// global change of the engine mode
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct EngineModeChange {
         pub new_mode: EngineMode,
     }
 
     /// change of the users camera position and look direction vector used for rendering and audio processing
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct CamPositionChange {
         pub new_pos: glm::Vec3,
         pub new_look: glm::Vec3,
     }
 
     /// changes the animation speed of the rendering system
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct AnimationSpeedChange {
         pub new_animation_speed: f32,
     }

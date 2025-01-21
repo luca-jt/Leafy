@@ -260,6 +260,16 @@ impl VideoSystem {
         self.current_fps
     }
 
+    /// the current inner window resolution (width, height)
+    pub fn window_resolution(&self) -> PhysicalSize<u32> {
+        self.window.as_ref().unwrap().inner_size()
+    }
+
+    /// the current DPI scale factor of the window
+    pub fn dpi_scale(&self) -> f64 {
+        self.window.as_ref().unwrap().scale_factor()
+    }
+
     /// set the optional fps cap value for the rendering process
     pub fn set_fps_cap(&mut self, new_cap: Option<f64>) {
         log::trace!("set fps cap: {:?}", new_cap);

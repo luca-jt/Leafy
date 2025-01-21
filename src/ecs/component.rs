@@ -312,13 +312,13 @@ pub struct RigidBody {
 }
 
 impl RigidBody {
-    /// changes the density of the rigid body
+    /// changes the density of the rigid body (should be > 0)
     pub fn with_density(mut self, density: f32) -> Self {
         self.density = density;
         self
     }
 
-    /// changes the friction of the rigid body (should be in [0, 1])
+    /// changes the friction of the rigid body (should be >= 0)
     pub fn with_friction(mut self, friction: f32) -> Self {
         self.friction = friction;
         self
