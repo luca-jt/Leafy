@@ -309,6 +309,7 @@ pub struct RigidBody {
     pub(crate) center_of_mass: glm::Vec3,
     pub(crate) mass: f32,
     pub(crate) friction: f32,
+    pub(crate) restitution: f32,
 }
 
 impl RigidBody {
@@ -323,6 +324,12 @@ impl RigidBody {
         self.friction = friction;
         self
     }
+
+    /// changes the restitution coefficient of the rigid body (should be >= 0 and <= 1)
+    pub fn with_restitution(mut self, restitution: f32) -> Self {
+        self.restitution = restitution;
+        self
+    }
 }
 
 impl Default for RigidBody {
@@ -333,6 +340,7 @@ impl Default for RigidBody {
             center_of_mass: ORIGIN,
             mass: 1.0,
             friction: 0.5,
+            restitution: 0.0,
         }
     }
 }

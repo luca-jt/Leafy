@@ -89,7 +89,7 @@ void main() {
         vec3 view_dir = normalize(cam_position - frag_pos);
         vec3 reflect_dir = reflect(-light_dir, v_normal);
         float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
-        final_light += spec_strenght * spec * vec3(lights[i].color);
+        final_light += spec_strenght * spec * lights[i].color.rgb * lights[i].intensity;
     }
 
     out_color = vec4(textured.rgb * final_light * ambient_light.color.rgb, textured.a);

@@ -121,7 +121,8 @@ impl AnimationSystem {
                 ) {
                     continue;
                 }
-                // check what entities are fixed
+
+                // check what entities do not have velocity
                 let is_dynamic_1 = entity_data[i].4.is_some();
                 let is_dynamic_2 = entity_data[j].4.is_some();
 
@@ -154,6 +155,10 @@ impl AnimationSystem {
                     continue;
                 }
 
+                // check what entities should be seperated
+                let should_seperate_1 = is_dynamic_1 || static_collision_1;
+                let should_seperate_2 = is_dynamic_2 || static_collision_2;
+
                 // rigid bodies
                 let rb_1 = copied_or_default(&entity_data[i].7);
                 let rb_2 = copied_or_default(&entity_data[j].7);
@@ -172,7 +177,7 @@ impl AnimationSystem {
                     center_of_mass: rb_1.center_of_mass,
                     hitbox: entity_data[i].1,
                     collider: entity_data[i].3,
-                    is_dynamic: is_dynamic_1,
+                    is_dynamic: should_seperate_1,
                 };
                 let collider_2 = ColliderData {
                     position: *entity_data[j].0,
@@ -181,7 +186,7 @@ impl AnimationSystem {
                     center_of_mass: rb_2.center_of_mass,
                     hitbox: entity_data[j].1,
                     collider: entity_data[j].3,
-                    is_dynamic: is_dynamic_2,
+                    is_dynamic: should_seperate_2,
                 };
                 // check for collision
                 if let Some(collision_data) = collider_1.collides_with(&collider_2) {
@@ -232,9 +237,6 @@ impl AnimationSystem {
                     });
 
                     // seperate the two objects
-                    let should_seperate_1 = is_dynamic_1 || static_collision_1;
-                    let should_seperate_2 = is_dynamic_2 || static_collision_2;
-
                     if should_seperate_1 && should_seperate_2 {
                         // both have velocity and therefore are movable
                         *entity_data[i].0.data_mut() += 0.5 * collision_data.translation_vec;
@@ -260,7 +262,6 @@ impl AnimationSystem {
                     let tangential_component = v_rel - normal_component;
                     let coll_tangent = normalize_non_zero(tangential_component).unwrap_or(ORIGIN);
 
-                    let restitution_coefficient = 0.0; // TODO: change that in the future with component data
                     let total_friction = rb_1.friction.min(rb_2.friction);
 
                     // resolve the collision depending on what enities are movable
@@ -277,8 +278,7 @@ impl AnimationSystem {
                                 &(local_inertia_inv_2
                                     * coll_normal.cross(&mass_center_coll_point_2)),
                             );
-                        let normal_impulse =
-                            -(1.0 + restitution_coefficient) * normal_component / effective_mass_n;
+                        let normal_impulse = -normal_component / effective_mass_n;
 
                         // tangential impulse
                         let effective_mass_t = 1.0 / rb_1.mass
@@ -291,21 +291,21 @@ impl AnimationSystem {
                                 &(local_inertia_inv_2
                                     * coll_tangent.cross(&mass_center_coll_point_2)),
                             );
-                        let tang_impulse = -(1.0 + restitution_coefficient) * tangential_component
-                            / effective_mass_t
-                            * total_friction;
+                        let tang_impulse =
+                            -tangential_component / effective_mass_t * total_friction;
 
                         // apply impulse
-                        let impulse = normal_impulse + tang_impulse;
+                        let impulse1 = (normal_impulse + tang_impulse) * (1.0 + rb_1.restitution);
+                        let impulse2 = (normal_impulse + tang_impulse) * (1.0 + rb_2.restitution);
 
-                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse / rb_1.mass;
-                        *entity_data[j].4.as_mut().unwrap().data_mut() += -impulse / rb_2.mass;
+                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse1 / rb_1.mass;
+                        *entity_data[j].4.as_mut().unwrap().data_mut() += -impulse2 / rb_2.mass;
 
                         if let Some(angular_mom) = entity_data[i].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse);
+                            *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse1);
                         }
                         if let Some(angular_mom) = entity_data[j].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_2.cross(&(-impulse));
+                            *angular_mom.data_mut() += mass_center_coll_point_2.cross(&(-impulse2));
                         }
                     } else if is_dynamic_1 {
                         // normal impulse
@@ -314,8 +314,7 @@ impl AnimationSystem {
                                 &(local_inertia_inv_1
                                     * coll_normal.cross(&mass_center_coll_point_1)),
                             );
-                        let normal_impulse =
-                            -(1.0 + restitution_coefficient) * normal_component / effective_mass_n;
+                        let normal_impulse = -normal_component / effective_mass_n;
 
                         // tangential impulse
                         let effective_mass_t = 1.0 / rb_1.mass
@@ -323,17 +322,16 @@ impl AnimationSystem {
                                 &(local_inertia_inv_1
                                     * coll_tangent.cross(&mass_center_coll_point_1)),
                             );
-                        let tang_impulse = -(1.0 + restitution_coefficient) * tangential_component
-                            / effective_mass_t
-                            * total_friction;
+                        let tang_impulse =
+                            -tangential_component / effective_mass_t * total_friction;
 
                         // apply impulse
-                        let impulse = normal_impulse + tang_impulse;
+                        let impulse1 = (normal_impulse + tang_impulse) * (1.0 + rb_1.restitution);
 
-                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse / rb_1.mass;
+                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse1 / rb_1.mass;
 
                         if let Some(angular_mom) = entity_data[i].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse);
+                            *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse1);
                         }
                     } else if is_dynamic_2 {
                         // normal impulse
@@ -342,8 +340,7 @@ impl AnimationSystem {
                                 &(local_inertia_inv_2
                                     * coll_normal.cross(&mass_center_coll_point_2)),
                             );
-                        let normal_impulse =
-                            -(1.0 + restitution_coefficient) * normal_component / effective_mass_n;
+                        let normal_impulse = -normal_component / effective_mass_n;
 
                         // tangential impulse
                         let effective_mass_t = 1.0 / rb_2.mass
@@ -351,17 +348,16 @@ impl AnimationSystem {
                                 &(local_inertia_inv_2
                                     * coll_tangent.cross(&mass_center_coll_point_2)),
                             );
-                        let tang_impulse = -(1.0 + restitution_coefficient) * tangential_component
-                            / effective_mass_t
-                            * total_friction;
+                        let tang_impulse =
+                            -tangential_component / effective_mass_t * total_friction;
 
                         // apply impulse
-                        let impulse = normal_impulse + tang_impulse;
+                        let impulse2 = (normal_impulse + tang_impulse) * (1.0 + rb_2.restitution);
 
-                        *entity_data[j].4.as_mut().unwrap().data_mut() += -impulse / rb_2.mass;
+                        *entity_data[j].4.as_mut().unwrap().data_mut() += -impulse2 / rb_2.mass;
 
                         if let Some(angular_mom) = entity_data[j].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_2.cross(&(-impulse));
+                            *angular_mom.data_mut() += mass_center_coll_point_2.cross(&(-impulse2));
                         }
                     }
                     // register that a collsion was resolved
@@ -673,7 +669,7 @@ fn epa(
         let supp_data = support(&collider1, &collider2, &min_normal);
         let supp_distance = supp_data.support.dot(&min_normal);
 
-        if supp_distance - min_distance <= 0.001 {
+        if supp_distance - min_distance <= 1e-6 {
             let face = faces[face_idx];
             let (v1, v2, v3) = (polytope[face.0], polytope[face.1], polytope[face.2]);
             // project origin onto this closest triangle
