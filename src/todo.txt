@@ -17,6 +17,6 @@ particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing t
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 conways game of life example
 sprite renderer -> depth layers configurable, sprite component, depth test must be specified
-cube shadow maps for point lights
 
-rework the inertia and collision stuff -> collision point is slightly off, elastic collisions with restitution coefficient
+cube shadow maps for point lights
+custom render res -> render to screen texture on a quad

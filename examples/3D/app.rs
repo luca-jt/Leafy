@@ -21,6 +21,7 @@ const CAM_MOUSE_SPEED: f32 = 3.0;
 pub struct App {
     player: EntityID,
     sphere: EntityID,
+    collision_point: EntityID,
     using_mouse_control: bool,
     using_fullscreen: bool,
 }
@@ -30,6 +31,7 @@ impl App {
         Self {
             player: NO_ENTITY,
             sphere: NO_ENTITY,
+            collision_point: NO_ENTITY,
             using_mouse_control: true,
             using_fullscreen: false,
         }
@@ -143,6 +145,12 @@ impl FallingLeafApp for App {
             TouchTime::now(),
             EntityFlags::from_flags(&[DOPPLER_EFFECT])
         ));
+        self.collision_point = entity_manager.create_entity(components!(
+            Position::origin(),
+            Scale::from_factor(0.05),
+            MeshType::Sphere,
+            MeshAttribute::Colored(Color32::YELLOW)
+        ));
 
         engine.event_system_mut().add_modifier(jump);
         engine.event_system_mut().add_modifier(quit_app);
@@ -167,14 +175,20 @@ impl FallingLeafApp for App {
             .get_component::<SoundController>(self.player)
             .unwrap()
             .handles[0];
-        for info in entity_manager
+
+        if let Some(info) = entity_manager
             .get_component::<Collider>(self.player)
             .unwrap()
             .collision_info()
+            .get(0)
         {
             if info.momentum.norm() > 0.1 {
                 engine.audio_system().play(hit_handle);
             }
+            *entity_manager
+                .get_component_mut::<Position>(self.collision_point)
+                .unwrap()
+                .data_mut() = info.point;
         }
     }
 }
