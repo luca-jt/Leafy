@@ -10,6 +10,7 @@ voxelized meshes + hitboxes (for non-convex cases) -> Mesh becomes enum | https:
 volumetric rendering -> voxels
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons
 object outlining with stencil buffer
+cube shadow maps for point lights as an option
 2D animation frames
 materials -> reflection with dynamic environment maps, water
 2D sprite hitboxes with seperate collision checking
@@ -17,6 +18,4 @@ particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing t
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 conways game of life example
 sprite renderer -> depth layers configurable, sprite component, depth test must be specified
-
-cube shadow maps for point lights
-custom render res -> render to screen texture on a quad
+screen texture anti-aliasing -> https://learnopengl.com/Advanced-OpenGL/Anti-Aliasing

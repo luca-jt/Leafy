@@ -96,15 +96,23 @@ impl FallingLeafApp for App {
             }),
             Collider::new(HitboxType::Box)
         ));
+        let _ceiling = entity_manager.create_entity(components!(
+            Position::new(0.0, 9.0, 0.0),
+            Scale::new(5.0, 0.1, 5.0),
+            MeshType::Cube,
+            MeshAttribute::Colored(Color32::GREEN),
+            Collider::new(HitboxType::Box)
+        ));
 
         let _hammer = entity_manager.create_entity(components!(
             Position::new(6.0, 2.0, 0.0),
             MeshType::Custom(Path::new("examples/3D/hammer.obj").into()),
             MeshAttribute::Colored(Color32::GREY),
             Velocity::zero(),
-            RigidBody::default().with_density(40.0),
+            RigidBody::default().with_density(5.0),
             Orientation::default(),
-            AngularMomentum::from_axis(X_AXIS * 20.0),
+            Scale::from_factor(0.7),
+            AngularMomentum::from_axis(X_AXIS * 4.0 + Z_AXIS * 2.5),
             EntityFlags::from_flags(&[FLOATING])
         ));
 

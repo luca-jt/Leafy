@@ -41,7 +41,7 @@ pub fn mult_mat4_vec3(m: &glm::Mat4, v: &glm::Vec3) -> glm::Vec3 {
 
 /// checks if two vectors point in the same direction
 pub fn same_direction(direction: &glm::Vec3, other: &glm::Vec3) -> bool {
-    direction.dot(other) > 0.0
+    direction.dot(other) > f32::EPSILON
 }
 
 /// normalizes a vector if the vector has a length, otherwhise return ``None``

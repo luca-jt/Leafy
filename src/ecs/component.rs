@@ -325,9 +325,9 @@ impl RigidBody {
         self
     }
 
-    /// changes the restitution coefficient of the rigid body (should be >= 0 and <= 1)
+    /// changes the restitution coefficient of the rigid body (clamped to [0, 1])
     pub fn with_restitution(mut self, restitution: f32) -> Self {
-        self.restitution = restitution;
+        self.restitution = restitution.clamp(0.0, 1.0);
         self
     }
 }

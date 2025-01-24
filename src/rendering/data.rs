@@ -272,6 +272,7 @@ pub(crate) struct ShadowMap {
 
 impl ShadowMap {
     /// creates a new shadow map with given size (width, height)
+    #[rustfmt::skip]
     pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &PointLight) -> Self {
         log::debug!("created new shadow map");
         let mut dbo = 0;
@@ -292,37 +293,17 @@ impl ShadowMap {
                 gl::FLOAT,
                 ptr::null(),
             );
-
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_WRAP_S,
-                gl::CLAMP_TO_BORDER as GLint,
-            );
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_WRAP_T,
-                gl::CLAMP_TO_BORDER as GLint,
-            );
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as GLint);
             let border_color = Color32::WHITE.to_vec4();
-            gl::TexParameterfv(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_BORDER_COLOR,
-                border_color.as_ptr(),
-            );
+            gl::TexParameterfv(gl::TEXTURE_2D, gl::TEXTURE_BORDER_COLOR, border_color.as_ptr());
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, dbo);
-            gl::FramebufferTexture2D(
-                gl::FRAMEBUFFER,
-                gl::DEPTH_ATTACHMENT,
-                gl::TEXTURE_2D,
-                shadow_map,
-                0,
-            );
+            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, shadow_map, 0);
             gl::DrawBuffer(gl::NONE);
             gl::ReadBuffer(gl::NONE);
-
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
         let dot = light.direction.normalize().dot(&Y_AXIS);
@@ -558,6 +539,151 @@ impl Drop for Skybox {
             gl::DeleteTextures(1, &self.cube_map);
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteVertexArrays(1, &self.vao);
+        }
+    }
+}
+
+/// the screen texture used for 3D rendering
+pub(crate) struct ScreenTexture {
+    fbo: GLuint,
+    texture: GLuint,
+    rbo: GLuint,
+    vao: GLuint,
+    vbo: GLuint,
+    width: GLsizei,
+    height: GLsizei,
+    tmp_viewport: [GLint; 4],
+}
+
+impl ScreenTexture {
+    /// creates a new screen texture with a width and height
+    #[rustfmt::skip]
+    pub(crate) fn new(width: GLsizei, height: GLsizei) -> Self {
+        let mut fbo = 0;
+        let mut texture = 0;
+        let mut rbo = 0;
+        let mut vao = 0;
+        let mut vbo = 0;
+        unsafe {
+            // FRAME BUFFER
+            gl::GenFramebuffers(1, &mut fbo);
+            gl::GenTextures(1, &mut texture);
+            gl::BindTexture(gl::TEXTURE_2D, texture);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA8 as GLint,
+                width,
+                height,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                ptr::null()
+            );
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
+            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, texture, 0);
+            gl::GenRenderbuffers(1, &mut rbo);
+            gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
+            gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, width, height);
+            gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, rbo);
+            assert_eq!(gl::CheckFramebufferStatus(gl::FRAMEBUFFER), gl::FRAMEBUFFER_COMPLETE);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+
+            // VERTEX BUFFER
+            gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
+            gl::CreateBuffers(1, &mut vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (15 * size_of::<f32>()) as GLsizeiptr,
+                SCREEN_TRIANGLE_VERTICES.as_ptr() as *const GLvoid,
+                gl::STATIC_DRAW
+            );
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE as GLboolean,
+                (5 * size_of::<f32>()) as GLsizei,
+                ptr::null()
+            );
+            gl::EnableVertexAttribArray(1);
+            gl::VertexAttribPointer(
+                1,
+                2,
+                gl::FLOAT,
+                gl::FALSE as GLboolean,
+                (5 * size_of::<f32>()) as GLsizei,
+                (3 * size_of::<f32>()) as *const GLvoid
+            );
+            gl::BindVertexArray(0);
+        }
+
+        Self {
+            fbo,
+            texture,
+            rbo,
+            vao,
+            vbo,
+            width,
+            height,
+            tmp_viewport: [0; 4],
+        }
+    }
+
+    /// bind the screen texture for rendering
+    pub(crate) fn bind(&mut self) {
+        unsafe {
+            gl::GetIntegerv(gl::VIEWPORT, &mut self.tmp_viewport[0]);
+            gl::Viewport(0, 0, self.width, self.height);
+            gl::Scissor(0, 0, self.width, self.height);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
+        }
+    }
+
+    /// unbind the screen texture and use the default frame buffer
+    pub(crate) fn unbind(&self) {
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            gl::Viewport(
+                self.tmp_viewport[0],
+                self.tmp_viewport[1],
+                self.tmp_viewport[2] as GLsizei,
+                self.tmp_viewport[3] as GLsizei,
+            );
+            gl::Scissor(
+                self.tmp_viewport[0],
+                self.tmp_viewport[1],
+                self.tmp_viewport[2] as GLsizei,
+                self.tmp_viewport[3] as GLsizei,
+            );
+        }
+    }
+
+    /// render the screen texture triangle
+    pub(crate) fn render(&self) {
+        unsafe {
+            gl::BindVertexArray(self.vao);
+            gl::BindTextureUnit(0, self.texture);
+            gl::Uniform1i(0, 0);
+            gl::DrawArrays(gl::TRIANGLES, 0, 3);
+            gl::BindVertexArray(0);
+        }
+    }
+}
+
+impl Drop for ScreenTexture {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, &self.vbo);
+            gl::DeleteVertexArrays(1, &self.vao);
+            gl::DeleteTextures(1, &self.texture);
+            gl::DeleteRenderbuffers(1, &self.rbo);
+            gl::DeleteFramebuffers(1, &self.fbo);
         }
     }
 }

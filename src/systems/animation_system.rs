@@ -311,17 +311,15 @@ impl AnimationSystem {
                             );
                         let tang_impulse1 = -tangential_component1 / effective_mass_t1;
                         let tang_impulse2 = -tangential_component2 / effective_mass_t2;
-                        let tang_impulse = tang_impulse1 + tang_impulse2;
+                        let tang_impulse = (tang_impulse1 + tang_impulse2) * total_friction;
 
                         // friction
                         let max_friction_impulse = total_friction * normal_impulse.norm();
                         let tang_impulse_mag = tang_impulse.norm();
                         let clamped_tang_impulse = if tang_impulse_mag > max_friction_impulse {
-                            tang_impulse
-                                * (max_friction_impulse / tang_impulse_mag)
-                                * total_friction
+                            tang_impulse * (max_friction_impulse / tang_impulse_mag)
                         } else {
-                            tang_impulse * total_friction
+                            tang_impulse
                         };
 
                         // apply impulse
@@ -363,17 +361,15 @@ impl AnimationSystem {
                             -tangential_component1 / effective_mass_t1 * total_friction;
                         let tang_impulse2 =
                             -tangential_component2 / effective_mass_t2 * total_friction;
-                        let tang_impulse = tang_impulse1 + tang_impulse2;
+                        let tang_impulse = (tang_impulse1 + tang_impulse2) * total_friction;
 
                         // friction
                         let max_friction_impulse = total_friction * normal_impulse.norm();
                         let tang_impulse_mag = tang_impulse.norm();
                         let clamped_tang_impulse = if tang_impulse_mag > max_friction_impulse {
-                            tang_impulse
-                                * (max_friction_impulse / tang_impulse_mag)
-                                * total_friction
+                            tang_impulse * (max_friction_impulse / tang_impulse_mag)
                         } else {
-                            tang_impulse * total_friction
+                            tang_impulse
                         };
 
                         // apply impulse
@@ -409,17 +405,15 @@ impl AnimationSystem {
                             -tangential_component1 / effective_mass_t1 * total_friction;
                         let tang_impulse2 =
                             -tangential_component2 / effective_mass_t2 * total_friction;
-                        let tang_impulse = tang_impulse1 + tang_impulse2;
+                        let tang_impulse = (tang_impulse1 + tang_impulse2) * total_friction;
 
                         // friction
                         let max_friction_impulse = total_friction * normal_impulse.norm();
                         let tang_impulse_mag = tang_impulse.norm();
                         let clamped_tang_impulse = if tang_impulse_mag > max_friction_impulse {
-                            tang_impulse
-                                * (max_friction_impulse / tang_impulse_mag)
-                                * total_friction
+                            tang_impulse * (max_friction_impulse / tang_impulse_mag)
                         } else {
-                            tang_impulse * total_friction
+                            tang_impulse
                         };
 
                         // apply impulse

@@ -134,6 +134,7 @@ pub struct ShaderCatalog {
     batch_shadow: ShaderProgram,
     instance_shadow: ShaderProgram,
     pub(crate) skybox: ShaderProgram,
+    pub(crate) screen: ShaderProgram,
     pub(crate) light_buffer: UniformBuffer,
     pub(crate) matrix_buffer: UniformBuffer,
 }
@@ -156,6 +157,7 @@ impl ShaderCatalog {
             batch_shadow: Self::create_batch_shadow(),
             instance_shadow: Self::create_instance_shadow(),
             skybox: Self::create_skybox(&matrix_buffer),
+            screen: Self::create_screen(),
             light_buffer,
             matrix_buffer,
         }
@@ -181,6 +183,11 @@ impl ShaderCatalog {
             RendererArch::Batch => self.batch_shadow.use_program(),
             RendererArch::Instance => self.instance_shadow.use_program(),
         }
+    }
+
+    /// creates a new screen texture shader
+    fn create_screen() -> ShaderProgram {
+        ShaderProgram::new(SCREEN_VERT, SCREEN_FRAG)
     }
 
     /// creates a new skybox shader

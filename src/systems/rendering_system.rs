@@ -30,6 +30,7 @@ pub struct RenderingSystem {
     current_cam_config: (glm::Vec3, glm::Vec3),
     ambient_light: (Color32, f32),
     skybox: Option<Skybox>,
+    screen_texture: Option<ScreenTexture>,
 }
 
 impl RenderingSystem {
@@ -56,22 +57,25 @@ impl RenderingSystem {
             current_cam_config: (-Z_AXIS, Z_AXIS),
             ambient_light: (Color32::WHITE, 0.3),
             skybox: None,
+            screen_texture: None,
         }
     }
 
     /// 3D render all entities
     pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
+        self.clear_gl_screen();
         self.update_light_sources(entity_manager);
         self.reset_renderer_usage();
-        self.clear_gl_screen();
         self.add_entity_data(entity_manager);
         self.confirm_data();
         self.update_uniform_buffers();
         self.render_shadows();
+        self.bind_screen_texture();
         self.render_geometry();
         self.render_transparent();
         self.reset_renderers();
         self.render_skybox();
+        self.render_screen_texture();
         self.cleanup_renderers();
     }
 
@@ -162,6 +166,23 @@ impl RenderingSystem {
                     renderer.confirm_positions();
                 }
             }
+        }
+    }
+
+    /// binds the screen texture frame buffer for rendering
+    fn bind_screen_texture(&mut self) {
+        if let Some(screen_texture) = self.screen_texture.as_mut() {
+            screen_texture.bind();
+            self.clear_gl_screen();
+        }
+    }
+
+    /// renders the screen texture to the default OpenGL frame buffer
+    fn render_screen_texture(&self) {
+        if let Some(screen_texture) = self.screen_texture.as_ref() {
+            screen_texture.unbind();
+            self.shader_catalog.screen.use_program();
+            screen_texture.render();
         }
     }
 
@@ -474,7 +495,7 @@ impl RenderingSystem {
         let float_color = self.clear_color.to_vec4();
         unsafe {
             gl::ClearColor(float_color.x, float_color.y, float_color.z, float_color.w);
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
         }
     }
 
@@ -491,6 +512,12 @@ impl RenderingSystem {
         } else {
             unsafe { gl::Disable(gl::MULTISAMPLE) };
         }
+    }
+
+    /// sets the resolution that is used for the screen texture in 3D rendering (width, height) (``None`` uses no dedicated screen texture)
+    pub fn set_3d_render_resolution(&mut self, resolution: Option<(u32, u32)>) {
+        self.screen_texture =
+            resolution.map(|res| ScreenTexture::new(res.0 as GLsizei, res.1 as GLsizei));
     }
 
     /// sets the current skybox that is used in the rendering process (default is ``None``)

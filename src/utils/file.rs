@@ -41,6 +41,8 @@ pub(crate) const BATCH_SHADOW_FRAG: &str = include_str!(shader_path!("batch/shad
 pub(crate) const BATCH_SHADOW_VERT: &str = include_str!(shader_path!("batch/shadow.vert"));
 pub(crate) const SKYBOX_VERT: &str = include_str!(shader_path!("skybox.vert"));
 pub(crate) const SKYBOX_FRAG: &str = include_str!(shader_path!("skybox.frag"));
+pub(crate) const SCREEN_VERT: &str = include_str!(shader_path!("screen.vert"));
+pub(crate) const SCREEN_FRAG: &str = include_str!(shader_path!("screen.frag"));
 
 // optional included meshes
 pub(crate) const TRIANGLE_MESH: &[u8] = include_bytes!(model_path!("triangle.obj"));
@@ -94,6 +96,13 @@ pub(crate) const SKYBOX_VERTICES: [f32; 108] = [
      1.0, -1.0, -1.0,
     -1.0, -1.0,  1.0,
      1.0, -1.0,  1.0
+];
+
+#[rustfmt::skip]
+pub(crate) const SCREEN_TRIANGLE_VERTICES: [f32; 15] = [
+    -1.0, -1.0, 0.0, 0.0, 0.0,
+     3.0, -1.0, 0.0, 2.0, 0.0,
+    -1.0,  3.0, 0.0, 0.0, 2.0
 ];
 
 // audio data

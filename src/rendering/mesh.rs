@@ -677,9 +677,9 @@ impl Mesh {
             - mass * (center_of_mass.x * center_of_mass.x + center_of_mass.z * center_of_mass.z);
         ic = density * ic / 60.0
             - mass * (center_of_mass.x * center_of_mass.x + center_of_mass.y * center_of_mass.y);
-        iap = density * ia / 120.0 - mass * center_of_mass.y * center_of_mass.z;
-        ibp = density * ia / 120.0 - mass * center_of_mass.x * center_of_mass.y;
-        icp = density * ia / 120.0 - mass * center_of_mass.x * center_of_mass.z;
+        iap = density * iap / 120.0 - mass * center_of_mass.y * center_of_mass.z;
+        ibp = density * ibp / 120.0 - mass * center_of_mass.x * center_of_mass.y;
+        icp = density * icp / 120.0 - mass * center_of_mass.x * center_of_mass.z;
 
         (
             glm::Mat3::from_columns(&[

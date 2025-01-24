@@ -71,7 +71,6 @@ void main() {
         vec3 light_dir = normalize(lights[i].light_pos.xyz - frag_pos);
         float distance_to_light = length(frag_pos - lights[i].light_pos.xyz);
         distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
-
         float diff = min(max(dot(v_normal, light_dir), 0.0) / (pow(distance_to_light, 2) * 4 * PI), 1.0);
         float shadow = 1.0 - shadow_calc(frag_pos_light[i], i);
         vec3 src_light = diff * shadow * lights[i].color.rgb * lights[i].intensity;
