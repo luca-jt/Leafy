@@ -271,6 +271,7 @@ impl AnimationSystem {
                     let tangential_component1 = coll_tangent1.dot(&v_rel) * coll_tangent1;
                     let tangential_component2 = coll_tangent2.dot(&v_rel) * coll_tangent2;
                     let total_friction = (rb_1.friction * rb_2.friction).sqrt();
+                    let total_restitution = rb_1.restitution.max(rb_2.restitution);
 
                     // resolve the collision depending on what enities are movable
                     // if only one is movable, treat the mass of the immovable entity as infinite
@@ -311,31 +312,25 @@ impl AnimationSystem {
                             );
                         let tang_impulse1 = -tangential_component1 / effective_mass_t1;
                         let tang_impulse2 = -tangential_component2 / effective_mass_t2;
-                        let tang_impulse = (tang_impulse1 + tang_impulse2) * total_friction;
+                        let tang_impulse = tang_impulse1 + tang_impulse2;
 
                         // friction
                         let max_friction_impulse = total_friction * normal_impulse.norm();
-                        let tang_impulse_mag = tang_impulse.norm();
-                        let clamped_tang_impulse = if tang_impulse_mag > max_friction_impulse {
-                            tang_impulse * (max_friction_impulse / tang_impulse_mag)
-                        } else {
-                            tang_impulse
-                        };
+                        let clamped_tang_impulse =
+                            clamp_norm(tang_impulse, 0.0, max_friction_impulse);
 
                         // apply impulse
-                        let impulse1 =
-                            (normal_impulse + clamped_tang_impulse) * (1.0 + rb_1.restitution);
-                        let impulse2 =
-                            (normal_impulse + clamped_tang_impulse) * (1.0 + rb_2.restitution);
+                        let impulse =
+                            (normal_impulse + clamped_tang_impulse) * (1.0 + total_restitution);
 
-                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse1 / rb_1.mass;
-                        *entity_data[j].4.as_mut().unwrap().data_mut() += -impulse2 / rb_2.mass;
+                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse / rb_1.mass;
+                        *entity_data[j].4.as_mut().unwrap().data_mut() -= impulse / rb_2.mass;
 
                         if let Some(angular_mom) = entity_data[i].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse1);
+                            *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse);
                         }
                         if let Some(angular_mom) = entity_data[j].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_2.cross(&(-impulse2));
+                            *angular_mom.data_mut() -= mass_center_coll_point_2.cross(&impulse);
                         }
                     } else if is_dynamic_1 {
                         // normal impulse
@@ -357,29 +352,23 @@ impl AnimationSystem {
                                 &(local_inertia_inv_1
                                     * coll_tangent2.cross(&mass_center_coll_point_1)),
                             );
-                        let tang_impulse1 =
-                            -tangential_component1 / effective_mass_t1 * total_friction;
-                        let tang_impulse2 =
-                            -tangential_component2 / effective_mass_t2 * total_friction;
-                        let tang_impulse = (tang_impulse1 + tang_impulse2) * total_friction;
+                        let tang_impulse1 = -tangential_component1 / effective_mass_t1;
+                        let tang_impulse2 = -tangential_component2 / effective_mass_t2;
+                        let tang_impulse = tang_impulse1 + tang_impulse2;
 
                         // friction
                         let max_friction_impulse = total_friction * normal_impulse.norm();
-                        let tang_impulse_mag = tang_impulse.norm();
-                        let clamped_tang_impulse = if tang_impulse_mag > max_friction_impulse {
-                            tang_impulse * (max_friction_impulse / tang_impulse_mag)
-                        } else {
-                            tang_impulse
-                        };
+                        let clamped_tang_impulse =
+                            clamp_norm(tang_impulse, 0.0, max_friction_impulse);
 
                         // apply impulse
-                        let impulse1 =
-                            (normal_impulse + clamped_tang_impulse) * (1.0 + rb_1.restitution);
+                        let impulse =
+                            (normal_impulse + clamped_tang_impulse) * (1.0 + total_restitution);
 
-                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse1 / rb_1.mass;
+                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse / rb_1.mass;
 
                         if let Some(angular_mom) = entity_data[i].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse1);
+                            *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse);
                         }
                     } else if is_dynamic_2 {
                         // normal impulse
@@ -401,29 +390,23 @@ impl AnimationSystem {
                                 &(local_inertia_inv_2
                                     * coll_tangent2.cross(&mass_center_coll_point_2)),
                             );
-                        let tang_impulse1 =
-                            -tangential_component1 / effective_mass_t1 * total_friction;
-                        let tang_impulse2 =
-                            -tangential_component2 / effective_mass_t2 * total_friction;
-                        let tang_impulse = (tang_impulse1 + tang_impulse2) * total_friction;
+                        let tang_impulse1 = -tangential_component1 / effective_mass_t1;
+                        let tang_impulse2 = -tangential_component2 / effective_mass_t2;
+                        let tang_impulse = tang_impulse1 + tang_impulse2;
 
                         // friction
                         let max_friction_impulse = total_friction * normal_impulse.norm();
-                        let tang_impulse_mag = tang_impulse.norm();
-                        let clamped_tang_impulse = if tang_impulse_mag > max_friction_impulse {
-                            tang_impulse * (max_friction_impulse / tang_impulse_mag)
-                        } else {
-                            tang_impulse
-                        };
+                        let clamped_tang_impulse =
+                            clamp_norm(tang_impulse, 0.0, max_friction_impulse);
 
                         // apply impulse
-                        let impulse2 =
-                            (normal_impulse + clamped_tang_impulse) * (1.0 + rb_2.restitution);
+                        let impulse =
+                            (normal_impulse + clamped_tang_impulse) * (1.0 + total_restitution);
 
-                        *entity_data[j].4.as_mut().unwrap().data_mut() += -impulse2 / rb_2.mass;
+                        *entity_data[j].4.as_mut().unwrap().data_mut() -= impulse / rb_2.mass;
 
                         if let Some(angular_mom) = entity_data[j].5.as_mut() {
-                            *angular_mom.data_mut() += mass_center_coll_point_2.cross(&(-impulse2));
+                            *angular_mom.data_mut() -= mass_center_coll_point_2.cross(&impulse);
                         }
                     }
                     // register that a collsion was resolved

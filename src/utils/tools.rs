@@ -49,6 +49,18 @@ pub fn normalize_non_zero(v: glm::Vec3) -> Option<glm::Vec3> {
     v.try_normalize(f32::EPSILON)
 }
 
+/// clamp a vector to the given bounds for the norm such that |v| is in range [lb, ub]
+pub fn clamp_norm(v: glm::Vec3, lb: f32, ub: f32) -> glm::Vec3 {
+    let norm = v.norm();
+    if norm > ub {
+        v * ub / norm
+    } else if norm < lb {
+        v * lb / norm
+    } else {
+        v
+    }
+}
+
 /// easy conversion between vector types
 pub(crate) fn vec3_to_vector3(v: &glm::Vec3) -> Vector3<f32> {
     Vector3::new(v.x, v.y, v.z)
