@@ -43,6 +43,7 @@ impl RenderingSystem {
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LESS);
+            gl::Disable(gl::MULTISAMPLE)
         }
 
         Self {
@@ -504,20 +505,27 @@ impl RenderingSystem {
         self.current_cam_config
     }
 
-    /// sets the anit-aliasing mode for rendering
-    pub fn set_msaa(&self, use_msaa: bool) {
+    /// sets the anit-aliasing mode for rendering (default is ``false``)
+    pub fn set_msaa(&mut self, use_msaa: bool) {
+        let msaa = unsafe { gl::IsEnabled(gl::MULTISAMPLE) == gl::TRUE };
+        if msaa == use_msaa {
+            return;
+        }
         log::debug!("set anti-aliasing to {:?}", use_msaa);
         if use_msaa {
             unsafe { gl::Enable(gl::MULTISAMPLE) };
         } else {
             unsafe { gl::Disable(gl::MULTISAMPLE) };
         }
+        let res = self.screen_texture.as_ref().map(|st| (st.width, st.height));
+        self.set_3d_render_resolution(res);
     }
 
-    /// sets the resolution that is used for the screen texture in 3D rendering (width, height) (``None`` uses no dedicated screen texture)
-    pub fn set_3d_render_resolution(&mut self, resolution: Option<(u32, u32)>) {
-        self.screen_texture =
-            resolution.map(|res| ScreenTexture::new(res.0 as GLsizei, res.1 as GLsizei));
+    /// Sets the resolution that is used for the screen texture in 3D rendering (width, height).
+    /// ``None`` uses no dedicated screen texture. (default is ``None``)
+    pub fn set_3d_render_resolution(&mut self, resolution: Option<(GLsizei, GLsizei)>) {
+        let msaa = unsafe { gl::IsEnabled(gl::MULTISAMPLE) == gl::TRUE };
+        self.screen_texture = resolution.map(|res| ScreenTexture::new(res.0, res.1, msaa));
     }
 
     /// sets the current skybox that is used in the rendering process (default is ``None``)
@@ -525,7 +533,7 @@ impl RenderingSystem {
         self.skybox = skybox;
     }
 
-    /// change OpenGL's background clear color (default is white)
+    /// change OpenGL's background clear color (default is WHITE)
     pub fn set_gl_clearcolor(&mut self, color: Color32) {
         log::trace!("set gl clear color: {:?}", color);
         self.clear_color = color;

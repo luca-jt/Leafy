@@ -56,13 +56,13 @@ impl EngineAttributes {
         self
     }
 
-    /// sets an optional fps cap for the rendering process (default is None because vsync is enabled)
+    /// sets an optional fps cap for the rendering process (default is ``None`` because vsync is enabled)
     pub fn with_fps_cap(mut self, cap: Option<f64>) -> Self {
         self.fps_cap = cap;
         self
     }
 
-    /// sets an optional fps cap for the rendering process when the app is not in focus (default is None)
+    /// sets an optional fps cap for the rendering process when the app is not in focus (default is ``None``)
     pub fn with_bg_fps_cap(mut self, cap: Option<f64>) -> Self {
         self.bg_fps_cap = cap;
         self
@@ -74,25 +74,25 @@ impl EngineAttributes {
         self
     }
 
-    /// sets an optional minimum size for the window (default is None)
+    /// sets an optional minimum size for the window (default is ``None``)
     pub fn with_min_size(mut self, size: Option<(u32, u32)>) -> Self {
         self.min_size = size;
         self
     }
 
-    /// sets an optional window ratio (width/height) to keep at all times during resizes of the window (default is None)
+    /// sets an optional window ratio (width/height) to keep at all times during resizes of the window (default is ``None``)
     pub fn with_fixed_ratio(mut self, ratio: Option<f32>) -> Self {
         self.enforced_ratio = ratio;
         self
     }
 
-    /// sets the window as transparent (default is false)
+    /// sets the window as transparent (default is ``false``)
     pub fn with_transparent(mut self, flag: bool) -> Self {
         self.transparent = flag;
         self
     }
 
-    /// sets the window background as blurred (default is false)
+    /// sets the window background as blurred (default is ``false``)
     pub fn with_blur(mut self, flag: bool) -> Self {
         self.blur = flag;
         self
@@ -104,31 +104,31 @@ impl EngineAttributes {
         self
     }
 
-    /// sets the window to be resizable (default is true)
+    /// sets the window to be resizable (default is ``true``)
     pub fn with_resizable(mut self, flag: bool) -> Self {
         self.resizable = flag;
         self
     }
 
-    /// sets the windows' optional maximum size (default is None)
+    /// sets the windows' optional maximum size (default is ``None``)
     pub fn with_max_size(mut self, size: Option<(u32, u32)>) -> Self {
         self.max_size = size;
         self
     }
 
-    /// sets the window as fullscreen (default is false)
+    /// sets the window as fullscreen (default is ``false``)
     pub fn with_fullscreen(mut self, flag: bool) -> Self {
         self.fullscreen = flag;
         self
     }
 
-    /// sets the window as maximized (default is false)
+    /// sets the window as maximized (default is ``false``)
     pub fn with_maximized(mut self, flag: bool) -> Self {
         self.maximized = flag;
         self
     }
 
-    /// enables/disables vsync (default is true) (disabling this will set the frame rate to unlimited)
+    /// enables/disables vsync (default is ``true``) (disabling this will set the frame rate to unlimited)
     pub fn with_vsync(mut self, flag: bool) -> Self {
         self.use_vsync = flag;
         self

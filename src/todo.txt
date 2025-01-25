@@ -18,4 +18,3 @@ particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing t
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 conways game of life example
 sprite renderer -> depth layers configurable, sprite component, depth test must be specified
-screen texture anti-aliasing -> https://learnopengl.com/Advanced-OpenGL/Anti-Aliasing

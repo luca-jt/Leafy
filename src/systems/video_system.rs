@@ -338,7 +338,8 @@ impl VideoSystem {
         }
     }
 
-    /// enables/disables the link to the first person 3D camera control for the mouse with some senstivity (default is None)
+    /// enables/disables the link to the first person 3D camera control for the mouse with some senstivity
+    /// (default is ``None``)
     pub fn set_mouse_fpp_cam_control(&mut self, sensitivity: Option<f32>) {
         log::debug!("set mouse cam control: {:?}", sensitivity);
         match sensitivity {

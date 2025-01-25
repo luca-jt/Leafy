@@ -319,7 +319,7 @@ impl AudioSystem {
         }
     }
 
-    /// enables/disbles the pitch change on animation speed change (default is true)
+    /// enables/disbles the pitch change on animation speed change (default is ``true``)
     pub fn set_pitch_on_speed_change(&mut self, flag: bool) {
         log::debug!("set pitch on speed change: {:?}", flag);
         if self.pitch_on_speed_change == flag {

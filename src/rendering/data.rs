@@ -545,26 +545,54 @@ impl Drop for Skybox {
 
 /// the screen texture used for 3D rendering
 pub(crate) struct ScreenTexture {
+    multi_fbo: GLuint,
+    multi_texture: GLuint,
     fbo: GLuint,
     texture: GLuint,
     rbo: GLuint,
     vao: GLuint,
     vbo: GLuint,
-    width: GLsizei,
-    height: GLsizei,
+    pub(crate) width: GLsizei,
+    pub(crate) height: GLsizei,
     tmp_viewport: [GLint; 4],
+    msaa: bool,
 }
 
 impl ScreenTexture {
     /// creates a new screen texture with a width and height
     #[rustfmt::skip]
-    pub(crate) fn new(width: GLsizei, height: GLsizei) -> Self {
+    pub(crate) fn new(width: GLsizei, height: GLsizei, msaa: bool) -> Self {
+        let mut multi_fbo = 0;
+        let mut multi_texture = 0;
         let mut fbo = 0;
         let mut texture = 0;
         let mut rbo = 0;
         let mut vao = 0;
         let mut vbo = 0;
         unsafe {
+            // RENDER BUFFER FOR DEPTH + STENCIL
+            gl::GenRenderbuffers(1, &mut rbo);
+            gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
+            gl::RenderbufferStorageMultisample(gl::RENDERBUFFER, 4, gl::DEPTH24_STENCIL8, width, height);
+
+            // MULTISAMPLED FRAME BUFFER
+            gl::GenFramebuffers(1, &mut multi_fbo);
+            gl::GenTextures(1, &mut multi_texture);
+            gl::BindTexture(gl::TEXTURE_2D_MULTISAMPLE, multi_texture);
+            gl::TexImage2DMultisample(
+                gl::TEXTURE_2D_MULTISAMPLE,
+                4,
+                gl::RGBA,
+                width,
+                height,
+                gl::TRUE
+            );
+            gl::BindFramebuffer(gl::FRAMEBUFFER, multi_fbo);
+            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D_MULTISAMPLE, multi_texture, 0);
+            gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, rbo);
+            assert_eq!(gl::CheckFramebufferStatus(gl::FRAMEBUFFER), gl::FRAMEBUFFER_COMPLETE);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+
             // FRAME BUFFER
             gl::GenFramebuffers(1, &mut fbo);
             gl::GenTextures(1, &mut texture);
@@ -572,7 +600,7 @@ impl ScreenTexture {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGBA8 as GLint,
+                gl::RGBA as GLint,
                 width,
                 height,
                 0,
@@ -584,9 +612,6 @@ impl ScreenTexture {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
             gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
             gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, texture, 0);
-            gl::GenRenderbuffers(1, &mut rbo);
-            gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
-            gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, width, height);
             gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, rbo);
             assert_eq!(gl::CheckFramebufferStatus(gl::FRAMEBUFFER), gl::FRAMEBUFFER_COMPLETE);
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -624,6 +649,8 @@ impl ScreenTexture {
         }
 
         Self {
+            multi_fbo,
+            multi_texture,
             fbo,
             texture,
             rbo,
@@ -632,6 +659,7 @@ impl ScreenTexture {
             width,
             height,
             tmp_viewport: [0; 4],
+            msaa
         }
     }
 
@@ -641,13 +669,23 @@ impl ScreenTexture {
             gl::GetIntegerv(gl::VIEWPORT, &mut self.tmp_viewport[0]);
             gl::Viewport(0, 0, self.width, self.height);
             gl::Scissor(0, 0, self.width, self.height);
-            gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
+            if self.msaa {
+                gl::BindFramebuffer(gl::FRAMEBUFFER, self.multi_fbo);
+            } else {
+                gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
+            }
         }
     }
 
     /// unbind the screen texture and use the default frame buffer
+    #[rustfmt::skip]
     pub(crate) fn unbind(&self) {
         unsafe {
+            if self.msaa {
+                gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.multi_fbo);
+                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.fbo);
+                gl::BlitFramebuffer(0, 0, self.width, self.height, 0, 0, self.width, self.height, gl::COLOR_BUFFER_BIT, gl::NEAREST);
+            }
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
             gl::Viewport(
                 self.tmp_viewport[0],
@@ -681,8 +719,10 @@ impl Drop for ScreenTexture {
         unsafe {
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteVertexArrays(1, &self.vao);
-            gl::DeleteTextures(1, &self.texture);
+            gl::DeleteTextures(1, &self.multi_texture);
             gl::DeleteRenderbuffers(1, &self.rbo);
+            gl::DeleteFramebuffers(1, &self.multi_fbo);
+            gl::DeleteTextures(1, &self.texture);
             gl::DeleteFramebuffers(1, &self.fbo);
         }
     }

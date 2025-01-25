@@ -58,7 +58,7 @@ impl FallingLeafApp for App {
             .set_volume(VolumeType::Master, 0.5);
 
         engine.audio_system_mut().enable_hrtf();
-        engine.rendering_system().set_msaa(true);
+        engine.rendering_system_mut().set_msaa(true);
 
         engine.rendering_system_mut().set_skybox(Some(Skybox::new([
             "examples/3D/skybox/right.jpg",
