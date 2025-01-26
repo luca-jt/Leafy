@@ -11,16 +11,12 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
 
-/// identifier for a sprite sheet
-pub type SpriteSheetID = u64;
-
 /// renderer for 2D sprites
 pub(crate) struct SpriteRenderer {
     renderer: BatchRenderer,
     plane_mesh: Mesh,
-    sprite_sheets: HashMap<Rc<Path>, SpriteSheet>,
-    sheet_transparency: HashMap<SpriteSheetSource, bool>,
     grid: SpriteGrid,
+    transparency_map: HashMap<SpriteSheetSource, bool>,
 }
 
 impl SpriteRenderer {
@@ -30,9 +26,8 @@ impl SpriteRenderer {
         Self {
             renderer: BatchRenderer::new(&plane_mesh, ShaderType::Passthrough),
             plane_mesh,
-            sprite_sheets: HashMap::new(),
-            sheet_transparency: HashMap::new(),
             grid: SpriteGrid::new(10, 10),
+            transparency_map: HashMap::new(),
         }
     }
 
@@ -64,26 +59,18 @@ impl SpriteRenderer {
     }
 }
 
-impl Drop for SpriteRenderer {
-    fn drop(&mut self) {
-        for tex_id in self.sprite_sheets.values().map(|sheet| sheet.texture_id) {
-            unsafe { gl::DeleteTextures(1, &tex_id) };
-        }
-    }
-}
-
 /// source data for a sprite from a sprite sheet
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct SpriteSheetSource {
-    path: Rc<Path>,
-    pixel_index: (usize, usize),
-    pixel_size: (usize, usize),
+    pub path: Rc<Path>,
+    pub pixel_index: (usize, usize),
+    pub pixel_size: (usize, usize),
 }
 
 /// data associated with one sprite sheet
-struct SpriteSheet {
-    texture_id: GLuint,
-    data: Image<u8>,
+pub(crate) struct SpriteSheet {
+    pub(crate) texture_id: GLuint,
+    pub(crate) data: Image<u8>,
 }
 
 /// a sprite layout grid that can be used to position sprites
@@ -101,6 +88,9 @@ impl SpriteGrid {
 
 // define layout grids and use the layout position
 // -> layouts can be smoothly independantly moved, only render the part of the grid that is visible
-// need way to influence the texture coodinates and not only read them from the mesh
-// clean sprite sheets and maps if you dont need them anymore
-// handle single sprite sources and the textures
+
+// !!!
+// maybe just reuse batch renderer code and only reuse whats needed
+// -> more flexibility when handling layers, transparent stuff, etc
+// -> more specialized -> dont need the optional shadow maps anymore -> can influence texture coords independant of mesh
+// -> more textures because no light sources

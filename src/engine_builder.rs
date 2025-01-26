@@ -189,6 +189,12 @@ impl EngineAttributes {
     }
 }
 
+impl Default for EngineAttributes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 enum AppIcon {
     Default,
     Custom(PathBuf),

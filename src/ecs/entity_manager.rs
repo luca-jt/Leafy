@@ -1,7 +1,7 @@
-use crate::ecs::component::utils::HitboxType;
+use crate::ecs::component::utils::{HitboxType, SpriteSource};
 use crate::ecs::component::*;
 use crate::ecs::entity::*;
-use crate::rendering::data::TextureMap;
+use crate::rendering::data::{SpriteTextureMap, TextureMap};
 use crate::rendering::mesh::{Hitbox, Mesh};
 use crate::utils::constants::NO_ENTITY;
 use crate::utils::file::*;
@@ -27,6 +27,7 @@ pub struct EntityManager {
     asset_register: HashMap<MeshType, Mesh>,
     lod_register: HashMap<MeshType, [Mesh; 4]>,
     pub(crate) texture_map: TextureMap,
+    pub(crate) sprite_texture_map: SpriteTextureMap,
     hitbox_register: HashMap<(MeshType, HitboxType), Hitbox>,
     commands: VecDeque<AssetCommand>,
     cache_instructions: HashSet<AssetCacheInstruction>,
@@ -40,6 +41,7 @@ impl EntityManager {
             asset_register: HashMap::new(),
             lod_register: HashMap::new(),
             texture_map: TextureMap::new(),
+            sprite_texture_map: SpriteTextureMap::new(),
             hitbox_register: HashMap::new(),
             commands: VecDeque::new(),
             cache_instructions: HashSet::new(),
@@ -55,6 +57,8 @@ impl EntityManager {
         self.add_command(AssetCommand::AddMesh(entity));
         // load texture if necessary
         self.add_command(AssetCommand::AddTexture(entity));
+        // add the sprite sheet if necessary
+        self.add_command(AssetCommand::AddSpriteData(entity));
         // compute hitbox if necessary
         self.add_command(AssetCommand::AddHitbox(entity));
         // do rigid body calculations if necessary
@@ -72,8 +76,13 @@ impl EntityManager {
         if unsafe { &*self.ecs.get() }.has_component::<MeshType>(entity) {
             self.add_command(AssetCommand::CleanMeshes);
             self.add_command(AssetCommand::CleanHitboxes);
-            self.add_command(AssetCommand::CleanTextures);
             self.add_command(AssetCommand::CleanLODs);
+        }
+        if unsafe { &*self.ecs.get() }.has_component::<MeshAttribute>(entity) {
+            self.add_command(AssetCommand::CleanTextures);
+        }
+        if unsafe { &*self.ecs.get() }.has_component::<Sprite>(entity) {
+            self.add_command(AssetCommand::CleanSpriteData);
         }
         self.ecs.get_mut().delete_entity(entity)?;
         self.exec_commands();
@@ -101,6 +110,9 @@ impl EntityManager {
         } else if types_eq::<T, MeshAttribute>() {
             self.add_command(AssetCommand::AddTexture(entity));
             self.add_command(AssetCommand::CleanTextures);
+        } else if types_eq::<T, Sprite>() {
+            self.add_command(AssetCommand::AddSpriteData(entity));
+            self.add_command(AssetCommand::CleanSpriteData);
         }
         self.exec_commands();
         self.ecs.get_mut().get_component_mut::<T>(entity)
@@ -115,6 +127,8 @@ impl EntityManager {
         }
         // add the texture if necessary
         self.add_command(AssetCommand::AddTexture(entity));
+        // add the sprite sheet if necessary
+        self.add_command(AssetCommand::AddSpriteData(entity));
         // add hitbox to the register if necessary
         self.add_command(AssetCommand::AddHitbox(entity));
         // add LODs to the register if necessary
@@ -156,6 +170,8 @@ impl EntityManager {
                 self.add_command(AssetCommand::DeleteLightID(entity));
             } else if types_eq::<T, LOD>() {
                 self.add_command(AssetCommand::CleanLODs);
+            } else if types_eq::<T, Sprite>() {
+                self.add_command(AssetCommand::CleanSpriteData);
             }
             self.exec_commands();
         }
@@ -352,8 +368,7 @@ impl EntityManager {
                         let is_cached = self
                             .cache_instructions
                             .contains(&AssetCacheInstruction::TextureData(texture.clone()));
-                        let should_stay = contains || is_cached;
-                        should_stay
+                        contains || is_cached
                     });
                 }
                 AssetCommand::AddLODs(entity) => {
@@ -385,6 +400,52 @@ impl EntityManager {
                         should_stay
                     });
                 }
+                AssetCommand::AddSpriteData(entity) => {
+                    let sprite_src = unsafe { &*self.ecs.get() }
+                        .get_component::<Sprite>(entity)
+                        .map(|sprite| &sprite.source);
+                    if let Some(SpriteSource::Sheet(src)) = sprite_src {
+                        if self.sprite_texture_map.get_sheet(&src.path).is_none() {
+                            self.sprite_texture_map.add_sheet(src.path.clone());
+                        }
+                    } else if let Some(SpriteSource::Single(path)) = sprite_src {
+                        if self.sprite_texture_map.get_sprite_id(path).is_none() {
+                            self.sprite_texture_map.add_sprite(path.clone());
+                        }
+                    }
+                }
+                AssetCommand::CleanSpriteData => {
+                    self.sprite_texture_map.retain_sheets(|path| {
+                        let contains = unsafe { &*self.ecs.get() }
+                            .query1::<Sprite>((None, None))
+                            .filter_map(|sprite| {
+                                if let SpriteSource::Sheet(src) = &sprite.source {
+                                    return Some(&src.path);
+                                }
+                                None
+                            })
+                            .contains(path);
+                        let is_cached = self
+                            .cache_instructions
+                            .contains(&AssetCacheInstruction::SpriteSheetData(path.clone()));
+                        contains || is_cached
+                    });
+                    self.sprite_texture_map.retain_sprites(|path| {
+                        let contains = unsafe { &*self.ecs.get() }
+                            .query1::<Sprite>((None, None))
+                            .filter_map(|sprite| {
+                                if let SpriteSource::Single(src_path) = &sprite.source {
+                                    return Some(src_path);
+                                }
+                                None
+                            })
+                            .contains(path);
+                        let is_cached = self
+                            .cache_instructions
+                            .contains(&AssetCacheInstruction::SpriteSheetData(path.clone()));
+                        contains || is_cached
+                    });
+                }
             }
         }
     }
@@ -400,13 +461,15 @@ impl EntityManager {
         let ids = self.all_ids_iter().copied().collect_vec();
         for entity in ids {
             self.add_command(AssetCommand::AddMesh(entity));
-            self.add_command(AssetCommand::CleanMeshes);
             self.add_command(AssetCommand::UpdateRigidBody(entity));
             self.add_command(AssetCommand::AddHitbox(entity));
-            self.add_command(AssetCommand::CleanHitboxes);
             self.add_command(AssetCommand::AddTexture(entity));
-            self.add_command(AssetCommand::CleanTextures);
+            self.add_command(AssetCommand::AddSpriteData(entity));
         }
+        self.add_command(AssetCommand::CleanMeshes);
+        self.add_command(AssetCommand::CleanHitboxes);
+        self.add_command(AssetCommand::CleanTextures);
+        self.add_command(AssetCommand::CleanSpriteData);
         self.exec_commands();
     }
 
@@ -416,6 +479,7 @@ impl EntityManager {
         self.asset_register.clear();
         self.lod_register.clear();
         self.texture_map.clear();
+        self.sprite_texture_map.clear();
         self.hitbox_register.clear();
         self.commands.clear();
     }
@@ -434,6 +498,8 @@ enum AssetCommand {
     CleanTextures,
     AddLODs(EntityID),
     CleanLODs,
+    AddSpriteData(EntityID),
+    CleanSpriteData,
 }
 
 /// the entity component system that manages all the data associated with an entity

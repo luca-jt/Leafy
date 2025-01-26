@@ -1,6 +1,7 @@
 use crate::ecs::component::utils::{Color32, Filtering, Texture, Wrapping};
 use crate::ecs::component::*;
 use crate::glm;
+use crate::rendering::sprite_renderer::SpriteSheet;
 use crate::utils::constants::*;
 use crate::utils::file::*;
 use gl::types::*;
@@ -8,10 +9,11 @@ use stb_image::image::Image;
 use std::collections::HashMap;
 use std::path::Path;
 use std::ptr;
+use std::rc::Rc;
 
 /// generates a gl texture from given image data, filtering and wrapping
 #[rustfmt::skip]
-fn generate_texture(data: Image<u8>, filtering: &Filtering, wrapping: &Wrapping) -> GLuint {
+fn generate_texture(data: &Image<u8>, filtering: &Filtering, wrapping: &Wrapping) -> GLuint {
     let mut tex_id = 0;
     unsafe {
         gl::GenTextures(1, &mut tex_id);
@@ -92,7 +94,7 @@ impl TextureMap {
         log::debug!("loaded texture: '{:?}'", texture);
         let image = stbi_load_u8_rgba(&texture.path).expect("error loading texture");
         let transparent = image.data.iter().skip(3).step_by(4).any(|a| *a < 255);
-        let tex_id = generate_texture(image, &texture.filtering, &texture.wrapping);
+        let tex_id = generate_texture(&image, &texture.filtering, &texture.wrapping);
         self.textures.insert(texture.clone(), tex_id);
         self.transparency_map.insert(texture.clone(), transparent);
     }
@@ -125,7 +127,7 @@ impl TextureMap {
 
     /// clears the texture map and deletes all of the stored textures
     pub(crate) fn clear(&mut self) {
-        for (_, texture) in self.textures.iter() {
+        for texture in self.textures.values() {
             unsafe { gl::DeleteTextures(1, texture) };
         }
         self.textures.clear();
@@ -137,6 +139,105 @@ impl Drop for TextureMap {
     fn drop(&mut self) {
         for (_, texture) in self.textures.iter() {
             unsafe { gl::DeleteTextures(1, texture) };
+        }
+    }
+}
+
+/// stores the sprite sheet data for sprite rendering
+pub(crate) struct SpriteTextureMap {
+    sheets: HashMap<Rc<Path>, SpriteSheet>,
+    sprites: HashMap<Rc<Path>, GLuint>,
+}
+
+impl SpriteTextureMap {
+    /// creates a new sprite texture map
+    pub(crate) fn new() -> Self {
+        Self {
+            sheets: HashMap::new(),
+            sprites: HashMap::new(),
+        }
+    }
+
+    /// adds a new sprite sheet to the map
+    pub(crate) fn add_sheet(&mut self, path: Rc<Path>) {
+        log::debug!("loaded sprite sheet: {:?}", path.to_str().unwrap());
+        let image = stbi_load_u8_rgba(&path).expect("error loading texture");
+        let tex_id = generate_texture(&image, &Filtering::Nearest, &Wrapping::Repeat);
+        let sprite_sheet = SpriteSheet {
+            texture_id: tex_id,
+            data: image,
+        };
+        self.sheets.insert(path, sprite_sheet);
+    }
+
+    /// adds a new sprite texture to the map
+    pub(crate) fn add_sprite(&mut self, path: Rc<Path>) {
+        log::debug!("loaded sprite: {:?}", path.to_str().unwrap());
+        let image = stbi_load_u8_rgba(&path).expect("error loading texture");
+        let tex_id = generate_texture(&image, &Filtering::Nearest, &Wrapping::Repeat);
+        self.sprites.insert(path, tex_id);
+    }
+
+    /// deletes a stored sheets based on a function bool return
+    pub(crate) fn retain_sheets<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&Rc<Path>) -> bool,
+    {
+        self.sheets.retain(|path, sheet| {
+            let contains = f(path);
+            if !contains {
+                log::debug!("deleted sprite sheet: {:?}", path);
+                unsafe { gl::DeleteTextures(1, &sheet.texture_id) };
+            }
+            contains
+        });
+    }
+
+    /// deletes a stored sprite textures based on a function bool return
+    pub(crate) fn retain_sprites<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&Rc<Path>) -> bool,
+    {
+        self.sprites.retain(|path, id| {
+            let contains = f(path);
+            if !contains {
+                log::debug!("deleted sprite: {:?}", path);
+                unsafe { gl::DeleteTextures(1, id) };
+            }
+            contains
+        });
+    }
+
+    /// yields a sheet reference for given path
+    pub(crate) fn get_sheet(&self, path: &Rc<Path>) -> Option<&SpriteSheet> {
+        self.sheets.get(path)
+    }
+
+    /// yields the texture id for a sprite
+    pub(crate) fn get_sprite_id(&self, path: &Rc<Path>) -> Option<GLuint> {
+        self.sprites.get(path).copied()
+    }
+
+    /// clears the sprite sheet map and deletes all of the stored textures
+    pub(crate) fn clear(&mut self) {
+        for tex_id in self.sheets.values().map(|sheet| sheet.texture_id) {
+            unsafe { gl::DeleteTextures(1, &tex_id) };
+        }
+        for tex_id in self.sprites.values() {
+            unsafe { gl::DeleteTextures(1, tex_id) };
+        }
+        self.sheets.clear();
+        self.sprites.clear();
+    }
+}
+
+impl Drop for SpriteTextureMap {
+    fn drop(&mut self) {
+        for tex_id in self.sheets.values().map(|sheet| sheet.texture_id) {
+            unsafe { gl::DeleteTextures(1, &tex_id) };
+        }
+        for tex_id in self.sprites.values() {
+            unsafe { gl::DeleteTextures(1, tex_id) };
         }
     }
 }

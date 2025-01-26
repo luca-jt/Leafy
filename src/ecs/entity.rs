@@ -3,6 +3,8 @@ use crate::ecs::component::MeshType;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::ops::Index;
+use std::path::Path;
+use std::rc::Rc;
 use std::slice::Iter;
 
 /// unique identifier for an entity
@@ -124,6 +126,7 @@ pub enum AssetCacheInstruction {
     MeshData(MeshType),
     TextureData(Texture),
     HitboxData(HitboxType, MeshType),
+    SpriteSheetData(Rc<Path>),
 }
 
 impl From<MeshType> for AssetCacheInstruction {
@@ -141,5 +144,11 @@ impl From<Texture> for AssetCacheInstruction {
 impl From<(HitboxType, MeshType)> for AssetCacheInstruction {
     fn from(value: (HitboxType, MeshType)) -> Self {
         Self::HitboxData(value.0, value.1)
+    }
+}
+
+impl From<Rc<Path>> for AssetCacheInstruction {
+    fn from(value: Rc<Path>) -> Self {
+        Self::SpriteSheetData(value)
     }
 }
