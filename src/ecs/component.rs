@@ -476,12 +476,17 @@ pub enum LOD {
 }
 
 /// holds data for sprite rendering
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Sprite;
+#[derive(Debug, Clone, PartialEq)]
+pub struct Sprite {
+    pub source: SpriteSource,
+    pub position: SpritePosition,
+    pub layer: SpriteLayer,
+}
 
 /// data structures that are not internally useful as a sole component but might have purpose in relation to other components
 pub mod utils {
     use crate::glm;
+    use crate::rendering::sprite_renderer::SpriteSheetSource;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
     use std::path::Path;
     use std::rc::Rc;
@@ -619,5 +624,35 @@ pub mod utils {
         pub momentum: glm::Vec3,
         pub point: glm::Vec3,
         pub normal: glm::Vec3,
+    }
+
+    /// defines on what depth layer the sprite will be rendered on (``Layer0`` is nearest)
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub enum SpriteLayer {
+        Layer0,
+        Layer1,
+        Layer2,
+        Layer3,
+        Layer4,
+        Layer5,
+        Layer6,
+        Layer7,
+        Layer8,
+        Layer9,
+    }
+
+    /// defines ways to source sprite data from
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum SpriteSource {
+        Sheet(SpriteSheetSource),
+        Colored(Color32),
+        Single(Rc<Path>),
+    }
+
+    /// sprite position on a defined grid or in absolute values
+    #[derive(Debug, Copy, Clone, PartialEq)]
+    pub enum SpritePosition {
+        Grid(usize, usize),
+        Absolute(glm::Vec2),
     }
 }

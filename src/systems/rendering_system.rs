@@ -8,6 +8,7 @@ use crate::rendering::data::*;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::{ShaderCatalog, ShaderType};
+use crate::rendering::sprite_renderer::SpriteRenderer;
 use crate::systems::event_system::events::{CamPositionChange, WindowResize};
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::user_level::INVISIBLE;
@@ -21,6 +22,7 @@ use std::cmp::Ordering;
 pub struct RenderingSystem {
     light_sources: Vec<(EntityID, ShadowMap)>,
     renderers: Vec<RendererType>,
+    sprite_renderer: SpriteRenderer,
     perspective_camera: PerspectiveCamera,
     ortho_camera: OrthoCamera,
     shader_catalog: ShaderCatalog,
@@ -49,6 +51,7 @@ impl RenderingSystem {
         Self {
             light_sources: Vec::new(),
             renderers: Vec::new(),
+            sprite_renderer: SpriteRenderer::new(),
             perspective_camera: PerspectiveCamera::new(-Z_AXIS, ORIGIN),
             ortho_camera: OrthoCamera::from_size(1.0),
             shader_catalog: ShaderCatalog::new(),
@@ -62,14 +65,14 @@ impl RenderingSystem {
         }
     }
 
-    /// 3D render all entities
+    /// render all entities
     pub(crate) fn render(&mut self, entity_manager: &EntityManager) {
         self.clear_gl_screen();
         self.update_light_sources(entity_manager);
+        self.update_uniform_buffers();
         self.reset_renderer_usage();
         self.add_entity_data(entity_manager);
         self.confirm_data();
-        self.update_uniform_buffers();
         self.render_shadows();
         self.bind_screen_texture();
         self.render_geometry();
@@ -78,6 +81,7 @@ impl RenderingSystem {
         self.render_skybox();
         self.render_screen_texture();
         self.cleanup_renderers();
+        self.render_sprites(entity_manager);
     }
 
     /// adds and removes light sources according to entity data
@@ -178,6 +182,14 @@ impl RenderingSystem {
         }
     }
 
+    /// render all sprite entities
+    fn render_sprites(&mut self, entity_manager: &EntityManager) {
+        self.sprite_renderer.add_data(entity_manager);
+        self.shader_catalog.sprite.use_program();
+        self.sprite_renderer.render();
+        self.sprite_renderer.reset();
+    }
+
     /// renders the screen texture to the default OpenGL frame buffer
     fn render_screen_texture(&self) {
         if let Some(screen_texture) = self.screen_texture.as_ref() {
@@ -215,7 +227,7 @@ impl RenderingSystem {
             }
             match renderer_type {
                 RendererType::Batch { spec, renderer, .. } => {
-                    renderer.flush(&shadow_maps, spec.shader_type, true);
+                    renderer.flush(Some(&shadow_maps), spec.shader_type, true);
                 }
                 RendererType::Instance { spec, renderer, .. } => {
                     renderer.draw_all(&shadow_maps, spec.shader_type, true);
@@ -243,7 +255,7 @@ impl RenderingSystem {
             }
             match renderer_type {
                 RendererType::Batch { spec, renderer, .. } => {
-                    renderer.flush(&shadow_maps, spec.shader_type, false);
+                    renderer.flush(Some(&shadow_maps), spec.shader_type, false);
                 }
                 RendererType::Instance { spec, renderer, .. } => {
                     renderer.draw_all(&shadow_maps, spec.shader_type, false);
@@ -398,18 +410,29 @@ impl RenderingSystem {
         self.shader_catalog.matrix_buffer.upload_data(
             0,
             size_of::<glm::Mat4>(),
-            self.perspective_camera.projection() as *const glm::Mat4 as *const GLvoid,
+            &self.perspective_camera.projection as *const glm::Mat4 as *const GLvoid,
         );
         self.shader_catalog.matrix_buffer.upload_data(
             size_of::<glm::Mat4>(),
             size_of::<glm::Mat4>(),
-            self.perspective_camera.view() as *const glm::Mat4 as *const GLvoid,
+            &self.perspective_camera.view as *const glm::Mat4 as *const GLvoid,
         );
         let cam_pos_4 = to_vec4(&self.current_cam_config.0);
         self.shader_catalog.matrix_buffer.upload_data(
             size_of::<glm::Mat4>() * 2,
             size_of::<glm::Vec4>(),
             &cam_pos_4 as *const glm::Vec4 as *const GLvoid,
+        );
+
+        self.shader_catalog.ortho_buffer.upload_data(
+            0,
+            size_of::<glm::Mat4>(),
+            &self.ortho_camera.projection as *const glm::Mat4 as *const GLvoid,
+        );
+        self.shader_catalog.ortho_buffer.upload_data(
+            size_of::<glm::Mat4>(),
+            size_of::<glm::Mat4>(),
+            &self.ortho_camera.view as *const glm::Mat4 as *const GLvoid,
         );
 
         let light_data = self

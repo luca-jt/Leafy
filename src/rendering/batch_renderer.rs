@@ -88,14 +88,14 @@ impl BatchRenderer {
     /// send data to GPU and reset
     pub(crate) fn flush(
         &self,
-        shadow_maps: &[&ShadowMap],
+        shadow_maps: Option<&[&ShadowMap]>,
         shader_type: ShaderType,
         transparent: bool,
     ) {
         unsafe {
             // bind uniforms
             if shader_type != ShaderType::Passthrough {
-                gl::Uniform1i(0, shadow_maps.len() as GLsizei);
+                gl::Uniform1i(0, shadow_maps.unwrap().len() as GLsizei);
                 gl::Uniform1iv(2, MAX_LIGHT_SRC_COUNT as GLsizei, &self.shadow_samplers[0]);
             }
             gl::Uniform1i(1, transparent as GLint);
@@ -105,8 +105,10 @@ impl BatchRenderer {
                 &self.samplers[0],
             );
             // bind textures
-            for (i, shadow_map) in shadow_maps.iter().enumerate() {
-                shadow_map.bind_reading(i as GLuint);
+            if let Some(s_maps) = shadow_maps {
+                for (i, shadow_map) in s_maps.iter().enumerate() {
+                    shadow_map.bind_reading(i as GLuint);
+                }
             }
             gl::BindTextureUnit(MAX_LIGHT_SRC_COUNT as GLuint, self.white_texture);
         }

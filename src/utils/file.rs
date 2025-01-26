@@ -43,6 +43,8 @@ pub(crate) const SKYBOX_VERT: &str = include_str!(shader_path!("skybox.vert"));
 pub(crate) const SKYBOX_FRAG: &str = include_str!(shader_path!("skybox.frag"));
 pub(crate) const SCREEN_VERT: &str = include_str!(shader_path!("screen.vert"));
 pub(crate) const SCREEN_FRAG: &str = include_str!(shader_path!("screen.frag"));
+pub(crate) const SPRITE_VERT: &str = include_str!(shader_path!("sprite.vert"));
+pub(crate) const SPRITE_FRAG: &str = include_str!(shader_path!("sprite.frag"));
 
 // optional included meshes
 pub(crate) const TRIANGLE_MESH: &[u8] = include_bytes!(model_path!("triangle.obj"));

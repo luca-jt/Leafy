@@ -135,8 +135,10 @@ pub struct ShaderCatalog {
     instance_shadow: ShaderProgram,
     pub(crate) skybox: ShaderProgram,
     pub(crate) screen: ShaderProgram,
+    pub(crate) sprite: ShaderProgram,
     pub(crate) light_buffer: UniformBuffer,
     pub(crate) matrix_buffer: UniformBuffer,
+    pub(crate) ortho_buffer: UniformBuffer,
 }
 
 impl ShaderCatalog {
@@ -148,6 +150,7 @@ impl ShaderCatalog {
                 + MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
         );
         let matrix_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2 + size_of::<glm::Vec4>());
+        let ortho_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2);
 
         Self {
             batch_basic: Self::create_batch_basic(&light_buffer, &matrix_buffer),
@@ -158,8 +161,10 @@ impl ShaderCatalog {
             instance_shadow: Self::create_instance_shadow(),
             skybox: Self::create_skybox(&matrix_buffer),
             screen: Self::create_screen(),
+            sprite: Self::create_sprite(&ortho_buffer),
             light_buffer,
             matrix_buffer,
+            ortho_buffer,
         }
     }
 
@@ -183,6 +188,15 @@ impl ShaderCatalog {
             RendererArch::Batch => self.batch_shadow.use_program(),
             RendererArch::Instance => self.instance_shadow.use_program(),
         }
+    }
+
+    /// creates a new sprite shader
+    fn create_sprite(ortho_buffer: &UniformBuffer) -> ShaderProgram {
+        let program = ShaderProgram::new(SPRITE_VERT, SPRITE_FRAG);
+
+        program.add_unif_buffer("ortho_block", ortho_buffer, 2);
+
+        program
     }
 
     /// creates a new screen texture shader

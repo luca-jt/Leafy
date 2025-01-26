@@ -16,5 +16,6 @@ materials -> reflection with dynamic environment maps, water
 2D sprite hitboxes with seperate collision checking
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
+combine some components that always have to be used together?
 conways game of life example
-sprite renderer -> depth layers configurable, sprite component, depth test must be specified
+sprite renderer

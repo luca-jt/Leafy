@@ -1,5 +1,3 @@
-//#![windows_subsystem = "windows"]
-
 use crate::app::*;
 use env_logger::Env;
 use falling_leaf::engine_builder::EngineAttributes;

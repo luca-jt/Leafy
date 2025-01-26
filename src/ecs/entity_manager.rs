@@ -335,13 +335,11 @@ impl EntityManager {
                         });
                 }
                 AssetCommand::AddTexture(entity) => {
-                    if unsafe { &*self.ecs.get() }.has_component::<MeshType>(entity) {
-                        if let Some(MeshAttribute::Textured(texture)) =
-                            unsafe { &*self.ecs.get() }.get_component::<MeshAttribute>(entity)
-                        {
-                            if self.texture_map.get_tex_id(texture).is_none() {
-                                self.texture_map.add_texture(texture);
-                            }
+                    if let Some(MeshAttribute::Textured(texture)) =
+                        unsafe { &*self.ecs.get() }.get_component::<MeshAttribute>(entity)
+                    {
+                        if self.texture_map.get_tex_id(texture).is_none() {
+                            self.texture_map.add_texture(texture);
                         }
                     }
                 }

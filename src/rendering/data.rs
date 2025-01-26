@@ -141,14 +141,6 @@ impl Drop for TextureMap {
     }
 }
 
-/// allows for fluent exchange of camera implementation details in rendering
-pub(crate) trait Camera {
-    /// access to the projection matrix
-    fn projection(&self) -> &glm::Mat4;
-    /// access to the view matrix
-    fn view(&self) -> &glm::Mat4;
-}
-
 /// calculate the model matrix for a given position, scale and orientation
 pub fn calc_model_matrix(
     position: &Position,
@@ -166,8 +158,8 @@ pub fn calc_model_matrix(
 
 /// stores the current camera config for 3D rendering
 pub(crate) struct PerspectiveCamera {
-    projection: glm::Mat4,
-    view: glm::Mat4,
+    pub(crate) projection: glm::Mat4,
+    pub(crate) view: glm::Mat4,
     win_width: f32,
     win_height: f32,
     fov: f32,
@@ -216,46 +208,25 @@ impl PerspectiveCamera {
     }
 }
 
-impl Camera for PerspectiveCamera {
-    fn projection(&self) -> &glm::Mat4 {
-        &self.projection
-    }
-
-    fn view(&self) -> &glm::Mat4 {
-        &self.view
-    }
-}
-
 /// stores the current camera config for 2D rendering
 pub(crate) struct OrthoCamera {
-    projection: glm::Mat4,
-    view: glm::Mat4,
+    pub(crate) projection: glm::Mat4,
+    pub(crate) view: glm::Mat4,
 }
 
 impl OrthoCamera {
     /// creates a new orthographic camera
     pub(crate) fn new(left: f32, right: f32, bottom: f32, top: f32) -> Self {
         let position = -Z_AXIS;
-
         Self {
             projection: glm::ortho(left, right, bottom, top, -1.0, 1.0),
-            view: glm::look_at(&position, &ORIGIN, &glm::Vec3::y_axis()),
+            view: glm::look_at(&position, &ORIGIN, &Y_AXIS),
         }
     }
 
     /// creates a new orthographic camera from a size: `(-size, size, -size, size)`
     pub(crate) fn from_size(size: f32) -> Self {
         Self::new(-size, size, -size, size)
-    }
-}
-
-impl Camera for OrthoCamera {
-    fn projection(&self) -> &glm::Mat4 {
-        &self.projection
-    }
-
-    fn view(&self) -> &glm::Mat4 {
-        &self.view
     }
 }
 

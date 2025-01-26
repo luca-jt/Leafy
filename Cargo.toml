@@ -21,6 +21,10 @@ name = "3D"
 path = "examples/3D/main.rs"
 
 [[example]]
+name = "2D"
+path = "examples/2D/main.rs"
+
+[[example]]
 name = "ui"
 path = "examples/ui/main.rs"
 

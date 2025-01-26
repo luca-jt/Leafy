@@ -1,5 +1,5 @@
 use falling_leaf::components;
-use falling_leaf::ecs::component::utils::Color32;
+use falling_leaf::ecs::component::utils::*;
 use falling_leaf::ecs::component::Sprite;
 use falling_leaf::ecs::entity::EntityID;
 use falling_leaf::engine::{Engine, FallingLeafApp};
@@ -27,9 +27,14 @@ impl FallingLeafApp for App {
 
         for row in 0..GRID_SIZE {
             for col in 0..GRID_SIZE {
-                self.grid_cells[row][col] = engine
-                    .entity_manager_mut()
-                    .create_entity(components!(Sprite));
+                self.grid_cells[row][col] =
+                    engine
+                        .entity_manager_mut()
+                        .create_entity(components!(Sprite {
+                            source: SpriteSource::Colored(Color32::BLACK),
+                            position: SpritePosition::Grid(0, 0),
+                            layer: SpriteLayer::Layer0,
+                        }));
             }
         }
 
