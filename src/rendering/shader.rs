@@ -1,5 +1,6 @@
 use crate::glm;
 use crate::rendering::data::{LightConfig, LightData, UniformBuffer, Vertex};
+use crate::rendering::sprite_renderer::SpriteVertex;
 use crate::systems::rendering_system::{RendererArch, ShaderSpec};
 use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
 use crate::utils::file::*;
@@ -327,6 +328,49 @@ pub(crate) unsafe fn bind_batch_attribs(shader_type: ShaderType) {
         gl::FALSE as GLboolean,
         size_of::<Vertex>() as GLsizei,
         mem::offset_of!(Vertex, tex_index) as *const GLvoid,
+    );
+}
+
+/// binds all necessary vertex attrib pointers for the sprite batch renderer
+pub(crate) unsafe fn bind_sprite_attribs() {
+    gl::EnableVertexAttribArray(0);
+    gl::VertexAttribPointer(
+        0,
+        3,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        size_of::<SpriteVertex>() as GLsizei,
+        mem::offset_of!(SpriteVertex, position) as *const GLvoid,
+    );
+
+    gl::EnableVertexAttribArray(1);
+    gl::VertexAttribPointer(
+        1,
+        4,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        size_of::<SpriteVertex>() as GLsizei,
+        mem::offset_of!(SpriteVertex, color) as *const GLvoid,
+    );
+
+    gl::EnableVertexAttribArray(2);
+    gl::VertexAttribPointer(
+        2,
+        2,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        size_of::<SpriteVertex>() as GLsizei,
+        mem::offset_of!(SpriteVertex, uv_coords) as *const GLvoid,
+    );
+
+    gl::EnableVertexAttribArray(3);
+    gl::VertexAttribPointer(
+        3,
+        1,
+        gl::FLOAT,
+        gl::FALSE as GLboolean,
+        size_of::<SpriteVertex>() as GLsizei,
+        mem::offset_of!(SpriteVertex, tex_index) as *const GLvoid,
     );
 }
 

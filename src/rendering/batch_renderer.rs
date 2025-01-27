@@ -20,9 +20,8 @@ pub(crate) struct BatchRenderer {
 
 impl BatchRenderer {
     /// creates a new batch renderer
-    pub(crate) fn new(mesh: &Mesh, shader_type: ShaderType) -> Self {
+    pub(crate) fn new() -> Self {
         let mut white_texture = 0;
-
         unsafe {
             // 1x1 WHITE TEXTURE
             gl::GenTextures(1, &mut white_texture);
@@ -53,7 +52,7 @@ impl BatchRenderer {
         }
 
         Self {
-            batches: vec![Batch::new(mesh, shader_type)],
+            batches: Vec::new(),
             used_batch_indices: HashSet::new(),
             white_texture,
             samplers,
@@ -85,17 +84,17 @@ impl BatchRenderer {
         }
     }
 
-    /// send data to GPU and reset
+    /// renders all data
     pub(crate) fn flush(
         &self,
-        shadow_maps: Option<&[&ShadowMap]>,
+        shadow_maps: &[&ShadowMap],
         shader_type: ShaderType,
         transparent: bool,
     ) {
         unsafe {
             // bind uniforms
             if shader_type != ShaderType::Passthrough {
-                gl::Uniform1i(0, shadow_maps.unwrap().len() as GLsizei);
+                gl::Uniform1i(0, shadow_maps.len() as GLsizei);
                 gl::Uniform1iv(2, MAX_LIGHT_SRC_COUNT as GLsizei, &self.shadow_samplers[0]);
             }
             gl::Uniform1i(1, transparent as GLint);
@@ -105,10 +104,8 @@ impl BatchRenderer {
                 &self.samplers[0],
             );
             // bind textures
-            if let Some(s_maps) = shadow_maps {
-                for (i, shadow_map) in s_maps.iter().enumerate() {
-                    shadow_map.bind_reading(i as GLuint);
-                }
+            for (i, shadow_map) in shadow_maps.iter().enumerate() {
+                shadow_map.bind_reading(i as GLuint);
             }
             gl::BindTextureUnit(MAX_LIGHT_SRC_COUNT as GLuint, self.white_texture);
         }
@@ -157,7 +154,16 @@ impl BatchRenderer {
     }
 
     /// draws a mesh with a color
-    pub(crate) fn draw_color_mesh(&mut self, trafo: &glm::Mat4, color: Color32, mesh: &Mesh) {
+    pub(crate) fn draw_color_mesh(
+        &mut self,
+        trafo: &glm::Mat4,
+        color: Color32,
+        mesh: &Mesh,
+        shader_type: ShaderType,
+    ) {
+        if self.batches.is_empty() {
+            self.batches.push(Batch::new(mesh, shader_type));
+        }
         self.used_batch_indices.insert(0);
         self.batches
             .first_mut()
@@ -211,7 +217,7 @@ impl Batch {
             // BIND ATTRIB POINTERS
             bind_batch_attribs(shader_type);
 
-            // INDECES
+            // INDICES
             let mut indices: Vec<GLuint> = vec![0; mesh.num_indices() * max_num_meshes];
             for i in 0..mesh.num_indices() * max_num_meshes {
                 indices[i] = mesh.indices[i % mesh.num_indices()]

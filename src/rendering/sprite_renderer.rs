@@ -1,62 +1,416 @@
+use crate::ecs::component::utils::{Color32, SpriteLayer, SpriteSource};
 use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
-use crate::rendering::batch_renderer::BatchRenderer;
-use crate::rendering::mesh::Mesh;
-use crate::rendering::shader::ShaderType;
+use crate::glm;
+use crate::rendering::shader::bind_sprite_attribs;
 use crate::utils::constants::bits::user_level::INVISIBLE;
-use crate::utils::file::PLANE_MESH;
-use gl::types::GLuint;
+use crate::utils::constants::MAX_TEXTURE_COUNT;
+use crate::utils::file::{SPRITE_PLANE_INDICES, SPRITE_PLANE_UVS, SPRITE_PLANE_VERTICES};
+use crate::utils::tools::mult_mat4_vec3;
+use gl::types::*;
 use stb_image::image::Image;
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::Path;
+use std::ptr;
 use std::rc::Rc;
+
+const PLANE_MESH_NUM_VERTICES: usize = 4;
+const PLANE_MESH_NUM_INDICES: usize = 6;
 
 /// renderer for 2D sprites
 pub(crate) struct SpriteRenderer {
-    renderer: BatchRenderer,
-    plane_mesh: Mesh,
-    grid: SpriteGrid,
-    transparency_map: HashMap<SpriteSheetSource, bool>,
+    renderer_map: [Vec<SpriteBatch>; 10],
+    used_batch_indices: [HashSet<usize>; 10],
+    white_texture: GLuint,
+    samplers: [GLint; MAX_TEXTURE_COUNT],
 }
 
 impl SpriteRenderer {
     /// creates a new sprite renderer
     pub(crate) fn new() -> Self {
-        let plane_mesh = Mesh::from_bytes(PLANE_MESH);
+        let mut white_texture = 0;
+        unsafe {
+            // 1x1 WHITE TEXTURE
+            gl::GenTextures(1, &mut white_texture);
+            gl::BindTexture(gl::TEXTURE_2D, white_texture);
+            let white_color_data: Vec<u8> = vec![255, 255, 255, 255];
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA8 as GLint,
+                1,
+                1,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                white_color_data.as_ptr() as *const GLvoid,
+            );
+        }
+        // TEXTURE SAMPLERS
+        let mut samplers: [GLint; MAX_TEXTURE_COUNT] = [0; MAX_TEXTURE_COUNT];
+        for (i, sampler) in samplers.iter_mut().enumerate() {
+            *sampler = i as GLint;
+        }
+
         Self {
-            renderer: BatchRenderer::new(&plane_mesh, ShaderType::Passthrough),
-            plane_mesh,
-            grid: SpriteGrid::new(10, 10),
-            transparency_map: HashMap::new(),
+            renderer_map: Default::default(),
+            used_batch_indices: Default::default(),
+            white_texture,
+            samplers,
         }
     }
 
     /// resets the renderer to the initial state
     pub(crate) fn reset(&mut self) {
-        self.renderer.reset();
-        self.renderer.clean_batches();
+        for batch in self.renderer_map.iter_mut().flatten() {
+            batch.reset();
+        }
+        for (layer, batches) in self.renderer_map.iter_mut().enumerate() {
+            for index in 0..batches.len() {
+                if !self.used_batch_indices[layer].contains(&index) {
+                    batches.remove(index);
+                }
+            }
+            self.used_batch_indices[layer].clear();
+        }
     }
 
     /// renders all sprites
     pub(crate) fn render(&self) {
-        self.renderer.confirm_data();
-        self.renderer.flush(None, ShaderType::Passthrough, false);
-        unsafe { gl::DepthMask(gl::FALSE) };
-        self.renderer.flush(None, ShaderType::Passthrough, true);
-        unsafe { gl::DepthMask(gl::TRUE) };
+        for batch in self.renderer_map.iter().flatten() {
+            batch.confirm_data();
+        }
+        unsafe {
+            // bind uniforms
+            gl::Uniform1iv(7, MAX_TEXTURE_COUNT as GLsizei, &self.samplers[0]);
+            // bind texture
+            gl::BindTextureUnit(0, self.white_texture);
+        }
+        for layer in self.renderer_map.iter().rev() {
+            for batch in layer {
+                batch.flush();
+            }
+        }
     }
 
     /// adds the sprite data to the renderer
-    pub(crate) fn add_data(&self, entity_manager: &EntityManager) {
+    pub(crate) fn add_data(&mut self, entity_manager: &EntityManager) {
         for (sprite, scale) in entity_manager
             .query3_opt2::<Sprite, Scale, EntityFlags>((None, None))
             .filter(|(_, _, f)| f.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .map(|(p, s, _)| (p, s))
         {
-            let scale = scale.copied().unwrap_or_default();
-            todo!()
+            let scale = scale.copied().unwrap_or_default().scale_matrix();
+            let position = sprite.position; // TODO: get the actual pos depending on the variant
+            let trafo = &scale; // TODO
+            match &sprite.source {
+                SpriteSource::Sheet(src) => {
+                    let tex_coords = SPRITE_PLANE_UVS; // TODO
+                    let sheet = entity_manager
+                        .sprite_texture_map
+                        .get_sheet(&src.path)
+                        .unwrap();
+                    let config = SpriteConfig {
+                        tex_id: sheet.texture_id,
+                        tex_coords,
+                        layer: sprite.layer,
+                        trafo,
+                    };
+                    self.draw_tex_sprite(config);
+                }
+                SpriteSource::Colored(color) => {
+                    self.draw_color_sprite(*color, sprite.layer, trafo);
+                }
+                SpriteSource::Single(path) => {
+                    let tex_id = entity_manager
+                        .sprite_texture_map
+                        .get_sprite_id(path)
+                        .unwrap();
+                    let config = SpriteConfig {
+                        tex_id,
+                        tex_coords: SPRITE_PLANE_UVS,
+                        layer: sprite.layer,
+                        trafo,
+                    };
+                    self.draw_tex_sprite(config);
+                }
+            }
         }
     }
+
+    /// draws a sprite with a plain color
+    fn draw_color_sprite(&mut self, color: Color32, layer: SpriteLayer, trafo: &glm::Mat4) {
+        self.used_batch_indices[layer as usize].insert(0);
+        if self.renderer_map[layer as usize].is_empty() {
+            self.renderer_map[layer as usize].push(SpriteBatch::new());
+        }
+        self.renderer_map[layer as usize]
+            .first_mut()
+            .unwrap()
+            .add_color_sprite(trafo, color);
+    }
+
+    /// draws a sprite with a texture
+    fn draw_tex_sprite(&mut self, config: SpriteConfig) {
+        if self.renderer_map[config.layer as usize].is_empty() {
+            self.renderer_map[config.layer as usize].push(SpriteBatch::new());
+        }
+        for (i, batch) in self.renderer_map[config.layer as usize]
+            .iter_mut()
+            .enumerate()
+        {
+            if batch.try_add_tex_sprite(&config) {
+                self.used_batch_indices[config.layer as usize].insert(i);
+                return;
+            }
+        }
+        // add new batch
+        let mut new_batch = SpriteBatch::new();
+        let res = new_batch.try_add_tex_sprite(&config);
+        debug_assert!(res);
+        self.used_batch_indices[config.layer as usize]
+            .insert(self.renderer_map[config.layer as usize].len());
+        self.renderer_map[config.layer as usize].push(new_batch);
+    }
+}
+
+impl Drop for SpriteRenderer {
+    fn drop(&mut self) {
+        unsafe { gl::DeleteTextures(1, &self.white_texture) };
+    }
+}
+
+/// a sprite render batch
+struct SpriteBatch {
+    vao: GLuint,
+    vbo: GLuint,
+    ibo: GLuint,
+    index_count: GLsizei,
+    obj_buffer: Vec<SpriteVertex>,
+    obj_buffer_ptr: usize,
+    all_tex_ids: Vec<GLuint>,
+    max_num_meshes: usize,
+}
+
+impl SpriteBatch {
+    /// creates a new batch with default size
+    fn new() -> Self {
+        let max_num_meshes: usize = 10;
+        let obj_buffer = vec![SpriteVertex::default(); PLANE_MESH_NUM_VERTICES * max_num_meshes];
+        let mut vao = 0;
+        let mut vbo = 0;
+        let mut ibo = 0;
+        unsafe {
+            // GENERATE BUFFERS
+            gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
+            gl::CreateBuffers(1, &mut vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (PLANE_MESH_NUM_VERTICES * max_num_meshes * size_of::<SpriteVertex>())
+                    as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
+
+            // BIND ATTRIB POINTERS
+            bind_sprite_attribs();
+
+            // INDICES
+            let mut indices: Vec<GLuint> = vec![0; PLANE_MESH_NUM_INDICES * max_num_meshes];
+            for i in 0..PLANE_MESH_NUM_INDICES * max_num_meshes {
+                indices[i] = SPRITE_PLANE_INDICES[i % PLANE_MESH_NUM_INDICES]
+                    + PLANE_MESH_NUM_VERTICES as GLuint
+                        * (i as GLuint / PLANE_MESH_NUM_INDICES as GLuint);
+            }
+            gl::GenBuffers(1, &mut ibo);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (PLANE_MESH_NUM_INDICES * max_num_meshes * size_of::<GLuint>()) as GLsizeiptr,
+                indices.as_ptr() as *const GLvoid,
+                gl::STATIC_DRAW,
+            );
+
+            gl::BindVertexArray(0);
+        }
+        log::debug!("new sprite batch created");
+
+        Self {
+            vao,
+            vbo,
+            ibo,
+            index_count: 0,
+            obj_buffer,
+            obj_buffer_ptr: 0,
+            all_tex_ids: Vec::new(),
+            max_num_meshes,
+        }
+    }
+
+    /// resize the buffer for more mesh data
+    fn resize_buffer(&mut self) {
+        let add_size: usize = self.max_num_meshes * 2;
+        self.max_num_meshes += add_size;
+        self.obj_buffer.reserve_exact(add_size);
+        self.obj_buffer.extend(vec![
+            SpriteVertex::default();
+            PLANE_MESH_NUM_VERTICES * add_size
+        ]);
+        log::debug!("resized sprite batch to: {:?}", self.max_num_meshes);
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (PLANE_MESH_NUM_VERTICES * self.max_num_meshes * size_of::<SpriteVertex>())
+                    as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
+            let mut indices: Vec<GLuint> = vec![0; PLANE_MESH_NUM_INDICES * self.max_num_meshes];
+            for i in 0..PLANE_MESH_NUM_INDICES * self.max_num_meshes {
+                indices[i] = SPRITE_PLANE_INDICES[i % PLANE_MESH_NUM_INDICES]
+                    + PLANE_MESH_NUM_VERTICES as GLuint
+                        * (i as GLuint / PLANE_MESH_NUM_INDICES as GLuint);
+            }
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (PLANE_MESH_NUM_INDICES * self.max_num_meshes * size_of::<GLuint>()) as GLsizeiptr,
+                indices.as_ptr() as *const GLvoid,
+                gl::STATIC_DRAW,
+            );
+        }
+    }
+
+    /// end the render batch
+    fn confirm_data(&self) {
+        // dynamically copy the the drawn mesh vertex data from object buffer into the vertex buffer on the gpu
+        unsafe {
+            let vertices_size: GLsizeiptr =
+                (self.obj_buffer_ptr * size_of::<SpriteVertex>()) as GLsizeiptr;
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BufferSubData(
+                gl::ARRAY_BUFFER,
+                0,
+                vertices_size,
+                self.obj_buffer.as_ptr() as *const GLvoid,
+            );
+        }
+    }
+
+    /// flushes this batch and renders the stored geometry
+    fn flush(&self) {
+        unsafe {
+            // bind textures
+            for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
+                gl::BindTextureUnit((unit + 1) as GLuint, *tex_id);
+            }
+            // draw the triangles corresponding to the index buffer
+            gl::BindVertexArray(self.vao);
+            gl::DrawElements(
+                gl::TRIANGLES,
+                self.index_count,
+                gl::UNSIGNED_INT,
+                ptr::null(),
+            );
+            gl::BindVertexArray(0);
+        }
+    }
+
+    /// resets the batch to the initial state
+    fn reset(&mut self) {
+        self.index_count = 0;
+        self.obj_buffer_ptr = 0;
+    }
+
+    /// adds a sprite with a texture to the batch
+    fn try_add_tex_sprite(&mut self, config: &SpriteConfig) -> bool {
+        // determine texture index
+        let mut tex_index: GLfloat = -1.0;
+        for (i, id) in self.all_tex_ids.iter().enumerate() {
+            if *id == config.tex_id {
+                tex_index = (i + 1) as GLfloat;
+                break;
+            }
+        }
+        if tex_index == -1.0 {
+            if self.all_tex_ids.len() >= MAX_TEXTURE_COUNT - 1 {
+                // start a new batch if out of texture slots
+                return false;
+            }
+            tex_index = (self.all_tex_ids.len() + 1) as GLfloat;
+            self.all_tex_ids.push(config.tex_id);
+        }
+        if self.index_count as usize >= PLANE_MESH_NUM_INDICES * self.max_num_meshes {
+            // resize current batch if batch size exceeded
+            self.resize_buffer();
+        }
+        // copy mesh vertex data into the object buffer
+        for i in 0..PLANE_MESH_NUM_VERTICES {
+            *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = SpriteVertex {
+                position: mult_mat4_vec3(config.trafo, &SPRITE_PLANE_VERTICES[i]),
+                color: glm::vec4(1.0, 1.0, 1.0, 1.0),
+                uv_coords: config.tex_coords[i],
+                tex_index,
+            };
+            self.obj_buffer_ptr += 1;
+        }
+        self.index_count += PLANE_MESH_NUM_INDICES as GLsizei;
+        true
+    }
+
+    /// adds a sprite with a color to the batch
+    fn add_color_sprite(&mut self, trafo: &glm::Mat4, color: Color32) {
+        if self.index_count as usize >= PLANE_MESH_NUM_INDICES * self.max_num_meshes {
+            // resize current batch if batch size exceeded
+            self.resize_buffer();
+        }
+
+        let tex_index: GLfloat = 0.0; // white texture
+
+        // copy mesh vertex data into the object buffer
+        for i in 0..PLANE_MESH_NUM_VERTICES {
+            *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = SpriteVertex {
+                position: mult_mat4_vec3(trafo, &SPRITE_PLANE_VERTICES[i]),
+                color: color.to_vec4(),
+                uv_coords: SPRITE_PLANE_UVS[i],
+                tex_index,
+            };
+            self.obj_buffer_ptr += 1;
+        }
+        self.index_count += PLANE_MESH_NUM_INDICES as GLsizei;
+    }
+}
+
+impl Drop for SpriteBatch {
+    fn drop(&mut self) {
+        log::debug!("dropped sprite batch");
+        unsafe {
+            gl::DeleteBuffers(1, &self.vbo);
+            gl::DeleteBuffers(1, &self.ibo);
+            gl::DeleteVertexArrays(1, &self.vao);
+        }
+    }
+}
+
+/// data for a single vertex
+#[derive(Default, Clone, Copy, Debug)]
+#[repr(C)]
+pub(crate) struct SpriteVertex {
+    pub(crate) position: glm::Vec3,
+    pub(crate) color: glm::Vec4,
+    pub(crate) uv_coords: glm::Vec2,
+    pub(crate) tex_index: GLfloat,
+}
+
+/// the sprite render config for the renderer
+struct SpriteConfig<'a> {
+    tex_id: GLuint,
+    tex_coords: [glm::Vec2; 4],
+    layer: SpriteLayer,
+    trafo: &'a glm::Mat4,
 }
 
 /// source data for a sprite from a sprite sheet
@@ -72,25 +426,3 @@ pub(crate) struct SpriteSheet {
     pub(crate) texture_id: GLuint,
     pub(crate) data: Image<u8>,
 }
-
-/// a sprite layout grid that can be used to position sprites
-struct SpriteGrid {
-    cells: Vec<Vec<u8>>,
-}
-
-impl SpriteGrid {
-    fn new(width: usize, height: usize) -> Self {
-        Self {
-            cells: vec![vec![0; height]; width],
-        }
-    }
-}
-
-// define layout grids and use the layout position
-// -> layouts can be smoothly independantly moved, only render the part of the grid that is visible
-
-// !!!
-// maybe just reuse batch renderer code and only reuse whats needed
-// -> more flexibility when handling layers, transparent stuff, etc
-// -> more specialized -> dont need the optional shadow maps anymore -> can influence texture coords independant of mesh
-// -> more textures because no light sources

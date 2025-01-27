@@ -17,5 +17,8 @@ materials -> reflection with dynamic environment maps, water
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 conways game of life example
-sprite renderer
 make asset command auto calls optional
+
+sprite renderer
+define layout grids and use the layout position
+-> layouts can be smoothly independantly moved, only render the part of the grid that is visible

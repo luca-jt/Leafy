@@ -227,7 +227,7 @@ impl RenderingSystem {
             }
             match renderer_type {
                 RendererType::Batch { spec, renderer, .. } => {
-                    renderer.flush(Some(&shadow_maps), spec.shader_type, true);
+                    renderer.flush(&shadow_maps, spec.shader_type, true);
                 }
                 RendererType::Instance { spec, renderer, .. } => {
                     renderer.draw_all(&shadow_maps, spec.shader_type, true);
@@ -255,7 +255,7 @@ impl RenderingSystem {
             }
             match renderer_type {
                 RendererType::Batch { spec, renderer, .. } => {
-                    renderer.flush(Some(&shadow_maps), spec.shader_type, false);
+                    renderer.flush(&shadow_maps, spec.shader_type, false);
                 }
                 RendererType::Instance { spec, renderer, .. } => {
                     renderer.draw_all(&shadow_maps, spec.shader_type, false);
@@ -317,7 +317,12 @@ impl RenderingSystem {
                             true
                         }
                         MeshAttribute::Colored(color) => {
-                            renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
+                            renderer.draw_color_mesh(
+                                rd.trafo,
+                                *color,
+                                rd.mesh,
+                                rd.spec.shader_type,
+                            );
                             true
                         }
                     };
@@ -359,10 +364,10 @@ impl RenderingSystem {
     fn add_new_renderer(&mut self, rd: &RenderData) {
         match rd.spec.mesh_type {
             MeshType::Triangle | MeshType::Plane | MeshType::Cube | MeshType::Cone => {
-                let mut renderer = BatchRenderer::new(rd.mesh, rd.spec.shader_type);
+                let mut renderer = BatchRenderer::new();
                 match rd.m_attr {
                     MeshAttribute::Colored(color) => {
-                        renderer.draw_color_mesh(rd.trafo, *color, rd.mesh);
+                        renderer.draw_color_mesh(rd.trafo, *color, rd.mesh, rd.spec.shader_type);
                     }
                     MeshAttribute::Textured(path) => {
                         renderer.draw_tex_mesh(

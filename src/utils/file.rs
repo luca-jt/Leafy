@@ -1,3 +1,5 @@
+use crate::glm;
+use gl::types::GLuint;
 use stb_image::image::{load_with_depth, Image, LoadResult};
 use std::path::Path;
 
@@ -106,6 +108,20 @@ pub(crate) const SCREEN_TRIANGLE_VERTICES: [f32; 15] = [
      3.0, -1.0, 0.0, 2.0, 0.0,
     -1.0,  3.0, 0.0, 0.0, 2.0
 ];
+
+pub(crate) const SPRITE_PLANE_VERTICES: [glm::Vec3; 4] = [
+    glm::Vec3::new(1.0, 0.0, 1.0),
+    glm::Vec3::new(-1.0, 0.0, -1.0),
+    glm::Vec3::new(-1.0, 0.0, 1.0),
+    glm::Vec3::new(1.0, 0.0, -1.0),
+];
+pub(crate) const SPRITE_PLANE_UVS: [glm::Vec2; 4] = [
+    glm::Vec2::new(1.0, 0.0),
+    glm::Vec2::new(0.0, 1.0),
+    glm::Vec2::new(0.0, 0.0),
+    glm::Vec2::new(1.0, 1.0),
+];
+pub(crate) const SPRITE_PLANE_INDICES: [GLuint; 6] = [0, 1, 2, 0, 3, 1];
 
 // audio data
 pub(crate) const HRTF_SPHERE: &[u8] = include_bytes!(audio_path!("IRC_1002_C.bin"));

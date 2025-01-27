@@ -627,9 +627,9 @@ pub mod utils {
     }
 
     /// defines on what depth layer the sprite will be rendered on (``Layer0`` is nearest)
-    #[derive(Debug, Clone, Copy, PartialEq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
     pub enum SpriteLayer {
-        Layer0,
+        Layer0 = 0,
         Layer1,
         Layer2,
         Layer3,
