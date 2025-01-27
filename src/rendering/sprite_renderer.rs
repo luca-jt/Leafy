@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::{Color32, SpriteLayer, SpriteSource};
+use crate::ecs::component::utils::{Color32, SpriteLayer, SpritePosition, SpriteSource};
 use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::glm;
@@ -8,11 +8,8 @@ use crate::utils::constants::MAX_TEXTURE_COUNT;
 use crate::utils::file::{SPRITE_PLANE_INDICES, SPRITE_PLANE_UVS, SPRITE_PLANE_VERTICES};
 use crate::utils::tools::mult_mat4_vec3;
 use gl::types::*;
-use stb_image::image::Image;
 use std::collections::HashSet;
-use std::path::Path;
 use std::ptr;
-use std::rc::Rc;
 
 const PLANE_MESH_NUM_VERTICES: usize = 4;
 const PLANE_MESH_NUM_INDICES: usize = 6;
@@ -101,15 +98,27 @@ impl SpriteRenderer {
             .map(|(p, s, _)| (p, s))
         {
             let scale = scale.copied().unwrap_or_default().scale_matrix();
-            let position = sprite.position; // TODO: get the actual pos depending on the variant
-            let trafo = &scale; // TODO
+            let position: glm::Vec3 = match sprite.position {
+                SpritePosition::Grid(x, y) => glm::vec3(0.0, 0.0, 0.0), // TODO
+                SpritePosition::Absolute(pos) => glm::vec2_to_vec3(&pos),
+            };
+            let trafo = &(glm::translate(&glm::Mat4::identity(), &position) * scale);
             match &sprite.source {
                 SpriteSource::Sheet(src) => {
-                    let tex_coords = SPRITE_PLANE_UVS; // TODO
                     let sheet = entity_manager
                         .sprite_texture_map
                         .get_sheet(&src.path)
                         .unwrap();
+                    let mut tex_coords = SPRITE_PLANE_UVS;
+                    for coord in tex_coords.iter_mut() {
+                        *coord = coord.component_mul(&glm::vec2(
+                            src.pixel_size.0 as f32 / sheet.width as f32,
+                            src.pixel_size.1 as f32 / sheet.height as f32,
+                        )) + glm::vec2(
+                            src.pixel_index.0 as f32 / sheet.width as f32,
+                            src.pixel_index.1 as f32 / sheet.height as f32,
+                        );
+                    }
                     let config = SpriteConfig {
                         tex_id: sheet.texture_id,
                         tex_coords,
@@ -413,16 +422,9 @@ struct SpriteConfig<'a> {
     trafo: &'a glm::Mat4,
 }
 
-/// source data for a sprite from a sprite sheet
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct SpriteSheetSource {
-    pub path: Rc<Path>,
-    pub pixel_index: (usize, usize),
-    pub pixel_size: (usize, usize),
-}
-
 /// data associated with one sprite sheet
 pub(crate) struct SpriteSheet {
     pub(crate) texture_id: GLuint,
-    pub(crate) data: Image<u8>,
+    pub(crate) width: usize,
+    pub(crate) height: usize,
 }

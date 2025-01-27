@@ -486,7 +486,6 @@ pub struct Sprite {
 /// data structures that are not internally useful as a sole component but might have purpose in relation to other components
 pub mod utils {
     use crate::glm;
-    use crate::rendering::sprite_renderer::SpriteSheetSource;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
     use std::path::Path;
     use std::rc::Rc;
@@ -647,6 +646,14 @@ pub mod utils {
         Sheet(SpriteSheetSource),
         Colored(Color32),
         Single(Rc<Path>),
+    }
+
+    /// source data for a sprite from a sprite sheet
+    #[derive(Debug, Clone, PartialEq, Hash, Eq)]
+    pub struct SpriteSheetSource {
+        pub path: Rc<Path>,
+        pub pixel_index: (usize, usize),
+        pub pixel_size: (usize, usize),
     }
 
     /// sprite position on a defined grid or in absolute values

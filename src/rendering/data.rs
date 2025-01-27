@@ -165,7 +165,8 @@ impl SpriteTextureMap {
         let tex_id = generate_texture(&image, &Filtering::Nearest, &Wrapping::Repeat);
         let sprite_sheet = SpriteSheet {
             texture_id: tex_id,
-            data: image,
+            width: image.width,
+            height: image.height,
         };
         self.sheets.insert(path, sprite_sheet);
     }
