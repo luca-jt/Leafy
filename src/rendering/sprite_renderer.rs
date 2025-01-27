@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::{Color32, SpriteLayer, SpritePosition, SpriteSource};
+use crate::ecs::component::utils::{Color32, SpriteLayer, SpriteSource};
 use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::glm;
@@ -20,6 +20,7 @@ pub(crate) struct SpriteRenderer {
     used_batch_indices: [HashSet<usize>; 10],
     white_texture: GLuint,
     samplers: [GLint; MAX_TEXTURE_COUNT],
+    pub(crate) grid: SpriteGrid,
 }
 
 impl SpriteRenderer {
@@ -54,6 +55,12 @@ impl SpriteRenderer {
             used_batch_indices: Default::default(),
             white_texture,
             samplers,
+            grid: SpriteGrid {
+                width: 10,
+                height: 10,
+                scale: 1.0,
+                center: (0.5, 0.5),
+            },
         }
     }
 
@@ -98,11 +105,9 @@ impl SpriteRenderer {
             .map(|(p, s, _)| (p, s))
         {
             let scale = scale.copied().unwrap_or_default().scale_matrix();
-            let position: glm::Vec3 = match sprite.position {
-                SpritePosition::Grid(x, y) => glm::vec3(0.0, 0.0, 0.0), // TODO
-                SpritePosition::Absolute(pos) => glm::vec2_to_vec3(&pos),
-            };
+            let position: glm::Vec3 = sprite.position.abs_position(sprite.layer, &self.grid);
             let trafo = &(glm::translate(&glm::Mat4::identity(), &position) * scale);
+
             match &sprite.source {
                 SpriteSource::Sheet(src) => {
                     let sheet = entity_manager
@@ -125,10 +130,10 @@ impl SpriteRenderer {
                         layer: sprite.layer,
                         trafo,
                     };
-                    self.draw_tex_sprite(config);
+                    self.add_tex_sprite(config);
                 }
                 SpriteSource::Colored(color) => {
-                    self.draw_color_sprite(*color, sprite.layer, trafo);
+                    self.add_color_sprite(*color, sprite.layer, trafo);
                 }
                 SpriteSource::Single(path) => {
                     let tex_id = entity_manager
@@ -141,14 +146,19 @@ impl SpriteRenderer {
                         layer: sprite.layer,
                         trafo,
                     };
-                    self.draw_tex_sprite(config);
+                    self.add_tex_sprite(config);
                 }
             }
         }
     }
 
-    /// draws a sprite with a plain color
-    fn draw_color_sprite(&mut self, color: Color32, layer: SpriteLayer, trafo: &glm::Mat4) {
+    /// adds a sprite with a plain color
+    pub(crate) fn add_color_sprite(
+        &mut self,
+        color: Color32,
+        layer: SpriteLayer,
+        trafo: &glm::Mat4,
+    ) {
         self.used_batch_indices[layer as usize].insert(0);
         if self.renderer_map[layer as usize].is_empty() {
             self.renderer_map[layer as usize].push(SpriteBatch::new());
@@ -159,8 +169,8 @@ impl SpriteRenderer {
             .add_color_sprite(trafo, color);
     }
 
-    /// draws a sprite with a texture
-    fn draw_tex_sprite(&mut self, config: SpriteConfig) {
+    /// adds a sprite with a texture
+    pub(crate) fn add_tex_sprite(&mut self, config: SpriteConfig) {
         if self.renderer_map[config.layer as usize].is_empty() {
             self.renderer_map[config.layer as usize].push(SpriteBatch::new());
         }
@@ -427,4 +437,12 @@ pub(crate) struct SpriteSheet {
     pub(crate) texture_id: GLuint,
     pub(crate) width: usize,
     pub(crate) height: usize,
+}
+
+/// config data for a sprite grid
+pub struct SpriteGrid {
+    pub width: usize,
+    pub height: usize,
+    pub scale: f32,
+    pub center: (f32, f32),
 }

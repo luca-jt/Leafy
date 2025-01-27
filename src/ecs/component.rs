@@ -486,6 +486,8 @@ pub struct Sprite {
 /// data structures that are not internally useful as a sole component but might have purpose in relation to other components
 pub mod utils {
     use crate::glm;
+    use crate::rendering::sprite_renderer::SpriteGrid;
+    use crate::utils::tools::map_range;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
     use std::path::Path;
     use std::rc::Rc;
@@ -640,6 +642,13 @@ pub mod utils {
         Layer9,
     }
 
+    impl SpriteLayer {
+        /// converts the sprite layer to the corresponding z coordinate for rendering
+        fn to_z_coord(self) -> f32 {
+            map_range((0.0, 9.0), (-0.9, 0.9), self as isize as f32)
+        }
+    }
+
     /// defines ways to source sprite data from
     #[derive(Debug, Clone, PartialEq)]
     pub enum SpriteSource {
@@ -661,5 +670,19 @@ pub mod utils {
     pub enum SpritePosition {
         Grid(usize, usize),
         Absolute(glm::Vec2),
+    }
+
+    impl SpritePosition {
+        /// calculates the absolute render position
+        pub fn abs_position(&self, layer: SpriteLayer, grid: &SpriteGrid) -> glm::Vec3 {
+            match self {
+                SpritePosition::Grid(x, y) => {
+                    let abs_x = 0.0; // TODO
+                    let abs_y = 0.0;
+                    glm::vec3(abs_x, abs_y, layer.to_z_coord())
+                }
+                SpritePosition::Absolute(pos) => glm::vec3(pos.x, pos.y, layer.to_z_coord()),
+            }
+        }
     }
 }

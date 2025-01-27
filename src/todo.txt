@@ -20,6 +20,5 @@ conways game of life example
 make asset command auto calls optional
 
 sprite renderer
--> layout grids can be smoothly independantly moved, only render the part of the grid that is visible
--> store the current position of the screen relative to the grid
+-> only render the part of the grid that is visible
 -> one grid per layer?
