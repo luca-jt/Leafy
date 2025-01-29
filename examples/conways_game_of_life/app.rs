@@ -1,9 +1,9 @@
-use falling_leaf::components;
 use falling_leaf::ecs::component::utils::*;
 use falling_leaf::ecs::component::Sprite;
 use falling_leaf::ecs::entity::EntityID;
 use falling_leaf::engine::{Engine, FallingLeafApp};
 use falling_leaf::utils::constants::NO_ENTITY;
+use falling_leaf::{components, glm};
 
 const GRID_SIZE: usize = 120;
 
@@ -32,7 +32,7 @@ impl FallingLeafApp for App {
                         .entity_manager_mut()
                         .create_entity(components!(Sprite {
                             source: SpriteSource::Colored(Color32::BLACK),
-                            position: SpritePosition::Grid(0, 0),
+                            position: SpritePosition::Grid(glm::vec2(col as f32, row as f32)),
                             layer: SpriteLayer::Layer0,
                         }));
             }

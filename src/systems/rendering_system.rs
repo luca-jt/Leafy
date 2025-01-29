@@ -8,7 +8,7 @@ use crate::rendering::data::*;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::{ShaderCatalog, ShaderType};
-use crate::rendering::sprite_renderer::SpriteRenderer;
+use crate::rendering::sprite_renderer::{SpriteGrid, SpriteRenderer};
 use crate::systems::event_system::events::{CamPositionChange, WindowResize};
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::user_level::INVISIBLE;
@@ -561,6 +561,11 @@ impl RenderingSystem {
         self.skybox = skybox;
     }
 
+    /// access to the sprite grid config
+    pub fn sprite_grid_mut(&mut self) -> &mut SpriteGrid {
+        &mut self.sprite_renderer.grid
+    }
+
     /// change OpenGL's background clear color (default is WHITE)
     pub fn set_gl_clearcolor(&mut self, color: Color32) {
         log::trace!("set gl clear color: {:?}", color);
@@ -612,6 +617,8 @@ impl EventObserver<WindowResize> for RenderingSystem {
     fn on_event(&mut self, event: &WindowResize) {
         self.perspective_camera
             .update_win_size(event.width, event.height);
+        let stretch_factor = event.width as f32 / event.height as f32;
+        self.ortho_camera = OrthoCamera::new(-stretch_factor, stretch_factor, -1.0, 1.0);
     }
 }
 

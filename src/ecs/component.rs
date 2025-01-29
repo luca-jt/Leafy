@@ -644,8 +644,8 @@ pub mod utils {
 
     impl SpriteLayer {
         /// converts the sprite layer to the corresponding z coordinate for rendering
-        fn to_z_coord(self) -> f32 {
-            map_range((0.0, 9.0), (-0.9, 0.9), self as isize as f32)
+        pub fn to_z_coord(self) -> f32 {
+            map_range((0.0, 9.0), (0.8, -0.8), self as isize as f32)
         }
     }
 
@@ -668,7 +668,7 @@ pub mod utils {
     /// sprite position on a defined grid or in absolute values
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub enum SpritePosition {
-        Grid(usize, usize),
+        Grid(glm::Vec2),
         Absolute(glm::Vec2),
     }
 
@@ -676,10 +676,9 @@ pub mod utils {
         /// calculates the absolute render position
         pub fn abs_position(&self, layer: SpriteLayer, grid: &SpriteGrid) -> glm::Vec3 {
             match self {
-                SpritePosition::Grid(x, y) => {
-                    let abs_x = 0.0; // TODO
-                    let abs_y = 0.0;
-                    glm::vec3(abs_x, abs_y, layer.to_z_coord())
+                SpritePosition::Grid(pos) => {
+                    let abs_pos = (pos - grid.center) * grid.scale;
+                    glm::vec3(abs_pos.x, abs_pos.y, layer.to_z_coord())
                 }
                 SpritePosition::Absolute(pos) => glm::vec3(pos.x, pos.y, layer.to_z_coord()),
             }

@@ -319,9 +319,9 @@ pub(crate) struct OrthoCamera {
 impl OrthoCamera {
     /// creates a new orthographic camera
     pub(crate) fn new(left: f32, right: f32, bottom: f32, top: f32) -> Self {
-        let position = -Z_AXIS;
+        let position = Z_AXIS;
         Self {
-            projection: glm::ortho(left, right, bottom, top, -1.0, 1.0),
+            projection: glm::ortho(left, right, bottom, top, 0.1, 2.0),
             view: glm::look_at(&position, &ORIGIN, &Y_AXIS),
         }
     }

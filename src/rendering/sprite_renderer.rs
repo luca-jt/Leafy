@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::{Color32, SpriteLayer, SpriteSource};
+use crate::ecs::component::utils::{Color32, SpriteLayer, SpritePosition, SpriteSource};
 use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::glm;
@@ -56,10 +56,8 @@ impl SpriteRenderer {
             white_texture,
             samplers,
             grid: SpriteGrid {
-                width: 10,
-                height: 10,
-                scale: 1.0,
-                center: (0.5, 0.5),
+                scale: 0.5,
+                center: glm::vec2(5.0, 5.0),
             },
         }
     }
@@ -105,8 +103,17 @@ impl SpriteRenderer {
             .map(|(p, s, _)| (p, s))
         {
             let scale = scale.copied().unwrap_or_default().scale_matrix();
-            let position: glm::Vec3 = sprite.position.abs_position(sprite.layer, &self.grid);
-            let trafo = &(glm::translate(&glm::Mat4::identity(), &position) * scale);
+            let position = sprite.position.abs_position(sprite.layer, &self.grid);
+            let trafo = match sprite.position {
+                SpritePosition::Grid(_) => {
+                    &(glm::translate(&glm::Mat4::identity(), &position)
+                        * scale
+                        * Scale::from_factor(self.grid.scale).scale_matrix())
+                }
+                SpritePosition::Absolute(_) => {
+                    &(glm::translate(&glm::Mat4::identity(), &position) * scale)
+                }
+            };
 
             match &sprite.source {
                 SpriteSource::Sheet(src) => {
@@ -425,11 +432,11 @@ pub(crate) struct SpriteVertex {
 }
 
 /// the sprite render config for the renderer
-struct SpriteConfig<'a> {
-    tex_id: GLuint,
-    tex_coords: [glm::Vec2; 4],
-    layer: SpriteLayer,
-    trafo: &'a glm::Mat4,
+pub(crate) struct SpriteConfig<'a> {
+    pub(crate) tex_id: GLuint,
+    pub(crate) tex_coords: [glm::Vec2; 4],
+    pub(crate) layer: SpriteLayer,
+    pub(crate) trafo: &'a glm::Mat4,
 }
 
 /// data associated with one sprite sheet
@@ -440,9 +447,8 @@ pub(crate) struct SpriteSheet {
 }
 
 /// config data for a sprite grid
+#[derive(Debug, Copy, Clone)]
 pub struct SpriteGrid {
-    pub width: usize,
-    pub height: usize,
     pub scale: f32,
-    pub center: (f32, f32),
+    pub center: glm::Vec2,
 }

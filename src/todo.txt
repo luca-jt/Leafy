@@ -11,6 +11,7 @@ volumetric rendering -> voxels
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons
 object outlining with stencil buffer
 cube shadow maps for point lights as an option
+shading type in component -> add styles like cell shading
 2D animation frames
 materials -> reflection with dynamic environment maps, water
 2D sprite hitboxes with seperate collision checking
@@ -18,6 +19,7 @@ particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing t
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 conways game of life example
 make asset command auto calls optional
+option to force viewport ratio independant of the window ratio
 
 sprite renderer
 -> only render the part of the grid that is visible
