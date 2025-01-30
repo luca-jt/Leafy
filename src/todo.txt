@@ -17,10 +17,8 @@ materials -> reflection with dynamic environment maps, water
 2D sprite hitboxes with seperate collision checking
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
+
 conways game of life example
 make asset command auto calls optional
 option to force viewport ratio independant of the window ratio
-
-sprite renderer
--> only render the part of the grid that is visible
--> one grid per layer?
+dont bake all meshes

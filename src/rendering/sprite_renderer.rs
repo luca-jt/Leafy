@@ -20,7 +20,7 @@ pub(crate) struct SpriteRenderer {
     used_batch_indices: [HashSet<usize>; 10],
     white_texture: GLuint,
     samplers: [GLint; MAX_TEXTURE_COUNT],
-    pub(crate) grid: SpriteGrid,
+    pub(crate) grids: [SpriteGrid; 10],
 }
 
 impl SpriteRenderer {
@@ -55,10 +55,7 @@ impl SpriteRenderer {
             used_batch_indices: Default::default(),
             white_texture,
             samplers,
-            grid: SpriteGrid {
-                scale: 0.5,
-                center: glm::vec2(5.0, 5.0),
-            },
+            grids: [SpriteGrid::default(); 10],
         }
     }
 
@@ -103,18 +100,20 @@ impl SpriteRenderer {
             .map(|(p, s, _)| (p, s))
         {
             let scale = scale.copied().unwrap_or_default().scale_matrix();
-            let position = sprite.position.abs_position(sprite.layer, &self.grid);
             let trafo = match sprite.position {
-                SpritePosition::Grid(_) => {
+                SpritePosition::Grid(pos) => {
+                    let grid = self.grids[sprite.layer as usize];
+                    let abs_pos = (pos - grid.center) * grid.scale;
+                    let position = glm::vec3(abs_pos.x, abs_pos.y, sprite.layer.to_z_coord());
                     &(glm::translate(&glm::Mat4::identity(), &position)
                         * scale
-                        * Scale::from_factor(self.grid.scale).scale_matrix())
+                        * Scale::from_factor(grid.scale).scale_matrix())
                 }
-                SpritePosition::Absolute(_) => {
+                SpritePosition::Absolute(abs_pos) => {
+                    let position = glm::vec3(abs_pos.x, abs_pos.y, sprite.layer.to_z_coord());
                     &(glm::translate(&glm::Mat4::identity(), &position) * scale)
                 }
             };
-
             match &sprite.source {
                 SpriteSource::Sheet(src) => {
                     let sheet = entity_manager
@@ -446,9 +445,18 @@ pub(crate) struct SpriteSheet {
     pub(crate) height: usize,
 }
 
-/// config data for a sprite grid
+/// config data for a sprite grid (default is scale 1 and center origin)
 #[derive(Debug, Copy, Clone)]
 pub struct SpriteGrid {
     pub scale: f32,
     pub center: glm::Vec2,
+}
+
+impl Default for SpriteGrid {
+    fn default() -> Self {
+        Self {
+            scale: 1.0,
+            center: glm::vec2(0.0, 0.0),
+        }
+    }
 }

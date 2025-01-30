@@ -486,7 +486,6 @@ pub struct Sprite {
 /// data structures that are not internally useful as a sole component but might have purpose in relation to other components
 pub mod utils {
     use crate::glm;
-    use crate::rendering::sprite_renderer::SpriteGrid;
     use crate::utils::tools::map_range;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
     use std::path::Path;
@@ -670,18 +669,5 @@ pub mod utils {
     pub enum SpritePosition {
         Grid(glm::Vec2),
         Absolute(glm::Vec2),
-    }
-
-    impl SpritePosition {
-        /// calculates the absolute render position
-        pub fn abs_position(&self, layer: SpriteLayer, grid: &SpriteGrid) -> glm::Vec3 {
-            match self {
-                SpritePosition::Grid(pos) => {
-                    let abs_pos = (pos - grid.center) * grid.scale;
-                    glm::vec3(abs_pos.x, abs_pos.y, layer.to_z_coord())
-                }
-                SpritePosition::Absolute(pos) => glm::vec3(pos.x, pos.y, layer.to_z_coord()),
-            }
-        }
     }
 }

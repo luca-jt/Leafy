@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::Color32;
+use crate::ecs::component::utils::{Color32, SpriteLayer};
 use crate::ecs::component::*;
 use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
@@ -561,9 +561,9 @@ impl RenderingSystem {
         self.skybox = skybox;
     }
 
-    /// access to the sprite grid config
-    pub fn sprite_grid_mut(&mut self) -> &mut SpriteGrid {
-        &mut self.sprite_renderer.grid
+    /// access to the sprite grid config of the given layer
+    pub fn sprite_grid_mut(&mut self, layer: SpriteLayer) -> &mut SpriteGrid {
+        &mut self.sprite_renderer.grids[layer as usize]
     }
 
     /// change OpenGL's background clear color (default is WHITE)

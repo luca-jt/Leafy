@@ -25,11 +25,16 @@ impl App {
 
 impl FallingLeafApp for App {
     fn init(&mut self, engine: &Engine<Self>) {
+        engine
+            .rendering_system_mut()
+            .sprite_grid_mut(SpriteLayer::Layer0)
+            .scale = 0.5;
+
         let mut entity_manager = engine.entity_manager_mut();
         self.sprite = entity_manager.create_entity(components!(
             Sprite {
                 source: SpriteSource::Single(Path::new("examples/2D/sprite.png").into()),
-                position: SpritePosition::Grid(glm::vec2(4.0, 5.0)),
+                position: SpritePosition::Grid(glm::vec2(-1.0, 0.0)),
                 layer: SpriteLayer::Layer0,
             },
             Scale::from_factor(1.0)
