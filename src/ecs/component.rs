@@ -257,8 +257,6 @@ pub enum MeshType {
     Plane,
     Cube,
     Sphere,
-    Cylinder,
-    Cone,
     Torus,
     Custom(Rc<Path>),
 }

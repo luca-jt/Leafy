@@ -21,4 +21,3 @@ ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 conways game of life example
 make asset command auto calls optional
 option to force viewport ratio independant of the window ratio
-dont bake all meshes

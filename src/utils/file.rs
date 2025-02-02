@@ -52,8 +52,6 @@ pub(crate) const SPRITE_FRAG: &str = include_str!(shader_path!("sprite.frag"));
 pub(crate) const TRIANGLE_MESH: &[u8] = include_bytes!(model_path!("triangle.obj"));
 pub(crate) const PLANE_MESH: &[u8] = include_bytes!(model_path!("plane.obj"));
 pub(crate) const CUBE_MESH: &[u8] = include_bytes!(model_path!("cube.obj"));
-pub(crate) const CONE_MESH: &[u8] = include_bytes!(model_path!("cone.obj"));
-pub(crate) const CYLINDER_MESH: &[u8] = include_bytes!(model_path!("cylinder.obj"));
 pub(crate) const SPHERE_MESH: &[u8] = include_bytes!(model_path!("sphere.obj"));
 pub(crate) const TORUS_MESH: &[u8] = include_bytes!(model_path!("torus.obj"));
 

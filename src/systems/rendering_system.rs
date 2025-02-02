@@ -363,7 +363,7 @@ impl RenderingSystem {
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
         match rd.spec.mesh_type {
-            MeshType::Triangle | MeshType::Plane | MeshType::Cube | MeshType::Cone => {
+            MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
                 let mut renderer = BatchRenderer::new();
                 match rd.m_attr {
                     MeshAttribute::Colored(color) => {

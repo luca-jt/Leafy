@@ -238,8 +238,6 @@ impl EntityManager {
                                 MeshType::Plane => Mesh::from_bytes(PLANE_MESH),
                                 MeshType::Cube => Mesh::from_bytes(CUBE_MESH),
                                 MeshType::Sphere => Mesh::from_bytes(SPHERE_MESH),
-                                MeshType::Cylinder => Mesh::from_bytes(CYLINDER_MESH),
-                                MeshType::Cone => Mesh::from_bytes(CONE_MESH),
                                 MeshType::Torus => Mesh::from_bytes(TORUS_MESH),
                                 MeshType::Custom(path) => Mesh::from_path(path),
                             };
