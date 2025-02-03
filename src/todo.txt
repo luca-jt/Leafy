@@ -1,8 +1,7 @@
 controller events
-raytracing the current scene
 switchable render backends -> vulkan support
-animations
-graphics improvement -> https://youtu.be/Uc8FEI5bg3w, bloom
+skeletal animations
+graphics improvement -> https://youtu.be/Uc8FEI5bg3w, bloom, screen space effects, reflection with dynamic environment maps, water shader
 scene files and loading of them -> serialization (serde)
 shadow anti-aliasing -> pcss
 cascaded shadow mapping
@@ -13,11 +12,10 @@ object outlining with stencil buffer
 cube shadow maps for point lights as an option
 shading type in component -> add styles like cell shading
 2D animation frames
-materials -> reflection with dynamic environment maps, water
+basic materials
 2D sprite hitboxes with seperate collision checking
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 
-conways game of life example
 make asset command auto calls optional
 option to force viewport ratio independant of the window ratio

@@ -108,10 +108,10 @@ pub(crate) const SCREEN_TRIANGLE_VERTICES: [f32; 15] = [
 ];
 
 pub(crate) const SPRITE_PLANE_VERTICES: [glm::Vec3; 4] = [
-    glm::Vec3::new(-1.0, -1.0, 0.0),
-    glm::Vec3::new(1.0, 1.0, 0.0),
-    glm::Vec3::new(-1.0, 1.0, 0.0),
-    glm::Vec3::new(1.0, -1.0, 0.0),
+    glm::Vec3::new(-0.5, -0.5, 0.0),
+    glm::Vec3::new(0.5, 0.5, 0.0),
+    glm::Vec3::new(-0.5, 0.5, 0.0),
+    glm::Vec3::new(0.5, -0.5, 0.0),
 ];
 pub(crate) const SPRITE_PLANE_UVS: [glm::Vec2; 4] = [
     glm::Vec2::new(0.0, 1.0),

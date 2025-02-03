@@ -492,7 +492,7 @@ pub mod utils {
 
     /// efficient 32bit color representation
     #[repr(C)]
-    #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
     pub struct Color32([u8; 4]);
 
     impl Color32 {

@@ -14,8 +14,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let app = App::new();
     let mut engine = EngineAttributes::new()
         .with_transparent(true)
-        .with_blur(true)
         .with_title("Conway's Game of Life")
+        .with_size(800, 800)
         .with_resizable(false)
         .build_engine()
         .unwrap();

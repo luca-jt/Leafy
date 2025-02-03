@@ -18,7 +18,6 @@ pub struct EngineAttributes {
     min_size: Option<(u32, u32)>,
     pub(crate) enforced_ratio: Option<f32>,
     transparent: bool,
-    blur: bool,
     icon: AppIcon,
     resizable: bool,
     max_size: Option<(u32, u32)>,
@@ -39,7 +38,6 @@ impl EngineAttributes {
             min_size: None,
             enforced_ratio: None,
             transparent: false,
-            blur: false,
             icon: AppIcon::Default,
             resizable: true,
             max_size: None,
@@ -89,12 +87,6 @@ impl EngineAttributes {
     /// sets the window as transparent (default is ``false``)
     pub fn with_transparent(mut self, flag: bool) -> Self {
         self.transparent = flag;
-        self
-    }
-
-    /// sets the window background as blurred (default is ``false``)
-    pub fn with_blur(mut self, flag: bool) -> Self {
-        self.blur = flag;
         self
     }
 
@@ -165,7 +157,6 @@ impl EngineAttributes {
     pub(crate) fn generate_win_attrs(&self) -> WindowAttributes {
         let mut window_attributes = Window::default_attributes()
             .with_transparent(self.transparent)
-            .with_blur(self.blur)
             .with_title(self.title)
             .with_resizable(self.resizable)
             .with_maximized(self.maximized)

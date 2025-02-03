@@ -97,6 +97,10 @@ impl SpriteRenderer {
         for (sprite, scale) in entity_manager
             .query3_opt2::<Sprite, Scale, EntityFlags>((None, None))
             .filter(|(_, _, f)| f.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
+            .filter(|(s, _, _)| match s.source {
+                SpriteSource::Colored(color) => color != Color32::TRANSPARENT,
+                _ => true,
+            })
             .map(|(p, s, _)| (p, s))
         {
             let scale = scale.copied().unwrap_or_default().scale_matrix();
