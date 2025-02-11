@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::*;
+use crate::ecs::component::utils::CollisionInfo;
 use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::{Engine, FallingLeafApp};
@@ -78,10 +78,10 @@ impl AnimationSystem {
     fn handle_collisions(&self, entity_manager: &mut EntityManager) {
         let mut entity_data = unsafe {
             entity_manager
-                .query9_mut_opt6::<Position, Collider, MeshType, Velocity, AngularMomentum, Scale, RigidBody, EntityFlags, Orientation>((None, None))
-                .map(|(p, coll, mt, v, am, s, rb, f, o)| {
-                    let mesh = entity_manager.asset_from_type(mt, LOD::None).unwrap();
-                    let hitbox = entity_manager.hitbox_from_data(mt, &coll.hitbox_type).unwrap();
+                .query9_mut_opt6::<Position, Collider, Renderable, Velocity, AngularMomentum, Scale, RigidBody, EntityFlags, Orientation>((None, None))
+                .map(|(p, coll, rndrbl, v, am, s, rb, f, o)| {
+                    let mesh = entity_manager.asset_from_type(&rndrbl.mesh_type, LOD::None).unwrap();
+                    let hitbox = entity_manager.hitbox_from_data(&rndrbl.mesh_type, &coll.hitbox_type).unwrap();
                     let scale_matrix = copied_or_default(&s).scale_matrix() * coll.scale.scale_matrix();
                     let coll_reach = mesh.max_reach + coll.offset.abs();
                     coll.last_collisions.clear();

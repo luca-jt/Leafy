@@ -1,4 +1,5 @@
 controller events
+raytrace the current scene
 switchable render backends -> vulkan support
 skeletal animations
 graphics improvement -> https://youtu.be/Uc8FEI5bg3w, bloom, screen space effects, reflection with dynamic environment maps, water shader
@@ -7,15 +8,19 @@ shadow anti-aliasing -> pcss
 cascaded shadow mapping
 voxelized meshes + hitboxes (for non-convex cases) -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
 volumetric rendering -> voxels
-different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons
-object outlining with stencil buffer
 cube shadow maps for point lights as an option
-shading type in component -> add styles like cell shading
 2D animation frames
-basic materials
 2D sprite hitboxes with seperate collision checking
+shading type in component -> add styles like cell shading -> together in renderable component?
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
+collision fix -> sequential solver?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
+object outlining with stencil buffer
 
+basic materials
+different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
+-> seperate asset manager that needs to be used manually? -> no unsafe queries any more?
+msaa custom to include borders in textures etc -> 3d screen texture not optional any more
 make asset command auto calls optional
+colliders dont need a renderable -> they can use the default box if no mesh is present and panic when using the convex hull
 option to force viewport ratio independant of the window ratio

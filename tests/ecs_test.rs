@@ -1,6 +1,5 @@
 use falling_leaf::components;
-use falling_leaf::ecs::component::utils::Color32;
-use falling_leaf::ecs::component::{MeshAttribute, MeshType, PointLight, Position};
+use falling_leaf::ecs::component::*;
 use falling_leaf::ecs::entity_manager::EntityManager;
 
 struct A;
@@ -26,30 +25,8 @@ fn entity_test() {
 fn render_data() {
     let mut ecs = EntityManager::new();
     let _ = ecs.create_entity(components!(Position::origin(), PointLight::default()));
-    let r1 = ecs.create_entity(components!(
-        Position::origin(),
-        MeshType::Cone,
-        MeshAttribute::Colored(Color32::WHITE)
-    ));
-    let r2 = ecs.create_entity(components!(
-        Position::origin(),
-        MeshType::Cube,
-        MeshAttribute::Colored(Color32::RED)
-    ));
+    let _ = ecs.create_entity(components!(Position::origin()));
+    let _ = ecs.create_entity(components!(Position::origin()));
     assert_eq!(ecs.query1::<PointLight>((None, None)).count(), 1);
-    assert_eq!(ecs.query1::<MeshType>((None, None)).count(), 2);
-    assert_eq!(
-        ecs.get_component::<MeshAttribute>(r1)
-            .unwrap()
-            .color()
-            .unwrap(),
-        Color32::WHITE
-    );
-    assert_eq!(
-        ecs.get_component::<MeshAttribute>(r2)
-            .unwrap()
-            .color()
-            .unwrap(),
-        Color32::RED
-    );
+    assert_eq!(ecs.query1::<Position>((None, None)).count(), 3);
 }

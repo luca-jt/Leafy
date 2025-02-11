@@ -1,5 +1,4 @@
 use falling_leaf::components;
-use falling_leaf::ecs::component::utils::Filtering;
 use falling_leaf::ecs::component::utils::*;
 use falling_leaf::ecs::component::*;
 use falling_leaf::ecs::entity::EntityID;
@@ -73,34 +72,46 @@ impl FallingLeafApp for App {
         let _light1 = entity_manager.create_entity(components!(
             Position::new(-1.0, 6.0, -1.0),
             PointLight::default(),
-            MeshType::Cube,
-            MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
+            Renderable {
+                mesh_type: MeshType::Cube,
+                mesh_attribute: MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
+                material: Material::default(),
+            },
             Scale::from_factor(0.1)
         ));
         let _light2 = entity_manager.create_entity(components!(
             Position::new(1.0, 6.0, 1.0),
             PointLight::default(),
-            MeshType::Cube,
-            MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
+            Renderable {
+                mesh_type: MeshType::Cube,
+                mesh_attribute: MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
+                material: Material::default(),
+            },
             Scale::from_factor(0.1)
         ));
 
         let _floor = entity_manager.create_entity(components!(
             Position::origin(),
             Scale::new(5.0, 0.1, 5.0),
-            MeshType::Cube,
-            MeshAttribute::Textured(Texture {
-                path: Path::new("examples/3D/wall.png").into(),
-                filtering: Filtering::Nearest,
-                wrapping: Wrapping::Repeat,
-            }),
+            Renderable {
+                mesh_type: MeshType::Cube,
+                mesh_attribute: MeshAttribute::Textured(Texture {
+                    path: Path::new("examples/3D/wall.png").into(),
+                    filtering: Filtering::Nearest,
+                    wrapping: Wrapping::Repeat,
+                }),
+                material: Material::default(),
+            },
             Collider::new(HitboxType::Box)
         ));
 
         let _hammer = entity_manager.create_entity(components!(
             Position::new(6.0, 2.0, 0.0),
-            MeshType::Custom(Path::new("examples/3D/hammer.obj").into()),
-            MeshAttribute::Colored(Color32::GREY),
+            Renderable {
+                mesh_type: MeshType::Custom(Path::new("examples/3D/hammer.obj").into()),
+                mesh_attribute: MeshAttribute::Colored(Color32::GREY),
+                material: Material::default(),
+            },
             Velocity::zero(),
             RigidBody::default().with_density(5.0),
             Orientation::default(),
@@ -117,8 +128,11 @@ impl FallingLeafApp for App {
         self.player = entity_manager.create_entity(components!(
             Position::new(0.0, 4.0, 0.0),
             Scale::from_factor(0.2),
-            MeshType::Cube,
-            MeshAttribute::Colored(Color32::RED),
+            Renderable {
+                mesh_type: MeshType::Cube,
+                mesh_attribute: MeshAttribute::Colored(Color32::RED),
+                material: Material::default(),
+            },
             Velocity::new(-1.0, 0.0, 0.0),
             Orientation::new(45.0, Y_AXIS + Z_AXIS),
             AngularMomentum::zero(),
@@ -140,8 +154,11 @@ impl FallingLeafApp for App {
         self.sphere = entity_manager.create_entity(components!(
             Position::new(0.0, 1.0, 1.0),
             Scale::from_factor(0.2),
-            MeshType::Sphere,
-            MeshAttribute::Colored(Color32::BLUE),
+            Renderable {
+                mesh_type: MeshType::Sphere,
+                mesh_attribute: MeshAttribute::Colored(Color32::BLUE),
+                material: Material::default(),
+            },
             SoundController::from_handles(&[heli_sound]),
             TouchTime::now(),
             EntityFlags::from_flags(&[DOPPLER_EFFECT])
@@ -149,8 +166,11 @@ impl FallingLeafApp for App {
         self.collision_point = entity_manager.create_entity(components!(
             Position::origin(),
             Scale::from_factor(0.05),
-            MeshType::Sphere,
-            MeshAttribute::Colored(Color32::YELLOW)
+            Renderable {
+                mesh_type: MeshType::Sphere,
+                mesh_attribute: MeshAttribute::Colored(Color32::YELLOW),
+                material: Material::default(),
+            }
         ));
 
         engine.event_system_mut().add_modifier(jump);

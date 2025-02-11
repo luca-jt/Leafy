@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::{HitboxType, SpriteSource};
+use crate::ecs::component::utils::*;
 use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::{SpriteTextureMap, TextureMap};
@@ -73,12 +73,10 @@ impl EntityManager {
 
     /// deletes an entity from the register by id and returns the removed entity
     pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), Rc<str>> {
-        if unsafe { &*self.ecs.get() }.has_component::<MeshType>(entity) {
+        if unsafe { &*self.ecs.get() }.has_component::<Renderable>(entity) {
             self.add_command(AssetCommand::CleanMeshes);
             self.add_command(AssetCommand::CleanHitboxes);
             self.add_command(AssetCommand::CleanLODs);
-        }
-        if unsafe { &*self.ecs.get() }.has_component::<MeshAttribute>(entity) {
             self.add_command(AssetCommand::CleanTextures);
         }
         if unsafe { &*self.ecs.get() }.has_component::<Sprite>(entity) {
@@ -96,20 +94,19 @@ impl EntityManager {
 
     /// yields the mutable component data reference of an entity if present (also returns ``None`` if the entity ID is invalid)
     pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
-        if types_eq::<T, MeshType>() {
+        if types_eq::<T, Renderable>() {
             self.add_command(AssetCommand::UpdateRigidBody(entity));
             self.add_command(AssetCommand::AddMesh(entity));
             self.add_command(AssetCommand::CleanMeshes);
             self.add_command(AssetCommand::AddHitbox(entity));
             self.add_command(AssetCommand::CleanHitboxes);
+            self.add_command(AssetCommand::AddTexture(entity));
+            self.add_command(AssetCommand::CleanTextures);
         } else if types_eq::<T, Scale>() || types_eq::<T, RigidBody>() {
             self.add_command(AssetCommand::UpdateRigidBody(entity));
         } else if types_eq::<T, Collider>() {
             self.add_command(AssetCommand::AddHitbox(entity));
             self.add_command(AssetCommand::CleanHitboxes);
-        } else if types_eq::<T, MeshAttribute>() {
-            self.add_command(AssetCommand::AddTexture(entity));
-            self.add_command(AssetCommand::CleanTextures);
         } else if types_eq::<T, Sprite>() {
             self.add_command(AssetCommand::AddSpriteData(entity));
             self.add_command(AssetCommand::CleanSpriteData);
@@ -122,7 +119,7 @@ impl EntityManager {
     pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) -> Result<(), Rc<str>> {
         self.ecs.get_mut().add_component::<T>(entity, component)?;
         // add mesh to the register if necessary
-        if types_eq::<T, MeshType>() {
+        if types_eq::<T, Renderable>() {
             self.add_command(AssetCommand::AddMesh(entity));
         }
         // add the texture if necessary
@@ -156,11 +153,10 @@ impl EntityManager {
     pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
         let removed = self.ecs.get_mut().remove_component::<T>(entity);
         if removed.is_some() {
-            if types_eq::<T, MeshType>() {
+            if types_eq::<T, Renderable>() {
                 self.add_command(AssetCommand::CleanMeshes);
                 self.add_command(AssetCommand::CleanHitboxes);
                 self.add_command(AssetCommand::CleanLODs);
-            } else if types_eq::<T, MeshAttribute>() {
                 self.add_command(AssetCommand::CleanTextures);
             } else if types_eq::<T, Scale>() {
                 self.add_command(AssetCommand::UpdateRigidBody(entity));
@@ -229,11 +225,15 @@ impl EntityManager {
         while let Some(command) = self.commands.pop_front() {
             match command {
                 AssetCommand::AddMesh(entity) => {
-                    if let Some(mesh_type) =
-                        unsafe { &*self.ecs.get() }.get_component::<MeshType>(entity)
+                    if let Some(renderable) =
+                        unsafe { &*self.ecs.get() }.get_component::<Renderable>(entity)
                     {
-                        if !self.asset_register.keys().any(|t| t == mesh_type) {
-                            let mesh = match mesh_type {
+                        if !self
+                            .asset_register
+                            .keys()
+                            .any(|t| t == &renderable.mesh_type)
+                        {
+                            let mesh = match &renderable.mesh_type {
                                 MeshType::Triangle => Mesh::from_bytes(TRIANGLE_MESH),
                                 MeshType::Plane => Mesh::from_bytes(PLANE_MESH),
                                 MeshType::Cube => Mesh::from_bytes(CUBE_MESH),
@@ -241,15 +241,17 @@ impl EntityManager {
                                 MeshType::Torus => Mesh::from_bytes(TORUS_MESH),
                                 MeshType::Custom(path) => Mesh::from_path(path),
                             };
-                            self.asset_register.insert(mesh_type.clone(), mesh);
-                            log::debug!("inserted mesh in register: '{:?}'", mesh_type);
+                            self.asset_register
+                                .insert(renderable.mesh_type.clone(), mesh);
+                            log::debug!("inserted mesh in register: '{:?}'", renderable.mesh_type);
                         }
                     }
                 }
                 AssetCommand::CleanMeshes => {
                     self.asset_register.retain(|mesh_type, _| {
                         let contains = unsafe { &*self.ecs.get() }
-                            .query1::<MeshType>((None, None))
+                            .query1::<Renderable>((None, None))
+                            .map(|r| &r.mesh_type)
                             .contains(mesh_type);
                         let is_cached = self
                             .cache_instructions
@@ -262,20 +264,20 @@ impl EntityManager {
                     });
                 }
                 AssetCommand::AddHitbox(entity) => {
-                    if let (Some(mesh_type), Some(collider)) = (
-                        unsafe { &*self.ecs.get() }.get_component::<MeshType>(entity),
+                    if let (Some(renderable), Some(collider)) = (
+                        unsafe { &*self.ecs.get() }.get_component::<Renderable>(entity),
                         unsafe { &*self.ecs.get() }.get_component::<Collider>(entity),
                     ) {
                         self.hitbox_register
-                            .entry((mesh_type.clone(), collider.hitbox_type))
+                            .entry((renderable.mesh_type.clone(), collider.hitbox_type))
                             .or_insert_with(|| {
                                 log::debug!(
                                     "inserted hitbox '{:?}' in register for mesh '{:?}'",
                                     collider.hitbox_type,
-                                    mesh_type
+                                    renderable.mesh_type
                                 );
                                 self.asset_register
-                                    .get(mesh_type)
+                                    .get(&renderable.mesh_type)
                                     .unwrap()
                                     .generate_hitbox(&collider.hitbox_type)
                             });
@@ -284,8 +286,8 @@ impl EntityManager {
                 AssetCommand::CleanHitboxes => {
                     self.hitbox_register.retain(|(mesh_type, box_type), _| {
                         let contains = unsafe { &*self.ecs.get() }
-                            .query2::<MeshType, Collider>((None, None))
-                            .map(|(mt, coll)| (mt, &coll.hitbox_type))
+                            .query2::<Renderable, Collider>((None, None))
+                            .map(|(rndrbl, coll)| (&rndrbl.mesh_type, &coll.hitbox_type))
                             .contains(&(mesh_type, box_type));
                         let is_cached =
                             self.cache_instructions
@@ -305,12 +307,13 @@ impl EntityManager {
                     });
                 }
                 AssetCommand::UpdateRigidBody(entity) => {
-                    if unsafe { &*self.ecs.get() }.has_component::<MeshType>(entity)
+                    if unsafe { &*self.ecs.get() }.has_component::<Renderable>(entity)
                         && unsafe { &*self.ecs.get() }.has_component::<RigidBody>(entity)
                     {
-                        let mt = unsafe { &*self.ecs.get() }
-                            .get_component::<MeshType>(entity)
-                            .unwrap();
+                        let mt = &unsafe { &*self.ecs.get() }
+                            .get_component::<Renderable>(entity)
+                            .unwrap()
+                            .mesh_type;
                         let mesh = self.asset_from_type(mt, LOD::None).unwrap();
                         let scale = unsafe { &*self.ecs.get() }
                             .get_component::<Scale>(entity)
@@ -349,8 +352,9 @@ impl EntityManager {
                         });
                 }
                 AssetCommand::AddTexture(entity) => {
-                    if let Some(MeshAttribute::Textured(texture)) =
-                        unsafe { &*self.ecs.get() }.get_component::<MeshAttribute>(entity)
+                    if let Some(MeshAttribute::Textured(texture)) = unsafe { &*self.ecs.get() }
+                        .get_component::<Renderable>(entity)
+                        .map(|r| &r.mesh_attribute)
                     {
                         if self.texture_map.get_tex_id(texture).is_none() {
                             self.texture_map.add_texture(texture);
@@ -360,8 +364,8 @@ impl EntityManager {
                 AssetCommand::CleanTextures => {
                     self.texture_map.retain(|texture| {
                         let contains = unsafe { &*self.ecs.get() }
-                            .query1::<MeshAttribute>((None, None))
-                            .filter_map(|ma| ma.texture())
+                            .query1::<Renderable>((None, None))
+                            .filter_map(|r| r.mesh_attribute.texture())
                             .contains(texture);
                         let is_cached = self
                             .cache_instructions
@@ -371,7 +375,9 @@ impl EntityManager {
                 }
                 AssetCommand::AddLODs(entity) => {
                     if let (Some(mesh_type), Some(_)) = (
-                        unsafe { &*self.ecs.get() }.get_component::<MeshType>(entity),
+                        unsafe { &*self.ecs.get() }
+                            .get_component::<Renderable>(entity)
+                            .map(|r| &r.mesh_type),
                         unsafe { &*self.ecs.get() }.get_component::<LOD>(entity),
                     ) {
                         if !self.lod_register.keys().any(|t| t == mesh_type) {
@@ -385,8 +391,8 @@ impl EntityManager {
                 AssetCommand::CleanLODs => {
                     self.lod_register.retain(|mesh_type, _| {
                         let contains = unsafe { &*self.ecs.get() }
-                            .query2::<MeshType, LOD>((None, None))
-                            .map(|(mt, _)| mt)
+                            .query2::<Renderable, LOD>((None, None))
+                            .map(|(rndrbl, _)| &rndrbl.mesh_type)
                             .contains(mesh_type);
                         let is_cached = self
                             .cache_instructions

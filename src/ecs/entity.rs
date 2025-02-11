@@ -1,5 +1,4 @@
-use crate::ecs::component::utils::{HitboxType, Texture};
-use crate::ecs::component::MeshType;
+use crate::ecs::component::utils::*;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::ops::Index;

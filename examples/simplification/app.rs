@@ -1,4 +1,4 @@
-use falling_leaf::ecs::component::utils::Color32;
+use falling_leaf::ecs::component::utils::*;
 use falling_leaf::ecs::component::*;
 use falling_leaf::ecs::entity::EntityID;
 use falling_leaf::engine::{Engine, FallingLeafApp};
@@ -42,13 +42,27 @@ impl FallingLeafApp for App {
         let _floor = entity_manager.create_entity(components!(
             Position::origin(),
             Scale::from_factor(5.0),
-            MeshType::Plane,
-            MeshAttribute::Colored(Color32::GREEN)
+            Renderable {
+                mesh_type: MeshType::Plane,
+                mesh_attribute: MeshAttribute::Colored(Color32::GREEN),
+                material: Material {
+                    specular: 0.0,
+                    diffuse: 0.0,
+                    shininess: 0.0,
+                },
+            }
         ));
         self.mesh = entity_manager.create_entity(components!(
             Position::new(0.0, 2.0, 0.0),
-            MeshType::Torus,
-            MeshAttribute::Colored(Color32::YELLOW),
+            Renderable {
+                mesh_type: MeshType::Torus,
+                mesh_attribute: MeshAttribute::Colored(Color32::YELLOW),
+                material: Material {
+                    specular: 0.0,
+                    diffuse: 0.0,
+                    shininess: 0.0,
+                },
+            },
             LOD::None
         ));
 

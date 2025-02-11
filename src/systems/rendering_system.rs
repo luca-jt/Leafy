@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::{Color32, SpriteLayer};
+use crate::ecs::component::utils::*;
 use crate::ecs::component::*;
 use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
@@ -121,8 +121,8 @@ impl RenderingSystem {
     /// add entity data to the renderers
     fn add_entity_data(&mut self, entity_manager: &EntityManager) {
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        for (position, mesh_type, _, mesh_attr, scale, orientation, rb, light, lod) in entity_manager
-            .query9_opt7::<Position, MeshType, EntityFlags, MeshAttribute, Scale, Orientation, RigidBody, PointLight, LOD>((None, None))
+        for (position, renderable, _, scale, orientation, rb, light, lod) in entity_manager
+            .query8_opt6::<Position, Renderable, EntityFlags, Scale, Orientation, RigidBody, PointLight, LOD>((None, None))
             .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
         {
@@ -134,20 +134,19 @@ impl RenderingSystem {
             );
             let shader_type = light.map_or(ShaderType::Basic, |_| ShaderType::Passthrough);
             let lod = lod.copied().unwrap_or_default();
-            let m_attr = mesh_attr.cloned().unwrap_or_default();
 
             let render_data = RenderData {
                 spec: RenderSpec {
-                    mesh_type: mesh_type.clone(),
+                    mesh_type: renderable.mesh_type.clone(),
                     shader_type,
                     lod,
                 },
                 trafo: &trafo,
-                m_attr: &m_attr,
-                mesh: entity_manager.asset_from_type(mesh_type, lod).unwrap(),
+                m_attr: &renderable.mesh_attribute,
+                mesh: entity_manager.asset_from_type(&renderable.mesh_type, lod).unwrap(),
                 tex_map: &entity_manager.texture_map,
-                transparent: match &m_attr {
-                    MeshAttribute::Colored(color) => color.a() < 255,
+                transparent: match &renderable.mesh_attribute {
+                    MeshAttribute::Colored(color) => color.a < 255,
                     MeshAttribute::Textured(texture) => entity_manager.texture_map.is_transparent(texture),
                 }
             };

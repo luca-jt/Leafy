@@ -8,7 +8,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::path::Path;
 use std::rc::Rc;
 use utils::*;
-use MeshAttribute::*;
 
 macro_rules! impl_arithmetic_basics {
     ($component:ident) => {
@@ -250,53 +249,24 @@ impl Default for AngularMomentum {
     }
 }
 
-/// all of the known mesh types
-#[derive(Debug, Clone, PartialOrd, PartialEq, Hash, Eq)]
-pub enum MeshType {
-    Triangle,
-    Plane,
-    Cube,
-    Sphere,
-    Torus,
-    Custom(Rc<Path>),
+/// contains all of the data for a renderable object in 3D
+#[derive(Debug, Clone)]
+pub struct Renderable {
+    pub mesh_type: MeshType,
+    pub mesh_attribute: MeshAttribute,
+    pub material: Material,
 }
 
-/// wether or not a mesh is colored or textured
-#[derive(Debug, PartialEq, Clone)]
-pub enum MeshAttribute {
-    Colored(Color32),
-    Textured(Texture),
-}
-
-impl MeshAttribute {
-    /// returns the color if present
-    pub fn color(&self) -> Option<Color32> {
-        match self {
-            Textured(_) => None,
-            Colored(color) => Some(*color),
+impl Renderable {
+    /// loads a renderable from a .obj file and associated .mtl files
+    pub fn from_file(file: Rc<Path>) -> Self {
+        todo!();
+        Self {
+            mesh_type: MeshType::Custom(file),
+            mesh_attribute: MeshAttribute::default(),
+            material: Material::default(),
         }
     }
-    /// returns the texture path if present
-    pub fn texture(&self) -> Option<&Texture> {
-        match self {
-            Textured(texture) => Some(texture),
-            Colored(_) => None,
-        }
-    }
-}
-
-impl Default for MeshAttribute {
-    fn default() -> Self {
-        Colored(Color32::default())
-    }
-}
-
-/// represents a material that influences the rendering of the entity
-#[derive(Debug, PartialOrd, PartialEq, Clone)]
-pub struct Material {
-    pub specular: f32,
-    pub diffuse: f32,
-    pub shininess: f32,
 }
 
 /// enables gravity physics and is used for all computations involving forces
@@ -372,7 +342,7 @@ impl SoundController {
 }
 
 /// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's
-/// (requires ``MeshType`` to work and should only be used with meshes that have a volume)
+/// (requires ``Renderable`` to work and should only be used with meshes that have a volume)
 #[derive(Debug, Clone)]
 pub struct Collider {
     pub(crate) hitbox_type: HitboxType,
@@ -493,7 +463,12 @@ pub mod utils {
     /// efficient 32bit color representation
     #[repr(C)]
     #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
-    pub struct Color32([u8; 4]);
+    pub struct Color32 {
+        pub r: u8,
+        pub g: u8,
+        pub b: u8,
+        pub a: u8,
+    }
 
     impl Color32 {
         pub const WHITE: Self = Self::from_rgb(255, 255, 255);
@@ -508,35 +483,19 @@ pub mod utils {
         pub const PURPLE: Self = Self::from_rgb(255, 0, 255);
 
         pub const fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-            Self([r, g, b, 255])
+            Self { r, g, b, a: 255 }
         }
 
         pub const fn from_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
-            Self([r, g, b, a])
-        }
-
-        pub fn r(&self) -> u8 {
-            self.0[0]
-        }
-
-        pub fn g(&self) -> u8 {
-            self.0[1]
-        }
-
-        pub fn b(&self) -> u8 {
-            self.0[2]
-        }
-
-        pub fn a(&self) -> u8 {
-            self.0[3]
+            Self { r, g, b, a }
         }
 
         /// converts to a float rgba vector
         pub fn to_vec4(&self) -> glm::Vec4 {
-            let r = self.r() as f32 / 255.0;
-            let g = self.g() as f32 / 255.0;
-            let b = self.b() as f32 / 255.0;
-            let a = self.a() as f32 / 255.0;
+            let r = self.r as f32 / 255.0;
+            let g = self.g as f32 / 255.0;
+            let b = self.b as f32 / 255.0;
+            let a = self.a as f32 / 255.0;
 
             glm::vec4(r, g, b, a)
         }
@@ -546,6 +505,55 @@ pub mod utils {
         fn default() -> Self {
             Self::WHITE
         }
+    }
+
+    /// all of the known mesh types
+    #[derive(Debug, Clone, PartialOrd, PartialEq, Hash, Eq)]
+    pub enum MeshType {
+        Triangle,
+        Plane,
+        Cube,
+        Sphere,
+        Torus,
+        Custom(Rc<Path>),
+    }
+
+    /// wether or not a mesh is colored or textured
+    #[derive(Debug, PartialEq, Clone)]
+    pub enum MeshAttribute {
+        Colored(Color32),
+        Textured(Texture),
+    }
+
+    impl MeshAttribute {
+        /// returns the color if present
+        pub fn color(&self) -> Option<Color32> {
+            match self {
+                Self::Textured(_) => None,
+                Self::Colored(color) => Some(*color),
+            }
+        }
+        /// returns the texture path if present
+        pub fn texture(&self) -> Option<&Texture> {
+            match self {
+                Self::Textured(texture) => Some(texture),
+                Self::Colored(_) => None,
+            }
+        }
+    }
+
+    impl Default for MeshAttribute {
+        fn default() -> Self {
+            Self::Colored(Color32::default())
+        }
+    }
+
+    /// represents a material that influences the rendering of the entity
+    #[derive(Debug, PartialEq, Copy, Clone, Default)]
+    pub struct Material {
+        pub specular: f32,
+        pub diffuse: f32,
+        pub shininess: f32,
     }
 
     /// component wrapper struct for `std::time::Instant` to track time
