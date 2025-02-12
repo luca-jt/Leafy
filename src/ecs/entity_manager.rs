@@ -63,8 +63,6 @@ impl EntityManager {
         self.add_command(AssetCommand::AddHitbox(entity));
         // do rigid body calculations if necessary
         self.add_command(AssetCommand::UpdateRigidBody(entity));
-        // add the light id if necessary
-        self.add_command(AssetCommand::AddLightID(entity));
         // add LODs if necessary
         self.add_command(AssetCommand::AddLODs(entity));
         self.exec_commands();
@@ -132,10 +130,6 @@ impl EntityManager {
         if types_eq::<T, LOD>() {
             self.add_command(AssetCommand::AddLODs(entity));
         }
-        // add the light source id component if necessary
-        if types_eq::<T, PointLight>() {
-            self.add_command(AssetCommand::AddLightID(entity));
-        }
         // recalculate the inertia tensor if necessary
         if types_eq::<T, Scale>() || types_eq::<T, RigidBody>() {
             self.add_command(AssetCommand::UpdateRigidBody(entity));
@@ -162,8 +156,6 @@ impl EntityManager {
                 self.add_command(AssetCommand::UpdateRigidBody(entity));
             } else if types_eq::<T, Collider>() {
                 self.add_command(AssetCommand::CleanHitboxes);
-            } else if types_eq::<T, PointLight>() {
-                self.add_command(AssetCommand::DeleteLightID(entity));
             } else if types_eq::<T, LOD>() {
                 self.add_command(AssetCommand::CleanLODs);
             } else if types_eq::<T, Sprite>() {
@@ -338,23 +330,6 @@ impl EntityManager {
                         body.mass = mass;
                     }
                 }
-                AssetCommand::AddLightID(entity) => {
-                    if unsafe { &*self.ecs.get() }.has_component::<PointLight>(entity) {
-                        log::debug!("added light source ID for enitity: {:?}", entity);
-                        self.ecs
-                            .get_mut()
-                            .add_component(entity, LightSrcID(entity))
-                            .unwrap();
-                    }
-                }
-                AssetCommand::DeleteLightID(entity) => {
-                    self.ecs
-                        .get_mut()
-                        .remove_component::<LightSrcID>(entity)
-                        .inspect(|_| {
-                            log::debug!("deleted light source ID for enitity: {:?}", entity);
-                        });
-                }
                 AssetCommand::AddTexture(entity) => {
                     if let Some(MeshAttribute::Textured(texture)) = unsafe { &*self.ecs.get() }
                         .get_component::<Renderable>(entity)
@@ -508,8 +483,6 @@ enum AssetCommand {
     AddHitbox(EntityID),
     CleanHitboxes,
     UpdateRigidBody(EntityID),
-    AddLightID(EntityID),
-    DeleteLightID(EntityID),
     AddTexture(EntityID),
     CleanTextures,
     AddLODs(EntityID),

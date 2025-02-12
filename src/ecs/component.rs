@@ -1,4 +1,3 @@
-use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::utils::constants::*;
 use fyrox_sound::pool::Handle;
@@ -397,10 +396,6 @@ impl Default for PointLight {
         }
     }
 }
-
-/// identifier for a light source (used internally)
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct LightSrcID(pub(crate) EntityID);
 
 /// 64bit flag bitmap for enabling special entity behavior (default: all turned off, the same as component not present)
 /// ### Info

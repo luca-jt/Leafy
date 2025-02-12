@@ -87,8 +87,8 @@ impl RenderingSystem {
     /// adds and removes light sources according to entity data
     fn update_light_sources(&mut self, entity_manager: &EntityManager) {
         let lights = entity_manager
-            .query3::<&Position, &PointLight, Option<&LightSrcID>>((None, None))
-            .map(|(p, s, l)| (p, s, l.unwrap().0))
+            .query3::<&Position, &PointLight, &EntityID>((None, None))
+            .map(|(p, s, e)| (p, s, *e))
             .collect_vec();
         // remove deleted shadow maps
         self.light_sources

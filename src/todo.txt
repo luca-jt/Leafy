@@ -25,5 +25,4 @@ seperate asset manager that needs to be used manually? -> no unsafe queries any 
 
 msaa custom to include borders in textures etc -> 3d screen texture not optional any more
 option to force viewport ratio independant of the window ratio
-if all entities have the id as a component, then we might not need the seperate light source id
 colliders dont need a renderable -> they can use the default box if no mesh is present and panic when using the convex hull
