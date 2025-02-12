@@ -249,8 +249,10 @@ impl EntityManager {
                 }
                 AssetCommand::CleanMeshes => {
                     self.asset_register.retain(|mesh_type, _| {
-                        let contains = unsafe { &*self.ecs.get() }
-                            .query1::<Renderable>((None, None))
+                        let contains = self
+                            .ecs
+                            .get_mut()
+                            .query1::<&Renderable>((None, None))
                             .map(|r| &r.mesh_type)
                             .contains(mesh_type);
                         let is_cached = self
@@ -285,8 +287,10 @@ impl EntityManager {
                 }
                 AssetCommand::CleanHitboxes => {
                     self.hitbox_register.retain(|(mesh_type, box_type), _| {
-                        let contains = unsafe { &*self.ecs.get() }
-                            .query2::<Renderable, Collider>((None, None))
+                        let contains = self
+                            .ecs
+                            .get_mut()
+                            .query2::<&Renderable, &Collider>((None, None))
                             .map(|(rndrbl, coll)| (&rndrbl.mesh_type, &coll.hitbox_type))
                             .contains(&(mesh_type, box_type));
                         let is_cached =
@@ -363,8 +367,10 @@ impl EntityManager {
                 }
                 AssetCommand::CleanTextures => {
                     self.texture_map.retain(|texture| {
-                        let contains = unsafe { &*self.ecs.get() }
-                            .query1::<Renderable>((None, None))
+                        let contains = self
+                            .ecs
+                            .get_mut()
+                            .query1::<&Renderable>((None, None))
                             .filter_map(|r| r.mesh_attribute.texture())
                             .contains(texture);
                         let is_cached = self
@@ -390,8 +396,10 @@ impl EntityManager {
                 }
                 AssetCommand::CleanLODs => {
                     self.lod_register.retain(|mesh_type, _| {
-                        let contains = unsafe { &*self.ecs.get() }
-                            .query2::<Renderable, LOD>((None, None))
+                        let contains = self
+                            .ecs
+                            .get_mut()
+                            .query2::<&Renderable, &LOD>((None, None))
                             .map(|(rndrbl, _)| &rndrbl.mesh_type)
                             .contains(mesh_type);
                         let is_cached = self
@@ -420,8 +428,10 @@ impl EntityManager {
                 }
                 AssetCommand::CleanSpriteData => {
                     self.sprite_texture_map.retain_sheets(|path| {
-                        let contains = unsafe { &*self.ecs.get() }
-                            .query1::<Sprite>((None, None))
+                        let contains = self
+                            .ecs
+                            .get_mut()
+                            .query1::<&Sprite>((None, None))
                             .filter_map(|sprite| {
                                 if let SpriteSource::Sheet(src) = &sprite.source {
                                     return Some(&src.path);
@@ -435,8 +445,10 @@ impl EntityManager {
                         contains || is_cached
                     });
                     self.sprite_texture_map.retain_sprites(|path| {
-                        let contains = unsafe { &*self.ecs.get() }
-                            .query1::<Sprite>((None, None))
+                        let contains = self
+                            .ecs
+                            .get_mut()
+                            .query1::<&Sprite>((None, None))
                             .filter_map(|sprite| {
                                 if let SpriteSource::Single(src_path) = &sprite.source {
                                     return Some(src_path);

@@ -64,9 +64,7 @@ impl AudioSystem {
     /// update entity sound positions etc (runs every frame)
     pub(crate) fn update(&mut self, entity_manager: &mut EntityManager) {
         let mut state = self.sound_context.state();
-        for (sound, pos) in
-            unsafe { entity_manager.query2_mut::<SoundController, Position>((None, None)) }
-        {
+        for (sound, pos) in entity_manager.query2::<&mut SoundController, &Position>((None, None)) {
             // remove invalid handles from components
             sound
                 .handles

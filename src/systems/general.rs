@@ -132,11 +132,10 @@ pub(crate) fn update_cam<T: FallingLeafApp>(engine: &Engine<T>, dt: TimeDuration
 /// updates the doppler effect data for the audio system
 pub(crate) fn update_doppler_data<T: FallingLeafApp>(engine: &Engine<T>, dt: TimeDuration) {
     let mut animation_system = engine.animation_system_mut();
-    for (pos, sound, flags_opt) in unsafe {
-        engine
-            .entity_manager()
-            .query3_mut_opt1::<Position, SoundController, EntityFlags>((None, None))
-    } {
+    for (pos, sound, flags_opt) in engine
+        .entity_manager()
+        .query3::<&Position, &mut SoundController, Option<&EntityFlags>>((None, None))
+    {
         let doppler_effect = flags_opt.map_or(false, |f| f.get_bit(DOPPLER_EFFECT));
 
         let entity_vel = (pos.data() - sound.last_pos) / dt.0;

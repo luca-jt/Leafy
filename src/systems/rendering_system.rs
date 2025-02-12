@@ -87,7 +87,7 @@ impl RenderingSystem {
     /// adds and removes light sources according to entity data
     fn update_light_sources(&mut self, entity_manager: &EntityManager) {
         let lights = entity_manager
-            .query3_opt1::<Position, PointLight, LightSrcID>((None, None))
+            .query3::<&Position, &PointLight, Option<&LightSrcID>>((None, None))
             .map(|(p, s, l)| (p, s, l.unwrap().0))
             .collect_vec();
         // remove deleted shadow maps
@@ -122,7 +122,7 @@ impl RenderingSystem {
     fn add_entity_data(&mut self, entity_manager: &EntityManager) {
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
         for (position, renderable, _, scale, orientation, rb, light, lod) in entity_manager
-            .query8_opt6::<Position, Renderable, EntityFlags, Scale, Orientation, RigidBody, PointLight, LOD>((None, None))
+            .query8::<&Position, &Renderable, Option<&EntityFlags>, Option<&Scale>, Option<&Orientation>, Option<&RigidBody>, Option<&PointLight>, Option<&LOD>>((None, None))
             .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
         {
@@ -383,7 +383,11 @@ impl RenderingSystem {
                     used: true,
                     transp: rd.transparent,
                 });
-                log::debug!("added new batch renderer for: '{:?}'", rd.spec.mesh_type);
+                log::debug!(
+                    "added new batch renderer for: {:?} of {:?}",
+                    rd.spec.mesh_type,
+                    rd.spec.lod
+                );
             }
             _ => {
                 let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.shader_type);
@@ -403,7 +407,11 @@ impl RenderingSystem {
                     used: true,
                     transp: rd.transparent,
                 });
-                log::debug!("added new instance renderer for: '{:?}'", rd.spec.mesh_type);
+                log::debug!(
+                    "added new instance renderer for: {:?} of {:?}",
+                    rd.spec.mesh_type,
+                    rd.spec.lod
+                );
             }
         }
         self.renderers.sort_unstable();

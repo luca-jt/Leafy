@@ -17,7 +17,7 @@ fn entity_test() {
     ecs.remove_component::<D>(x).unwrap();
     assert!(!ecs.has_component::<D>(x));
     assert!(ecs.has_component::<C>(x));
-    assert_eq!(ecs.query2::<A, B>((None, None)).count(), 1);
+    assert_eq!(ecs.query2::<&A, &B>((None, None)).count(), 1);
     ecs.delete_entity(x).unwrap();
 }
 
@@ -27,6 +27,6 @@ fn render_data() {
     let _ = ecs.create_entity(components!(Position::origin(), PointLight::default()));
     let _ = ecs.create_entity(components!(Position::origin()));
     let _ = ecs.create_entity(components!(Position::origin()));
-    assert_eq!(ecs.query1::<PointLight>((None, None)).count(), 1);
-    assert_eq!(ecs.query1::<Position>((None, None)).count(), 3);
+    assert_eq!(ecs.query1::<&PointLight>((None, None)).count(), 1);
+    assert_eq!(ecs.query1::<&Position>((None, None)).count(), 3);
 }

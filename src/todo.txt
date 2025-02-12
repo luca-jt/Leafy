@@ -17,10 +17,13 @@ collision fix -> sequential solver?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
 
+fix query unsafeness
 basic materials
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
--> seperate asset manager that needs to be used manually? -> no unsafe queries any more?
-msaa custom to include borders in textures etc -> 3d screen texture not optional any more
 make asset command auto calls optional
-colliders dont need a renderable -> they can use the default box if no mesh is present and panic when using the convex hull
+seperate asset manager that needs to be used manually? -> no unsafe queries any more?
+
+msaa custom to include borders in textures etc -> 3d screen texture not optional any more
 option to force viewport ratio independant of the window ratio
+if all entities have the id as a component, then we might not need the seperate light source id
+colliders dont need a renderable -> they can use the default box if no mesh is present and panic when using the convex hull

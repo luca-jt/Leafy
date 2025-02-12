@@ -55,18 +55,17 @@ impl AnimationSystem {
 
     /// stops velocities near zero to make behavior more realistic
     fn damp_velocities(&self, entity_manager: &mut EntityManager) {
-        for velocity in unsafe {
-            entity_manager.query1_mut::<Velocity>((Some(include_filter!(Position)), None))
-        } {
+        for velocity in
+            entity_manager.query1::<&mut Velocity>((Some(include_filter!(Position)), None))
+        {
             let ub = 0.1;
             let vel_norm = velocity.data().norm();
             let factor = map_range((0.0, ub), (0.999, 1.0), vel_norm.clamp(0.0, ub));
             *velocity *= factor;
         }
-        for momentum in unsafe {
-            entity_manager
-                .query1_mut::<AngularMomentum>((Some(include_filter!(Position, Orientation)), None))
-        } {
+        for momentum in entity_manager
+            .query1::<&mut AngularMomentum>((Some(include_filter!(Position, Orientation)), None))
+        {
             let ub = 0.1;
             let mom_norm = momentum.data().norm();
             let factor = map_range((0.0, ub), (0.999, 1.0), mom_norm.clamp(0.0, ub));
@@ -76,34 +75,33 @@ impl AnimationSystem {
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager) {
-        let mut entity_data = unsafe {
-            entity_manager
-                .query9_mut_opt6::<Position, Collider, Renderable, Velocity, AngularMomentum, Scale, RigidBody, EntityFlags, Orientation>((None, None))
-                .map(|(p, coll, rndrbl, v, am, s, rb, f, o)| {
-                    let mesh = entity_manager.asset_from_type(&rndrbl.mesh_type, LOD::None).unwrap();
-                    let hitbox = entity_manager.hitbox_from_data(&rndrbl.mesh_type, &coll.hitbox_type).unwrap();
-                    let scale_matrix = copied_or_default(&s).scale_matrix() * coll.scale.scale_matrix();
-                    let coll_reach = mesh.max_reach + coll.offset.abs();
-                    coll.last_collisions.clear();
-                    (
-                        p,
-                        hitbox,
-                        mesh,
-                        coll,
-                        v,
-                        am,
-                        s,
-                        rb,
-                        f.map(|flags| {
-                            flags.set_bit(COLLIDED, false);
-                            flags
-                        }),
-                        o,
-                        mult_mat4_vec3(&scale_matrix, &coll_reach).norm()
-                    )
-                })
-                .collect_vec()
-        };
+        let mut entity_data = entity_manager
+            .query9::<&mut Position, &mut Collider, &Renderable, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))
+            .map(|(p, coll, rndrbl, v, am, s, rb, f, o)| {
+                let mesh = entity_manager.asset_from_type(&rndrbl.mesh_type, LOD::None).unwrap();
+                let hitbox = entity_manager.hitbox_from_data(&rndrbl.mesh_type, &coll.hitbox_type).unwrap();
+                let scale = s.copied().unwrap_or_default();
+                let scale_matrix = scale.scale_matrix() * coll.scale.scale_matrix();
+                let coll_reach = mesh.max_reach + coll.offset.abs();
+                coll.last_collisions.clear();
+                (
+                    p,
+                    hitbox,
+                    mesh,
+                    coll,
+                    v,
+                    am,
+                    scale,
+                    rb,
+                    f.map(|flags| {
+                        flags.set_bit(COLLIDED, false);
+                        flags
+                    }),
+                    o,
+                    mult_mat4_vec3(&scale_matrix, &coll_reach).norm()
+                )
+            })
+            .collect_vec();
         if entity_data.len() <= 1 {
             return;
         }
@@ -160,14 +158,14 @@ impl AnimationSystem {
                 let should_seperate_2 = is_dynamic_2 || static_collision_2;
 
                 // rigid bodies
-                let rb_1 = copied_or_default(&entity_data[i].7);
-                let rb_2 = copied_or_default(&entity_data[j].7);
+                let rb_1 = entity_data[i].7.copied().unwrap_or_default();
+                let rb_2 = entity_data[j].7.copied().unwrap_or_default();
                 // rotations
-                let rot1 = copied_or_default(&entity_data[i].9);
-                let rot2 = copied_or_default(&entity_data[j].9);
+                let rot1 = entity_data[i].9.copied().unwrap_or_default();
+                let rot2 = entity_data[j].9.copied().unwrap_or_default();
                 // scales
-                let scale1 = copied_or_default(&entity_data[i].6);
-                let scale2 = copied_or_default(&entity_data[j].6);
+                let scale1 = entity_data[i].6;
+                let scale2 = entity_data[j].6;
 
                 //  translate the colliders to the positional offset of the hitbox
                 let collider_1 = ColliderData {
@@ -418,10 +416,9 @@ impl AnimationSystem {
 
     /// performs all relevant physics calculations on entity data
     fn apply_physics(&self, entity_manager: &mut EntityManager) {
-        for (p, v, a_opt, rb_opt, o_opt, am_opt, flags) in unsafe {
-            entity_manager
-                .query7_mut_opt5::<Position, Velocity, Acceleration, RigidBody, Orientation, AngularMomentum, EntityFlags>((None, None))
-        } {
+        for (p, v, a_opt, rb_opt, o_opt, am_opt, flags) in entity_manager
+            .query7::<&mut Position, &mut Velocity, Option<&mut Acceleration>, Option<&RigidBody>, Option<&mut Orientation>, Option<&AngularMomentum>, Option<&EntityFlags>>((None, None))
+        {
             let total_a = rb_opt
                 .is_some()
                 .then(|| {
@@ -440,7 +437,7 @@ impl AnimationSystem {
             *p += *v * TIME_STEP;
 
             if let (Some(am), Some(o)) = (am_opt, o_opt) {
-                let inv_inertia_mat = copied_or_default(&rb_opt).inv_inertia_tensor;
+                let inv_inertia_mat = rb_opt.copied().unwrap_or_default().inv_inertia_tensor;
                 let rot_mat = glm::mat4_to_mat3(&o.rotation_matrix());
                 let local_inertia_mat = rot_mat * inv_inertia_mat * rot_mat.transpose();
                 let ang_vel = local_inertia_mat * am.data();
