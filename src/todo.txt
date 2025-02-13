@@ -21,6 +21,7 @@ blinn phong lighting https://learnopengl.com/Advanced-Lighting/Advanced-Lighting
 gamma correction https://learnopengl.com/Advanced-Lighting/Gamma-Correction -> light intesity might not need that constant in the shader
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
 
-make asset command auto calls optional
 fix query unsafeness
-colliders dont need a renderable -> they can use the default box if no mesh is present and panic when using the convex hull
+colliders dont need a renderable
+-> they can use the default box if no mesh is present and panic when using the convex hull
+-> hitbox asset commands when collider is affected, not the renderable

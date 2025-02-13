@@ -3,7 +3,6 @@ use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::{SpriteTextureMap, TextureMap};
 use crate::rendering::mesh::{Hitbox, Mesh};
-use crate::utils::constants::NO_ENTITY;
 use crate::utils::file::*;
 use crate::utils::tools::types_eq;
 use itertools::Itertools;
@@ -13,11 +12,11 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 use std::rc::Rc;
 
-/// create a component list for entity creation
+/// create a component list for entity creation (must use)
 #[macro_export]
 macro_rules! components {
     ($($T:expr),+) => {
-        vec![$(Box::new($T)),+]
+        vec![Box::new($crate::utils::constants::NO_ENTITY), $(Box::new($T)), +]
     };
 }
 
@@ -49,21 +48,14 @@ impl EntityManager {
     }
 
     /// stores a new entity and returns the id of the new entity
-    pub fn create_entity(&mut self, mut components: Vec<Box<dyn Any>>) -> EntityID {
-        components.push(Box::new(NO_ENTITY));
+    pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
         let entity = self.ecs.get_mut().create_entity(components);
         *self.get_component_mut::<EntityID>(entity).unwrap() = entity;
-        // load mesh if necessary
         self.add_command(AssetCommand::AddMesh(entity));
-        // load texture if necessary
         self.add_command(AssetCommand::AddTexture(entity));
-        // add the sprite sheet if necessary
         self.add_command(AssetCommand::AddSpriteData(entity));
-        // compute hitbox if necessary
         self.add_command(AssetCommand::AddHitbox(entity));
-        // do rigid body calculations if necessary
         self.add_command(AssetCommand::UpdateRigidBody(entity));
-        // add LODs if necessary
         self.add_command(AssetCommand::AddLODs(entity));
         self.exec_commands();
         entity
@@ -73,9 +65,13 @@ impl EntityManager {
     pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), Rc<str>> {
         if unsafe { &*self.ecs.get() }.has_component::<Renderable>(entity) {
             self.add_command(AssetCommand::CleanMeshes);
-            self.add_command(AssetCommand::CleanHitboxes);
-            self.add_command(AssetCommand::CleanLODs);
             self.add_command(AssetCommand::CleanTextures);
+        }
+        if unsafe { &*self.ecs.get() }.has_component::<Collider>(entity) {
+            self.add_command(AssetCommand::CleanHitboxes);
+        }
+        if unsafe { &*self.ecs.get() }.has_component::<LOD>(entity) {
+            self.add_command(AssetCommand::CleanLODs);
         }
         if unsafe { &*self.ecs.get() }.has_component::<Sprite>(entity) {
             self.add_command(AssetCommand::CleanSpriteData);
@@ -90,48 +86,26 @@ impl EntityManager {
         unsafe { &*self.ecs.get() }.get_component::<T>(entity)
     }
 
-    /// yields the mutable component data reference of an entity if present (also returns ``None`` if the entity ID is invalid)
+    /// Yields the mutable component data reference of an entity if present (also returns ``None`` if the entity ID is invalid).
+    /// If data is modified that influences loaded asset data, you have to recompute it manually with the managers methods.
     pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
-        if types_eq::<T, Renderable>() {
-            self.add_command(AssetCommand::UpdateRigidBody(entity));
-            self.add_command(AssetCommand::AddMesh(entity));
-            self.add_command(AssetCommand::CleanMeshes);
-            self.add_command(AssetCommand::AddHitbox(entity));
-            self.add_command(AssetCommand::CleanHitboxes);
-            self.add_command(AssetCommand::AddTexture(entity));
-            self.add_command(AssetCommand::CleanTextures);
-        } else if types_eq::<T, Scale>() || types_eq::<T, RigidBody>() {
-            self.add_command(AssetCommand::UpdateRigidBody(entity));
-        } else if types_eq::<T, Collider>() {
-            self.add_command(AssetCommand::AddHitbox(entity));
-            self.add_command(AssetCommand::CleanHitboxes);
-        } else if types_eq::<T, Sprite>() {
-            self.add_command(AssetCommand::AddSpriteData(entity));
-            self.add_command(AssetCommand::CleanSpriteData);
-        }
-        self.exec_commands();
         self.ecs.get_mut().get_component_mut::<T>(entity)
     }
 
     /// adds a component to an existing entity (returns ``Err`` if the component is already present or the entity ID is invalid)
     pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) -> Result<(), Rc<str>> {
         self.ecs.get_mut().add_component::<T>(entity, component)?;
-        // add mesh to the register if necessary
         if types_eq::<T, Renderable>() {
             self.add_command(AssetCommand::AddMesh(entity));
-        }
-        // add the texture if necessary
-        self.add_command(AssetCommand::AddTexture(entity));
-        // add the sprite sheet if necessary
-        self.add_command(AssetCommand::AddSpriteData(entity));
-        // add hitbox to the register if necessary
-        self.add_command(AssetCommand::AddHitbox(entity));
-        // add LODs to the register if necessary
-        if types_eq::<T, LOD>() {
+            self.add_command(AssetCommand::AddTexture(entity));
             self.add_command(AssetCommand::AddLODs(entity));
-        }
-        // recalculate the inertia tensor if necessary
-        if types_eq::<T, Scale>() || types_eq::<T, RigidBody>() {
+        } else if types_eq::<T, Sprite>() {
+            self.add_command(AssetCommand::AddSpriteData(entity));
+        } else if types_eq::<T, Collider>() {
+            self.add_command(AssetCommand::AddHitbox(entity));
+        } else if types_eq::<T, LOD>() {
+            self.add_command(AssetCommand::AddLODs(entity));
+        } else if types_eq::<T, Scale>() || types_eq::<T, RigidBody>() {
             self.add_command(AssetCommand::UpdateRigidBody(entity));
         }
         self.exec_commands();
@@ -172,7 +146,7 @@ impl EntityManager {
         &mut self,
         instruction: impl Into<AssetCacheInstruction> + Debug,
     ) -> bool {
-        log::debug!("added asset cache instruction for: '{:?}'", instruction);
+        log::trace!("added asset cache instruction for: '{:?}'", instruction);
         self.cache_instructions.insert(instruction.into())
     }
 
@@ -181,7 +155,7 @@ impl EntityManager {
         &mut self,
         instruction: impl Into<AssetCacheInstruction> + Debug,
     ) -> bool {
-        log::debug!("removed asset cache instruction for: '{:?}'", instruction);
+        log::trace!("removed asset cache instruction for: '{:?}'", instruction);
         self.cache_instructions.remove(&instruction.into())
     }
 
@@ -212,8 +186,8 @@ impl EntityManager {
         self.hitbox_register.get(&(mesh_type.clone(), *hitbox))
     }
 
-    /// executes all the commands in the queue and clears it
-    fn exec_commands(&mut self) {
+    /// executes all the asset commands stored in the queue and clears it
+    pub fn exec_commands(&mut self) {
         while let Some(command) = self.commands.pop_front() {
             match command {
                 AssetCommand::AddMesh(entity) => {
@@ -446,22 +420,36 @@ impl EntityManager {
         self.commands.push_back(command);
     }
 
-    /// fully recompute all internal asset data that is influenced by entities' components (performance heavy)
-    /// (might be useful when modifying specific component data in queries)
-    pub fn full_recompute(&mut self) {
-        let ids = self.all_ids_iter().copied().collect_vec();
-        for entity in ids {
+    /// Adds recompute commands for the internal asset data of an entity that is associated with component ``T``.
+    /// At the moment, relevant component types are: ``Renderable``, ``Collider``, ``RigidBody``, ``Scale``, ``Sprite``.
+    /// This should be used when critical components are modified in queries or individually.
+    pub fn add_recompute_commands<T: Any>(&mut self, entity: EntityID) {
+        if types_eq::<T, Renderable>() {
             self.add_command(AssetCommand::AddMesh(entity));
-            self.add_command(AssetCommand::UpdateRigidBody(entity));
-            self.add_command(AssetCommand::AddHitbox(entity));
             self.add_command(AssetCommand::AddTexture(entity));
+            self.add_command(AssetCommand::AddLODs(entity));
+        } else if types_eq::<T, Collider>() {
+            self.add_command(AssetCommand::AddHitbox(entity));
+        } else if types_eq::<T, Sprite>() {
             self.add_command(AssetCommand::AddSpriteData(entity));
+        } else if types_eq::<T, Scale>() || types_eq::<T, RigidBody>() {
+            self.add_command(AssetCommand::UpdateRigidBody(entity));
         }
-        self.add_command(AssetCommand::CleanMeshes);
-        self.add_command(AssetCommand::CleanHitboxes);
-        self.add_command(AssetCommand::CleanTextures);
-        self.add_command(AssetCommand::CleanSpriteData);
-        self.exec_commands();
+    }
+
+    /// Adds cleanup commands for the internal asset data that is associated with component ``T``.
+    /// At the moment, relevant component types are: ``Renderable``, ``Collider``, ``RigidBody``, ``Scale``, ``Sprite``.
+    /// This is typically used when critical components are modified in queries or individually.
+    pub fn add_cleanup_commands<T: Any>(&mut self) {
+        if types_eq::<T, Renderable>() {
+            self.add_command(AssetCommand::CleanMeshes);
+            self.add_command(AssetCommand::CleanTextures);
+            self.add_command(AssetCommand::CleanLODs);
+        } else if types_eq::<T, Collider>() {
+            self.add_command(AssetCommand::CleanHitboxes);
+        } else if types_eq::<T, Sprite>() {
+            self.add_command(AssetCommand::CleanSpriteData);
+        }
     }
 
     /// clears all of the stored entites and their associated data and invalidates all of the entity IDs yielded from the system up to this point
