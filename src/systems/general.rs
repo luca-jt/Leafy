@@ -167,3 +167,12 @@ pub(crate) fn update_doppler_data<T: FallingLeafApp>(engine: &Engine<T>, dt: Tim
         }
     }
 }
+
+/// general event handling function for the window resize
+pub(crate) fn on_window_resize<T: FallingLeafApp>(event: &WindowResize, engine: &Engine<T>) {
+    let mut video_system = engine.video_system_mut();
+    let mut rendering_system = engine.rendering_system_mut();
+    video_system.on_window_resize(event);
+    let viewport_ratio = video_system.current_viewport_ratio();
+    rendering_system.update_viewport_ratio(viewport_ratio);
+}

@@ -1,7 +1,6 @@
 use crate::engine_builder::EngineAttributes;
-use crate::systems::event_system::events::*;
-use crate::systems::event_system::EventObserver;
-use gl::types::GLsizei;
+use crate::systems::event_system::events::WindowResize;
+use gl::types::{GLint, GLsizei};
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{
     ContextApi, ContextAttributesBuilder, GlProfile, NotCurrentContext, PossiblyCurrentContext,
@@ -37,6 +36,7 @@ pub struct VideoSystem {
     skipped_first_resize: bool,
     came_out_of_fs: Cell<bool>,
     pub(crate) mouse_cam_sens: Option<f32>,
+    forced_viewport_ratio: Option<f32>,
 }
 
 impl VideoSystem {
@@ -67,6 +67,7 @@ impl VideoSystem {
             skipped_first_resize: false,
             came_out_of_fs: Cell::new(false),
             mouse_cam_sens: None,
+            forced_viewport_ratio: None,
         }
     }
 
@@ -254,6 +255,82 @@ impl VideoSystem {
         })
     }
 
+    /// returns the current rendering viewport ratio
+    pub(crate) fn current_viewport_ratio(&self) -> f32 {
+        if let Some(ratio) = self.forced_viewport_ratio {
+            ratio
+        } else {
+            let win_size = self.window_resolution();
+            win_size.width as f32 / win_size.height as f32
+        }
+    }
+
+    /// event listening function for window resizes
+    pub(crate) fn on_window_resize(&mut self, event: &WindowResize) {
+        // Some platforms like EGL require resizing GL surface to update the size.
+        // Notable platforms here are Wayland and macOS, others don't require it.
+        // It's wise to resize it for portability reasons.
+        if let (Some(gl_surface), Some(gl_context), Some(window)) = (
+            self.gl_surface.as_ref(),
+            self.gl_context.as_ref(),
+            self.window.as_ref(),
+        ) {
+            if event.width == 0 || event.height == 0 {
+                return;
+            }
+
+            let mut size_to_use = (event.width, event.height);
+            if self.skipped_first_resize {
+                if window.fullscreen().is_none() && !self.came_out_of_fs.get() {
+                    if let Some(enforced_ratio) = self.stored_config.enforced_ratio {
+                        // enforce window side ratio
+                        let corrected_height = (event.width as f32 / enforced_ratio) as u32;
+                        if corrected_height != event.height {
+                            if let Some(rs) = window.request_inner_size(PhysicalSize::new(
+                                event.width,
+                                corrected_height,
+                            )) {
+                                size_to_use = (rs.width, rs.height);
+                            }
+                        }
+                    }
+                } else {
+                    self.came_out_of_fs.set(false);
+                }
+            } else {
+                self.skipped_first_resize = true;
+            }
+
+            gl_surface.resize(
+                gl_context,
+                NonZeroU32::new(size_to_use.0).unwrap(),
+                NonZeroU32::new(size_to_use.1).unwrap(),
+            );
+
+            let mut vp_start = (0, 0);
+            if let Some(ratio) = self.forced_viewport_ratio {
+                let regular_ratio = size_to_use.0 as f32 / size_to_use.1 as f32;
+                if ratio < regular_ratio {
+                    // viewport is less wide
+                    let forced_size = ((size_to_use.1 as f32 * ratio) as u32, size_to_use.1);
+                    vp_start.0 = (size_to_use.0 - forced_size.0) / 2;
+                    size_to_use = forced_size;
+                } else if ratio > regular_ratio {
+                    // viewport is more wide
+                    let forced_size = (size_to_use.0, (size_to_use.0 as f32 / ratio) as u32);
+                    vp_start.1 = (size_to_use.1 - forced_size.1) / 2;
+                    size_to_use = forced_size;
+                }
+            }
+            unsafe {
+                #[rustfmt::skip]
+                gl::Viewport(vp_start.0 as GLint, vp_start.1 as GLint, size_to_use.0 as GLsizei, size_to_use.1 as GLsizei);
+                #[rustfmt::skip]
+                gl::Scissor(vp_start.0 as GLint, vp_start.1 as GLint, size_to_use.0 as GLsizei, size_to_use.1 as GLsizei);
+            }
+        }
+    }
+
     /// gets the current fps in seconds
     #[inline]
     pub fn current_fps(&self) -> f64 {
@@ -354,54 +431,12 @@ impl VideoSystem {
         }
         self.mouse_cam_sens = sensitivity;
     }
-}
 
-impl EventObserver<WindowResize> for VideoSystem {
-    fn on_event(&mut self, event: &WindowResize) {
-        // Some platforms like EGL require resizing GL surface to update the size.
-        // Notable platforms here are Wayland and macOS, others don't require it.
-        // It's wise to resize it for portability reasons.
-        if let (Some(gl_surface), Some(gl_context), Some(window)) = (
-            self.gl_surface.as_ref(),
-            self.gl_context.as_ref(),
-            self.window.as_ref(),
-        ) {
-            if event.width == 0 || event.height == 0 {
-                return;
-            }
-
-            let mut size_to_use = (event.width, event.height);
-            if self.skipped_first_resize {
-                if window.fullscreen().is_none() && !self.came_out_of_fs.get() {
-                    if let Some(enforced_ratio) = self.stored_config.enforced_ratio {
-                        // enforce window side ratio
-                        let corrected_height = (event.width as f32 / enforced_ratio) as u32;
-                        if corrected_height != event.height {
-                            if let Some(rs) = window.request_inner_size(PhysicalSize::new(
-                                event.width,
-                                corrected_height,
-                            )) {
-                                size_to_use = (rs.width, rs.height);
-                            }
-                        }
-                    }
-                } else {
-                    self.came_out_of_fs.set(false);
-                }
-            } else {
-                self.skipped_first_resize = true;
-            }
-
-            gl_surface.resize(
-                gl_context,
-                NonZeroU32::new(size_to_use.0).unwrap(),
-                NonZeroU32::new(size_to_use.1).unwrap(),
-            );
-            unsafe {
-                gl::Viewport(0, 0, size_to_use.0 as GLsizei, size_to_use.1 as GLsizei);
-                gl::Scissor(0, 0, size_to_use.0 as GLsizei, size_to_use.1 as GLsizei);
-            }
-        }
+    /// Forces the rendering viewport to a ratio (width / height) regardless of the window size.
+    /// Probably only useful without transparency enabled.
+    pub fn force_viewport_ratio(&mut self, ratio: Option<f32>) {
+        self.forced_viewport_ratio = ratio;
+        log::debug!("forcing viewport ratio: {:?}", ratio);
     }
 }
 

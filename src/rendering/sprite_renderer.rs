@@ -83,7 +83,8 @@ impl SpriteRenderer {
             // bind uniforms
             gl::Uniform1iv(7, MAX_TEXTURE_COUNT as GLsizei, &self.samplers[0]);
             // bind texture
-            gl::BindTextureUnit(0, self.white_texture);
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, self.white_texture);
         }
         for layer in self.renderer_map.iter().rev() {
             for batch in layer {
@@ -334,7 +335,8 @@ impl SpriteBatch {
         unsafe {
             // bind textures
             for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
-                gl::BindTextureUnit((unit + 1) as GLuint, *tex_id);
+                gl::ActiveTexture(gl::TEXTURE1 + unit as GLenum);
+                gl::BindTexture(gl::TEXTURE_2D, *tex_id);
             }
             // draw the triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);

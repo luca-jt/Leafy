@@ -9,7 +9,7 @@ use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::{ShaderCatalog, ShaderType};
 use crate::rendering::sprite_renderer::{SpriteGrid, SpriteRenderer};
-use crate::systems::event_system::events::{CamPositionChange, WindowResize};
+use crate::systems::event_system::events::CamPositionChange;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::user_level::INVISIBLE;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
@@ -32,12 +32,13 @@ pub struct RenderingSystem {
     current_cam_config: (glm::Vec3, glm::Vec3),
     ambient_light: (Color32, f32),
     skybox: Option<Skybox>,
-    screen_texture: Option<ScreenTexture>,
+    screen_texture: ScreenTexture,
+    samples: GLsizei,
 }
 
 impl RenderingSystem {
     /// creates a new rendering system with initial cam data
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(win_w: u32, win_h: u32) -> Self {
         unsafe {
             gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::SCISSOR_TEST);
@@ -47,6 +48,7 @@ impl RenderingSystem {
             gl::DepthFunc(gl::LESS);
             gl::Disable(gl::MULTISAMPLE)
         }
+        let samples = 4;
 
         Self {
             light_sources: Vec::new(),
@@ -61,7 +63,8 @@ impl RenderingSystem {
             current_cam_config: (-Z_AXIS, Z_AXIS),
             ambient_light: (Color32::WHITE, 0.3),
             skybox: None,
-            screen_texture: None,
+            screen_texture: ScreenTexture::new(win_w as GLsizei, win_h as GLsizei, false, samples),
+            samples,
         }
     }
 
@@ -175,10 +178,8 @@ impl RenderingSystem {
 
     /// binds the screen texture frame buffer for rendering
     fn bind_screen_texture(&mut self) {
-        if let Some(screen_texture) = self.screen_texture.as_mut() {
-            screen_texture.bind();
-            self.clear_gl_screen();
-        }
+        self.screen_texture.bind();
+        self.clear_gl_screen();
     }
 
     /// render all sprite entities
@@ -191,11 +192,9 @@ impl RenderingSystem {
 
     /// renders the screen texture to the default OpenGL frame buffer
     fn render_screen_texture(&self) {
-        if let Some(screen_texture) = self.screen_texture.as_ref() {
-            screen_texture.unbind();
-            self.shader_catalog.screen.use_program();
-            screen_texture.render();
-        }
+        self.screen_texture.unbind();
+        self.shader_catalog.screen.use_program();
+        self.screen_texture.render();
     }
 
     /// renders the skybox if present
@@ -384,7 +383,7 @@ impl RenderingSystem {
                     transp: rd.transparent,
                 });
                 log::debug!(
-                    "added new batch renderer for: {:?} of {:?}",
+                    "added new batch renderer for: {:?} with LOD {:?}",
                     rd.spec.mesh_type,
                     rd.spec.lod
                 );
@@ -408,7 +407,7 @@ impl RenderingSystem {
                     transp: rd.transparent,
                 });
                 log::debug!(
-                    "added new instance renderer for: {:?} of {:?}",
+                    "added new instance renderer for: {:?} with LOD {:?}",
                     rd.spec.mesh_type,
                     rd.spec.lod
                 );
@@ -535,13 +534,20 @@ impl RenderingSystem {
         }
     }
 
+    /// event listening function for window resizes
+    pub(crate) fn update_viewport_ratio(&mut self, viewport_ratio: f32) {
+        self.perspective_camera.update_win_size(viewport_ratio);
+        self.ortho_camera = OrthoCamera::new(-viewport_ratio, viewport_ratio, -1.0, 1.0);
+    }
+
     /// gets the current camera position and look direction vector
     pub fn current_cam_config(&self) -> (glm::Vec3, glm::Vec3) {
         self.current_cam_config
     }
 
-    /// sets the anit-aliasing mode for rendering (default is ``false``)
-    pub fn set_msaa(&mut self, use_msaa: bool) {
+    /// sets the anti-aliasing mode for rendering (default is ``None``), samples should be 2, 4, or 8
+    pub fn set_msaa(&mut self, msaa_samples: Option<GLsizei>) {
+        let use_msaa = msaa_samples.is_some();
         let msaa = unsafe { gl::IsEnabled(gl::MULTISAMPLE) == gl::TRUE };
         if msaa == use_msaa {
             return;
@@ -552,15 +558,16 @@ impl RenderingSystem {
         } else {
             unsafe { gl::Disable(gl::MULTISAMPLE) };
         }
-        let res = self.screen_texture.as_ref().map(|st| (st.width, st.height));
+        self.samples = msaa_samples.unwrap_or(4);
+        let res = (self.screen_texture.width, self.screen_texture.height);
         self.set_3d_render_resolution(res);
     }
 
     /// Sets the resolution that is used for the screen texture in 3D rendering (width, height).
     /// ``None`` uses no dedicated screen texture. (default is ``None``)
-    pub fn set_3d_render_resolution(&mut self, resolution: Option<(GLsizei, GLsizei)>) {
+    pub fn set_3d_render_resolution(&mut self, resolution: (GLsizei, GLsizei)) {
         let msaa = unsafe { gl::IsEnabled(gl::MULTISAMPLE) == gl::TRUE };
-        self.screen_texture = resolution.map(|res| ScreenTexture::new(res.0, res.1, msaa));
+        self.screen_texture = ScreenTexture::new(resolution.0, resolution.1, msaa, self.samples);
     }
 
     /// sets the current skybox that is used in the rendering process (default is ``None``)
@@ -617,15 +624,6 @@ impl EventObserver<CamPositionChange> for RenderingSystem {
         self.perspective_camera
             .update_cam(&event.new_pos, &new_focus);
         self.current_cam_config = (event.new_pos, event.new_look);
-    }
-}
-
-impl EventObserver<WindowResize> for RenderingSystem {
-    fn on_event(&mut self, event: &WindowResize) {
-        self.perspective_camera
-            .update_win_size(event.width, event.height);
-        let stretch_factor = event.width as f32 / event.height as f32;
-        self.ortho_camera = OrthoCamera::new(-stretch_factor, stretch_factor, -1.0, 1.0);
     }
 }
 

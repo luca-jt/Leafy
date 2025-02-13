@@ -77,7 +77,8 @@ impl BatchRenderer {
                 &self.samplers[0],
             );
             // bind white texture
-            gl::BindTextureUnit(MAX_LIGHT_SRC_COUNT as GLuint, self.white_texture);
+            gl::ActiveTexture(gl::TEXTURE0 + MAX_LIGHT_SRC_COUNT as GLenum);
+            gl::BindTexture(gl::TEXTURE_2D, self.white_texture);
         }
         for batch in self.batches.iter() {
             batch.render_shadows();
@@ -107,7 +108,8 @@ impl BatchRenderer {
             for (i, shadow_map) in shadow_maps.iter().enumerate() {
                 shadow_map.bind_reading(i as GLuint);
             }
-            gl::BindTextureUnit(MAX_LIGHT_SRC_COUNT as GLuint, self.white_texture);
+            gl::ActiveTexture(gl::TEXTURE0 + MAX_LIGHT_SRC_COUNT as GLenum);
+            gl::BindTexture(gl::TEXTURE_2D, self.white_texture);
         }
         for batch in self.batches.iter() {
             batch.flush();
@@ -300,7 +302,8 @@ impl Batch {
         unsafe {
             // bind textures
             for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
-                gl::BindTextureUnit((unit + 1 + MAX_LIGHT_SRC_COUNT) as GLuint, *tex_id);
+                gl::ActiveTexture(gl::TEXTURE1 + (MAX_LIGHT_SRC_COUNT + unit) as GLenum);
+                gl::BindTexture(gl::TEXTURE_2D, *tex_id);
             }
             // draw the triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
@@ -319,7 +322,8 @@ impl Batch {
         unsafe {
             // bind textures
             for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
-                gl::BindTextureUnit((unit + 1 + MAX_LIGHT_SRC_COUNT) as GLuint, *tex_id);
+                gl::ActiveTexture(gl::TEXTURE1 + (MAX_LIGHT_SRC_COUNT + unit) as GLenum);
+                gl::BindTexture(gl::TEXTURE_2D, *tex_id);
             }
             // draw the triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);

@@ -262,25 +262,22 @@ pub fn calc_model_matrix(
 pub(crate) struct PerspectiveCamera {
     pub(crate) projection: glm::Mat4,
     pub(crate) view: glm::Mat4,
-    win_width: f32,
-    win_height: f32,
+    viewport_ratio: f32,
     fov: f32,
 }
 
 impl PerspectiveCamera {
     /// creates new config with default values
     pub(crate) fn new(position: glm::Vec3, focus: glm::Vec3) -> Self {
-        let win_width = MIN_WIN_WIDTH as f32;
-        let win_height = MIN_WIN_HEIGHT as f32;
+        let viewport_ratio = MIN_WIN_WIDTH as f32 / MIN_WIN_HEIGHT as f32;
         let fov = 45.0_f32.to_radians();
-        let projection = glm::perspective::<f32>(win_width / win_height, fov, 0.1, 100.0);
+        let projection = glm::perspective::<f32>(viewport_ratio, fov, 0.1, 100.0);
         let view = glm::look_at::<f32>(&position, &focus, &Y_AXIS);
 
         Self {
             projection,
             view,
-            win_width,
-            win_height,
+            viewport_ratio,
             fov,
         }
     }
@@ -292,9 +289,8 @@ impl PerspectiveCamera {
     }
 
     /// updates the internally stored values for the window size and recompute the projection
-    pub(crate) fn update_win_size(&mut self, win_width: u32, win_height: u32) {
-        self.win_width = win_width as f32;
-        self.win_height = win_height as f32;
+    pub(crate) fn update_win_size(&mut self, viewport_ratio: f32) {
+        self.viewport_ratio = viewport_ratio;
         self.recompute_projection();
     }
 
@@ -305,8 +301,7 @@ impl PerspectiveCamera {
 
     /// refreshes the stored projection matrix
     fn recompute_projection(&mut self) {
-        self.projection =
-            glm::perspective::<f32>(self.win_width / self.win_height, self.fov, 0.1, 100.0);
+        self.projection = glm::perspective::<f32>(self.viewport_ratio, self.fov, 0.1, 100.0);
     }
 }
 
@@ -436,7 +431,8 @@ impl ShadowMap {
 
     /// bind the shadow map for reading
     pub(crate) unsafe fn bind_reading(&self, texture_unit: GLuint) {
-        gl::BindTextureUnit(texture_unit, self.shadow_map);
+        gl::ActiveTexture(gl::TEXTURE0 + texture_unit);
+        gl::BindTexture(gl::TEXTURE_2D, self.shadow_map);
     }
 
     /// updates the shadow map according to a new light data
@@ -632,9 +628,9 @@ pub(crate) struct ScreenTexture {
 }
 
 impl ScreenTexture {
-    /// creates a new screen texture with a width and height
+    /// creates a new screen texture with a width and height and msaa config
     #[rustfmt::skip]
-    pub(crate) fn new(width: GLsizei, height: GLsizei, msaa: bool) -> Self {
+    pub(crate) fn new(width: GLsizei, height: GLsizei, msaa: bool, samples: GLsizei) -> Self {
         let mut multi_fbo = 0;
         let mut multi_texture = 0;
         let mut fbo = 0;
@@ -654,7 +650,7 @@ impl ScreenTexture {
             gl::BindTexture(gl::TEXTURE_2D_MULTISAMPLE, multi_texture);
             gl::TexImage2DMultisample(
                 gl::TEXTURE_2D_MULTISAMPLE,
-                4,
+                samples,
                 gl::RGBA,
                 width,
                 height,
@@ -779,7 +775,8 @@ impl ScreenTexture {
     pub(crate) fn render(&self) {
         unsafe {
             gl::BindVertexArray(self.vao);
-            gl::BindTextureUnit(0, self.texture);
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, self.texture);
             gl::Uniform1i(0, 0);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
             gl::BindVertexArray(0);

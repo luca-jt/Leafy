@@ -219,7 +219,8 @@ impl InstanceRenderer {
     pub(crate) fn render_shadows(&self) {
         unsafe {
             // bind texture
-            gl::BindTextureUnit(0, self.tex_id);
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, self.tex_id);
             // bind uniforms
             gl::Uniform1i(7, 0);
             let color_vec = self.color.to_vec4();
@@ -246,7 +247,8 @@ impl InstanceRenderer {
     ) {
         unsafe {
             // bind texture
-            gl::BindTextureUnit(0, self.tex_id);
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, self.tex_id);
             for (i, shadow_map) in shadow_maps.iter().enumerate() {
                 shadow_map.bind_reading(i as GLuint + 1);
             }

@@ -46,12 +46,12 @@ impl<A: FallingLeafApp> Engine<A> {
         let entity_manager = shared_ptr(EntityManager::new());
         let mut event_system = EventSystem::new();
 
-        event_system.add_listener::<WindowResize>(&video_system);
         event_system.add_listener::<CamPositionChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&audio_system);
         event_system.add_listener::<EngineModeChange>(&audio_system);
         event_system.add_listener::<AnimationSpeedChange>(&animation_system);
         event_system.add_listener::<CamPositionChange>(&animation_system);
+        event_system.add_modifier(on_window_resize);
         event_system.add_modifier(mode_update);
         event_system.add_modifier(mouse_move_cam);
         event_system.add_modifier(move_cam);
@@ -203,11 +203,10 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
 
-        self.rendering_system = Some(shared_ptr(RenderingSystem::new()));
+        let res = self.video_system().window_resolution();
+        self.rendering_system = Some(shared_ptr(RenderingSystem::new(res.width, res.height)));
         self.event_system_mut()
             .add_listener::<CamPositionChange>(self.rendering_system.as_ref().unwrap());
-        self.event_system_mut()
-            .add_listener::<WindowResize>(self.rendering_system.as_ref().unwrap());
 
         self.app_mut().init(self);
         self.time_of_last_sim = TouchTime::now();

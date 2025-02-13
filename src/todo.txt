@@ -1,28 +1,26 @@
-controller events
 raytrace the current scene
 switchable render backends -> vulkan support
 skeletal animations
-graphics improvement -> https://youtu.be/Uc8FEI5bg3w, bloom, screen space effects, reflection with dynamic environment maps, water shader
+collision fix -> sequential solver?
+volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
+graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, post-processing: b/w, depth of field
 scene files and loading of them -> serialization (serde)
 shadow anti-aliasing -> pcss
 cascaded shadow mapping
-voxelized meshes + hitboxes (for non-convex cases) -> Mesh becomes enum | https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
-volumetric rendering -> voxels
 cube shadow maps for point lights as an option
 2D animation frames
 2D sprite hitboxes with seperate collision checking
 shading type in component -> add styles like cell shading -> together in renderable component?
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
-collision fix -> sequential solver?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
 
-fix query unsafeness
-basic materials
+bloom
+material, normal and light map integration
+blinn phong lighting https://learnopengl.com/Advanced-Lighting/Advanced-Lighting
+gamma correction https://learnopengl.com/Advanced-Lighting/Gamma-Correction -> light intesity might not need that constant in the shader
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
-make asset command auto calls optional
-seperate asset manager that needs to be used manually? -> no unsafe queries any more?
 
-msaa custom to include borders in textures etc -> 3d screen texture not optional any more
-option to force viewport ratio independant of the window ratio
+make asset command auto calls optional
+fix query unsafeness
 colliders dont need a renderable -> they can use the default box if no mesh is present and panic when using the convex hull
