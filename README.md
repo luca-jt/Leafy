@@ -9,8 +9,7 @@
 [![Lines of code](https://tokei.rs/...)](https://github.com/luca-jt/Falling-Leaf)
 
 ___
-This project is a 3D and 2D Mini-Engine designed to be a great starting point for building games in Rust.\
-It is written in pure Rust and with minimal external dependecies.
+This project is a 3D and 2D Mini-Engine designed to be a great starting point for building games in Rust using minimal external dependecies.
 ___
 
 So far the Falling Leaf Engine provides the following features out of the box:
@@ -64,31 +63,71 @@ If you want to use the internal logger to get information about what is happenin
 ## Overview
 The engine consists of different systems, that all serve their respective purposes and have their respective settings.
 You can access them with their respective accessor functions. That way, you can also access the app that you decided to run the engine with. This is necessary e.g. when it comes to function events - more on that later.
-The only functionality that the engine is directly responsible for is triggering engine-wide events that are handled by the event system. This is done for reasons of implementation.
-In the following we will go over all of the different systems and their usage. This section provides additional information to the [Docs](https://docs.rs/...).
+The only functionality that the engine is directly responsible for is triggering engine-wide events that are handled by the event system. This is done for implementation reasons.
+In the following we will go over all of the different systems and their usage on a basic level. This section provides additional contextual information to the [Docs](https://docs.rs/...).
 
 ### Video System
 The video system is responsible for creating the window controlling its parameters. It also grants the user of the engine access to those parameters.
 This includes, but is not limited to:
+
 - Specifics about the event loop behavior
+- Frame rate modulation
 - Enabling the built-in camera movement with the mouse
 - Modifying window parameters
+- Window and rendering viewport settings
+
+All of this can be used to change the way the user interacts with the app and what he is allowed to do. The features are all quite self-explanatory.
+Some features like the built-in camera movement that are not exclusive to one system are implemented as function event modifiers.
 
 ### Audio System
 The audio system is responsible for managing the context of the audio engine.
-It controls
+You can load audio files and use the returned handle to controll the sound.
+You can attach it to an entity using the ``SoundController`` component which will lead to the position of the sound being linked to the entity's position.
+Depending on the movement of the entity and the bits set in the ``EntityFlags`` component, the sound's pitch will also automatically be updated for a **Doppler Effect**.
+You can control the regular pitch independantly of this effect. You can use the regular stereo audio or use the built-in HRTF 3D audio. This also enables you to use certain other audio effects like reverb.
+Depending on the animation speed fo the enigine, you can enable a variable pitch that is automatically applied to all sounds.
+All effects and features that rely on 3D audio require the loaded sounds to be spatial in nature.
+Deleted sound handles will automatically be removed from all components they are attached to.
 
 ### Event System
-...
+The event system is the main way of reacting to events form the operating system or the engine.
+You can add listeners in the form of structs that implement the ``EventObserver<T>`` trait that are wrapped in shared references,
+or use function events (modifiers) that have the signature ``fn(&T, &Engine<A>)`` where ``T`` is the event type and ``A`` the app that you use the engine with.
+You can also create your own events and use them for your app logic.
+There are two types of built-in events:
+
+- Read-only events (mainly from the operating system) that are not meant to be triggered manually
+- Events that can also be triggered manually
+
+The first type inlcudes almost all of the built-in events.
+The built-in events that can be triggered manually are located in the ``user_space`` sub-module.
 
 ### Rendering System
+All entities that have the necessary components for 3D or 2D rendering attached are automatically rendered.
+For 2D sprites you can define sprite positions on defined grids or in an absolute way.
+For 3D rendered entities, you can load them from ``.obj`` and ``.mtl`` files and manipulate them with e.g. scaling or materials/textures.
+There are also a lot of other rendering-specific settings that can be modified here.
+
 ...
 
 ### Animation System
+The animation system is responsible for all Physics simulations and animations for rendered entities.
+The physics simulations are done dynamically an only require a small amount of base components and can be more specifically controlled by various bits of ``EntityFlags`` and other additional components.
+The physics simulations include collision handling and mechanics. More specific information on the use cases of all the different components later.
+
 ...
 
 ### Entity Manager
-- always use custom structs for components
+The entity manager is responsible for storing all the data that is associated with entities.
+This inlcudes the ECS that generically stores all of the components that are attached to entities and also the asset data that is automatically loaded based on the components that require it.
+It is also automatically cleaned up when all entities that require it are deleted. You can prevent this by introducing ``AssetCacheInstruction``s e.g. when you are frequently changing what asset data is currently used but want to prevent frequent an expensive reloads.
+You can query the stored component data to implement generic entity behavior that is component-based. The respectice functions will return an Iterator over tuples of all the components.
+You can also add filters to the queries to include/exclude entity types that contain certain components. Individual components can be queried mutably or immutably and also in an optional way, which yields a component only if it is present.
+There are a lot of different built-in components that are used internally by the engine's systems, but you can also easily introduce your own components.
+Components are arbitrary structs and enums. Always use custom (wrapper-)types for your own components. This will prevent potential hashing collisions that might occur.
+Once [trait upcasting](https://doc.rust-lang.org/beta/unstable-book/language-features/trait-upcasting.html) is stablized in a new Rust version and the whole crate will be updated to that version, a new Component trait will be introduced to make these things more clear.
+For an overview of all the built-in components and their use cases, take a look at the Docs.
+
 ...
 
 ### UI Library

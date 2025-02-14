@@ -22,6 +22,7 @@ gamma correction https://learnopengl.com/Advanced-Lighting/Gamma-Correction -> l
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
 
 fix query unsafeness
+with trait-upcasting stabilized: Component trait
 colliders dont need a renderable
 -> they can use the default box if no mesh is present and panic when using the convex hull
 -> hitbox asset commands when collider is affected, not the renderable

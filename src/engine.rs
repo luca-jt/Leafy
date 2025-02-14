@@ -3,7 +3,7 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine_builder::EngineAttributes;
 use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
-use crate::systems::event_system::events::*;
+use crate::systems::event_system::events::user_space::*;
 use crate::systems::event_system::EventSystem;
 use crate::systems::general::*;
 use crate::systems::rendering_system::RenderingSystem;

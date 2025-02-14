@@ -1,7 +1,7 @@
 use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
-use crate::systems::event_system::events::*;
+use crate::systems::event_system::events::user_space::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::file::HRTF_SPHERE;
 use crate::utils::tools::vec3_to_vector3;

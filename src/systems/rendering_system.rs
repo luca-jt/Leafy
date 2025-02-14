@@ -9,7 +9,7 @@ use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::{ShaderCatalog, ShaderType};
 use crate::rendering::sprite_renderer::{SpriteGrid, SpriteRenderer};
-use crate::systems::event_system::events::CamPositionChange;
+use crate::systems::event_system::events::user_space::CamPositionChange;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::user_level::INVISIBLE;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};

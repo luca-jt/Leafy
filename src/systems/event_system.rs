@@ -228,8 +228,6 @@ struct EventFunction<T: Event, A: FallingLeafApp> {
 }
 
 pub mod events {
-    use crate::engine::EngineMode;
-    use crate::glm;
     use std::path::PathBuf;
     use winit::event::{DeviceId, MouseButton, TouchPhase};
     use winit::keyboard::KeyCode;
@@ -347,22 +345,28 @@ pub mod events {
         pub horizontal_delta: f32,
     }
 
-    /// global change of the engine mode
-    #[derive(Debug, Copy, Clone, PartialEq)]
-    pub struct EngineModeChange {
-        pub new_mode: EngineMode,
-    }
+    /// contains all events that are also meant to be triggered by the user
+    pub mod user_space {
+        use crate::engine::EngineMode;
+        use crate::glm;
 
-    /// change of the users camera position and look direction vector used for rendering and audio processing
-    #[derive(Debug, Copy, Clone, PartialEq)]
-    pub struct CamPositionChange {
-        pub new_pos: glm::Vec3,
-        pub new_look: glm::Vec3,
-    }
+        /// global change of the engine mode
+        #[derive(Debug, Copy, Clone, PartialEq)]
+        pub struct EngineModeChange {
+            pub new_mode: EngineMode,
+        }
 
-    /// changes the animation speed of the rendering system
-    #[derive(Debug, Copy, Clone, PartialEq)]
-    pub struct AnimationSpeedChange {
-        pub new_animation_speed: f32,
+        /// change of the users camera position and look direction vector used for rendering and audio processing
+        #[derive(Debug, Copy, Clone, PartialEq)]
+        pub struct CamPositionChange {
+            pub new_pos: glm::Vec3,
+            pub new_look: glm::Vec3,
+        }
+
+        /// changes the animation speed of the rendering system
+        #[derive(Debug, Copy, Clone, PartialEq)]
+        pub struct AnimationSpeedChange {
+            pub new_animation_speed: f32,
+        }
     }
 }

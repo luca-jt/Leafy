@@ -4,7 +4,7 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine::{Engine, FallingLeafApp};
 use crate::rendering::data::calc_model_matrix;
 use crate::rendering::mesh::Hitbox;
-use crate::systems::event_system::events::*;
+use crate::systems::event_system::events::user_space::*;
 use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::internal::*;
 use crate::utils::constants::bits::user_level::*;
