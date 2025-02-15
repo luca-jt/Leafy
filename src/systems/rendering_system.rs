@@ -89,10 +89,10 @@ impl RenderingSystem {
 
     /// adds and removes light sources according to entity data
     fn update_light_sources(&mut self, entity_manager: &EntityManager) {
-        let lights = entity_manager
-            .query3::<&Position, &PointLight, &EntityID>((None, None))
-            .map(|(p, s, e)| (p, s, *e))
-            .collect_vec();
+        let lights =
+            unsafe { entity_manager.query3::<&Position, &PointLight, &EntityID>((None, None)) }
+                .map(|(p, s, e)| (p, s, *e))
+                .collect_vec();
         // remove deleted shadow maps
         self.light_sources
             .retain(|src| lights.iter().any(|(_, _, id)| *id == src.0));
@@ -124,8 +124,10 @@ impl RenderingSystem {
     /// add entity data to the renderers
     fn add_entity_data(&mut self, entity_manager: &EntityManager) {
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        for (position, renderable, _, scale, orientation, rb, light, lod) in entity_manager
-            .query8::<&Position, &Renderable, Option<&EntityFlags>, Option<&Scale>, Option<&Orientation>, Option<&RigidBody>, Option<&PointLight>, Option<&LOD>>((None, None))
+        for (position, renderable, _, scale, orientation, rb, light, lod) in unsafe {
+            entity_manager
+                .query8::<&Position, &Renderable, Option<&EntityFlags>, Option<&Scale>, Option<&Orientation>, Option<&RigidBody>, Option<&PointLight>, Option<&LOD>>((None, None))
+        }
             .filter(|(_, _, f_opt, ..)| f_opt.map_or(true, |flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.map_or(true, |dist| (pos.data() - cam_pos).norm() <= dist))
         {

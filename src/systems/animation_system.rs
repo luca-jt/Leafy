@@ -55,17 +55,20 @@ impl AnimationSystem {
 
     /// stops velocities near zero to make behavior more realistic
     fn damp_velocities(&self, entity_manager: &mut EntityManager) {
-        for velocity in
+        for velocity in unsafe {
             entity_manager.query1::<&mut Velocity>((Some(include_filter!(Position)), None))
-        {
+        } {
             let ub = 0.1;
             let vel_norm = velocity.data().norm();
             let factor = map_range((0.0, ub), (0.999, 1.0), vel_norm.clamp(0.0, ub));
             *velocity *= factor;
         }
-        for momentum in entity_manager
-            .query1::<&mut AngularMomentum>((Some(include_filter!(Position, Orientation)), None))
-        {
+        for momentum in unsafe {
+            entity_manager.query1::<&mut AngularMomentum>((
+                Some(include_filter!(Position, Orientation)),
+                None,
+            ))
+        } {
             let ub = 0.1;
             let mom_norm = momentum.data().norm();
             let factor = map_range((0.0, ub), (0.999, 1.0), mom_norm.clamp(0.0, ub));
@@ -75,9 +78,10 @@ impl AnimationSystem {
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager) {
-        let mut entity_data = entity_manager
-            .query9::<&mut Position, &mut Collider, Option<&Renderable>, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))
-            .map(|(p, coll, rndrbl, v, am, s, rb, f, o)| {
+        let mut entity_data = unsafe {
+            entity_manager
+                .query9::<&mut Position, &mut Collider, Option<&Renderable>, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))
+        }.map(|(p, coll, rndrbl, v, am, s, rb, f, o)| {
                 let mt_opt = rndrbl.map(|r| &r.mesh_type);
                 let mesh_opt = mt_opt.map(|mt| entity_manager.asset_from_type(mt, LOD::None).unwrap());
                 let hitbox = entity_manager.hitbox_from_data(&coll.hitbox_type, mt_opt).unwrap();
@@ -416,9 +420,10 @@ impl AnimationSystem {
 
     /// performs all relevant physics calculations on entity data
     fn apply_physics(&self, entity_manager: &mut EntityManager) {
-        for (p, v, a_opt, rb_opt, o_opt, am_opt, flags) in entity_manager
-            .query7::<&mut Position, &mut Velocity, Option<&mut Acceleration>, Option<&RigidBody>, Option<&mut Orientation>, Option<&AngularMomentum>, Option<&EntityFlags>>((None, None))
-        {
+        for (p, v, a_opt, rb_opt, o_opt, am_opt, flags) in unsafe {
+            entity_manager
+                .query7::<&mut Position, &mut Velocity, Option<&mut Acceleration>, Option<&RigidBody>, Option<&mut Orientation>, Option<&AngularMomentum>, Option<&EntityFlags>>((None, None))
+        } {
             let total_a = rb_opt
                 .is_some()
                 .then(|| {
