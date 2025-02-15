@@ -193,7 +193,7 @@ macro_rules! impl_query {
             #[doc = "To avoid this, you can manually trigger recomputes of desired entities using the entity manager's methods."]
             #[doc = "This should not be a real problem most of the time, as all components that influence what asset data is loaded are typically quite static."]
             #[doc = "E.g. ``Scale`` only influences inertia values of ``RigidBody``'s, which means modifying a scale in a query alone doesn't require a recompute."]
-            #[doc = "### Unsafe"]
+            #[doc = "### Safety"]
             #[doc = "If you use the same component type twice in the same query, it is possible to aquire two mutable references to the same component,"]
             #[doc = "which harms Rust's borrowing rules. In debug builds the query panics if you do that."]
             #[doc = "In release builds these checks are disabled for performance reasons."]
