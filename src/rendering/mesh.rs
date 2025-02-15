@@ -710,7 +710,7 @@ impl Mesh {
             HitboxType::ConvexHull => Hitbox::ConvexMesh(self.algorithm_mesh().hitbox_mesh().convex_hull()),
             HitboxType::SimplifiedConvexHull => Hitbox::ConvexMesh(self.algorithm_mesh().simplified().hitbox_mesh().convex_hull()),
             HitboxType::Sphere => Hitbox::Sphere(self.max_reach.max()),
-            HitboxType::Box => Hitbox::ConvexMesh(HitboxMesh::box_from_dimensions(&self.max_reach)),
+            HitboxType::Box => Hitbox::ConvexMesh(HitboxMesh::box_from_dims(&self.max_reach)),
         }
     }
 }
@@ -744,6 +744,16 @@ pub(crate) enum Hitbox {
     Sphere(f32),
 }
 
+impl Hitbox {
+    /// creates a generic hitbox that is independant of mesh data
+    pub(crate) fn from_generic_type(hitbox_type: HitboxType) -> Self {
+        match hitbox_type {
+            HitboxType::Sphere => Self::Sphere(1.0),
+            _ => Self::ConvexMesh(HitboxMesh::box_from_dims(&glm::Vec3::from_element(1.0))),
+        }
+    }
+}
+
 /// contains all of the hitbox vertex data
 pub(crate) struct HitboxMesh {
     pub(crate) vertices: Vec<glm::Vec3>,
@@ -752,7 +762,7 @@ pub(crate) struct HitboxMesh {
 
 impl HitboxMesh {
     /// creates a box mesh from reach dimensions
-    fn box_from_dimensions(dim: &glm::Vec3) -> Self {
+    fn box_from_dims(dim: &glm::Vec3) -> Self {
         Self {
             vertices: vec![
                 glm::vec3(-dim.x, -dim.y, dim.z),

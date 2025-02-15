@@ -27,7 +27,7 @@ pub struct EntityManager {
     lod_register: HashMap<MeshType, [Mesh; 4]>,
     pub(crate) texture_map: TextureMap,
     pub(crate) sprite_texture_map: SpriteTextureMap,
-    hitbox_register: HashMap<(MeshType, HitboxType), Hitbox>,
+    hitbox_register: HashMap<(HitboxType, Option<MeshType>), Hitbox>,
     commands: VecDeque<AssetCommand>,
     cache_instructions: HashSet<AssetCacheInstruction>,
 }
@@ -99,6 +99,7 @@ impl EntityManager {
             self.add_command(AssetCommand::AddMesh(entity));
             self.add_command(AssetCommand::AddTexture(entity));
             self.add_command(AssetCommand::AddLODs(entity));
+            self.add_command(AssetCommand::AddHitbox(entity));
         } else if types_eq::<T, Sprite>() {
             self.add_command(AssetCommand::AddSpriteData(entity));
         } else if types_eq::<T, Collider>() {
@@ -180,10 +181,10 @@ impl EntityManager {
     /// makes hitbox data available for given entity data
     pub(crate) fn hitbox_from_data(
         &self,
-        mesh_type: &MeshType,
         hitbox: &HitboxType,
+        mesh_type: Option<&MeshType>,
     ) -> Option<&Hitbox> {
-        self.hitbox_register.get(&(mesh_type.clone(), *hitbox))
+        self.hitbox_register.get(&(*hitbox, mesh_type.cloned()))
     }
 
     /// executes all the asset commands stored in the queue and clears it
@@ -232,45 +233,52 @@ impl EntityManager {
                     });
                 }
                 AssetCommand::AddHitbox(entity) => {
-                    if let (Some(renderable), Some(collider)) = (
-                        unsafe { &*self.ecs.get() }.get_component::<Renderable>(entity),
-                        unsafe { &*self.ecs.get() }.get_component::<Collider>(entity),
-                    ) {
+                    if let Some(collider) =
+                        unsafe { &*self.ecs.get() }.get_component::<Collider>(entity)
+                    {
+                        let opt_mesh_type = unsafe { &*self.ecs.get() }
+                            .get_component::<Renderable>(entity)
+                            .map(|r| &r.mesh_type);
+
                         self.hitbox_register
-                            .entry((renderable.mesh_type.clone(), collider.hitbox_type))
+                            .entry((collider.hitbox_type, opt_mesh_type.cloned()))
                             .or_insert_with(|| {
                                 log::debug!(
-                                    "inserted hitbox '{:?}' in register for mesh '{:?}'",
+                                    "inserted hitbox {:?} in register for mesh type {:?}",
                                     collider.hitbox_type,
-                                    renderable.mesh_type
+                                    opt_mesh_type
                                 );
-                                self.asset_register
-                                    .get(&renderable.mesh_type)
-                                    .unwrap()
-                                    .generate_hitbox(&collider.hitbox_type)
+                                if let Some(mesh_type) = opt_mesh_type {
+                                    self.asset_register
+                                        .get(mesh_type)
+                                        .unwrap()
+                                        .generate_hitbox(&collider.hitbox_type)
+                                } else {
+                                    Hitbox::from_generic_type(collider.hitbox_type)
+                                }
                             });
                     }
                 }
                 AssetCommand::CleanHitboxes => {
-                    self.hitbox_register.retain(|(mesh_type, box_type), _| {
+                    self.hitbox_register.retain(|(box_type, mt_opt), _| {
                         let contains = self
                             .ecs
                             .get_mut()
-                            .query2::<&Renderable, &Collider>((None, None))
-                            .map(|(rndrbl, coll)| (&rndrbl.mesh_type, &coll.hitbox_type))
-                            .contains(&(mesh_type, box_type));
+                            .query2::<&Collider, Option<&Renderable>>((None, None))
+                            .map(|(coll, r_opt)| (&coll.hitbox_type, r_opt.map(|r| &r.mesh_type)))
+                            .contains(&(box_type, Option::from(mt_opt)));
                         let is_cached =
                             self.cache_instructions
                                 .contains(&AssetCacheInstruction::HitboxData(
                                     *box_type,
-                                    mesh_type.clone(),
+                                    mt_opt.clone(),
                                 ));
                         let should_stay = contains || is_cached;
                         if !should_stay {
                             log::debug!(
-                                "deleted hitbox '{:?}' from register for mesh '{:?}'",
+                                "deleted hitbox {:?} from register for mesh {:?}",
                                 box_type,
-                                mesh_type
+                                mt_opt
                             );
                         }
                         should_stay
@@ -445,6 +453,7 @@ impl EntityManager {
             self.add_command(AssetCommand::CleanMeshes);
             self.add_command(AssetCommand::CleanTextures);
             self.add_command(AssetCommand::CleanLODs);
+            self.add_command(AssetCommand::CleanHitboxes);
         } else if types_eq::<T, Collider>() {
             self.add_command(AssetCommand::CleanHitboxes);
         } else if types_eq::<T, Sprite>() {

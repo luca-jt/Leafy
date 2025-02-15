@@ -76,18 +76,18 @@ impl AnimationSystem {
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&self, entity_manager: &mut EntityManager) {
         let mut entity_data = entity_manager
-            .query9::<&mut Position, &mut Collider, &Renderable, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))
+            .query9::<&mut Position, &mut Collider, Option<&Renderable>, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))
             .map(|(p, coll, rndrbl, v, am, s, rb, f, o)| {
-                let mesh = entity_manager.asset_from_type(&rndrbl.mesh_type, LOD::None).unwrap();
-                let hitbox = entity_manager.hitbox_from_data(&rndrbl.mesh_type, &coll.hitbox_type).unwrap();
+                let mt_opt = rndrbl.map(|r| &r.mesh_type);
+                let mesh_opt = mt_opt.map(|mt| entity_manager.asset_from_type(mt, LOD::None).unwrap());
+                let hitbox = entity_manager.hitbox_from_data(&coll.hitbox_type, mt_opt).unwrap();
                 let scale = s.copied().unwrap_or_default();
                 let scale_matrix = scale.scale_matrix() * coll.scale.scale_matrix();
-                let coll_reach = mesh.max_reach + coll.offset.abs();
+                let coll_reach = mesh_opt.map(|m| m.max_reach).unwrap_or(glm::Vec3::from_element(1.0)) + coll.offset.abs();
                 coll.last_collisions.clear();
                 (
                     p,
                     hitbox,
-                    mesh,
                     coll,
                     v,
                     am,
@@ -113,37 +113,37 @@ impl AnimationSystem {
                 // check bounding spheres of the mesh for macro level filtering
                 if !spheres_collide(
                     entity_data[i].0.data(),
-                    entity_data[i].10,
+                    entity_data[i].9,
                     entity_data[j].0.data(),
-                    entity_data[j].10,
+                    entity_data[j].9,
                 ) {
                     continue;
                 }
 
                 // check what entities do not have velocity
-                let is_dynamic_1 = entity_data[i].4.is_some();
-                let is_dynamic_2 = entity_data[j].4.is_some();
+                let is_dynamic_1 = entity_data[i].3.is_some();
+                let is_dynamic_2 = entity_data[j].3.is_some();
 
                 // check what entities are still colliding statically
                 let static_collision_1 = entity_data[i]
-                    .8
+                    .7
                     .as_ref()
                     .map(|flags| flags.get_bit(STATIC_COLLISION))
                     .unwrap_or(false);
                 let static_collision_2 = entity_data[j]
-                    .8
+                    .7
                     .as_ref()
                     .map(|flags| flags.get_bit(STATIC_COLLISION))
                     .unwrap_or(false);
 
                 // check what entities ignore collision resolvement
                 let ingores_collision_1 = entity_data[i]
-                    .8
+                    .7
                     .as_ref()
                     .map(|flags| flags.get_bit(IGNORING_COLLISION))
                     .unwrap_or(false);
                 let ingores_collision_2 = entity_data[j]
-                    .8
+                    .7
                     .as_ref()
                     .map(|flags| flags.get_bit(IGNORING_COLLISION))
                     .unwrap_or(false);
@@ -158,14 +158,14 @@ impl AnimationSystem {
                 let should_seperate_2 = is_dynamic_2 || static_collision_2;
 
                 // rigid bodies
-                let rb_1 = entity_data[i].7.copied().unwrap_or_default();
-                let rb_2 = entity_data[j].7.copied().unwrap_or_default();
+                let rb_1 = entity_data[i].6.copied().unwrap_or_default();
+                let rb_2 = entity_data[j].6.copied().unwrap_or_default();
                 // rotations
-                let rot1 = entity_data[i].9.copied().unwrap_or_default();
-                let rot2 = entity_data[j].9.copied().unwrap_or_default();
+                let rot1 = entity_data[i].8.copied().unwrap_or_default();
+                let rot2 = entity_data[j].8.copied().unwrap_or_default();
                 // scales
-                let scale1 = entity_data[i].6;
-                let scale2 = entity_data[j].6;
+                let scale1 = entity_data[i].5;
+                let scale2 = entity_data[j].5;
 
                 //  translate the colliders to the positional offset of the hitbox
                 let collider_1 = ColliderData {
@@ -174,7 +174,7 @@ impl AnimationSystem {
                     orientation: rot1,
                     center_of_mass: rb_1.center_of_mass,
                     hitbox: entity_data[i].1,
-                    collider: entity_data[i].3,
+                    collider: entity_data[i].2,
                     is_dynamic: should_seperate_1,
                 };
                 let collider_2 = ColliderData {
@@ -183,7 +183,7 @@ impl AnimationSystem {
                     orientation: rot2,
                     center_of_mass: rb_2.center_of_mass,
                     hitbox: entity_data[j].1,
-                    collider: entity_data[j].3,
+                    collider: entity_data[j].2,
                     is_dynamic: should_seperate_2,
                 };
                 // check for collision
@@ -191,10 +191,10 @@ impl AnimationSystem {
                     // INFO: normal, velocity, and translation vector, etc are POV 1 -> 2
 
                     // set collision flags/data
-                    if let Some(flags) = &mut entity_data[i].8 {
+                    if let Some(flags) = &mut entity_data[i].7 {
                         flags.set_bit(COLLIDED, true);
                     }
-                    if let Some(flags) = &mut entity_data[j].8 {
+                    if let Some(flags) = &mut entity_data[j].7 {
                         flags.set_bit(COLLIDED, true);
                     }
 
@@ -213,22 +213,22 @@ impl AnimationSystem {
                         - (rb_2.center_of_mass + entity_data[j].0.data());
 
                     // angular velocities
-                    let av1 = local_inertia_inv_1 * copied_or_default(&entity_data[i].5).data();
-                    let av2 = local_inertia_inv_2 * copied_or_default(&entity_data[j].5).data();
+                    let av1 = local_inertia_inv_1 * copied_or_default(&entity_data[i].4).data();
+                    let av2 = local_inertia_inv_2 * copied_or_default(&entity_data[j].4).data();
 
                     // relative velocity
-                    let v_rel = copied_or_default(&entity_data[i].4).data()
+                    let v_rel = copied_or_default(&entity_data[i].3).data()
                         + av1.cross(&mass_center_coll_point_1)
-                        - copied_or_default(&entity_data[j].4).data()
+                        - copied_or_default(&entity_data[j].3).data()
                         - av2.cross(&mass_center_coll_point_2);
 
                     // set collision info
-                    entity_data[i].3.last_collisions.push(CollisionInfo {
+                    entity_data[i].2.last_collisions.push(CollisionInfo {
                         momentum: v_rel * rb_1.mass,
                         point: collision_data.collision_point,
                         normal: collision_data.collision_normal,
                     });
-                    entity_data[j].3.last_collisions.push(CollisionInfo {
+                    entity_data[j].2.last_collisions.push(CollisionInfo {
                         momentum: -v_rel * rb_2.mass,
                         point: collision_data.collision_point,
                         normal: -collision_data.collision_normal,
@@ -321,13 +321,13 @@ impl AnimationSystem {
                         let impulse =
                             (normal_impulse + clamped_tang_impulse) * (1.0 + total_restitution);
 
-                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse / rb_1.mass;
-                        *entity_data[j].4.as_mut().unwrap().data_mut() -= impulse / rb_2.mass;
+                        *entity_data[i].3.as_mut().unwrap().data_mut() += impulse / rb_1.mass;
+                        *entity_data[j].3.as_mut().unwrap().data_mut() -= impulse / rb_2.mass;
 
-                        if let Some(angular_mom) = entity_data[i].5.as_mut() {
+                        if let Some(angular_mom) = entity_data[i].4.as_mut() {
                             *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse);
                         }
-                        if let Some(angular_mom) = entity_data[j].5.as_mut() {
+                        if let Some(angular_mom) = entity_data[j].4.as_mut() {
                             *angular_mom.data_mut() -= mass_center_coll_point_2.cross(&impulse);
                         }
                     } else if is_dynamic_1 {
@@ -363,9 +363,9 @@ impl AnimationSystem {
                         let impulse =
                             (normal_impulse + clamped_tang_impulse) * (1.0 + total_restitution);
 
-                        *entity_data[i].4.as_mut().unwrap().data_mut() += impulse / rb_1.mass;
+                        *entity_data[i].3.as_mut().unwrap().data_mut() += impulse / rb_1.mass;
 
-                        if let Some(angular_mom) = entity_data[i].5.as_mut() {
+                        if let Some(angular_mom) = entity_data[i].4.as_mut() {
                             *angular_mom.data_mut() += mass_center_coll_point_1.cross(&impulse);
                         }
                     } else if is_dynamic_2 {
@@ -401,9 +401,9 @@ impl AnimationSystem {
                         let impulse =
                             (normal_impulse + clamped_tang_impulse) * (1.0 + total_restitution);
 
-                        *entity_data[j].4.as_mut().unwrap().data_mut() -= impulse / rb_2.mass;
+                        *entity_data[j].3.as_mut().unwrap().data_mut() -= impulse / rb_2.mass;
 
-                        if let Some(angular_mom) = entity_data[j].5.as_mut() {
+                        if let Some(angular_mom) = entity_data[j].4.as_mut() {
                             *angular_mom.data_mut() -= mass_center_coll_point_2.cross(&impulse);
                         }
                     }

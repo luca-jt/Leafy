@@ -106,7 +106,7 @@ impl ComponentStorage for Vec<Box<dyn Any>> {
 pub enum AssetCacheInstruction {
     MeshData(MeshType),
     TextureData(Texture),
-    HitboxData(HitboxType, MeshType),
+    HitboxData(HitboxType, Option<MeshType>),
     SpriteSheetData(Rc<Path>),
 }
 
@@ -122,8 +122,8 @@ impl From<Texture> for AssetCacheInstruction {
     }
 }
 
-impl From<(HitboxType, MeshType)> for AssetCacheInstruction {
-    fn from(value: (HitboxType, MeshType)) -> Self {
+impl From<(HitboxType, Option<MeshType>)> for AssetCacheInstruction {
+    fn from(value: (HitboxType, Option<MeshType>)) -> Self {
         Self::HitboxData(value.0, value.1)
     }
 }
