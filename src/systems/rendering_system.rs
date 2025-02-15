@@ -552,7 +552,7 @@ impl RenderingSystem {
         if msaa == use_msaa {
             return;
         }
-        log::debug!("set anti-aliasing to {:?}", use_msaa);
+        log::debug!("set anti-aliasing to {use_msaa:?}");
         if use_msaa {
             unsafe { gl::Enable(gl::MULTISAMPLE) };
         } else {
@@ -582,25 +582,25 @@ impl RenderingSystem {
 
     /// change OpenGL's background clear color (default is WHITE)
     pub fn set_gl_clearcolor(&mut self, color: Color32) {
-        log::trace!("set gl clear color: {:?}", color);
+        log::trace!("set gl clear color: {color:?}");
         self.clear_color = color;
     }
 
     /// set the FOV for 3D rendering in degrees (default is 45°)
     pub fn set_fov(&mut self, fov: f32) {
-        log::trace!("set FOV: {:?}", fov);
+        log::trace!("set FOV: {fov:?}");
         self.perspective_camera.update_fov(fov);
     }
 
     /// changes the render distance to `distance` units from the current camera position
     pub fn set_render_distance(&mut self, distance: Option<f32>) {
-        log::debug!("set render distance: {:?}", distance);
+        log::debug!("set render distance: {distance:?}");
         self.render_distance = distance;
     }
 
     /// changes the shadow map resolution (default is normal)
     pub fn set_shadow_resolution(&mut self, resolution: ShadowResolution) {
-        log::debug!("set shadow map resolution: {:?}", resolution);
+        log::debug!("set shadow map resolution: {resolution:?}");
         self.shadow_resolution = resolution;
         self.light_sources.iter_mut().for_each(|(_, map)| {
             *map = ShadowMap::new(self.shadow_resolution.map_res(), map.light_pos, &map.light)
@@ -609,11 +609,7 @@ impl RenderingSystem {
 
     /// changes the ambient light (default is white and 0.3)
     pub fn set_ambient_light(&mut self, color: Color32, intensity: f32) {
-        log::debug!(
-            "set ambient light to {:?} with intensity {:?}",
-            color,
-            intensity
-        );
+        log::debug!("set ambient light to {color:?} with intensity {intensity:?}");
         self.ambient_light = (color, intensity);
     }
 }

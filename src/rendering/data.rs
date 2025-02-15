@@ -91,7 +91,7 @@ impl TextureMap {
 
     /// adds a texture from file
     pub(crate) fn add_texture(&mut self, texture: &Texture) {
-        log::debug!("loaded texture: '{:?}'", texture);
+        log::debug!("loaded texture: {texture:?}");
         let image = stbi_load_u8_rgba(&texture.path).expect("error loading texture");
         let transparent = image.data.iter().skip(3).step_by(4).any(|a| *a < 255);
         let tex_id = generate_texture(&image, &texture.filtering, &texture.wrapping);
@@ -107,7 +107,7 @@ impl TextureMap {
         self.textures.retain(|texture, id| {
             let contains = f(texture);
             if !contains {
-                log::debug!("deleted texture: '{:?}'", texture);
+                log::debug!("deleted texture: {texture:?}");
                 unsafe { gl::DeleteTextures(1, id) };
                 self.transparency_map.remove(texture).unwrap();
             }
@@ -187,7 +187,7 @@ impl SpriteTextureMap {
         self.sheets.retain(|path, sheet| {
             let contains = f(path);
             if !contains {
-                log::debug!("deleted sprite sheet: {:?}", path);
+                log::debug!("deleted sprite sheet: {path:?}");
                 unsafe { gl::DeleteTextures(1, &sheet.texture_id) };
             }
             contains
@@ -202,7 +202,7 @@ impl SpriteTextureMap {
         self.sprites.retain(|path, id| {
             let contains = f(path);
             if !contains {
-                log::debug!("deleted sprite: {:?}", path);
+                log::debug!("deleted sprite: {path:?}");
                 unsafe { gl::DeleteTextures(1, id) };
             }
             contains
@@ -580,7 +580,7 @@ impl Skybox {
             gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
             gl::BindVertexArray(0);
         }
-        log::debug!("created skybox");
+        log::trace!("created skybox");
 
         Self { cube_map, vao, vbo }
     }
@@ -603,7 +603,7 @@ impl Skybox {
 
 impl Drop for Skybox {
     fn drop(&mut self) {
-        log::debug!("dropped skybox");
+        log::trace!("dropped skybox");
         unsafe {
             gl::DeleteTextures(1, &self.cube_map);
             gl::DeleteBuffers(1, &self.vbo);

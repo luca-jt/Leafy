@@ -98,7 +98,7 @@ impl ShaderProgram {
 
         let c_out_color = CString::new("out_color").unwrap();
         unsafe { gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()) };
-        log::debug!("compiled shader: {:?}", id);
+        log::trace!("compiled shader: {id:?}");
 
         Self { id }
     }
@@ -121,7 +121,7 @@ impl ShaderProgram {
 
 impl Drop for ShaderProgram {
     fn drop(&mut self) {
-        log::debug!("deleted shader: {:?}", self.id);
+        log::trace!("deleted shader: {:?}", self.id);
         unsafe { gl::DeleteProgram(self.id) };
     }
 }

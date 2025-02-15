@@ -262,7 +262,7 @@ impl AudioSystem {
 
     /// changes the volume of the given type to the specified value
     pub fn set_volume(&mut self, volume_type: VolumeType, new_volume: f32) {
-        log::trace!("set volume {:?} to {:?}", volume_type, new_volume);
+        log::trace!("set volume {volume_type:?} to {new_volume:?}");
         let mut state = self.sound_context.state();
         let old_sfx_volume = self.absolute_volume(SoundType::SFX);
         let old_music_volume = self.absolute_volume(SoundType::Music);
@@ -307,7 +307,7 @@ impl AudioSystem {
 
     /// changes the pitch of an entity's sound independantly of the speed pitch change
     pub fn set_pitch(&self, handle: Handle<SoundSource>, pitch: f64) {
-        log::trace!("set pitch of handle {:?} to {:?}", handle, pitch);
+        log::trace!("set pitch of handle {handle:?} to {pitch:?}");
         let mut state = self.sound_context.state();
         let source = state.source_mut(handle);
         if self.pitch_on_speed_change {
@@ -319,7 +319,7 @@ impl AudioSystem {
 
     /// enables/disbles the pitch change on animation speed change (default is ``true``)
     pub fn set_pitch_on_speed_change(&mut self, flag: bool) {
-        log::debug!("set pitch on speed change: {:?}", flag);
+        log::debug!("set pitch on speed change: {flag:?}");
         if self.pitch_on_speed_change == flag {
             return;
         }

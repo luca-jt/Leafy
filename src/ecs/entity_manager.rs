@@ -147,7 +147,7 @@ impl EntityManager {
         &mut self,
         instruction: impl Into<AssetCacheInstruction> + Debug,
     ) -> bool {
-        log::trace!("added asset cache instruction for: '{:?}'", instruction);
+        log::trace!("added asset cache instruction for: {instruction:?}");
         self.cache_instructions.insert(instruction.into())
     }
 
@@ -156,7 +156,7 @@ impl EntityManager {
         &mut self,
         instruction: impl Into<AssetCacheInstruction> + Debug,
     ) -> bool {
-        log::trace!("removed asset cache instruction for: '{:?}'", instruction);
+        log::trace!("removed asset cache instruction for: {instruction:?}");
         self.cache_instructions.remove(&instruction.into())
     }
 
@@ -210,7 +210,7 @@ impl EntityManager {
                             };
                             self.asset_register
                                 .insert(renderable.mesh_type.clone(), mesh);
-                            log::debug!("inserted mesh in register: '{:?}'", renderable.mesh_type);
+                            log::debug!("inserted mesh in register: {:?}", renderable.mesh_type);
                         }
                     }
                 }
@@ -227,7 +227,7 @@ impl EntityManager {
                             .contains(&AssetCacheInstruction::MeshData(mesh_type.clone()));
                         let should_stay = contains || is_cached;
                         if !should_stay {
-                            log::debug!("deleted mesh from register: '{:?}'", mesh_type);
+                            log::debug!("deleted mesh from register: {mesh_type:?}");
                         }
                         should_stay
                     });
@@ -276,9 +276,7 @@ impl EntityManager {
                         let should_stay = contains || is_cached;
                         if !should_stay {
                             log::debug!(
-                                "deleted hitbox {:?} from register for mesh {:?}",
-                                box_type,
-                                mt_opt
+                                "deleted hitbox {box_type:?} from register for mesh {mt_opt:?}"
                             );
                         }
                         should_stay
@@ -347,7 +345,7 @@ impl EntityManager {
                             let mesh = self.asset_from_type(mesh_type, LOD::None).unwrap(); // assumes mesh data to be present
                             let lod_array = mesh.generate_lods();
                             self.lod_register.insert(mesh_type.clone(), lod_array);
-                            log::debug!("inserted LODs in register for mesh: '{:?}'", mesh_type);
+                            log::debug!("inserted LODs in register for mesh: {mesh_type:?}");
                         }
                     }
                 }
@@ -364,7 +362,7 @@ impl EntityManager {
                             .contains(&AssetCacheInstruction::MeshData(mesh_type.clone()));
                         let should_stay = contains || is_cached;
                         if !should_stay {
-                            log::debug!("deleted LODs from register for mesh: '{:?}'", mesh_type);
+                            log::debug!("deleted LODs from register for mesh: {mesh_type:?}");
                         }
                         should_stay
                     });

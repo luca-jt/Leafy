@@ -349,13 +349,13 @@ impl VideoSystem {
 
     /// set the optional fps cap value for the rendering process
     pub fn set_fps_cap(&mut self, new_cap: Option<f64>) {
-        log::trace!("set fps cap: {:?}", new_cap);
+        log::trace!("set fps cap: {new_cap:?}");
         self.fps_cap = new_cap;
     }
 
     /// set the optional fps cap value for the rendering process when the app is out of focus
     pub fn set_bg_fps_cap(&mut self, new_cap: Option<f64>) {
-        log::trace!("set background fps cap: {:?}", new_cap);
+        log::trace!("set background fps cap: {new_cap:?}");
         self.bg_fps_cap = new_cap;
     }
 
@@ -382,7 +382,7 @@ impl VideoSystem {
 
     /// enables/disables the grab mode for the cursor (makes it unable to leave the window)
     pub fn set_cursor_confined(&self, flag: bool) {
-        log::trace!("set cursor confined: {:?}", flag);
+        log::trace!("set cursor confined: {flag:?}");
         if let Some(window) = self.window.as_ref() {
             if flag {
                 window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
@@ -394,7 +394,7 @@ impl VideoSystem {
 
     /// enables/disables fullscreen for the window
     pub fn set_fullscreen(&self, flag: bool) {
-        log::trace!("set fullscreen: {:?}", flag);
+        log::trace!("set fullscreen: {flag:?}");
         if let Some(window) = self.window.as_ref() {
             if flag {
                 window.set_fullscreen(Some(Fullscreen::Borderless(None)));
@@ -409,7 +409,7 @@ impl VideoSystem {
 
     /// makes the cursor visible/invisible
     pub fn set_cursor_visible(&self, flag: bool) {
-        log::trace!("set cursor visibility: {:?}", flag);
+        log::trace!("set cursor visibility: {flag:?}");
         if let Some(window) = self.window.as_ref() {
             window.set_cursor_visible(flag);
         }
@@ -418,7 +418,7 @@ impl VideoSystem {
     /// enables/disables the link to the first person 3D camera control for the mouse with some senstivity
     /// (default is ``None``)
     pub fn set_mouse_fpp_cam_control(&mut self, sensitivity: Option<f32>) {
-        log::debug!("set mouse cam control: {:?}", sensitivity);
+        log::trace!("set mouse cam control: {sensitivity:?}");
         match sensitivity {
             None => {
                 self.set_cursor_visible(true);
@@ -436,7 +436,7 @@ impl VideoSystem {
     /// Probably only useful without transparency enabled.
     pub fn force_viewport_ratio(&mut self, ratio: Option<f32>) {
         self.forced_viewport_ratio = ratio;
-        log::debug!("forcing viewport ratio: {:?}", ratio);
+        log::debug!("forcing viewport ratio: {ratio:?}");
     }
 }
 

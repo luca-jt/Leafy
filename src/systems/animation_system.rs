@@ -449,7 +449,7 @@ impl AnimationSystem {
 
     /// enables/disables the built-in flying cam movement with a movement speed
     pub fn set_flying_cam_movement(&mut self, speed: Option<f32>) {
-        log::debug!("set flying cam movement: {:?}", speed);
+        log::trace!("set flying cam movement: {speed:?}");
         match speed {
             None => {
                 self.flying_cam_dir = None;
@@ -468,7 +468,7 @@ impl AnimationSystem {
 
     /// changes the gravity value used for physics computations (default is ``constants::G``)
     pub fn set_gravity(&mut self, a: Acceleration) {
-        log::debug!("set gravity: {:?}", a);
+        log::debug!("set gravity: {a:?}");
         self.gravity = a;
     }
 }
