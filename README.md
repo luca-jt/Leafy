@@ -124,8 +124,7 @@ It is also automatically cleaned up when all entities that require it are delete
 You can query the stored component data to implement generic entity behavior that is component-based. The respectice functions will return an Iterator over tuples of all the components.
 You can also add filters to the queries to include/exclude entity types that contain certain components. Individual components can be queried mutably or immutably and also in an optional way, which yields a component only if it is present.
 There are a lot of different built-in components that are used internally by the engine's systems, but you can also easily introduce your own components.
-Components are arbitrary structs and enums. Always use custom (wrapper-)types for your own components. This will prevent potential hashing collisions that might occur.
-Once [trait upcasting](https://doc.rust-lang.org/beta/unstable-book/language-features/trait-upcasting.html) is stablized in a new Rust version and the whole crate will be updated to that version, a new Component trait will be introduced to make these things more clear.
+Components are arbitrary structs and enums.
 For an overview of all the built-in components and their use cases, take a look at the Docs.
 
 ...

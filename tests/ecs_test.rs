@@ -2,9 +2,13 @@ use falling_leaf::ecs::entity_manager::EntityManager;
 use falling_leaf::prelude::*;
 
 struct A;
+impl Component for A {}
 struct B;
+impl Component for B {}
 struct C;
+impl Component for C {}
 struct D;
+impl Component for D {}
 
 #[test]
 fn entity_test() {

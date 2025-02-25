@@ -10,7 +10,9 @@ use std::any::{Any, TypeId};
 use std::cell::UnsafeCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
-use std::rc::Rc;
+
+/// custom result type
+pub type FLResult = Result<(), String>;
 
 /// create a component list for entity creation (must use)
 #[macro_export]
@@ -48,7 +50,7 @@ impl EntityManager {
     }
 
     /// stores a new entity and returns the id of the new entity
-    pub fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
+    pub fn create_entity(&mut self, components: Vec<Box<dyn Component>>) -> EntityID {
         let entity = self.ecs.get_mut().create_entity(components);
         *self.get_component_mut::<EntityID>(entity).unwrap() = entity;
         self.add_command(AssetCommand::AddMesh(entity));
@@ -62,7 +64,7 @@ impl EntityManager {
     }
 
     /// deletes an entity from the register by id and returns the removed entity
-    pub fn delete_entity(&mut self, entity: EntityID) -> Result<(), Rc<str>> {
+    pub fn delete_entity(&mut self, entity: EntityID) -> FLResult {
         if unsafe { &*self.ecs.get() }.has_component::<Renderable>(entity) {
             self.add_command(AssetCommand::CleanMeshes);
             self.add_command(AssetCommand::CleanTextures);
@@ -82,18 +84,18 @@ impl EntityManager {
     }
 
     /// yields the component data reference of an entity if present (also returns ``None`` if the entity ID is invalid)
-    pub fn get_component<T: Any>(&self, entity: EntityID) -> Option<&T> {
+    pub fn get_component<T: Component>(&self, entity: EntityID) -> Option<&T> {
         unsafe { &*self.ecs.get() }.get_component::<T>(entity)
     }
 
     /// Yields the mutable component data reference of an entity if present (also returns ``None`` if the entity ID is invalid).
     /// If data is modified that influences loaded asset data, you have to recompute it manually with the managers methods.
-    pub fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
+    pub fn get_component_mut<T: Component>(&mut self, entity: EntityID) -> Option<&mut T> {
         self.ecs.get_mut().get_component_mut::<T>(entity)
     }
 
     /// adds a component to an existing entity (returns ``Err`` if the component is already present or the entity ID is invalid)
-    pub fn add_component<T: Any>(&mut self, entity: EntityID, component: T) -> Result<(), Rc<str>> {
+    pub fn add_component<T: Component>(&mut self, entity: EntityID, component: T) -> FLResult {
         self.ecs.get_mut().add_component::<T>(entity, component)?;
         if types_eq::<T, Renderable>() {
             self.add_command(AssetCommand::AddMesh(entity));
@@ -114,12 +116,12 @@ impl EntityManager {
     }
 
     /// checks wether or not an entity has a component of given type associated with it (also returns ``false`` if the entity ID is invalid)
-    pub fn has_component<T: Any>(&self, entity: EntityID) -> bool {
+    pub fn has_component<T: Component>(&self, entity: EntityID) -> bool {
         unsafe { &*self.ecs.get() }.has_component::<T>(entity)
     }
 
     /// removes a component from an entity and returns the component data if present
-    pub fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
+    pub fn remove_component<T: Component>(&mut self, entity: EntityID) -> Option<T> {
         let removed = self.ecs.get_mut().remove_component::<T>(entity);
         if removed.is_some() {
             if types_eq::<T, Renderable>() {
@@ -429,7 +431,7 @@ impl EntityManager {
     /// Adds recompute commands for the internal asset data of an entity that is associated with component ``T``.
     /// At the moment, relevant component types are: ``Renderable``, ``Collider``, ``RigidBody``, ``Scale``, ``Sprite``.
     /// This should be used when critical components are modified in queries or individually.
-    pub fn add_recompute_commands<T: Any>(&mut self, entity: EntityID) {
+    pub fn add_recompute_commands<T: Component>(&mut self, entity: EntityID) {
         if types_eq::<T, Renderable>() {
             self.add_command(AssetCommand::AddMesh(entity));
             self.add_command(AssetCommand::AddTexture(entity));
@@ -446,7 +448,7 @@ impl EntityManager {
     /// Adds cleanup commands for the internal asset data that is associated with component ``T``.
     /// At the moment, relevant component types are: ``Renderable``, ``Collider``, ``RigidBody``, ``Scale``, ``Sprite``.
     /// This is typically used when critical components are modified in queries or individually.
-    pub fn add_cleanup_commands<T: Any>(&mut self) {
+    pub fn add_cleanup_commands<T: Component>(&mut self) {
         if types_eq::<T, Renderable>() {
             self.add_command(AssetCommand::CleanMeshes);
             self.add_command(AssetCommand::CleanTextures);
@@ -508,7 +510,7 @@ impl ECS {
     }
 
     /// creates a new entity with given components, stores the given data and returns the id
-    pub(crate) fn create_entity(&mut self, components: Vec<Box<dyn Any>>) -> EntityID {
+    pub(crate) fn create_entity(&mut self, components: Vec<Box<dyn Component>>) -> EntityID {
         let new_entity = self.next_entity;
         self.next_entity += 1;
 
@@ -533,11 +535,11 @@ impl ECS {
     }
 
     /// deletes a stored entity and all the associated component data
-    pub(crate) fn delete_entity(&mut self, entity: EntityID) -> Result<(), Rc<str>> {
+    pub(crate) fn delete_entity(&mut self, entity: EntityID) -> FLResult {
         let record = self
             .entity_index
             .remove(&entity)
-            .ok_or::<Rc<str>>("entity ID not found".into())?;
+            .ok_or(String::from("entity ID not found"))?;
         let archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
         for column in archetype.components.values_mut() {
             column.remove(record.row);
@@ -551,21 +553,21 @@ impl ECS {
     }
 
     /// yields the component data reference of an entity if present (also returns ``None`` if the entity ID is invalid)
-    pub(crate) fn get_component<T: Any>(&self, entity: EntityID) -> Option<&T> {
+    pub(crate) fn get_component<T: Component>(&self, entity: EntityID) -> Option<&T> {
         let record = self.entity_index.get(&entity)?;
         let archetype = self.archetypes.get(&record.archetype_id).unwrap();
         let component_vec = archetype.components.get(&TypeId::of::<T>())?;
         let component = component_vec.get(record.row).unwrap();
-        component.downcast_ref::<T>()
+        (&**component as &dyn Any).downcast_ref::<T>()
     }
 
     /// yields the mutable component data reference of an entity if present (also returns ``None`` if the entity ID is invalid)
-    pub(crate) fn get_component_mut<T: Any>(&mut self, entity: EntityID) -> Option<&mut T> {
+    pub(crate) fn get_component_mut<T: Component>(&mut self, entity: EntityID) -> Option<&mut T> {
         let record = self.entity_index.get(&entity)?;
         let archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
         let component_vec = archetype.components.get_mut(&TypeId::of::<T>())?;
         let component = component_vec.get_mut(record.row).unwrap();
-        component.downcast_mut::<T>()
+        (&mut **component as &mut dyn Any).downcast_mut::<T>()
     }
 
     /// gets the vector of all associated component TypeId's (returns ``None`` if the entity ID is invalid)
@@ -573,18 +575,18 @@ impl ECS {
         let record = self.entity_index.get(&entity)?;
         let archetype = self.archetypes.get(&record.archetype_id).unwrap();
         Some(EntityType::from(
-            archetype.components.keys().copied().collect::<Vec<_>>(),
+            archetype.components.keys().copied().collect_vec(),
         ))
     }
 
     /// adds a component to an existing entity
-    pub(crate) fn add_component<T: Any>(
+    pub(crate) fn add_component<T: Component>(
         &mut self,
         entity: EntityID,
         component: T,
-    ) -> Result<(), Rc<str>> {
+    ) -> FLResult {
         if self.has_component::<T>(entity) {
-            return Err("entity already has this component".into());
+            return Err(String::from("entity already has this component"));
         }
         let mut entity_type = self.get_entity_type(entity).ok_or("entity ID not found")?;
         let record = self.entity_index.get(&entity).unwrap();
@@ -592,7 +594,7 @@ impl ECS {
         let old_arch_id = old_archetype.id;
 
         // Remove the entity's components from the old archetype
-        let old_components: Vec<Box<dyn Any>> = old_archetype
+        let old_components: Vec<Box<dyn Component>> = old_archetype
             .components
             .values_mut()
             .map(|vec| vec.remove(record.row))
@@ -639,7 +641,7 @@ impl ECS {
     }
 
     /// checks wether or not an entity has a component of given type associated with it (also returns ``false`` if the entity ID is invalid)
-    pub(crate) fn has_component<T: Any>(&self, entity: EntityID) -> bool {
+    pub(crate) fn has_component<T: Component>(&self, entity: EntityID) -> bool {
         if let Some(record) = self.entity_index.get(&entity) {
             let archetype = self.archetypes.get(&record.archetype_id).unwrap();
             return archetype.components.contains_key(&TypeId::of::<T>());
@@ -648,7 +650,7 @@ impl ECS {
     }
 
     /// removes a component from an entity and returns the component data if present (also returns ``None`` if the entity ID is invalid)
-    pub(crate) fn remove_component<T: Any>(&mut self, entity: EntityID) -> Option<T> {
+    pub(crate) fn remove_component<T: Component>(&mut self, entity: EntityID) -> Option<T> {
         if !self.has_component::<T>(entity) {
             return None;
         }
@@ -658,13 +660,13 @@ impl ECS {
         let old_arch_id = old_archetype.id;
 
         // Remove the entity's components from the old archetype
-        let mut old_components: Vec<Box<dyn Any>> = old_archetype
+        let mut old_components: Vec<Box<dyn Component>> = old_archetype
             .components
             .values_mut()
             .map(|vec| vec.remove(record.row))
             .collect();
 
-        // remove the old archetype if there are no more components in it
+        // Remove the old archetype if there are no more components in it
         if old_archetype.components.values().nth(0).unwrap().is_empty() {
             self.archetypes.remove(&record.archetype_id);
             self.type_to_archetype.remove(&entity_type);
@@ -676,8 +678,7 @@ impl ECS {
         let index_to_remove = old_components
             .iter()
             .position(|c| (**c).type_id() == TypeId::of::<T>())?;
-        let component = old_components
-            .remove(index_to_remove)
+        let component = (old_components.remove(index_to_remove) as Box<dyn Any>)
             .downcast::<T>()
             .ok()
             .map(|b| *b);

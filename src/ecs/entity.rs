@@ -1,5 +1,6 @@
 use crate::ecs::component::utils::*;
 use crate::ecs::component::Component;
+use itertools::Itertools;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::ops::Index;
@@ -23,13 +24,13 @@ impl EntityType {
     }
 
     /// adds a component to the entity type and re-sorts
-    pub(crate) fn add_component<T: Any>(&mut self) {
+    pub(crate) fn add_component<T: Component>(&mut self) {
         self.0.push(TypeId::of::<T>());
         self.0.sort_unstable();
     }
 
     /// removes a component from the entity type and re-sorts
-    pub(crate) fn rm_component<T: Any>(&mut self) {
+    pub(crate) fn rm_component<T: Component>(&mut self) {
         self.0 = self
             .0
             .iter_mut()
@@ -40,9 +41,9 @@ impl EntityType {
     }
 }
 
-impl From<&Vec<Box<dyn Any>>> for EntityType {
-    fn from(value: &Vec<Box<dyn Any>>) -> Self {
-        let mut converted: Vec<_> = value.iter().map(|c| (**c).type_id()).collect();
+impl From<&Vec<Box<dyn Component>>> for EntityType {
+    fn from(value: &Vec<Box<dyn Component>>) -> Self {
+        let mut converted = value.iter().map(|c| (**c).type_id()).collect_vec();
         converted.sort_unstable();
         EntityType(converted)
     }
@@ -75,12 +76,12 @@ pub(crate) struct EntityRecord {
 /// archetype meta data
 pub(crate) struct Archetype {
     pub(crate) id: ArchetypeID,
-    pub(crate) components: HashMap<TypeId, Vec<Box<dyn Any>>>,
+    pub(crate) components: HashMap<TypeId, Vec<Box<dyn Component>>>,
 }
 
 impl Archetype {
     /// checks wether or not the archetype contains the given component
-    pub(crate) fn contains<T: Any>(&self) -> bool {
+    pub(crate) fn contains<T: Component>(&self) -> bool {
         self.components.contains_key(&TypeId::of::<T>())
     }
 }
@@ -88,19 +89,21 @@ impl Archetype {
 /// all basic functionality for storing components
 pub trait ComponentStorage {
     /// checks if a certain component is stored
-    fn contains_component<T: Any>(&self) -> bool;
+    fn contains_component<T: Component>(&self) -> bool;
     /// get a immutable reference to a stored component if present
-    fn component_data<T: Any>(&self) -> Option<&T>;
+    fn component_data<T: Component>(&self) -> Option<&T>;
 }
 
-impl ComponentStorage for Vec<Box<dyn Any>> {
-    fn contains_component<T: Any>(&self) -> bool {
-        self.iter().any(|b| b.is::<T>())
+impl ComponentStorage for Vec<Box<dyn Component>> {
+    fn contains_component<T: Component>(&self) -> bool {
+        self.iter().any(|b| (&**b as &dyn Any).is::<T>())
     }
 
-    fn component_data<T: Any>(&self) -> Option<&T> {
-        let i = self.iter().position(|element| element.is::<T>())?;
-        self.get(i).unwrap().downcast_ref::<T>()
+    fn component_data<T: Component>(&self) -> Option<&T> {
+        let i = self
+            .iter()
+            .position(|element| (element as &dyn Any).is::<T>())?;
+        (&*self.get(i).unwrap() as &dyn Any).downcast_ref::<T>()
     }
 }
 

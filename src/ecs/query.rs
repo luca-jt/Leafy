@@ -1,3 +1,4 @@
+use crate::ecs::component::Component;
 use crate::ecs::entity::{Archetype, ArchetypeID};
 use crate::ecs::entity_manager::{EntityManager, ECS};
 use std::any::{Any, TypeId};
@@ -10,62 +11,64 @@ pub trait QueryType<'a>: 'static {
     /// indicates wether the type is optional for the filtering
     const IS_OPTIONAL: bool;
     /// base component type
-    type BaseType: 'static + Any;
+    type BaseType: Component;
     /// downcast return type
     type ReturnType;
     /// general downcast function
-    fn downcast(any: Option<&'a mut Box<dyn Any>>) -> Self::ReturnType;
+    fn downcast(any: Option<&'a mut Box<dyn Component>>) -> Self::ReturnType;
 }
 
 impl<'a, T> QueryType<'a> for &'static T
 where
-    T: Any + Sized + 'static,
+    T: Component,
 {
     const IS_OPTIONAL: bool = false;
     type BaseType = T;
     type ReturnType = &'a T;
 
-    fn downcast(any: Option<&'a mut Box<dyn Any>>) -> Self::ReturnType {
-        any.unwrap().downcast_ref::<T>().unwrap()
+    fn downcast(any: Option<&'a mut Box<dyn Component>>) -> Self::ReturnType {
+        (&**any.unwrap() as &dyn Any).downcast_ref::<T>().unwrap()
     }
 }
 
 impl<'a, T> QueryType<'a> for &'static mut T
 where
-    T: Any + Sized + 'static,
+    T: Component,
 {
     const IS_OPTIONAL: bool = false;
     type BaseType = T;
     type ReturnType = &'a mut T;
 
-    fn downcast(any: Option<&'a mut Box<dyn Any>>) -> Self::ReturnType {
-        any.unwrap().downcast_mut::<T>().unwrap()
+    fn downcast(any: Option<&'a mut Box<dyn Component>>) -> Self::ReturnType {
+        (&mut **any.unwrap() as &mut dyn Any)
+            .downcast_mut::<T>()
+            .unwrap()
     }
 }
 
 impl<'a, T> QueryType<'a> for Option<&'static T>
 where
-    T: Any + Sized + 'static,
+    T: Component,
 {
     const IS_OPTIONAL: bool = true;
     type BaseType = T;
     type ReturnType = Option<&'a T>;
 
-    fn downcast(any: Option<&'a mut Box<dyn Any>>) -> Self::ReturnType {
-        Some(any?.downcast_mut::<T>().unwrap())
+    fn downcast(any: Option<&'a mut Box<dyn Component>>) -> Self::ReturnType {
+        Some((&**any? as &dyn Any).downcast_ref::<T>().unwrap())
     }
 }
 
 impl<'a, T> QueryType<'a> for Option<&'static mut T>
 where
-    T: Any + Sized + 'static,
+    T: Component,
 {
     const IS_OPTIONAL: bool = true;
     type BaseType = T;
     type ReturnType = Option<&'a mut T>;
 
-    fn downcast(any: Option<&'a mut Box<dyn Any>>) -> Self::ReturnType {
-        Some(any?.downcast_mut::<T>().unwrap())
+    fn downcast(any: Option<&'a mut Box<dyn Component>>) -> Self::ReturnType {
+        Some((&mut **any? as &mut dyn Any).downcast_mut::<T>().unwrap())
     }
 }
 

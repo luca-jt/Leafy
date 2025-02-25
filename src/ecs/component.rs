@@ -585,12 +585,12 @@ pub mod utils {
 
     /// component wrapper struct for `std::time::Instant` to track time
     #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
-    pub struct TouchTime(Instant);
+    pub struct TimePoint(Instant);
 
-    impl TouchTime {
+    impl TimePoint {
         /// wrapper for Instant::now()
         pub fn now() -> Self {
-            TouchTime(Instant::now())
+            TimePoint(Instant::now())
         }
 
         /// reset the internal time point to Instant::now()

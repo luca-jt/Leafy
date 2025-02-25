@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::{TimeDuration, TouchTime};
+use crate::ecs::component::utils::{TimeDuration, TimePoint};
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine_builder::EngineAttributes;
 use crate::systems::animation_system::AnimationSystem;
@@ -34,7 +34,7 @@ pub struct Engine<A: FallingLeafApp> {
     entity_manager: SharedPtr<EntityManager>,
     video_system: SharedPtr<VideoSystem>,
     time_accumulated: TimeDuration,
-    time_of_last_sim: TouchTime,
+    time_of_last_sim: TimePoint,
 }
 
 impl<A: FallingLeafApp> Engine<A> {
@@ -69,7 +69,7 @@ impl<A: FallingLeafApp> Engine<A> {
             entity_manager,
             video_system,
             time_accumulated: TimeDuration(0.0),
-            time_of_last_sim: TouchTime::now(),
+            time_of_last_sim: TimePoint::now(),
         }
     }
 
@@ -209,7 +209,7 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
             .add_listener::<CamPositionChange>(self.rendering_system.as_ref().unwrap());
 
         self.app_mut().init(self);
-        self.time_of_last_sim = TouchTime::now();
+        self.time_of_last_sim = TimePoint::now();
     }
 
     fn window_event(

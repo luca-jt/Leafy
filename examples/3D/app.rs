@@ -9,6 +9,10 @@ use std::path::Path;
 const CAM_MOVE_SPEED: f32 = 5.0;
 const CAM_MOUSE_SPEED: f32 = 3.0;
 
+// wrapper for a component
+struct TouchTime(TimePoint);
+impl Component for TouchTime {}
+
 /// example app
 pub struct App {
     player: EntityID,
@@ -153,7 +157,7 @@ impl FallingLeafApp for App {
                 material: Material::default(),
             },
             SoundController::from_handles(&[heli_sound]),
-            TouchTime::now(),
+            TouchTime(TimePoint::now()),
             EntityFlags::from_flags(&[DOPPLER_EFFECT])
         ));
         self.collision_point = entity_manager.create_entity(components!(
@@ -177,6 +181,7 @@ impl FallingLeafApp for App {
         let secs = entity_manager
             .get_component_mut::<TouchTime>(self.sphere)
             .unwrap()
+            .0
             .delta_time();
         let pos = entity_manager
             .get_component_mut::<Position>(self.sphere)
