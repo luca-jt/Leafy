@@ -10,15 +10,17 @@ cascaded shadow mapping
 cube shadow maps for point lights as an option
 2D animation frames
 2D sprite hitboxes with seperate collision checking
-shading type in component -> add styles like cell shading -> together in renderable component?
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
-object outlining with stencil buffer
 
+shading type in component -> add styles like cell shading -> together in renderable component?
+object outlining with stencil buffer
+better memory management for the entities with arenas
 bloom
 material, normal and light map integration
 blinn phong lighting https://learnopengl.com/Advanced-Lighting/Advanced-Lighting
 gamma correction https://learnopengl.com/Advanced-Lighting/Gamma-Correction -> light intesity might not need that constant in the shader
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
 
-with new rust version: trait upcasting, component trait, no need for anycast trait, derive macro
+do with the beta version:
+with new rust version: trait upcasting, component trait -> copy queries

@@ -1,11 +1,4 @@
-use falling_leaf::ecs::component::utils::*;
-use falling_leaf::ecs::component::*;
-use falling_leaf::ecs::entity::EntityID;
-use falling_leaf::engine::{Engine, FallingLeafApp};
-use falling_leaf::systems::event_system::events::user_space::CamPositionChange;
-use falling_leaf::systems::event_system::events::KeyPress;
-use falling_leaf::utils::constants::{NO_ENTITY, NUM_LODS, ORIGIN};
-use falling_leaf::{components, glm};
+use falling_leaf::prelude::*;
 use winit::keyboard::KeyCode;
 
 const CAM_MOVE_SPEED: f32 = 4.5;
@@ -23,7 +16,7 @@ impl App {
 
 impl FallingLeafApp for App {
     fn init(&mut self, engine: &Engine<Self>) {
-        let start_pos = glm::vec3(0.0, 3.0, 5.0);
+        let start_pos = vec3(0.0, 3.0, 5.0);
         engine.trigger_event(CamPositionChange {
             new_pos: start_pos,
             new_look: ORIGIN - start_pos,

@@ -1,6 +1,5 @@
-use falling_leaf::components;
-use falling_leaf::ecs::component::*;
 use falling_leaf::ecs::entity_manager::EntityManager;
+use falling_leaf::prelude::*;
 
 struct A;
 struct B;

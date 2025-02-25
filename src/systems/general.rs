@@ -138,7 +138,7 @@ pub(crate) fn update_doppler_data<T: FallingLeafApp>(engine: &Engine<T>, dt: Tim
             .entity_manager()
             .query3::<&Position, &mut SoundController, Option<&EntityFlags>>((None, None))
     } {
-        let doppler_effect = flags_opt.map_or(false, |f| f.get_bit(DOPPLER_EFFECT));
+        let doppler_effect = flags_opt.is_some_and(|f| f.get_bit(DOPPLER_EFFECT));
 
         let entity_vel = (pos.data() - sound.last_pos) / dt.0;
         sound.last_pos = *pos.data();

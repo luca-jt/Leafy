@@ -1,6 +1,6 @@
 use crate::glm;
 use fyrox_sound::algebra::Vector3;
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Sub};
 use std::rc::{Rc, Weak};
@@ -74,21 +74,6 @@ pub(crate) fn padding<T>() -> usize {
 /// checks two types for equality
 pub fn types_eq<A: ?Sized + 'static, B: ?Sized + 'static>() -> bool {
     TypeId::of::<A>() == TypeId::of::<B>()
-}
-
-/// cast anything to Any
-pub trait AnyCast: Any {
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-
-impl<T: Any> AnyCast for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
 }
 
 /// allows for data behind ``Option<&mut T>`` to be copied easily

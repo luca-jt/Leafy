@@ -1,9 +1,4 @@
-use falling_leaf::ecs::component::utils::*;
-use falling_leaf::ecs::component::{EntityFlags, Sprite};
-use falling_leaf::ecs::entity::EntityID;
-use falling_leaf::engine::{Engine, FallingLeafApp};
-use falling_leaf::utils::constants::NO_ENTITY;
-use falling_leaf::{components, glm};
+use falling_leaf::prelude::*;
 use std::time::{Duration, Instant};
 
 const GRID_SIZE: usize = 100;
@@ -48,7 +43,7 @@ impl FallingLeafApp for App {
         let mut rendering_system = engine.rendering_system_mut();
         let sprite_grid = rendering_system.sprite_grid_mut(SpriteLayer::Layer0);
         sprite_grid.scale = 0.02;
-        sprite_grid.center = glm::Vec2::from_element(GRID_SIZE as f32 / 2.0);
+        sprite_grid.center = Vec2::from_element(GRID_SIZE as f32 / 2.0);
 
         for row in 0..GRID_SIZE {
             for col in 0..GRID_SIZE {
@@ -65,7 +60,7 @@ impl FallingLeafApp for App {
                 self.grid_cells[row][col] = engine.entity_manager_mut().create_entity(components!(
                     Sprite {
                         source: SpriteSource::Colored(color),
-                        position: SpritePosition::Grid(glm::vec2(col as f32, row as f32)),
+                        position: SpritePosition::Grid(vec2(col as f32, row as f32)),
                         layer: SpriteLayer::Layer0,
                     },
                     flags

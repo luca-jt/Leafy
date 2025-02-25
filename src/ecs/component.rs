@@ -3,10 +3,14 @@ use crate::utils::constants::*;
 use fyrox_sound::pool::Handle;
 use fyrox_sound::source::SoundSource;
 use gl::types::GLfloat;
+use std::any::Any;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::path::Path;
 use std::rc::Rc;
 use utils::*;
+
+/// the trait that all components need to implement
+pub trait Component: Any {}
 
 macro_rules! impl_arithmetic_basics {
     ($component:ident) => {
@@ -101,6 +105,8 @@ macro_rules! impl_basic_vec_ops {
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct Scale(glm::Vec3);
 
+impl Component for Scale {}
+
 impl_basic_vec_ops!(Scale);
 
 impl Scale {
@@ -125,6 +131,8 @@ impl Default for Scale {
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Orientation(pub glm::Quat);
 
+impl Component for Orientation {}
+
 impl Orientation {
     /// creates a new orientation with angle in degrees around axis
     pub fn new(angle: f32, axis: glm::Vec3) -> Self {
@@ -147,6 +155,8 @@ impl Default for Orientation {
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Position(glm::Vec3);
 
+impl Component for Position {}
+
 impl_basic_vec_ops!(Position);
 
 impl Position {
@@ -167,6 +177,8 @@ impl Default for Position {
 /// velocity in 3D space, enables physics system effects
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Velocity(glm::Vec3);
+
+impl Component for Velocity {}
 
 impl_basic_vec_ops!(Velocity);
 
@@ -197,6 +209,8 @@ impl Default for Velocity {
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Acceleration(glm::Vec3);
 
+impl Component for Acceleration {}
+
 impl_basic_vec_ops!(Acceleration);
 
 impl Acceleration {
@@ -225,6 +239,8 @@ impl Default for Acceleration {
 /// describes an angular momentum by the rotational axis (rhs rotation) and its length (momentum)
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct AngularMomentum(glm::Vec3);
+
+impl Component for AngularMomentum {}
 
 impl_basic_vec_ops!(AngularMomentum);
 
@@ -256,6 +272,8 @@ pub struct Renderable {
     pub material: Material,
 }
 
+impl Component for Renderable {}
+
 impl Renderable {
     /// loads a renderable from a .obj file and associated .mtl files
     pub fn from_file(file: Rc<Path>) -> Self {
@@ -278,6 +296,8 @@ pub struct RigidBody {
     pub(crate) friction: f32,
     pub(crate) restitution: f32,
 }
+
+impl Component for RigidBody {}
 
 impl RigidBody {
     /// changes the density of the rigid body (should be > 0)
@@ -320,6 +340,8 @@ pub struct SoundController {
     pub(crate) last_pos: glm::Vec3,
 }
 
+impl Component for SoundController {}
+
 impl SoundController {
     /// creates a new default sound controller component with no handles
     pub fn new() -> Self {
@@ -349,6 +371,8 @@ pub struct Collider {
     pub(crate) scale: Scale,
     pub(crate) last_collisions: Vec<CollisionInfo>,
 }
+
+impl Component for Collider {}
 
 impl Collider {
     /// creates a new collider from a given hitbox type
@@ -387,6 +411,8 @@ pub struct PointLight {
     pub direction: glm::Vec3,
 }
 
+impl Component for PointLight {}
+
 impl Default for PointLight {
     fn default() -> Self {
         Self {
@@ -403,6 +429,8 @@ impl Default for PointLight {
 /// The bits 6-63 do not influence engine behavior and are free to customize.
 #[derive(Debug, Default)]
 pub struct EntityFlags(u64);
+
+impl Component for EntityFlags {}
 
 impl EntityFlags {
     /// creates a new ``EntityFlags`` component with the given flags already set
@@ -438,6 +466,8 @@ pub enum LOD {
     LVL4,
 }
 
+impl Component for LOD {}
+
 /// holds data for sprite rendering
 #[derive(Debug, Clone, PartialEq)]
 pub struct Sprite {
@@ -445,6 +475,8 @@ pub struct Sprite {
     pub position: SpritePosition,
     pub layer: SpriteLayer,
 }
+
+impl Component for Sprite {}
 
 /// data structures that are not internally useful as a sole component but might have purpose in relation to other components
 pub mod utils {

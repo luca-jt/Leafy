@@ -1,4 +1,5 @@
 use crate::ecs::component::utils::*;
+use crate::ecs::component::Component;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::ops::Index;
@@ -8,6 +9,8 @@ use std::slice::Iter;
 
 /// unique identifier for an entity
 pub type EntityID = u64;
+
+impl Component for EntityID {}
 
 /// defines a type an entity can have
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]

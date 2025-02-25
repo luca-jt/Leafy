@@ -1,11 +1,5 @@
-use falling_leaf::ecs::component::utils::*;
-use falling_leaf::ecs::component::*;
-use falling_leaf::ecs::entity::EntityID;
-use falling_leaf::engine::{Engine, FallingLeafApp};
-use falling_leaf::systems::event_system::events::*;
-use falling_leaf::utils::constants::NO_ENTITY;
+use falling_leaf::prelude::*;
 use falling_leaf::winit::keyboard::KeyCode;
-use falling_leaf::{components, glm};
 use std::path::Path;
 
 /// example app
@@ -34,7 +28,7 @@ impl FallingLeafApp for App {
         self.sprite = entity_manager.create_entity(components!(
             Sprite {
                 source: SpriteSource::Single(Path::new("examples/2D/sprite.png").into()),
-                position: SpritePosition::Grid(glm::vec2(-1.0, 0.0)),
+                position: SpritePosition::Grid(vec2(-1.0, 0.0)),
                 layer: SpriteLayer::Layer0,
             },
             Scale::from_factor(1.0)
