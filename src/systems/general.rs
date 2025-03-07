@@ -101,9 +101,10 @@ pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: 
     }
 }
 
-/// updates the current engine mode
-pub(crate) fn mode_update<T: FallingLeafApp>(event: &EngineModeChange, engine: &Engine<T>) {
+/// updates the current engine mode and all systems that are influenced by that
+pub(crate) fn on_mode_change<T: FallingLeafApp>(event: &EngineModeChange, engine: &Engine<T>) {
     engine.mode.set(event.new_mode);
+    engine.audio_system_mut().on_mode_change(event);
 }
 
 /// updates the camera position based on the current movement key induced camera movement
@@ -177,4 +178,25 @@ pub(crate) fn on_window_resize<T: FallingLeafApp>(event: &WindowResize, engine: 
     video_system.on_window_resize(event);
     let viewport_ratio = video_system.current_viewport_ratio();
     rendering_system.update_viewport_ratio(viewport_ratio);
+}
+
+/// general event handling function for the animation speed change
+pub(crate) fn on_animation_speed_change<T: FallingLeafApp>(
+    event: &AnimationSpeedChange,
+    engine: &Engine<T>,
+) {
+    engine
+        .animation_system_mut()
+        .on_animation_speed_change(event);
+    engine.audio_system_mut().on_animation_speed_change(event);
+}
+
+/// general event handling function for the camera position change
+pub(crate) fn on_cam_position_change<T: FallingLeafApp>(
+    event: &CamPositionChange,
+    engine: &Engine<T>,
+) {
+    engine.animation_system_mut().on_cam_position_change(event);
+    engine.audio_system_mut().on_cam_position_change(event);
+    engine.rendering_system_mut().on_cam_position_change(event);
 }

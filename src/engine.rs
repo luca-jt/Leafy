@@ -3,13 +3,11 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine_builder::EngineAttributes;
 use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
-use crate::systems::event_system::events::user_space::*;
 use crate::systems::event_system::EventSystem;
 use crate::systems::general::*;
 use crate::systems::rendering_system::RenderingSystem;
 use crate::systems::video_system::VideoSystem;
 use crate::utils::constants::TIME_STEP;
-use crate::utils::tools::{shared_ptr, SharedPtr};
 use std::any::Any;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::error::Error;
@@ -27,12 +25,12 @@ pub struct Engine<A: FallingLeafApp> {
     exit_state: Option<Result<(), Box<dyn Error>>>,
     should_quit: Cell<bool>,
     pub(crate) mode: Cell<EngineMode>,
-    rendering_system: Option<SharedPtr<RenderingSystem>>,
-    audio_system: SharedPtr<AudioSystem>,
+    rendering_system: Option<RefCell<RenderingSystem>>,
+    audio_system: RefCell<AudioSystem>,
     event_system: RefCell<EventSystem<A>>,
-    animation_system: SharedPtr<AnimationSystem>,
-    entity_manager: SharedPtr<EntityManager>,
-    video_system: SharedPtr<VideoSystem>,
+    animation_system: RefCell<AnimationSystem>,
+    entity_manager: RefCell<EntityManager>,
+    video_system: RefCell<VideoSystem>,
     time_accumulated: TimeDuration,
     time_of_last_sim: TimePoint,
 }
@@ -40,22 +38,19 @@ pub struct Engine<A: FallingLeafApp> {
 impl<A: FallingLeafApp> Engine<A> {
     /// engine setup on startup
     pub(crate) fn new(config: EngineAttributes) -> Self {
-        let video_system = shared_ptr(VideoSystem::new(config));
-        let audio_system = shared_ptr(AudioSystem::new());
-        let animation_system = shared_ptr(AnimationSystem::new());
-        let entity_manager = shared_ptr(EntityManager::new());
+        let video_system = VideoSystem::new(config);
+        let audio_system = AudioSystem::new();
+        let animation_system = AnimationSystem::new();
+        let entity_manager = EntityManager::new();
         let mut event_system = EventSystem::new();
 
-        event_system.add_listener::<CamPositionChange>(&audio_system);
-        event_system.add_listener::<AnimationSpeedChange>(&audio_system);
-        event_system.add_listener::<EngineModeChange>(&audio_system);
-        event_system.add_listener::<AnimationSpeedChange>(&animation_system);
-        event_system.add_listener::<CamPositionChange>(&animation_system);
         event_system.add_modifier(on_window_resize);
-        event_system.add_modifier(mode_update);
+        event_system.add_modifier(on_mode_change);
         event_system.add_modifier(mouse_move_cam);
         event_system.add_modifier(move_cam);
         event_system.add_modifier(stop_cam);
+        event_system.add_modifier(on_animation_speed_change);
+        event_system.add_modifier(on_cam_position_change);
 
         Self {
             app: None,
@@ -63,11 +58,11 @@ impl<A: FallingLeafApp> Engine<A> {
             should_quit: Cell::new(false),
             mode: Cell::new(EngineMode::Running),
             rendering_system: None,
-            audio_system,
+            audio_system: RefCell::new(audio_system),
             event_system: RefCell::new(event_system),
-            animation_system,
-            entity_manager,
-            video_system,
+            animation_system: RefCell::new(animation_system),
+            entity_manager: RefCell::new(entity_manager),
+            video_system: RefCell::new(video_system),
             time_accumulated: TimeDuration(0.0),
             time_of_last_sim: TimePoint::now(),
         }
@@ -204,9 +199,7 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
 
         let res = self.video_system().window_resolution();
-        self.rendering_system = Some(shared_ptr(RenderingSystem::new(res.width, res.height)));
-        self.event_system_mut()
-            .add_listener::<CamPositionChange>(self.rendering_system.as_ref().unwrap());
+        self.rendering_system = Some(RefCell::new(RenderingSystem::new(res.width, res.height)));
 
         self.app_mut().init(self);
         self.time_of_last_sim = TimePoint::now();

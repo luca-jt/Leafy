@@ -10,7 +10,6 @@ use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::{ShaderCatalog, ShaderType};
 use crate::rendering::sprite_renderer::{SpriteGrid, SpriteRenderer};
 use crate::systems::event_system::events::user_space::CamPositionChange;
-use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::user_level::INVISIBLE;
 use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
 use crate::utils::tools::{padding, to_vec4};
@@ -614,10 +613,8 @@ impl RenderingSystem {
         log::debug!("set ambient light to {color:?} with intensity {intensity:?}");
         self.ambient_light = (color, intensity);
     }
-}
 
-impl EventObserver<CamPositionChange> for RenderingSystem {
-    fn on_event(&mut self, event: &CamPositionChange) {
+    pub(crate) fn on_cam_position_change(&mut self, event: &CamPositionChange) {
         let new_focus = event.new_pos + event.new_look;
         self.perspective_camera
             .update_cam(&event.new_pos, &new_focus);

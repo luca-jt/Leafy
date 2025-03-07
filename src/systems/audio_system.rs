@@ -2,7 +2,6 @@ use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
 use crate::engine::EngineMode;
 use crate::systems::event_system::events::user_space::*;
-use crate::systems::event_system::EventObserver;
 use crate::utils::file::HRTF_SPHERE;
 use crate::utils::tools::vec3_to_vector3;
 use fyrox_resource::io::FsResourceIo;
@@ -346,32 +345,9 @@ impl AudioSystem {
             SoundType::Music => self.master_volume * self.music_volume,
         }
     }
-}
 
-impl EventObserver<CamPositionChange> for AudioSystem {
-    fn on_event(&mut self, event: &CamPositionChange) {
-        let mut state = self.sound_context.state();
-        let listener = state.listener_mut();
-        listener.set_orientation_lh(vec3_to_vector3(&event.new_look), *Vector3::y_axis());
-        listener.set_position(vec3_to_vector3(&event.new_pos));
-    }
-}
-
-impl EventObserver<AnimationSpeedChange> for AudioSystem {
-    fn on_event(&mut self, event: &AnimationSpeedChange) {
-        let new_speed_pitch = event.new_animation_speed as f64;
-        if self.pitch_on_speed_change {
-            let mut state = self.sound_context.state();
-            for source in state.sources_mut().iter_mut() {
-                source.set_pitch(source.pitch() / self.current_speed_pitch * new_speed_pitch);
-            }
-        }
-        self.current_speed_pitch = new_speed_pitch;
-    }
-}
-
-impl EventObserver<EngineModeChange> for AudioSystem {
-    fn on_event(&mut self, event: &EngineModeChange) {
+    /// changes the audio playback state based on the engine mode
+    pub(crate) fn on_mode_change(&mut self, event: &EngineModeChange) {
         match event.new_mode {
             EngineMode::Running => {
                 let mut state = self.sound_context.state();
@@ -386,6 +362,26 @@ impl EventObserver<EngineModeChange> for AudioSystem {
                 }
             }
         }
+    }
+
+    /// general event handling function for the camera position change
+    pub(crate) fn on_cam_position_change(&mut self, event: &CamPositionChange) {
+        let mut state = self.sound_context.state();
+        let listener = state.listener_mut();
+        listener.set_orientation_lh(vec3_to_vector3(&event.new_look), *Vector3::y_axis());
+        listener.set_position(vec3_to_vector3(&event.new_pos));
+    }
+
+    /// general event handling function for the camera position change
+    pub(crate) fn on_animation_speed_change(&mut self, event: &AnimationSpeedChange) {
+        let new_speed_pitch = event.new_animation_speed as f64;
+        if self.pitch_on_speed_change {
+            let mut state = self.sound_context.state();
+            for source in state.sources_mut().iter_mut() {
+                source.set_pitch(source.pitch() / self.current_speed_pitch * new_speed_pitch);
+            }
+        }
+        self.current_speed_pitch = new_speed_pitch;
     }
 }
 

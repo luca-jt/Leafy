@@ -5,7 +5,6 @@ use crate::engine::{Engine, FallingLeafApp};
 use crate::rendering::data::calc_model_matrix;
 use crate::rendering::mesh::Hitbox;
 use crate::systems::event_system::events::user_space::*;
-use crate::systems::event_system::EventObserver;
 use crate::utils::constants::bits::internal::*;
 use crate::utils::constants::bits::user_level::*;
 use crate::utils::constants::*;
@@ -476,16 +475,14 @@ impl AnimationSystem {
         log::debug!("set gravity: {a:?}");
         self.gravity = a;
     }
-}
 
-impl EventObserver<AnimationSpeedChange> for AnimationSystem {
-    fn on_event(&mut self, event: &AnimationSpeedChange) {
+    /// general event handling function for the animation speed change
+    pub(crate) fn on_animation_speed_change(&mut self, event: &AnimationSpeedChange) {
         self.animation_speed = event.new_animation_speed;
     }
-}
 
-impl EventObserver<CamPositionChange> for AnimationSystem {
-    fn on_event(&mut self, event: &CamPositionChange) {
+    /// general event handling function for the camera position change
+    pub(crate) fn on_cam_position_change(&mut self, event: &CamPositionChange) {
         self.prev_cam_pos = self.curr_cam_pos;
         self.curr_cam_pos = event.new_pos;
     }

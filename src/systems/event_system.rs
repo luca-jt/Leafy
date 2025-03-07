@@ -217,7 +217,7 @@ impl<A: FallingLeafApp> EventSystem<A> {
 
 /// every struct that is supposed to be added to the event system as a listener has to implement this trait
 /// for the specfic type of event it should listen to
-pub trait EventObserver<T: Event> {
+pub trait EventObserver<T: Event>: Any {
     /// runs on every event trigger
     fn on_event(&mut self, event: &T);
 }

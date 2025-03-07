@@ -103,7 +103,7 @@ impl ComponentStorage for Vec<Box<dyn Component>> {
         let i = self
             .iter()
             .position(|element| (element as &dyn Any).is::<T>())?;
-        (&*self.get(i).unwrap() as &dyn Any).downcast_ref::<T>()
+        (&**self.get(i).unwrap() as &dyn Any).downcast_ref::<T>()
     }
 }
 
