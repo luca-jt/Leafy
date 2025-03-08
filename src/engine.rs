@@ -255,6 +255,5 @@ pub trait FallingLeafApp: Sized + 'static {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EngineMode {
     Running,
-    Paused,
     Editor,
 }

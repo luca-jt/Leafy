@@ -40,6 +40,7 @@ impl FallingLeafApp for App {
         engine.trigger_event(CamPositionChange {
             new_pos: start_pos,
             new_look: ORIGIN - start_pos,
+            new_up: Y_AXIS,
         });
         engine
             .video_system_mut()

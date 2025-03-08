@@ -268,11 +268,11 @@ pub(crate) struct PerspectiveCamera {
 
 impl PerspectiveCamera {
     /// creates new config with default values
-    pub(crate) fn new(position: glm::Vec3, focus: glm::Vec3) -> Self {
+    pub(crate) fn new() -> Self {
         let viewport_ratio = MIN_WIN_WIDTH as f32 / MIN_WIN_HEIGHT as f32;
         let fov = 45.0_f32.to_radians();
         let projection = glm::perspective::<f32>(viewport_ratio, fov, 0.1, 100.0);
-        let view = glm::look_at::<f32>(&position, &focus, &Y_AXIS);
+        let view = glm::look_at::<f32>(&-Z_AXIS, &ORIGIN, &Y_AXIS);
 
         Self {
             projection,
@@ -295,8 +295,8 @@ impl PerspectiveCamera {
     }
 
     /// updates the camera for given camera position and focus
-    pub(crate) fn update_cam(&mut self, position: &glm::Vec3, focus: &glm::Vec3) {
-        self.view = glm::look_at(position, focus, &Y_AXIS);
+    pub(crate) fn update_cam(&mut self, position: &glm::Vec3, focus: &glm::Vec3, up: &glm::Vec3) {
+        self.view = glm::look_at(position, focus, up);
     }
 
     /// refreshes the stored projection matrix

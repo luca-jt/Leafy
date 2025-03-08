@@ -97,6 +97,7 @@ pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: 
         engine.trigger_event(CamPositionChange {
             new_pos: cam_config.0,
             new_look: (look_hori + look_vert).normalize(),
+            new_up: cam_config.2,
         });
     }
 }
@@ -127,6 +128,7 @@ pub(crate) fn update_cam<T: FallingLeafApp>(engine: &Engine<T>, dt: TimeDuration
         engine.trigger_event(CamPositionChange {
             new_pos: cam_config.0 + look_space_matrix * changed,
             new_look: cam_config.1,
+            new_up: cam_config.2,
         });
     }
 }

@@ -11,7 +11,7 @@ use crate::rendering::shader::{ShaderCatalog, ShaderType};
 use crate::rendering::sprite_renderer::{SpriteGrid, SpriteRenderer};
 use crate::systems::event_system::events::user_space::CamPositionChange;
 use crate::utils::constants::bits::user_level::INVISIBLE;
-use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, ORIGIN, Z_AXIS};
+use crate::utils::constants::*;
 use crate::utils::tools::{padding, to_vec4};
 use gl::types::*;
 use itertools::Itertools;
@@ -28,7 +28,7 @@ pub struct RenderingSystem {
     clear_color: Color32,
     render_distance: Option<f32>,
     shadow_resolution: ShadowResolution,
-    current_cam_config: (glm::Vec3, glm::Vec3),
+    current_cam_config: (glm::Vec3, glm::Vec3, glm::Vec3),
     ambient_light: (Color32, f32),
     skybox: Option<Skybox>,
     screen_texture: ScreenTexture,
@@ -53,13 +53,13 @@ impl RenderingSystem {
             light_sources: Vec::new(),
             renderers: Vec::new(),
             sprite_renderer: SpriteRenderer::new(),
-            perspective_camera: PerspectiveCamera::new(-Z_AXIS, ORIGIN),
+            perspective_camera: PerspectiveCamera::new(),
             ortho_camera: OrthoCamera::from_size(1.0),
             shader_catalog: ShaderCatalog::new(),
             clear_color: Color32::WHITE,
             render_distance: None,
             shadow_resolution: ShadowResolution::High,
-            current_cam_config: (-Z_AXIS, Z_AXIS),
+            current_cam_config: (-Z_AXIS, Z_AXIS, Y_AXIS),
             ambient_light: (Color32::WHITE, 0.3),
             skybox: None,
             screen_texture: ScreenTexture::new(win_w as GLsizei, win_h as GLsizei, false, samples),
@@ -541,8 +541,8 @@ impl RenderingSystem {
         self.ortho_camera = OrthoCamera::new(-viewport_ratio, viewport_ratio, -1.0, 1.0);
     }
 
-    /// gets the current camera position and look direction vector
-    pub fn current_cam_config(&self) -> (glm::Vec3, glm::Vec3) {
+    /// gets the current camera position look and up direction vector
+    pub fn current_cam_config(&self) -> (glm::Vec3, glm::Vec3, glm::Vec3) {
         self.current_cam_config
     }
 
@@ -617,8 +617,8 @@ impl RenderingSystem {
     pub(crate) fn on_cam_position_change(&mut self, event: &CamPositionChange) {
         let new_focus = event.new_pos + event.new_look;
         self.perspective_camera
-            .update_cam(&event.new_pos, &new_focus);
-        self.current_cam_config = (event.new_pos, event.new_look);
+            .update_cam(&event.new_pos, &new_focus, &event.new_up);
+        self.current_cam_config = (event.new_pos, event.new_look, event.new_up);
     }
 }
 

@@ -6,7 +6,6 @@ use crate::utils::file::HRTF_SPHERE;
 use crate::utils::tools::vec3_to_vector3;
 use fyrox_resource::io::FsResourceIo;
 use fyrox_resource::untyped::ResourceKind;
-use fyrox_sound::algebra::Vector3;
 use fyrox_sound::buffer::{DataSource, SoundBufferResource, SoundBufferResourceExtension};
 use fyrox_sound::context::{SoundContext, SAMPLE_RATE};
 use fyrox_sound::effects::{reverb::Reverb, Effect};
@@ -355,7 +354,7 @@ impl AudioSystem {
                     source.play();
                 }
             }
-            EngineMode::Paused | EngineMode::Editor => {
+            EngineMode::Editor => {
                 let mut state = self.sound_context.state();
                 for source in state.sources_mut().iter_mut() {
                     source.pause();
@@ -368,7 +367,10 @@ impl AudioSystem {
     pub(crate) fn on_cam_position_change(&mut self, event: &CamPositionChange) {
         let mut state = self.sound_context.state();
         let listener = state.listener_mut();
-        listener.set_orientation_lh(vec3_to_vector3(&event.new_look), *Vector3::y_axis());
+        listener.set_orientation_lh(
+            vec3_to_vector3(&event.new_look),
+            vec3_to_vector3(&event.new_up),
+        );
         listener.set_position(vec3_to_vector3(&event.new_pos));
     }
 

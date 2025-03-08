@@ -361,6 +361,7 @@ pub mod events {
         pub struct CamPositionChange {
             pub new_pos: glm::Vec3,
             pub new_look: glm::Vec3,
+            pub new_up: glm::Vec3,
         }
 
         /// changes the animation speed of the rendering system
