@@ -21,4 +21,3 @@ material, normal and light map integration
 blinn phong lighting https://learnopengl.com/Advanced-Lighting/Advanced-Lighting
 gamma correction https://learnopengl.com/Advanced-Lighting/Gamma-Correction -> light intesity might not need that constant in the shader
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
-rotating the cameras up-axis messes up the cam movement

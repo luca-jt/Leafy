@@ -356,7 +356,7 @@ pub mod events {
             pub new_mode: EngineMode,
         }
 
-        /// change of the users camera position and look direction vector used for rendering and audio processing
+        /// Change of the users camera position, look and up direction vector used for rendering and audio processing. Changing the up axis to anything but the Y-axis will make the built-in mouse camera control useless and not work properly!
         #[derive(Debug, Copy, Clone, PartialEq)]
         pub struct CamPositionChange {
             pub new_pos: glm::Vec3,
