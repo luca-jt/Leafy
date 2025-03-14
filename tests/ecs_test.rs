@@ -27,11 +27,11 @@ fn entity_test() {
 #[test]
 fn render_data() {
     let mut ecs = EntityManager::new();
-    let _ = ecs.create_entity(components!(Position::origin(), PointLight::default()));
+    let _ = ecs.create_entity(components!(Position::origin(), DirectionalLight::default()));
     let _ = ecs.create_entity(components!(Position::origin()));
     let _ = ecs.create_entity(components!(Position::origin()));
     assert_eq!(
-        unsafe { ecs.query1::<&PointLight>((None, None)) }.count(),
+        unsafe { ecs.query1::<&DirectionalLight>((None, None)) }.count(),
         1
     );
     assert_eq!(unsafe { ecs.query1::<&Position>((None, None)) }.count(), 3);

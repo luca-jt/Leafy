@@ -1,5 +1,6 @@
 use crate::ecs::component::utils::{Color32, Filtering, Texture, Wrapping};
 use crate::ecs::component::*;
+use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::rendering::sprite_renderer::SpriteSheet;
 use crate::utils::constants::*;
@@ -327,22 +328,22 @@ impl OrthoCamera {
     }
 }
 
-/// shadow map used for rendering
+/// shadow map used for directional lights in rendering
 pub(crate) struct ShadowMap {
     dbo: GLuint,
     shadow_map: GLuint,
     size: (GLsizei, GLsizei),
     pub(crate) light_matrix: glm::Mat4,
     pub(crate) light_pos: glm::Vec3,
-    pub(crate) light: PointLight,
+    pub(crate) light: DirectionalLight,
     tmp_viewport: [GLint; 4],
 }
 
 impl ShadowMap {
     /// creates a new shadow map with given size (width, height)
     #[rustfmt::skip]
-    pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &PointLight) -> Self {
-        log::debug!("created new shadow map");
+    pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &DirectionalLight) -> Self {
+        log::debug!("created new shadow map for a directional light");
         let mut dbo = 0;
         let mut shadow_map = 0;
 
@@ -436,7 +437,7 @@ impl ShadowMap {
     }
 
     /// updates the shadow map according to a new light data
-    pub(crate) fn update_light(&mut self, pos: &glm::Vec3, light: &PointLight) {
+    pub(crate) fn update_light(&mut self, pos: &glm::Vec3, light: &DirectionalLight) {
         self.light_pos = *pos;
         self.light = *light;
 
@@ -460,6 +461,13 @@ impl Drop for ShadowMap {
             gl::DeleteFramebuffers(1, &self.dbo);
         }
     }
+}
+
+/// bundled light source data
+pub(crate) struct LightSources {
+    pub(crate) point_lights: Vec<(EntityID, Option<ShadowMap>)>,
+    pub(crate) directional_lights: Vec<(EntityID, ShadowMap)>,
+    pub(crate) spot_lights: Vec<(EntityID, ShadowMap)>,
 }
 
 /// one light data block for uniform buffer use

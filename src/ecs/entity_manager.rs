@@ -5,6 +5,9 @@ use crate::rendering::data::{SpriteTextureMap, TextureMap};
 use crate::rendering::mesh::{Hitbox, Mesh};
 use crate::utils::file::*;
 use crate::utils::tools::types_eq;
+use crate::BumpBox;
+use crate::BumpVec;
+use bumpalo::Bump;
 use itertools::Itertools;
 use std::any::{Any, TypeId};
 use std::cell::UnsafeCell;
@@ -495,6 +498,7 @@ pub(crate) struct ECS {
     entity_index: HashMap<EntityID, EntityRecord>,
     pub(crate) archetypes: HashMap<ArchetypeID, Archetype>,
     type_to_archetype: HashMap<EntityType, ArchetypeID>,
+    bump: Bump,
 }
 
 impl ECS {
@@ -506,6 +510,7 @@ impl ECS {
             entity_index: HashMap::new(),
             archetypes: HashMap::new(),
             type_to_archetype: HashMap::new(),
+            bump: Bump::new(),
         }
     }
 

@@ -37,3 +37,6 @@ pub mod prelude {
     pub use crate::utils::constants::*;
     pub use crate::utils::tools::*;
 }
+
+use bumpalo::boxed::Box as BumpBox;
+use bumpalo::collections::Vec as BumpVec;

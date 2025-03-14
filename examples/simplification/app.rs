@@ -32,7 +32,7 @@ impl FallingLeafApp for App {
         let mut entity_manager = engine.entity_manager_mut();
         entity_manager.create_entity(components!(
             Position::new(1.0, 10.0, 1.0),
-            PointLight::default()
+            DirectionalLight::default()
         ));
         let _floor = entity_manager.create_entity(components!(
             Position::origin(),

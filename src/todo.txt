@@ -4,20 +4,22 @@ skeletal animations
 collision fix -> sequential solver?
 volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
 graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, post-processing: b/w, depth of field
-scene files and loading of them -> serialization (serde)
+scene files and loading of them -> serialization (serde) -> editor
 shadow anti-aliasing -> pcss
 cascaded shadow mapping
-cube shadow maps for point lights as an option
 2D animation frames
 2D sprite hitboxes with seperate collision checking
+raycasting
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 
 shading type in component -> add styles like cell shading -> together in renderable component?
 object outlining with stencil buffer
-better memory management for the entities with arenas
 bloom
 material, normal and light map integration
 blinn phong lighting https://learnopengl.com/Advanced-Lighting/Advanced-Lighting
-gamma correction https://learnopengl.com/Advanced-Lighting/Gamma-Correction -> light intesity might not need that constant in the shader
+gamma correction https://learnopengl.com/Advanced-Lighting/Gamma-Correction -> light intesity might not need that constant in the shader (or that could be fixed using an inner and outer radius)
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
+
+better memory management for the entities with arenas -> dont remove the archetypes?, use the arena box, swap_remove when deleting entities
+cube shadow maps for point lights, spot lights, point lights without shadows
