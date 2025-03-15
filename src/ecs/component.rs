@@ -4,7 +4,6 @@ use fyrox_sound::pool::Handle;
 use fyrox_sound::source::SoundSource;
 use gl::types::GLfloat;
 use std::any::Any;
-use std::f32::consts::FRAC_2_PI;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::path::Path;
 use std::rc::Rc;
@@ -440,28 +439,6 @@ impl Default for DirectionalLight {
             color: Color32::WHITE,
             intensity: 1.0,
             direction: -Y_AXIS,
-        }
-    }
-}
-
-/// spot light component (requires a ``Position`` to work)
-#[derive(Debug, Copy, Clone)]
-pub struct SpotLight {
-    pub color: Color32,
-    pub intensity: GLfloat,
-    pub direction: glm::Vec3,
-    pub angle: GLfloat,
-}
-
-impl Component for SpotLight {}
-
-impl Default for SpotLight {
-    fn default() -> Self {
-        Self {
-            color: Color32::WHITE,
-            intensity: 1.0,
-            direction: -Y_AXIS,
-            angle: FRAC_2_PI,
         }
     }
 }

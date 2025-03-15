@@ -1,13 +1,13 @@
 #version 450 core
 
 #define PI 3.141592653589
-#define MAX_LIGHT_SRC_COUNT 5
+#define MAX_DIR_LIGHT_COUNT 5
 #define POINT_LIGHT_STRENGTH 300
 
 in vec2 v_uv;
 in vec3 v_normal;
 in vec3 frag_pos;
-in vec4 frag_pos_light[MAX_LIGHT_SRC_COUNT];
+in vec4 frag_pos_light[MAX_DIR_LIGHT_COUNT];
 in vec3 cam_position;
 
 out vec4 out_color;
@@ -26,14 +26,14 @@ struct LightConfig {
 
 layout (std140, binding = 0, column_major) uniform light_data {
     LightConfig ambient_light;
-    LightData lights[MAX_LIGHT_SRC_COUNT];
+    LightData lights[MAX_DIR_LIGHT_COUNT];
 };
 
 layout(location = 0) uniform int num_lights;
 layout(location = 1) uniform vec4 color;
 layout(location = 2) uniform sampler2D tex_sampler;
 layout(location = 3) uniform bool transparent_pass;
-layout(location = 4) uniform sampler2D shadow_sampler[MAX_LIGHT_SRC_COUNT];
+layout(location = 4) uniform sampler2D shadow_sampler[MAX_DIR_LIGHT_COUNT];
 
 float shadow_calc(vec4 fpl, int i) {
     vec3 proj_coords = fpl.xyz / fpl.w;

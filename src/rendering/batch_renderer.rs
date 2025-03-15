@@ -3,7 +3,7 @@ use super::shader::{bind_batch_attribs, ShaderType};
 use crate::ecs::component::utils::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
-use crate::utils::constants::{MAX_LIGHT_SRC_COUNT, MAX_TEXTURE_COUNT};
+use crate::utils::constants::{MAX_DIR_LIGHT_COUNT, MAX_TEXTURE_COUNT};
 use crate::utils::tools::mult_mat4_vec3;
 use gl::types::*;
 use std::collections::HashSet;
@@ -14,8 +14,6 @@ pub(crate) struct BatchRenderer {
     batches: Vec<Batch>,
     used_batch_indices: HashSet<usize>,
     white_texture: GLuint,
-    samplers: [GLint; MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT],
-    shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT],
 }
 
 impl BatchRenderer {
@@ -39,24 +37,11 @@ impl BatchRenderer {
                 white_color_data.as_ptr() as *const GLvoid,
             );
         }
-        // TEXTURE SAMPLERS
-        let mut samplers: [GLint; MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT] =
-            [0; MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT];
-        for (i, sampler) in samplers.iter_mut().enumerate() {
-            *sampler = (i + MAX_LIGHT_SRC_COUNT) as GLint;
-        }
-        // SHADOW SAMPLERS
-        let mut shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT] = [0; MAX_LIGHT_SRC_COUNT];
-        for (i, sampler) in shadow_samplers.iter_mut().enumerate() {
-            *sampler = i as GLint;
-        }
 
         Self {
             batches: Vec::new(),
             used_batch_indices: HashSet::new(),
             white_texture,
-            samplers,
-            shadow_samplers,
         }
     }
 
@@ -71,13 +56,11 @@ impl BatchRenderer {
     pub(crate) fn render_shadows(&self) {
         unsafe {
             // bind uniforms
-            gl::Uniform1iv(
-                6,
-                (MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT) as GLsizei,
-                &self.samplers[0],
-            );
+            for i in 0..(MAX_TEXTURE_COUNT - MAX_DIR_LIGHT_COUNT) as GLsizei {
+                gl::Uniform1i(6 + i, MAX_DIR_LIGHT_COUNT as GLsizei + i);
+            }
             // bind white texture
-            gl::ActiveTexture(gl::TEXTURE0 + MAX_LIGHT_SRC_COUNT as GLenum);
+            gl::ActiveTexture(gl::TEXTURE0 + MAX_DIR_LIGHT_COUNT as GLenum);
             gl::BindTexture(gl::TEXTURE_2D, self.white_texture);
         }
         for batch in self.batches.iter() {
@@ -96,19 +79,19 @@ impl BatchRenderer {
             // bind uniforms
             if shader_type != ShaderType::Passthrough {
                 gl::Uniform1i(0, shadow_maps.len() as GLsizei);
-                gl::Uniform1iv(2, MAX_LIGHT_SRC_COUNT as GLsizei, &self.shadow_samplers[0]);
+                for i in 0..MAX_DIR_LIGHT_COUNT {
+                    gl::Uniform1i(2 + i as GLsizei, i as GLsizei);
+                }
             }
             gl::Uniform1i(1, transparent as GLint);
-            gl::Uniform1iv(
-                7,
-                (MAX_TEXTURE_COUNT - MAX_LIGHT_SRC_COUNT) as GLsizei,
-                &self.samplers[0],
-            );
+            for i in 0..(MAX_TEXTURE_COUNT - MAX_DIR_LIGHT_COUNT) as GLsizei {
+                gl::Uniform1i(7 + i, MAX_DIR_LIGHT_COUNT as GLsizei + i);
+            }
             // bind textures
             for (i, shadow_map) in shadow_maps.iter().enumerate() {
                 shadow_map.bind_reading(i as GLuint);
             }
-            gl::ActiveTexture(gl::TEXTURE0 + MAX_LIGHT_SRC_COUNT as GLenum);
+            gl::ActiveTexture(gl::TEXTURE0 + MAX_DIR_LIGHT_COUNT as GLenum);
             gl::BindTexture(gl::TEXTURE_2D, self.white_texture);
         }
         for batch in self.batches.iter() {
@@ -302,7 +285,7 @@ impl Batch {
         unsafe {
             // bind textures
             for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
-                gl::ActiveTexture(gl::TEXTURE1 + (MAX_LIGHT_SRC_COUNT + unit) as GLenum);
+                gl::ActiveTexture(gl::TEXTURE1 + (MAX_DIR_LIGHT_COUNT + unit) as GLenum);
                 gl::BindTexture(gl::TEXTURE_2D, *tex_id);
             }
             // draw the triangles corresponding to the index buffer
@@ -322,7 +305,7 @@ impl Batch {
         unsafe {
             // bind textures
             for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
-                gl::ActiveTexture(gl::TEXTURE1 + (MAX_LIGHT_SRC_COUNT + unit) as GLenum);
+                gl::ActiveTexture(gl::TEXTURE1 + (MAX_DIR_LIGHT_COUNT + unit) as GLenum);
                 gl::BindTexture(gl::TEXTURE_2D, *tex_id);
             }
             // draw the triangles corresponding to the index buffer
@@ -354,7 +337,7 @@ impl Batch {
             }
         }
         if tex_index == -1.0 {
-            if self.all_tex_ids.len() >= MAX_TEXTURE_COUNT - 1 - MAX_LIGHT_SRC_COUNT {
+            if self.all_tex_ids.len() >= MAX_TEXTURE_COUNT - 1 - MAX_DIR_LIGHT_COUNT {
                 // start a new batch if out of texture slots
                 return false;
             }

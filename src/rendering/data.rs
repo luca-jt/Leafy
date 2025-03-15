@@ -1,6 +1,5 @@
 use crate::ecs::component::utils::{Color32, Filtering, Texture, Wrapping};
 use crate::ecs::component::*;
-use crate::ecs::entity::EntityID;
 use crate::glm;
 use crate::rendering::sprite_renderer::SpriteSheet;
 use crate::utils::constants::*;
@@ -463,13 +462,6 @@ impl Drop for ShadowMap {
     }
 }
 
-/// bundled light source data
-pub(crate) struct LightSources {
-    pub(crate) point_lights: Vec<(EntityID, Option<ShadowMap>)>,
-    pub(crate) directional_lights: Vec<(EntityID, ShadowMap)>,
-    pub(crate) spot_lights: Vec<(EntityID, ShadowMap)>,
-}
-
 /// one light data block for uniform buffer use
 #[repr(C)]
 pub(crate) struct LightData {
@@ -599,6 +591,7 @@ impl Skybox {
             gl::DepthFunc(gl::LEQUAL);
             gl::DepthMask(gl::FALSE);
             gl::BindVertexArray(self.vao);
+            gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_CUBE_MAP, self.cube_map);
             gl::Uniform1i(0, 0);
             gl::DrawArrays(gl::TRIANGLES, 0, 36);

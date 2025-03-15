@@ -3,7 +3,7 @@ use super::shader::*;
 use crate::ecs::component::utils::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
-use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
+use crate::utils::constants::MAX_DIR_LIGHT_COUNT;
 use gl::types::*;
 use std::ptr;
 
@@ -24,7 +24,6 @@ pub(crate) struct InstanceRenderer {
     pub(crate) color: Color32,
     pub(crate) tex_id: GLuint,
     max_num_instances: usize,
-    shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT],
 }
 
 impl InstanceRenderer {
@@ -133,11 +132,6 @@ impl InstanceRenderer {
 
             gl::BindVertexArray(0);
         }
-        // SHADOW SAMPLERS
-        let mut shadow_samplers: [GLint; MAX_LIGHT_SRC_COUNT] = [0; MAX_LIGHT_SRC_COUNT];
-        for (i, sampler) in shadow_samplers.iter_mut().enumerate() {
-            *sampler = i as GLint + 1;
-        }
 
         Self {
             vao,
@@ -155,7 +149,6 @@ impl InstanceRenderer {
             color: Color32::WHITE,
             tex_id: white_texture,
             max_num_instances,
-            shadow_samplers,
         }
     }
 
@@ -255,7 +248,9 @@ impl InstanceRenderer {
             // bind uniforms
             if shader_type != ShaderType::Passthrough {
                 gl::Uniform1i(0, shadow_maps.len() as GLsizei);
-                gl::Uniform1iv(4, MAX_LIGHT_SRC_COUNT as GLsizei, &self.shadow_samplers[0]);
+                for i in 0..MAX_DIR_LIGHT_COUNT {
+                    gl::Uniform1i(4 + i as GLsizei, i as GLsizei);
+                }
             }
             gl::Uniform1i(2, 0);
             gl::Uniform1i(3, transparent as GLint);

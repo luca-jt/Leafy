@@ -2,7 +2,7 @@ use crate::glm;
 use crate::rendering::data::{LightConfig, LightData, UniformBuffer, Vertex};
 use crate::rendering::sprite_renderer::SpriteVertex;
 use crate::systems::rendering_system::{RendererArch, ShaderSpec};
-use crate::utils::constants::MAX_LIGHT_SRC_COUNT;
+use crate::utils::constants::MAX_DIR_LIGHT_COUNT;
 use crate::utils::file::*;
 use crate::utils::tools::padding;
 use gl::types::*;
@@ -148,7 +148,7 @@ impl ShaderCatalog {
         let light_buffer = UniformBuffer::new(
             size_of::<LightConfig>()
                 + padding::<LightConfig>()
-                + MAX_LIGHT_SRC_COUNT * size_of::<LightData>(),
+                + MAX_DIR_LIGHT_COUNT * size_of::<LightData>(),
         );
         let matrix_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2 + size_of::<glm::Vec4>());
         let ortho_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2);

@@ -19,7 +19,8 @@ use std::cmp::Ordering;
 
 /// responsible for the automated rendering of all entities
 pub struct RenderingSystem {
-    light_sources: LightSources,
+    point_lights: Vec<(EntityID, Option<ShadowMap>)>,
+    directional_lights: Vec<(EntityID, ShadowMap)>,
     renderers: Vec<RendererType>,
     sprite_renderer: SpriteRenderer,
     perspective_camera: PerspectiveCamera,
@@ -50,11 +51,8 @@ impl RenderingSystem {
         let samples = 4;
 
         Self {
-            light_sources: LightSources {
-                point_lights: Vec::new(),
-                directional_lights: Vec::new(),
-                spot_lights: Vec::new(),
-            },
+            point_lights: Vec::new(),
+            directional_lights: Vec::new(),
             renderers: Vec::new(),
             sprite_renderer: SpriteRenderer::new(),
             perspective_camera: PerspectiveCamera::new(),
@@ -102,12 +100,10 @@ impl RenderingSystem {
         .map(|(p, l, e)| (p, l, *e))
         .collect_vec();
         // remove deleted shadow maps
-        self.light_sources
-            .directional_lights
+        self.directional_lights
             .retain(|src| lights.iter().any(|(_, _, id)| *id == src.0));
         // update positions of existing ones
-        self.light_sources
-            .directional_lights
+        self.directional_lights
             .iter_mut()
             .for_each(|(entity, map)| {
                 let correct_light = lights.iter().find(|(_, _, id)| id == entity).unwrap();
@@ -116,23 +112,17 @@ impl RenderingSystem {
         // add new light sources
         let new_lights = lights
             .into_iter()
-            .filter(|&(_, _, entity)| {
-                !self
-                    .light_sources
-                    .directional_lights
-                    .iter()
-                    .any(|(id, _)| entity == *id)
-            })
+            .filter(|&(_, _, entity)| !self.directional_lights.iter().any(|(id, _)| entity == *id))
             .collect_vec();
 
         for (pos, src, entity) in new_lights {
-            if self.light_sources.directional_lights.len() == MAX_LIGHT_SRC_COUNT {
+            if self.directional_lights.len() == MAX_DIR_LIGHT_COUNT {
                 panic!(
                     "no more light source slots available (max is {})",
-                    MAX_LIGHT_SRC_COUNT
+                    MAX_DIR_LIGHT_COUNT
                 );
             }
-            self.light_sources.directional_lights.push((
+            self.directional_lights.push((
                 entity,
                 ShadowMap::new(self.shadow_resolution.map_res(), *pos.data(), src),
             ));
@@ -140,12 +130,6 @@ impl RenderingSystem {
 
         //
         // point lights
-        //
-
-        // ...
-
-        //
-        // spot lights
         //
 
         // ...
@@ -245,7 +229,6 @@ impl RenderingSystem {
         }
         // @copypasta from render_geometry()
         let shadow_maps = self
-            .light_sources
             .directional_lights
             .iter()
             .map(|(_, map)| map)
@@ -278,7 +261,6 @@ impl RenderingSystem {
     /// render all the geometry data stored in the renderers
     fn render_geometry(&self) {
         let shadow_maps = self
-            .light_sources
             .directional_lights
             .iter()
             .map(|(_, map)| map)
@@ -307,7 +289,7 @@ impl RenderingSystem {
     /// renders the shadows to the shadow map
     fn render_shadows(&mut self) {
         let mut current_renderer_arch = None;
-        for (_, shadow_map) in self.light_sources.directional_lights.iter_mut() {
+        for (_, shadow_map) in self.directional_lights.iter_mut() {
             shadow_map.bind_writing();
             for renderer_type in self.renderers.iter_mut() {
                 let new_arch = renderer_type.required_shader().arch;
@@ -489,7 +471,6 @@ impl RenderingSystem {
         );
 
         let light_data = self
-            .light_sources
             .directional_lights
             .iter()
             .map(|(_, map)| LightData {
@@ -645,12 +626,9 @@ impl RenderingSystem {
     pub fn set_shadow_resolution(&mut self, resolution: ShadowResolution) {
         log::debug!("set shadow map resolution: {resolution:?}");
         self.shadow_resolution = resolution;
-        self.light_sources
-            .directional_lights
-            .iter_mut()
-            .for_each(|(_, map)| {
-                *map = ShadowMap::new(self.shadow_resolution.map_res(), map.light_pos, &map.light)
-            });
+        self.directional_lights.iter_mut().for_each(|(_, map)| {
+            *map = ShadowMap::new(self.shadow_resolution.map_res(), map.light_pos, &map.light)
+        });
     }
 
     /// changes the ambient light (default is white and 0.3)

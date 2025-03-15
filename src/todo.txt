@@ -22,4 +22,12 @@ gamma correction https://learnopengl.com/Advanced-Lighting/Gamma-Correction -> l
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
 
 better memory management for the entities with arenas -> dont remove the archetypes?, use the arena box, swap_remove when deleting entities
-cube shadow maps for point lights, spot lights, point lights without shadows
+
+cube shadow maps for point lights, point lights without shadows
+-> directional lights need different light direction calculation in the shaders
+-> 5 new slots for point lights with shadows, different samplers and shadow calc function
+-> num_lights needs to be calculated differently
+-> find a way to differentiate between lights with shadows and the ones without
+-> LightData needs to include info about the light type and what sampler to use
+-> different shadow map type
+-> new costants
