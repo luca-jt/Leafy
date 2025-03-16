@@ -269,7 +269,7 @@ pub(crate) struct PerspectiveCamera {
 impl PerspectiveCamera {
     /// creates new config with default values
     pub(crate) fn new() -> Self {
-        let viewport_ratio = MIN_WIN_WIDTH as f32 / MIN_WIN_HEIGHT as f32;
+        let viewport_ratio = DEFAULT_WIN_WIDTH as f32 / DEFAULT_WIN_HEIGHT as f32;
         let fov = 45.0_f32.to_radians();
         let projection = glm::perspective::<f32>(viewport_ratio, fov, 0.1, 100.0);
         let view = glm::look_at::<f32>(&-Z_AXIS, &ORIGIN, &Y_AXIS);
@@ -327,6 +327,131 @@ impl OrthoCamera {
     }
 }
 
+/// render info for one point light
+pub(crate) struct PointLightRenderingInfo {
+    pub(crate) light_pos: glm::Vec3,
+    pub(crate) light: PointLight,
+    pub(crate) shadow_map: Option<CubeShadowMap>,
+}
+
+/// cube shadow map for point lights
+pub(crate) struct CubeShadowMap {
+    dbo: GLuint,
+    shadow_cube_map: GLuint,
+    side_size: (GLsizei, GLsizei),
+    pub(crate) base_light_matrix: glm::Mat4,
+    tmp_viewport: [GLint; 4],
+}
+
+impl CubeShadowMap {
+    /// creates a new cube shadow map with given side size (width, height)
+    #[rustfmt::skip]
+    pub(crate) fn new(side_size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &PointLight) -> Self {
+        log::debug!("created new cube shadow map for a point light");
+        let mut dbo = 0;
+        let mut shadow_cube_map = 0;
+
+        unsafe {
+            gl::GenFramebuffers(1, &mut dbo);
+            gl::GenTextures(1, &mut shadow_cube_map);
+            gl::BindTexture(gl::TEXTURE_CUBE_MAP, shadow_cube_map);
+            for i in 0..6 {
+                gl::TexImage2D(
+                    gl::TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    0,
+                    gl::DEPTH_COMPONENT as GLint,
+                    side_size.0,
+                    side_size.1,
+                    0,
+                    gl::DEPTH_COMPONENT,
+                    gl::FLOAT,
+                    ptr::null(),
+                );
+            }
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as GLint);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as GLint);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_R, gl::CLAMP_TO_BORDER as GLint);
+            let border_color = Color32::WHITE.to_vec4();
+            gl::TexParameterfv(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_BORDER_COLOR, border_color.as_ptr());
+
+            gl::BindFramebuffer(gl::FRAMEBUFFER, dbo);
+            gl::FramebufferTexture(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, shadow_cube_map, 0);
+            gl::DrawBuffer(gl::NONE);
+            gl::ReadBuffer(gl::NONE);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+        }
+
+        Self {
+            dbo,
+            shadow_cube_map,
+            side_size,
+            base_light_matrix: glm::perspective::<f32>(1.0, 90f32.to_radians(), 0.1, 100.0)
+                * glm::look_at(&light_pos, &(light_pos - Y_AXIS), &Z_AXIS),
+            tmp_viewport: [0; 4],
+        }
+    }
+
+    /// bind the depth buffer for writing
+    pub(crate) fn bind_writing(&mut self) {
+        unsafe {
+            gl::GetIntegerv(gl::VIEWPORT, &mut self.tmp_viewport[0]);
+            gl::Viewport(0, 0, self.side_size.0, self.side_size.1);
+            gl::Scissor(0, 0, self.side_size.0, self.side_size.1);
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.dbo);
+            // clear the depth buffer bit
+            gl::Clear(gl::DEPTH_BUFFER_BIT);
+        }
+    }
+
+    /// binds the light matrix uniform to the currently used shader
+    pub(crate) fn bind_light_matrix(&self) {
+        unsafe { gl::UniformMatrix4fv(33, 1, gl::FALSE, &self.base_light_matrix[0]) };
+    }
+
+    /// unbinds the shadow map and restores the regular viewport
+    pub(crate) fn unbind_writing(&self) {
+        unsafe {
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+            gl::Viewport(
+                self.tmp_viewport[0],
+                self.tmp_viewport[1],
+                self.tmp_viewport[2] as GLsizei,
+                self.tmp_viewport[3] as GLsizei,
+            );
+            gl::Scissor(
+                self.tmp_viewport[0],
+                self.tmp_viewport[1],
+                self.tmp_viewport[2] as GLsizei,
+                self.tmp_viewport[3] as GLsizei,
+            );
+        }
+    }
+
+    /// bind the shadow map for reading
+    pub(crate) unsafe fn bind_reading(&self, texture_unit: GLuint) {
+        gl::ActiveTexture(gl::TEXTURE0 + texture_unit);
+        gl::BindTexture(gl::TEXTURE_2D, self.shadow_cube_map);
+    }
+
+    /// updates the shadow map according to a new light data
+    pub(crate) fn update_light(&mut self, pos: &glm::Vec3, light: &PointLight) {
+        self.base_light_matrix = glm::perspective::<f32>(1.0, 90f32.to_radians(), 0.1, 100.0)
+            * glm::look_at(pos, &(pos - Y_AXIS), &Z_AXIS);
+    }
+}
+
+impl Drop for CubeShadowMap {
+    fn drop(&mut self) {
+        log::debug!("dropped cube shadow map");
+        unsafe {
+            gl::DeleteTextures(1, &self.shadow_cube_map);
+            gl::DeleteFramebuffers(1, &self.dbo);
+        }
+    }
+}
+
 /// shadow map used for directional lights in rendering
 pub(crate) struct ShadowMap {
     dbo: GLuint,
@@ -361,8 +486,8 @@ impl ShadowMap {
                 gl::FLOAT,
                 ptr::null(),
             );
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as GLint);
             let border_color = Color32::WHITE.to_vec4();
@@ -385,7 +510,7 @@ impl ShadowMap {
             dbo,
             shadow_map,
             size,
-            light_matrix: glm::perspective::<f32>(1.0, 90f32.to_radians(), 0.1, 100.0)
+            light_matrix: glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
                 * glm::look_at(&light_pos, &(light_pos + light.direction), &from_view_up),
             light_pos,
             light: *light,
@@ -447,14 +572,14 @@ impl ShadowMap {
             (Y_AXIS - dot * Y_AXIS).normalize()
         };
 
-        self.light_matrix = glm::perspective::<f32>(1.0, 90f32.to_radians(), 0.1, 100.0)
+        self.light_matrix = glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
             * glm::look_at(pos, &(pos + light.direction), &from_view_up);
     }
 }
 
 impl Drop for ShadowMap {
     fn drop(&mut self) {
-        log::debug!("dropped shadow map");
+        log::debug!("dropped directional shadow map");
         unsafe {
             gl::DeleteTextures(1, &self.shadow_map);
             gl::DeleteFramebuffers(1, &self.dbo);
@@ -462,14 +587,24 @@ impl Drop for ShadowMap {
     }
 }
 
-/// one light data block for uniform buffer use
+/// one directional light data block for uniform buffer use
 #[repr(C)]
-pub(crate) struct LightData {
-    pub(crate) light_src: glm::Vec4,
+pub(crate) struct DirLightData {
+    pub(crate) light_src: glm::Vec4, // position of the light
     pub(crate) light_matrix: glm::Mat4,
     pub(crate) color: glm::Vec4,
     pub(crate) intensity: GLfloat,
-    pub(crate) padding_12bytes: glm::Vec3, // necessary for std140 uniform buffer layout padding
+    pub(crate) direction: glm::Vec3,
+}
+
+/// one point light data block for uniform buffer use
+#[repr(C)]
+pub(crate) struct PointLightData {
+    pub(crate) light_src: glm::Vec4, // position of the light
+    pub(crate) color: glm::Vec4,
+    pub(crate) intensity: GLfloat,
+    pub(crate) has_shadows: GLint,
+    pub(crate) padding_8bytes: glm::Vec2, // necessary for std140 uniform buffer layout padding
 }
 
 /// light source data for uniform buffer use

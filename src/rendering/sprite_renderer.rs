@@ -19,7 +19,6 @@ pub(crate) struct SpriteRenderer {
     renderer_map: [Vec<SpriteBatch>; 10],
     used_batch_indices: [HashSet<usize>; 10],
     white_texture: GLuint,
-    samplers: [GLint; MAX_TEXTURE_COUNT],
     pub(crate) grids: [SpriteGrid; 10],
 }
 
@@ -44,17 +43,11 @@ impl SpriteRenderer {
                 white_color_data.as_ptr() as *const GLvoid,
             );
         }
-        // TEXTURE SAMPLERS
-        let mut samplers: [GLint; MAX_TEXTURE_COUNT] = [0; MAX_TEXTURE_COUNT];
-        for (i, sampler) in samplers.iter_mut().enumerate() {
-            *sampler = i as GLint;
-        }
 
         Self {
             renderer_map: Default::default(),
             used_batch_indices: Default::default(),
             white_texture,
-            samplers,
             grids: [SpriteGrid::default(); 10],
         }
     }
@@ -81,7 +74,9 @@ impl SpriteRenderer {
         }
         unsafe {
             // bind uniforms
-            gl::Uniform1iv(7, MAX_TEXTURE_COUNT as GLsizei, &self.samplers[0]);
+            for i in 0..MAX_TEXTURE_COUNT {
+                gl::Uniform1i(7 + i as GLsizei, i as GLsizei);
+            }
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.white_texture);

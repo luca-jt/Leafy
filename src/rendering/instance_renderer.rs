@@ -1,9 +1,9 @@
-use super::data::ShadowMap;
+use super::data::*;
 use super::shader::*;
 use crate::ecs::component::utils::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
-use crate::utils::constants::MAX_DIR_LIGHT_COUNT;
+use crate::utils::constants::*;
 use gl::types::*;
 use std::ptr;
 
@@ -208,7 +208,7 @@ impl InstanceRenderer {
         }
     }
 
-    /// renders to the shadow map
+    /// renders to a directional shadow map
     pub(crate) fn render_shadows(&self) {
         unsafe {
             // bind texture
@@ -231,10 +231,34 @@ impl InstanceRenderer {
         }
     }
 
+    /// renders to a cube shadow map
+    pub(crate) fn render_cube_shadows(&self) {
+        unsafe {
+            // bind texture
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, self.tex_id);
+            // bind uniforms
+            gl::Uniform1i(7, 0);
+            let color_vec = self.color.to_vec4();
+            gl::Uniform4fv(1, 1, &color_vec[0]);
+            // draw the instanced triangles corresponding to the index buffer
+            gl::BindVertexArray(self.vao);
+            gl::DrawElementsInstanced(
+                gl::TRIANGLES,
+                self.index_count,
+                gl::UNSIGNED_INT,
+                ptr::null(),
+                self.pos_idx as GLsizei,
+            );
+            gl::BindVertexArray(0);
+        }
+    }
+
     /// draws the mesh at all the positions specified until the call of this and clears the positions
-    pub(crate) fn draw_all(
+    pub(crate) fn draw_all<'a>(
         &self,
-        shadow_maps: &[&ShadowMap],
+        dir_shadow_maps: impl Iterator<Item = &'a ShadowMap>,
+        cube_shadow_maps: impl Iterator<Item = &'a CubeShadowMap>,
         shader_type: ShaderType,
         transparent: bool,
     ) {
@@ -242,20 +266,25 @@ impl InstanceRenderer {
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.tex_id);
-            for (i, shadow_map) in shadow_maps.iter().enumerate() {
+            for (i, shadow_map) in dir_shadow_maps.enumerate() {
                 shadow_map.bind_reading(i as GLuint + 1);
+            }
+            for (i, shadow_map) in cube_shadow_maps.enumerate() {
+                shadow_map.bind_reading((MAX_DIR_LIGHT_MAPS + i) as GLuint + 1);
             }
             // bind uniforms
             if shader_type != ShaderType::Passthrough {
-                gl::Uniform1i(0, shadow_maps.len() as GLsizei);
-                for i in 0..MAX_DIR_LIGHT_COUNT {
-                    gl::Uniform1i(4 + i as GLsizei, i as GLsizei);
+                for i in 0..MAX_DIR_LIGHT_MAPS {
+                    gl::Uniform1i(4 + i as GLsizei, i as GLsizei + 1);
+                }
+                for i in 0..MAX_POINT_LIGHT_MAPS {
+                    gl::Uniform1i(9 + i as GLsizei, (MAX_DIR_LIGHT_MAPS + i) as GLsizei + 1);
                 }
             }
-            gl::Uniform1i(2, 0);
-            gl::Uniform1i(3, transparent as GLint);
             let color_vec = self.color.to_vec4();
             gl::Uniform4fv(1, 1, &color_vec[0]);
+            gl::Uniform1i(2, 0);
+            gl::Uniform1i(3, transparent as GLint);
 
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);

@@ -1,9 +1,9 @@
-use super::data::{ShadowMap, Vertex};
+use super::data::*;
 use super::shader::{bind_batch_attribs, ShaderType};
 use crate::ecs::component::utils::Color32;
 use crate::glm;
 use crate::rendering::mesh::Mesh;
-use crate::utils::constants::{MAX_DIR_LIGHT_COUNT, MAX_TEXTURE_COUNT};
+use crate::utils::constants::*;
 use crate::utils::tools::mult_mat4_vec3;
 use gl::types::*;
 use std::collections::HashSet;
@@ -52,15 +52,31 @@ impl BatchRenderer {
         }
     }
 
-    /// renders to the shadow map
+    /// renders to a directional shadow map
     pub(crate) fn render_shadows(&self) {
         unsafe {
             // bind uniforms
-            for i in 0..(MAX_TEXTURE_COUNT - MAX_DIR_LIGHT_COUNT) as GLsizei {
-                gl::Uniform1i(6 + i, MAX_DIR_LIGHT_COUNT as GLsizei + i);
+            for i in 0..AVAILABLE_REGULAR_TEXTURE_COUNT as GLsizei {
+                gl::Uniform1i(6 + i, SHADOW_MAP_COUNT as GLsizei + i);
             }
             // bind white texture
-            gl::ActiveTexture(gl::TEXTURE0 + MAX_DIR_LIGHT_COUNT as GLenum);
+            gl::ActiveTexture(gl::TEXTURE0 + SHADOW_MAP_COUNT as GLenum);
+            gl::BindTexture(gl::TEXTURE_2D, self.white_texture);
+        }
+        for batch in self.batches.iter() {
+            batch.render_shadows();
+        }
+    }
+
+    /// renders to a cube shadow map
+    pub(crate) fn render_cube_shadows(&self) {
+        unsafe {
+            // bind uniforms
+            for i in 0..AVAILABLE_REGULAR_TEXTURE_COUNT as GLsizei {
+                gl::Uniform1i(6 + i, SHADOW_MAP_COUNT as GLsizei + i);
+            }
+            // bind white texture
+            gl::ActiveTexture(gl::TEXTURE0 + SHADOW_MAP_COUNT as GLenum);
             gl::BindTexture(gl::TEXTURE_2D, self.white_texture);
         }
         for batch in self.batches.iter() {
@@ -69,29 +85,35 @@ impl BatchRenderer {
     }
 
     /// renders all data
-    pub(crate) fn flush(
+    pub(crate) fn flush<'a>(
         &self,
-        shadow_maps: &[&ShadowMap],
+        dir_shadow_maps: impl Iterator<Item = &'a ShadowMap>,
+        cube_shadow_maps: impl Iterator<Item = &'a CubeShadowMap>,
         shader_type: ShaderType,
         transparent: bool,
     ) {
         unsafe {
             // bind uniforms
             if shader_type != ShaderType::Passthrough {
-                gl::Uniform1i(0, shadow_maps.len() as GLsizei);
-                for i in 0..MAX_DIR_LIGHT_COUNT {
-                    gl::Uniform1i(2 + i as GLsizei, i as GLsizei);
+                for i in 0..MAX_DIR_LIGHT_MAPS as GLint {
+                    gl::Uniform1i(2 + i, i);
+                }
+                for i in 0..MAX_POINT_LIGHT_MAPS as GLint {
+                    gl::Uniform1i(7 + i, MAX_DIR_LIGHT_MAPS as GLsizei + i);
                 }
             }
             gl::Uniform1i(1, transparent as GLint);
-            for i in 0..(MAX_TEXTURE_COUNT - MAX_DIR_LIGHT_COUNT) as GLsizei {
-                gl::Uniform1i(7 + i, MAX_DIR_LIGHT_COUNT as GLsizei + i);
+            for i in 0..AVAILABLE_REGULAR_TEXTURE_COUNT as GLint {
+                gl::Uniform1i(12 + i, SHADOW_MAP_COUNT as GLsizei + i);
             }
             // bind textures
-            for (i, shadow_map) in shadow_maps.iter().enumerate() {
+            for (i, shadow_map) in dir_shadow_maps.enumerate() {
                 shadow_map.bind_reading(i as GLuint);
             }
-            gl::ActiveTexture(gl::TEXTURE0 + MAX_DIR_LIGHT_COUNT as GLenum);
+            for (i, shadow_map) in cube_shadow_maps.enumerate() {
+                shadow_map.bind_reading((MAX_DIR_LIGHT_MAPS + i) as GLuint);
+            }
+            gl::ActiveTexture(gl::TEXTURE0 + SHADOW_MAP_COUNT as GLenum);
             gl::BindTexture(gl::TEXTURE_2D, self.white_texture);
         }
         for batch in self.batches.iter() {
@@ -228,7 +250,7 @@ impl Batch {
             index_count: 0,
             obj_buffer,
             obj_buffer_ptr: 0,
-            all_tex_ids: Vec::new(),
+            all_tex_ids: Vec::with_capacity(AVAILABLE_REGULAR_TEXTURE_COUNT),
             max_num_meshes,
         }
     }
@@ -285,7 +307,7 @@ impl Batch {
         unsafe {
             // bind textures
             for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
-                gl::ActiveTexture(gl::TEXTURE1 + (MAX_DIR_LIGHT_COUNT + unit) as GLenum);
+                gl::ActiveTexture(gl::TEXTURE1 + (SHADOW_MAP_COUNT + unit) as GLenum);
                 gl::BindTexture(gl::TEXTURE_2D, *tex_id);
             }
             // draw the triangles corresponding to the index buffer
@@ -305,7 +327,7 @@ impl Batch {
         unsafe {
             // bind textures
             for (unit, tex_id) in self.all_tex_ids.iter().enumerate() {
-                gl::ActiveTexture(gl::TEXTURE1 + (MAX_DIR_LIGHT_COUNT + unit) as GLenum);
+                gl::ActiveTexture(gl::TEXTURE1 + (SHADOW_MAP_COUNT + unit) as GLenum);
                 gl::BindTexture(gl::TEXTURE_2D, *tex_id);
             }
             // draw the triangles corresponding to the index buffer
@@ -337,7 +359,7 @@ impl Batch {
             }
         }
         if tex_index == -1.0 {
-            if self.all_tex_ids.len() >= MAX_TEXTURE_COUNT - 1 - MAX_DIR_LIGHT_COUNT {
+            if self.all_tex_ids.len() >= AVAILABLE_REGULAR_TEXTURE_COUNT - 1 {
                 // start a new batch if out of texture slots
                 return false;
             }

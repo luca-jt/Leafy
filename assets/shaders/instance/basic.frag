@@ -1,22 +1,34 @@
 #version 450 core
 
 #define PI 3.141592653589
-#define MAX_DIR_LIGHT_COUNT 5
 #define POINT_LIGHT_STRENGTH 300
+#define MAX_DIR_LIGHT_MAPS 5
+#define MAX_POINT_LIGHT_MAPS 5
+#define MAX_POINT_LIGHT_COUNT 20
+#define MAX_LIGHT_SRC_COUNT MAX_POINT_LIGHT_COUNT + MAX_DIR_LIGHT_MAPS
+#define SHADOW_MAP_COUNT MAX_POINT_LIGHT_MAPS + MAX_DIR_LIGHT_MAPS
 
 in vec2 v_uv;
 in vec3 v_normal;
 in vec3 frag_pos;
-in vec4 frag_pos_light[MAX_DIR_LIGHT_COUNT];
+in vec4 frag_pos_light[MAX_LIGHT_SRC_COUNT];
 in vec3 cam_position;
 
 out vec4 out_color;
 
-struct LightData {
+struct PointLightData {
+    vec4 light_pos;
+    vec4 color;
+    float intensity;
+    bool has_shadows;
+};
+
+struct DirLightData {
     vec4 light_pos;
     mat4 light_matrix;
     vec4 color;
     float intensity;
+    vec3 direction;
 };
 
 struct LightConfig {
@@ -26,14 +38,19 @@ struct LightConfig {
 
 layout (std140, binding = 0, column_major) uniform light_data {
     LightConfig ambient_light;
-    LightData lights[MAX_DIR_LIGHT_COUNT];
+    int num_dir_lights;
+    int num_point_lights;
+    int num_point_light_maps;
+    DirLightData dir_lights[MAX_DIR_LIGHT_MAPS];
+    PointLightData point_lights[MAX_POINT_LIGHT_COUNT];
+    mat4 point_light_matrices[MAX_POINT_LIGHT_MAPS];
 };
 
-layout(location = 0) uniform int num_lights;
 layout(location = 1) uniform vec4 color;
 layout(location = 2) uniform sampler2D tex_sampler;
 layout(location = 3) uniform bool transparent_pass;
-layout(location = 4) uniform sampler2D shadow_sampler[MAX_DIR_LIGHT_COUNT];
+layout(location = 4) uniform sampler2D shadow_samplers[MAX_DIR_LIGHT_MAPS];
+layout(location = 9) uniform samplerCube cube_shadow_samplers[MAX_POINT_LIGHT_MAPS];
 
 float shadow_calc(vec4 fpl, int i) {
     vec3 proj_coords = fpl.xyz / fpl.w;
@@ -46,8 +63,8 @@ float shadow_calc(vec4 fpl, int i) {
     float shadow = 0.0;
     for (int y = -filter_size / 2; y < filter_size / 2; ++y) {
         for (int x = -filter_size / 2; x < filter_size / 2; ++x) {
-            vec2 offset = vec2(x, y) / textureSize(shadow_sampler[i], 0);
-            float depth = texture(shadow_sampler[i], proj_coords.xy + offset).x;
+            vec2 offset = vec2(x, y) / textureSize(shadow_samplers[i], 0);
+            float depth = texture(shadow_samplers[i], proj_coords.xy + offset).x;
             shadow += proj_coords.z > depth + bias ? 1.0 : 0.0;
         }
     }

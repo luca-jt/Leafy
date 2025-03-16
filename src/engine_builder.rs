@@ -34,7 +34,7 @@ impl EngineAttributes {
             title: WIN_TITLE,
             fps_cap: None,
             bg_fps_cap: None,
-            size: (MIN_WIN_WIDTH, MIN_WIN_HEIGHT),
+            size: (DEFAULT_WIN_WIDTH, DEFAULT_WIN_HEIGHT),
             min_size: None,
             enforced_ratio: None,
             transparent: false,
