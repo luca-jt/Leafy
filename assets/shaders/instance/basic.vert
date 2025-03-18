@@ -15,7 +15,7 @@ layout (location = 9) in mat3 normal_matrix; // takes up 3 attribute locations
 out vec2 v_uv;
 out vec3 v_normal;
 out vec3 frag_pos;
-out vec4 frag_pos_light[MAX_LIGHT_SRC_COUNT];
+out vec4 frag_pos_dir_light[MAX_DIR_LIGHT_MAPS];
 out vec3 cam_position;
 
 struct PointLightData {
@@ -40,12 +40,11 @@ struct LightConfig {
 
 layout (std140, binding = 0, column_major) uniform light_data {
     LightConfig ambient_light;
-    int num_dir_lights;
+    int num_dir_lights; // directional lights at the moment always have shadow maps
     int num_point_lights;
     int num_point_light_maps;
     DirLightData dir_lights[MAX_DIR_LIGHT_MAPS];
     PointLightData point_lights[MAX_POINT_LIGHT_COUNT];
-    mat4 point_light_matrices[MAX_POINT_LIGHT_MAPS];
 };
 
 layout (std140, binding = 1, column_major) uniform matrix_block {
@@ -59,9 +58,9 @@ void main() {
     v_uv = uv;
     v_normal = normalize(normal_matrix * normal);
     frag_pos = vec3(model * vec4(position, 1.0));
-    frag_pos_light = vec4[5](vec4(0), vec4(0), vec4(0), vec4(0), vec4(0));
-    for (int i = 0; i < num_lights; i++) {
-        frag_pos_light[i] = lights[i].light_matrix * vec4(frag_pos, 1.0);
+    frag_pos_dir_light = vec4[MAX_DIR_LIGHT_MAPS](vec4(0), vec4(0), vec4(0), vec4(0), vec4(0));
+    for (int i = 0; i < num_dir_lights; i++) {
+        frag_pos_dir_light[i] = dir_lights[i].light_matrix * vec4(frag_pos, 1.0);
     }
     cam_position = vec3(cam_pos);
 }

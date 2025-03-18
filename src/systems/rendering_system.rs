@@ -648,16 +648,12 @@ impl RenderingSystem {
             })
             .collect_vec();
 
-        let p_light_matrices = self
-            .point_lights
-            .values()
-            .filter_map(|render_info| {
-                render_info
-                    .shadow_map
-                    .as_ref()
-                    .map(|map| *map.base_light_matrix)
-            })
-            .collect_vec();
+        let p_light_matrices = self.point_lights.values().filter_map(|render_info| {
+            render_info
+                .shadow_map
+                .as_ref()
+                .map(|map| *map.base_light_matrix)
+        });
 
         let ambient_config = LightConfig {
             color: self.ambient_light.0.to_vec4(),
@@ -671,7 +667,7 @@ impl RenderingSystem {
 
         let num_dir_lights = self.directional_lights.len() as GLint;
         let num_point_lights = self.point_lights.len() as GLint;
-        let num_point_light_maps = p_light_matrices.len() as GLint;
+        let num_point_light_maps = p_light_matrices.count() as GLint;
 
         self.shader_catalog.light_buffer.upload_data(
             size_of::<LightConfig>() + padding::<LightConfig>(),
@@ -704,17 +700,6 @@ impl RenderingSystem {
                     + size_of::<DirLightData>() * MAX_DIR_LIGHT_MAPS,
                 p_light_data.len() * size_of::<PointLightData>(),
                 p_light_data.as_ptr() as *const GLvoid,
-            );
-        }
-        if !p_light_matrices.is_empty() {
-            self.shader_catalog.light_buffer.upload_data(
-                size_of::<LightConfig>()
-                    + padding::<LightConfig>()
-                    + size_of::<GLint>() * 3
-                    + size_of::<DirLightData>() * MAX_DIR_LIGHT_MAPS
-                    + size_of::<PointLightData>() * MAX_POINT_LIGHT_COUNT,
-                p_light_matrices.len() * size_of::<glm::Mat4>(),
-                p_light_matrices.as_ptr() as *const GLvoid,
             );
         }
     }

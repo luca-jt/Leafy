@@ -14,7 +14,7 @@ in vec2 v_uv;
 in vec3 v_normal;
 flat in float v_tex_idx;
 in vec3 frag_pos;
-in vec4 frag_pos_light[MAX_LIGHT_SRC_COUNT];
+in vec4 frag_pos_dir_light[MAX_DIR_LIGHT_MAPS];
 in vec3 cam_position;
 
 out vec4 out_color;
@@ -46,7 +46,6 @@ layout (std140, binding = 0, column_major) uniform light_data {
     int num_point_light_maps;
     DirLightData dir_lights[MAX_DIR_LIGHT_MAPS];
     PointLightData point_lights[MAX_POINT_LIGHT_COUNT];
-    mat4 point_light_matrices[MAX_POINT_LIGHT_MAPS];
 };
 
 layout(location = 1) uniform bool transparent_pass;
@@ -92,7 +91,7 @@ void main() {
         float distance_to_light = length(frag_pos - lights[i].light_pos.xyz);
         distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
         float diff = min(max(dot(v_normal, light_dir), 0.0) / (pow(distance_to_light, 2) * 4 * PI), 1.0);
-        float shadow = 1.0 - shadow_calc(frag_pos_light[i], i);
+        float shadow = 1.0 - shadow_calc(frag_pos_dir_light[i], i);
         vec3 src_light = diff * shadow * lights[i].color.rgb * lights[i].intensity;
         final_light += src_light * POINT_LIGHT_STRENGTH / float(num_lights);
     }

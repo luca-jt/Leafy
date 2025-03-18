@@ -46,17 +46,26 @@ fn compile_shader(src: &str, ty: GLenum) -> GLuint {
 }
 
 /// links a gl shader program
-fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
+fn link_program(vs: GLuint, fs: GLuint, gs: Option<GLuint>) -> GLuint {
     unsafe {
         let program = gl::CreateProgram();
         gl::AttachShader(program, vs);
         gl::AttachShader(program, fs);
+        if let Some(gs) = gs {
+            gl::AttachShader(program, gs);
+        }
         gl::LinkProgram(program);
 
         gl::DetachShader(program, fs);
         gl::DetachShader(program, vs);
+        if let Some(gs) = gs {
+            gl::DetachShader(program, gs);
+        }
         gl::DeleteShader(fs);
         gl::DeleteShader(vs);
+        if let Some(gs) = gs {
+            gl::DeleteShader(gs);
+        }
 
         // Get the link status
         let mut status = gl::FALSE as GLint;
@@ -90,11 +99,12 @@ pub(crate) struct ShaderProgram {
 
 impl ShaderProgram {
     /// creates new shader program
-    pub(crate) fn new(vertex_file: &str, fragment_file: &str) -> Self {
+    pub(crate) fn new(vertex_file: &str, fragment_file: &str, geometry_file: Option<&str>) -> Self {
         // compile and link shader program
         let vs = compile_shader(vertex_file, gl::VERTEX_SHADER);
         let fs = compile_shader(fragment_file, gl::FRAGMENT_SHADER);
-        let id = link_program(vs, fs);
+        let gs = geometry_file.map(|file| compile_shader(file, gl::GEOMETRY_SHADER));
+        let id = link_program(vs, fs, gs);
 
         let c_out_color = CString::new("out_color").unwrap();
         unsafe { gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()) };
@@ -152,8 +162,7 @@ impl ShaderCatalog {
                 + padding::<LightConfig>()
                 + size_of::<GLint>() * 3
                 + MAX_DIR_LIGHT_MAPS * size_of::<DirLightData>()
-                + MAX_POINT_LIGHT_COUNT * size_of::<PointLightData>()
-                + MAX_POINT_LIGHT_MAPS * size_of::<glm::Mat4>(),
+                + MAX_POINT_LIGHT_COUNT * size_of::<PointLightData>(),
         );
         let matrix_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2 + size_of::<glm::Vec4>());
         let ortho_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2);
@@ -207,7 +216,7 @@ impl ShaderCatalog {
 
     /// creates a new sprite shader
     fn create_sprite(ortho_buffer: &UniformBuffer) -> ShaderProgram {
-        let program = ShaderProgram::new(SPRITE_VERT, SPRITE_FRAG);
+        let program = ShaderProgram::new(SPRITE_VERT, SPRITE_FRAG, None);
 
         program.add_unif_buffer("ortho_block", ortho_buffer, 2);
 
@@ -216,12 +225,12 @@ impl ShaderCatalog {
 
     /// creates a new screen texture shader
     fn create_screen() -> ShaderProgram {
-        ShaderProgram::new(SCREEN_VERT, SCREEN_FRAG)
+        ShaderProgram::new(SCREEN_VERT, SCREEN_FRAG, None)
     }
 
     /// creates a new skybox shader
     fn create_skybox(matrix_buffer: &UniformBuffer) -> ShaderProgram {
-        let program = ShaderProgram::new(SKYBOX_VERT, SKYBOX_FRAG);
+        let program = ShaderProgram::new(SKYBOX_VERT, SKYBOX_FRAG, None);
 
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
@@ -233,7 +242,7 @@ impl ShaderCatalog {
         light_buffer: &UniformBuffer,
         matrix_buffer: &UniformBuffer,
     ) -> ShaderProgram {
-        let program = ShaderProgram::new(BATCH_B_VERT, BATCH_B_FRAG);
+        let program = ShaderProgram::new(BATCH_B_VERT, BATCH_B_FRAG, None);
 
         program.add_unif_buffer("light_data", light_buffer, 0);
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
@@ -246,7 +255,7 @@ impl ShaderCatalog {
         light_buffer: &UniformBuffer,
         matrix_buffer: &UniformBuffer,
     ) -> ShaderProgram {
-        let program = ShaderProgram::new(INSTANCE_B_VERT, INSTANCE_B_FRAG);
+        let program = ShaderProgram::new(INSTANCE_B_VERT, INSTANCE_B_FRAG, None);
 
         program.add_unif_buffer("light_data", light_buffer, 0);
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
@@ -256,7 +265,7 @@ impl ShaderCatalog {
 
     /// creates a new passthrough batch renderer shader
     fn create_batch_passthrough(matrix_buffer: &UniformBuffer) -> ShaderProgram {
-        let program = ShaderProgram::new(BATCH_PT_VERT, BATCH_PT_FRAG);
+        let program = ShaderProgram::new(BATCH_PT_VERT, BATCH_PT_FRAG, None);
 
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
@@ -265,7 +274,7 @@ impl ShaderCatalog {
 
     /// creates a new passthrough instance renderer shader
     fn create_instance_passthrough(matrix_buffer: &UniformBuffer) -> ShaderProgram {
-        let program = ShaderProgram::new(INSTANCE_PT_VERT, INSTANCE_PT_FRAG);
+        let program = ShaderProgram::new(INSTANCE_PT_VERT, INSTANCE_PT_FRAG, None);
 
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
@@ -274,22 +283,30 @@ impl ShaderCatalog {
 
     /// creates a new shadow rendering shader for the batch renderer
     fn create_batch_shadow() -> ShaderProgram {
-        ShaderProgram::new(BATCH_SHADOW_VERT, BATCH_SHADOW_FRAG)
+        ShaderProgram::new(BATCH_SHADOW_VERT, BATCH_SHADOW_FRAG, None)
     }
 
     /// creates a new shadow rendering shader for the instance renderer
     fn create_instance_shadow() -> ShaderProgram {
-        ShaderProgram::new(INSTANCE_SHADOW_VERT, INSTANCE_SHADOW_FRAG)
+        ShaderProgram::new(INSTANCE_SHADOW_VERT, INSTANCE_SHADOW_FRAG, None)
     }
 
     /// creates a new cube map shadow rendering shader for the batch renderer
     fn create_batch_cube_shadow() -> ShaderProgram {
-        ShaderProgram::new(BATCH_CUBE_SHADOW_VERT, BATCH_CUBE_SHADOW_FRAG)
+        ShaderProgram::new(
+            BATCH_CUBE_SHADOW_VERT,
+            BATCH_CUBE_SHADOW_FRAG,
+            Some(BATCH_CUBE_SHADOW_GEOM),
+        )
     }
 
     /// creates a new cube map shadow rendering shader for the instance renderer
     fn create_instance_cube_shadow() -> ShaderProgram {
-        ShaderProgram::new(INSTANCE_CUBE_SHADOW_VERT, INSTANCE_CUBE_SHADOW_FRAG)
+        ShaderProgram::new(
+            INSTANCE_CUBE_SHADOW_VERT,
+            INSTANCE_CUBE_SHADOW_FRAG,
+            Some(INSTANCE_CUBE_SHADOW_GEOM),
+        )
     }
 }
 

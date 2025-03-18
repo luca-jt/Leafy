@@ -26,6 +26,5 @@ better memory management for the entities with arenas -> dont remove the archety
 -> directional lights need different light direction calculation in the shaders
 -> different samplers and shadow calc function
 -> check all uniform locations in the end and clean them up
--> point light with shadows contains 6 light matrices (cant we just rotate one?)
--> we will need two frag_pos_light arrays in the shaders because of the two light types
 -> pre-allocate the vectors used in the light source management every frame
+-> light matrix for the shadow geom shader is just a uniform that can generate all the other ones, point light with shadows contains 6 light matrices (cant we just rotate one?)

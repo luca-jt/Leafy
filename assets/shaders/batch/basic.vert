@@ -17,7 +17,7 @@ out vec2 v_uv;
 out vec3 v_normal;
 flat out float v_tex_idx;
 out vec3 frag_pos;
-out vec4 frag_pos_light[MAX_LIGHT_SRC_COUNT];
+out vec4 frag_pos_dir_light[MAX_DIR_LIGHT_MAPS];
 out vec3 cam_position;
 
 struct PointLightData {
@@ -42,12 +42,11 @@ struct LightConfig {
 
 layout (std140, binding = 0, column_major) uniform light_data {
     LightConfig ambient_light;
-    int num_dir_lights;
+    int num_dir_lights; // at the moment directional lights always have shadow maps
     int num_point_lights;
     int num_point_light_maps;
     DirLightData dir_lights[MAX_DIR_LIGHT_MAPS];
     PointLightData point_lights[MAX_POINT_LIGHT_COUNT];
-    mat4 point_light_matrices[MAX_POINT_LIGHT_MAPS];
 };
 
 layout (std140, binding = 1, column_major) uniform matrix_block {
@@ -63,9 +62,9 @@ void main() {
     v_normal = normalize(normal);
     v_tex_idx = tex_idx;
     frag_pos = position;
-    frag_pos_light = vec4[5](vec4(0), vec4(0), vec4(0), vec4(0), vec4(0));
-    for (int i = 0; i < num_lights; i++) {
-        frag_pos_light[i] = lights[i].light_matrix * vec4(frag_pos, 1.0);
+    frag_pos_dir_light = vec4[MAX_DIR_LIGHT_MAPS](vec4(0), vec4(0), vec4(0), vec4(0), vec4(0));
+    for (int i = 0; i < num_dir_lights; i++) {
+        frag_pos_dir_light[i] = dir_lights[i].light_matrix * vec4(frag_pos, 1.0);
     }
     cam_position = vec3(cam_pos);
 }

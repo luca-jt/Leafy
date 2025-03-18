@@ -1,3 +1,5 @@
+#![cfg_attr(rustfmt, rustfmt_skip)]
+
 use crate::glm;
 use gl::types::GLuint;
 use stb_image::image::{load_with_depth, Image, LoadResult};
@@ -39,16 +41,14 @@ pub(crate) const INSTANCE_PT_FRAG: &str = include_str!(shader_path!("instance/pa
 pub(crate) const INSTANCE_PT_VERT: &str = include_str!(shader_path!("instance/passthrough.vert"));
 pub(crate) const INSTANCE_SHADOW_FRAG: &str = include_str!(shader_path!("instance/shadow.frag"));
 pub(crate) const INSTANCE_SHADOW_VERT: &str = include_str!(shader_path!("instance/shadow.vert"));
-pub(crate) const INSTANCE_CUBE_SHADOW_VERT: &str =
-    include_str!(shader_path!("instance/cube_shadow.vert"));
-pub(crate) const INSTANCE_CUBE_SHADOW_FRAG: &str =
-    include_str!(shader_path!("instance/cube_shadow.frag"));
+pub(crate) const INSTANCE_CUBE_SHADOW_VERT: &str = include_str!(shader_path!("instance/cube_shadow.vert"));
+pub(crate) const INSTANCE_CUBE_SHADOW_FRAG: &str = include_str!(shader_path!("instance/cube_shadow.frag"));
+pub(crate) const INSTANCE_CUBE_SHADOW_GEOM: &str = include_str!(shader_path!("instance/cube_shadow.geom"));
 pub(crate) const BATCH_SHADOW_FRAG: &str = include_str!(shader_path!("batch/shadow.frag"));
 pub(crate) const BATCH_SHADOW_VERT: &str = include_str!(shader_path!("batch/shadow.vert"));
-pub(crate) const BATCH_CUBE_SHADOW_VERT: &str =
-    include_str!(shader_path!("batch/cube_shadow.vert"));
-pub(crate) const BATCH_CUBE_SHADOW_FRAG: &str =
-    include_str!(shader_path!("batch/cube_shadow.frag"));
+pub(crate) const BATCH_CUBE_SHADOW_VERT: &str = include_str!(shader_path!("batch/cube_shadow.vert"));
+pub(crate) const BATCH_CUBE_SHADOW_FRAG: &str = include_str!(shader_path!("batch/cube_shadow.frag"));
+pub(crate) const BATCH_CUBE_SHADOW_GEOM: &str = include_str!(shader_path!("batch/cube_shadow.geom"));
 pub(crate) const SKYBOX_VERT: &str = include_str!(shader_path!("skybox.vert"));
 pub(crate) const SKYBOX_FRAG: &str = include_str!(shader_path!("skybox.frag"));
 pub(crate) const SCREEN_VERT: &str = include_str!(shader_path!("screen.vert"));
@@ -63,7 +63,6 @@ pub(crate) const CUBE_MESH: &[u8] = include_bytes!(model_path!("cube.obj"));
 pub(crate) const SPHERE_MESH: &[u8] = include_bytes!(model_path!("sphere.obj"));
 pub(crate) const TORUS_MESH: &[u8] = include_bytes!(model_path!("torus.obj"));
 
-#[rustfmt::skip]
 pub(crate) const SKYBOX_VERTICES: [f32; 108] = [
     -1.0,  1.0, -1.0,
     -1.0, -1.0, -1.0,
@@ -108,7 +107,6 @@ pub(crate) const SKYBOX_VERTICES: [f32; 108] = [
      1.0, -1.0,  1.0
 ];
 
-#[rustfmt::skip]
 pub(crate) const SCREEN_TRIANGLE_VERTICES: [f32; 15] = [
     -1.0, -1.0, 0.0, 0.0, 0.0,
      3.0, -1.0, 0.0, 2.0, 0.0,
