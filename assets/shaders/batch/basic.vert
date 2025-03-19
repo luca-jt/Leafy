@@ -66,5 +66,5 @@ void main() {
     for (int i = 0; i < num_dir_lights; i++) {
         frag_pos_dir_light[i] = dir_lights[i].light_matrix * vec4(frag_pos, 1.0);
     }
-    cam_position = vec3(cam_pos);
+    cam_position = cam_pos.xyz;
 }

@@ -9,7 +9,6 @@ out vec4 v_color;
 out vec2 v_uv;
 flat out float v_tex_idx;
 
-
 void main() {
     gl_Position = vec4(position, 1.0);
     v_color = color;

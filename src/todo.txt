@@ -24,7 +24,7 @@ different obj loader that also supports mtl files and support mtl files in the e
 better memory management for the entities with arenas -> dont remove the archetypes?, use the arena box, swap_remove when deleting entities, minimize the hash map look ups
 
 -> directional lights need different light direction calculation in the shaders
--> different samplers and shadow calc function
 -> check all uniform locations in the end and clean them up
 -> pre-allocate the vectors used in the light source management every frame
--> light matrix for the shadow geom shader is just a uniform that can generate all the other ones, point light with shadows contains 6 light matrices (cant we just rotate one?)
+-> lights should be additive, not shadows
+-> check duplication of shader variables
