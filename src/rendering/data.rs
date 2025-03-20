@@ -423,7 +423,7 @@ impl CubeShadowMap {
     pub(crate) fn bind_light_uniforms(&self) {
         unsafe {
             gl::UniformMatrix4fv(0, 6, gl::FALSE, &self.base_light_matrices[0][0]);
-            gl::Uniform3fv(36, 1, &self.light_pos[0]);
+            gl::Uniform3fv(46, 1, &self.light_pos[0]);
         }
     }
 

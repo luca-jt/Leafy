@@ -7,7 +7,7 @@ in vec2 g_uv;
 
 layout(location = 24) uniform vec4 color;
 layout(location = 25) uniform sampler2D tex_sampler;
-layout(location = 36) uniform vec3 light_pos;
+layout(location = 46) uniform vec3 light_pos;
 
 void main() {
     vec4 textured = texture(tex_sampler, g_uv).rgba * color;

@@ -1,8 +1,6 @@
 #version 450 core
 
-#define MAX_DIR_LIGHT_MAPS 5
-#define MAX_POINT_LIGHT_MAPS 5
-#define SHADOW_MAP_COUNT MAX_POINT_LIGHT_MAPS + MAX_DIR_LIGHT_MAPS
+#define SHADOW_MAP_COUNT 10
 
 in vec4 v_color;
 in vec2 v_uv;

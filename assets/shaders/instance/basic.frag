@@ -73,9 +73,6 @@ float shadow_calc_point(int i, int shadow_map_index) {
     }
     shadow /= float(samples);
 
-    if (proj_coords.z > 1.0) {
-        shadow = 0.0;
-    }
     return shadow;
 }
 

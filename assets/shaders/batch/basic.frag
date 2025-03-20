@@ -5,7 +5,7 @@
 #define MAX_DIR_LIGHT_MAPS 5
 #define MAX_POINT_LIGHT_MAPS 5
 #define MAX_POINT_LIGHT_COUNT 20
-#define SHADOW_MAP_COUNT MAX_POINT_LIGHT_MAPS + MAX_DIR_LIGHT_MAPS
+#define SHADOW_MAP_COUNT 10
 #define FAR_PLANE 100.0
 
 in vec4 v_color;
@@ -75,9 +75,6 @@ float shadow_calc_point(int i, int shadow_map_index) {
     }
     shadow /= float(samples);
 
-    if (proj_coords.z > 1.0) {
-        shadow = 0.0;
-    }
     return shadow;
 }
 
