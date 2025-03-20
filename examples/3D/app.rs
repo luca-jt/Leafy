@@ -69,7 +69,7 @@ impl FallingLeafApp for App {
         let mut entity_manager = engine.entity_manager_mut();
         let _light1 = entity_manager.create_entity(components!(
             Position::new(-1.0, 6.0, -1.0),
-            DirectionalLight::default(),
+            PointLight::default(),
             Renderable {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
@@ -79,7 +79,7 @@ impl FallingLeafApp for App {
         ));
         let _light2 = entity_manager.create_entity(components!(
             Position::new(1.0, 6.0, 1.0),
-            DirectionalLight::default(),
+            PointLight::default(),
             Renderable {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),

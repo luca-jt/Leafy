@@ -160,7 +160,7 @@ impl ShaderCatalog {
         let light_buffer = UniformBuffer::new(
             size_of::<LightConfig>()
                 + padding::<LightConfig>()
-                + size_of::<GLint>() * 3
+                + size_of::<GLint>() * 2
                 + MAX_DIR_LIGHT_MAPS * size_of::<DirLightData>()
                 + MAX_POINT_LIGHT_COUNT * size_of::<PointLightData>(),
         );

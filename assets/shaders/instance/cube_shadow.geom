@@ -8,7 +8,7 @@ in vec2 v_uv;
 out vec4 frag_pos;
 out vec2 g_uv;
 
-layout(location = 33) uniform mat4 light_matrices[6];
+layout(location = 0) uniform mat4 light_matrices[6];
 
 void main() {
     g_uv = v_uv;

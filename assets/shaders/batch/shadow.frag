@@ -8,7 +8,7 @@ in vec4 v_color;
 in vec2 v_uv;
 flat in float v_tex_idx;
 
-layout(location = 6) uniform sampler2D tex_sampler[32 - SHADOW_MAP_COUNT];
+layout(location = 4) uniform sampler2D tex_sampler[32 - SHADOW_MAP_COUNT];
 
 void main() {
     int sampler_idx = int(round(v_tex_idx));

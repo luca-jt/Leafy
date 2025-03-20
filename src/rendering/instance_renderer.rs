@@ -215,9 +215,9 @@ impl InstanceRenderer {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.tex_id);
             // bind uniforms
-            gl::Uniform1i(7, 0);
             let color_vec = self.color.to_vec4();
-            gl::Uniform4fv(1, 1, &color_vec[0]);
+            gl::Uniform4fv(4, 1, &color_vec[0]);
+            gl::Uniform1i(5, 0);
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
             gl::DrawElementsInstanced(
@@ -238,9 +238,9 @@ impl InstanceRenderer {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.tex_id);
             // bind uniforms
-            gl::Uniform1i(7, 0);
             let color_vec = self.color.to_vec4();
-            gl::Uniform4fv(1, 1, &color_vec[0]);
+            gl::Uniform4fv(24, 1, &color_vec[0]);
+            gl::Uniform1i(25, 0);
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
             gl::DrawElementsInstanced(
@@ -275,16 +275,16 @@ impl InstanceRenderer {
             // bind uniforms
             if shader_type != ShaderType::Passthrough {
                 for i in 0..MAX_DIR_LIGHT_MAPS {
-                    gl::Uniform1i(4 + i as GLsizei, i as GLsizei + 1);
+                    gl::Uniform1i(3 + i as GLsizei, i as GLsizei + 1);
                 }
                 for i in 0..MAX_POINT_LIGHT_MAPS {
-                    gl::Uniform1i(9 + i as GLsizei, (MAX_DIR_LIGHT_MAPS + i) as GLsizei + 1);
+                    gl::Uniform1i(8 + i as GLsizei, (MAX_DIR_LIGHT_MAPS + i) as GLsizei + 1);
                 }
             }
             let color_vec = self.color.to_vec4();
-            gl::Uniform4fv(1, 1, &color_vec[0]);
-            gl::Uniform1i(2, 0);
-            gl::Uniform1i(3, transparent as GLint);
+            gl::Uniform4fv(0, 1, &color_vec[0]);
+            gl::Uniform1i(1, 0);
+            gl::Uniform1i(2, transparent as GLint);
 
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);

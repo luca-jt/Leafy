@@ -11,9 +11,11 @@ pub(crate) const MAX_TEXTURE_COUNT: usize = 32;
 pub(crate) const MAX_DIR_LIGHT_MAPS: usize = 5;
 pub(crate) const MAX_POINT_LIGHT_MAPS: usize = 5;
 pub(crate) const MAX_POINT_LIGHT_COUNT: usize = 20; // includes the point lights with shadow maps
-pub(crate) const MAX_LIGHT_SRC_COUNT: usize = MAX_POINT_LIGHT_COUNT + MAX_DIR_LIGHT_MAPS;
 pub(crate) const SHADOW_MAP_COUNT: usize = MAX_POINT_LIGHT_MAPS + MAX_DIR_LIGHT_MAPS;
 pub(crate) const AVAILABLE_REGULAR_TEXTURE_COUNT: usize = MAX_TEXTURE_COUNT - SHADOW_MAP_COUNT;
+
+pub(crate) const NEAR_PLANE: f32 = 0.1;
+pub(crate) const FAR_PLANE: f32 = 100.0;
 
 /// a single time step in the animation system
 pub(crate) const TIME_STEP: TimeDuration = TimeDuration(0.001);

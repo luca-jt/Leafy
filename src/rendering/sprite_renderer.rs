@@ -75,7 +75,7 @@ impl SpriteRenderer {
         unsafe {
             // bind uniforms
             for i in 0..MAX_TEXTURE_COUNT {
-                gl::Uniform1i(7 + i as GLsizei, i as GLsizei);
+                gl::Uniform1i(0 + i as GLsizei, i as GLsizei);
             }
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);

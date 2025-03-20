@@ -1,10 +1,7 @@
 #version 450 core
 
 #define MAX_DIR_LIGHT_MAPS 5
-#define MAX_POINT_LIGHT_MAPS 5
 #define MAX_POINT_LIGHT_COUNT 20
-#define MAX_LIGHT_SRC_COUNT MAX_POINT_LIGHT_COUNT + MAX_DIR_LIGHT_MAPS
-#define SHADOW_MAP_COUNT MAX_POINT_LIGHT_MAPS + MAX_DIR_LIGHT_MAPS
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec4 color;
@@ -44,7 +41,6 @@ layout (std140, binding = 0, column_major) uniform light_data {
     LightConfig ambient_light;
     int num_dir_lights; // at the moment directional lights always have shadow maps
     int num_point_lights;
-    int num_point_light_maps;
     DirLightData dir_lights[MAX_DIR_LIGHT_MAPS];
     PointLightData point_lights[MAX_POINT_LIGHT_COUNT];
 };

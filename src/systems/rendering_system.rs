@@ -454,7 +454,7 @@ impl RenderingSystem {
                     current_renderer_arch = Some(new_arch);
                     self.shader_catalog
                         .use_shadow_shader(current_renderer_arch.unwrap(), true);
-                    shadow_cube_map.bind_light_matrix();
+                    shadow_cube_map.bind_light_uniforms();
                 }
                 match renderer_type {
                     RendererType::Batch { renderer, .. } => {
@@ -632,7 +632,7 @@ impl RenderingSystem {
                 light_matrix: map.light_matrix,
                 color: map.light.color.to_vec4(),
                 intensity: map.light.intensity,
-                direction: map.light.direction,
+                direction: map.light.direction.normalize(),
             })
             .collect_vec();
 
@@ -648,13 +648,6 @@ impl RenderingSystem {
             })
             .collect_vec();
 
-        let p_light_matrices = self.point_lights.values().filter_map(|render_info| {
-            render_info
-                .shadow_map
-                .as_ref()
-                .map(|map| *map.base_light_matrix)
-        });
-
         let ambient_config = LightConfig {
             color: self.ambient_light.0.to_vec4(),
             intensity: self.ambient_light.1,
@@ -667,7 +660,6 @@ impl RenderingSystem {
 
         let num_dir_lights = self.directional_lights.len() as GLint;
         let num_point_lights = self.point_lights.len() as GLint;
-        let num_point_light_maps = p_light_matrices.count() as GLint;
 
         self.shader_catalog.light_buffer.upload_data(
             size_of::<LightConfig>() + padding::<LightConfig>(),
@@ -679,15 +671,10 @@ impl RenderingSystem {
             size_of::<GLint>(),
             &num_point_lights as *const GLint as *const GLvoid,
         );
-        self.shader_catalog.light_buffer.upload_data(
-            size_of::<LightConfig>() + padding::<LightConfig>() + size_of::<GLint>() * 2,
-            size_of::<GLint>(),
-            &num_point_light_maps as *const GLint as *const GLvoid,
-        );
 
         if !dir_light_data.is_empty() {
             self.shader_catalog.light_buffer.upload_data(
-                size_of::<LightConfig>() + padding::<LightConfig>() + size_of::<GLint>() * 3,
+                size_of::<LightConfig>() + padding::<LightConfig>() + size_of::<GLint>() * 2,
                 dir_light_data.len() * size_of::<DirLightData>(),
                 dir_light_data.as_ptr() as *const GLvoid,
             );
@@ -696,7 +683,7 @@ impl RenderingSystem {
             self.shader_catalog.light_buffer.upload_data(
                 size_of::<LightConfig>()
                     + padding::<LightConfig>()
-                    + size_of::<GLint>() * 3
+                    + size_of::<GLint>() * 2
                     + size_of::<DirLightData>() * MAX_DIR_LIGHT_MAPS,
                 p_light_data.len() * size_of::<PointLightData>(),
                 p_light_data.as_ptr() as *const GLvoid,

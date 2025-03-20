@@ -12,7 +12,7 @@ out vec4 g_color;
 out vec2 g_uv;
 flat out float g_tex_idx;
 
-layout(location = 33) uniform mat4 light_matrices[6];
+layout(location = 0) uniform mat4 light_matrices[6];
 
 void main() {
     g_color = v_color;

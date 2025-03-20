@@ -271,7 +271,7 @@ impl PerspectiveCamera {
     pub(crate) fn new() -> Self {
         let viewport_ratio = DEFAULT_WIN_WIDTH as f32 / DEFAULT_WIN_HEIGHT as f32;
         let fov = 45.0_f32.to_radians();
-        let projection = glm::perspective::<f32>(viewport_ratio, fov, 0.1, 100.0);
+        let projection = glm::perspective(viewport_ratio, fov, NEAR_PLANE, FAR_PLANE);
         let view = glm::look_at::<f32>(&-Z_AXIS, &ORIGIN, &Y_AXIS);
 
         Self {
@@ -301,7 +301,7 @@ impl PerspectiveCamera {
 
     /// refreshes the stored projection matrix
     fn recompute_projection(&mut self) {
-        self.projection = glm::perspective::<f32>(self.viewport_ratio, self.fov, 0.1, 100.0);
+        self.projection = glm::perspective(self.viewport_ratio, self.fov, NEAR_PLANE, FAR_PLANE);
     }
 }
 
@@ -335,18 +335,24 @@ pub(crate) struct PointLightRenderingInfo {
 }
 
 /// cube shadow map for point lights
+#[repr(C)]
 pub(crate) struct CubeShadowMap {
     dbo: GLuint,
     shadow_cube_map: GLuint,
     side_size: (GLsizei, GLsizei),
-    pub(crate) base_light_matrix: glm::Mat4,
+    pub(crate) base_light_matrices: [glm::Mat4; 6],
+    light_pos: glm::Vec3,
     tmp_viewport: [GLint; 4],
 }
 
 impl CubeShadowMap {
     /// creates a new cube shadow map with given side size (width, height)
     #[rustfmt::skip]
-    pub(crate) fn new(side_size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &PointLight) -> Self {
+    pub(crate) fn new(
+        side_size: (GLsizei, GLsizei),
+        light_pos: glm::Vec3,
+        light: &PointLight,
+    ) -> Self {
         log::debug!("created new cube shadow map for a point light");
         let mut dbo = 0;
         let mut shadow_cube_map = 0;
@@ -382,13 +388,21 @@ impl CubeShadowMap {
             gl::ReadBuffer(gl::NONE);
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
+        let projection = glm::perspective(1.0, 90f32.to_radians(), NEAR_PLANE, FAR_PLANE);
 
         Self {
             dbo,
             shadow_cube_map,
             side_size,
-            base_light_matrix: glm::perspective::<f32>(1.0, 90f32.to_radians(), 0.1, 100.0)
-                * glm::look_at(&light_pos, &(light_pos - Y_AXIS), &Z_AXIS),
+            base_light_matrices: [
+                projection * glm::look_at(&light_pos, &(light_pos + X_AXIS), &-Y_AXIS),
+                projection * glm::look_at(&light_pos, &(light_pos - X_AXIS), &-Y_AXIS),
+                projection * glm::look_at(&light_pos, &(light_pos + Y_AXIS), &Z_AXIS),
+                projection * glm::look_at(&light_pos, &(light_pos - Y_AXIS), &-Z_AXIS),
+                projection * glm::look_at(&light_pos, &(light_pos + Z_AXIS), &-Y_AXIS),
+                projection * glm::look_at(&light_pos, &(light_pos - Y_AXIS), &-Y_AXIS),
+            ],
+            light_pos,
             tmp_viewport: [0; 4],
         }
     }
@@ -405,9 +419,12 @@ impl CubeShadowMap {
         }
     }
 
-    /// binds the light matrix uniform to the currently used shader
-    pub(crate) fn bind_light_matrix(&self) {
-        unsafe { gl::UniformMatrix4fv(33, 1, gl::FALSE, &self.base_light_matrix[0]) };
+    /// binds the light uniforms to the currently used shader
+    pub(crate) fn bind_light_uniforms(&self) {
+        unsafe {
+            gl::UniformMatrix4fv(0, 6, gl::FALSE, &self.base_light_matrices[0][0]);
+            gl::Uniform3fv(36, 1, &self.light_pos[0]);
+        }
     }
 
     /// unbinds the shadow map and restores the regular viewport
@@ -437,8 +454,16 @@ impl CubeShadowMap {
 
     /// updates the shadow map according to a new light data
     pub(crate) fn update_light(&mut self, pos: &glm::Vec3, light: &PointLight) {
-        self.base_light_matrix = glm::perspective::<f32>(1.0, 90f32.to_radians(), 0.1, 100.0)
-            * glm::look_at(pos, &(pos - Y_AXIS), &Z_AXIS);
+        self.light_pos = *pos;
+        let projection = glm::perspective(1.0, 90f32.to_radians(), NEAR_PLANE, FAR_PLANE);
+        self.base_light_matrices = [
+            projection * glm::look_at(&self.light_pos, &(self.light_pos + X_AXIS), &-Y_AXIS),
+            projection * glm::look_at(&self.light_pos, &(self.light_pos - X_AXIS), &-Y_AXIS),
+            projection * glm::look_at(&self.light_pos, &(self.light_pos + Y_AXIS), &Z_AXIS),
+            projection * glm::look_at(&self.light_pos, &(self.light_pos - Y_AXIS), &-Z_AXIS),
+            projection * glm::look_at(&self.light_pos, &(self.light_pos + Z_AXIS), &-Y_AXIS),
+            projection * glm::look_at(&self.light_pos, &(self.light_pos - Y_AXIS), &-Y_AXIS),
+        ];
     }
 }
 
@@ -510,7 +535,7 @@ impl ShadowMap {
             dbo,
             shadow_map,
             size,
-            light_matrix: glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
+            light_matrix: glm::ortho(-10.0, 10.0, -10.0, 10.0, NEAR_PLANE, FAR_PLANE)
                 * glm::look_at(&light_pos, &(light_pos + light.direction), &from_view_up),
             light_pos,
             light: *light,
@@ -532,7 +557,7 @@ impl ShadowMap {
 
     /// binds the light matrix uniform to the currently used shader
     pub(crate) fn bind_light_matrix(&self) {
-        unsafe { gl::UniformMatrix4fv(33, 1, gl::FALSE, &self.light_matrix[0]) };
+        unsafe { gl::UniformMatrix4fv(0, 1, gl::FALSE, &self.light_matrix[0]) };
     }
 
     /// unbinds the shadow map and restores the regular viewport
@@ -572,7 +597,7 @@ impl ShadowMap {
             (Y_AXIS - dot * Y_AXIS).normalize()
         };
 
-        self.light_matrix = glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0)
+        self.light_matrix = glm::ortho(-10.0, 10.0, -10.0, 10.0, NEAR_PLANE, FAR_PLANE)
             * glm::look_at(pos, &(pos + light.direction), &from_view_up);
     }
 }

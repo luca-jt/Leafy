@@ -57,7 +57,7 @@ impl BatchRenderer {
         unsafe {
             // bind uniforms
             for i in 0..AVAILABLE_REGULAR_TEXTURE_COUNT as GLsizei {
-                gl::Uniform1i(6 + i, SHADOW_MAP_COUNT as GLsizei + i);
+                gl::Uniform1i(4 + i, SHADOW_MAP_COUNT as GLsizei + i);
             }
             // bind white texture
             gl::ActiveTexture(gl::TEXTURE0 + SHADOW_MAP_COUNT as GLenum);
@@ -73,7 +73,7 @@ impl BatchRenderer {
         unsafe {
             // bind uniforms
             for i in 0..AVAILABLE_REGULAR_TEXTURE_COUNT as GLsizei {
-                gl::Uniform1i(6 + i, SHADOW_MAP_COUNT as GLsizei + i);
+                gl::Uniform1i(24 + i, SHADOW_MAP_COUNT as GLsizei + i);
             }
             // bind white texture
             gl::ActiveTexture(gl::TEXTURE0 + SHADOW_MAP_COUNT as GLenum);
@@ -94,17 +94,17 @@ impl BatchRenderer {
     ) {
         unsafe {
             // bind uniforms
+            gl::Uniform1i(0, transparent as GLint);
             if shader_type != ShaderType::Passthrough {
                 for i in 0..MAX_DIR_LIGHT_MAPS as GLint {
-                    gl::Uniform1i(2 + i, i);
+                    gl::Uniform1i(1 + i, i);
                 }
                 for i in 0..MAX_POINT_LIGHT_MAPS as GLint {
-                    gl::Uniform1i(7 + i, MAX_DIR_LIGHT_MAPS as GLsizei + i);
+                    gl::Uniform1i(6 + i, MAX_DIR_LIGHT_MAPS as GLsizei + i);
                 }
             }
-            gl::Uniform1i(1, transparent as GLint);
             for i in 0..AVAILABLE_REGULAR_TEXTURE_COUNT as GLint {
-                gl::Uniform1i(12 + i, SHADOW_MAP_COUNT as GLsizei + i);
+                gl::Uniform1i(11 + i, SHADOW_MAP_COUNT as GLsizei + i);
             }
             // bind textures
             for (i, shadow_map) in dir_shadow_maps.enumerate() {

@@ -2,8 +2,8 @@
 
 in vec2 v_uv;
 
-layout(location = 1) uniform vec4 color;
-layout(location = 7) uniform sampler2D tex_sampler;
+layout(location = 4) uniform vec4 color;
+layout(location = 5) uniform sampler2D tex_sampler;
 
 void main() {
     vec4 textured = texture(tex_sampler, v_uv).rgba * color;
