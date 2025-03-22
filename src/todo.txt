@@ -20,7 +20,6 @@ bloom
 material, normal map and light map integration
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
 
-blinn phong lighting https://learnopengl.com/Advanced-Lighting/Advanced-Lighting
 better memory management for the entities with arenas -> dont remove the archetypes?, use the arena box, swap_remove when deleting entities, minimize the hash map look ups
 pre-allocate the vectors used in the light source management every frame
 make state global that gets duplicated in rendering -> shadow maps + renderers + cams

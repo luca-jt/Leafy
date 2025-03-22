@@ -128,17 +128,18 @@ void main() {
     }
     // add specular lighting
     float spec_strenght = 0.3;
+    float shininess = 32.0;
     for (int i = 0; i < num_dir_lights; i++) {
         vec3 view_dir = normalize(cam_position - frag_pos);
-        vec3 reflect_dir = reflect(-dir_lights[i].direction, v_normal);
-        float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+        vec3 halfway_dir = normalize(-dir_lights[i].direction + view_dir);
+        float spec = pow(max(dot(v_normal, halfway_dir), 0.0), shininess);
         final_light += spec_strenght * spec * dir_lights[i].color.rgb * dir_lights[i].intensity;
     }
     for (int i = 0; i < num_point_lights; i++) {
         vec3 light_dir = normalize(point_lights[i].light_pos.xyz - frag_pos);
         vec3 view_dir = normalize(cam_position - frag_pos);
-        vec3 reflect_dir = reflect(-light_dir, v_normal);
-        float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+        vec3 halfway_dir = normalize(light_dir + view_dir);
+        float spec = pow(max(dot(v_normal, halfway_dir), 0.0), shininess);
         final_light += spec_strenght * spec * point_lights[i].color.rgb * point_lights[i].intensity;
     }
 
