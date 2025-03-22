@@ -11,5 +11,8 @@ void main() {
     if (textured.a < 0.001) {
         discard;
     }
+    //float gamma = 2.2;
+    float gamma = 1.0;
+    out_color = vec4(pow(textured.rgb, vec3(1.0 / gamma)), textured.a);
     out_color = textured;
 }

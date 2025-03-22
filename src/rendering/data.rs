@@ -782,10 +782,10 @@ pub(crate) struct ScreenTexture {
     rbo: GLuint,
     vao: GLuint,
     vbo: GLuint,
-    pub(crate) width: GLsizei,
-    pub(crate) height: GLsizei,
+    width: GLsizei,
+    height: GLsizei,
     tmp_viewport: [GLint; 4],
-    msaa: bool,
+    pub(crate) msaa: bool,
 }
 
 impl ScreenTexture {

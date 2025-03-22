@@ -13,16 +13,16 @@ raycasting
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 
+full rewrite of the rendering system
 shading type in component -> add styles like cell shading -> together in renderable component?
 object outlining with stencil buffer
 bloom
-material, normal and light map integration
-blinn phong lighting https://learnopengl.com/Advanced-Lighting/Advanced-Lighting
-gamma correction https://learnopengl.com/Advanced-Lighting/Gamma-Correction -> light intesity might not need that constant in the shader (or that could be fixed using an inner and outer radius)
+material, normal map and light map integration
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
 
+blinn phong lighting https://learnopengl.com/Advanced-Lighting/Advanced-Lighting
 better memory management for the entities with arenas -> dont remove the archetypes?, use the arena box, swap_remove when deleting entities, minimize the hash map look ups
-lights should be additive, not shadows
 pre-allocate the vectors used in the light source management every frame
 make state global that gets duplicated in rendering -> shadow maps + renderers + cams
-full rewrite of the rendering system
+lights should be additive, not shadows
+option for srgb textures

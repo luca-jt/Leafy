@@ -47,7 +47,7 @@ impl RenderingSystem {
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LESS);
-            gl::Disable(gl::MULTISAMPLE)
+            gl::Disable(gl::MULTISAMPLE);
         }
         let samples = 4;
 
@@ -63,7 +63,7 @@ impl RenderingSystem {
             render_distance: None,
             shadow_resolution: ShadowResolution::High,
             current_cam_config: (-Z_AXIS, Z_AXIS, Y_AXIS),
-            ambient_light: (Color32::WHITE, 0.3),
+            ambient_light: (Color32::WHITE, 0.2),
             skybox: None,
             screen_texture: ScreenTexture::new(win_w as GLsizei, win_h as GLsizei, false, samples),
             samples,
@@ -763,16 +763,15 @@ impl RenderingSystem {
         log::debug!("set anti-aliasing to {use_msaa:?}");
         if use_msaa {
             unsafe { gl::Enable(gl::MULTISAMPLE) };
+            self.screen_texture.msaa = true;
         } else {
             unsafe { gl::Disable(gl::MULTISAMPLE) };
+            self.screen_texture.msaa = false;
         }
         self.samples = msaa_samples.unwrap_or(4);
-        let res = (self.screen_texture.width, self.screen_texture.height);
-        self.set_3d_render_resolution(res);
     }
 
     /// Sets the resolution that is used for the screen texture in 3D rendering (width, height).
-    /// ``None`` uses no dedicated screen texture. (default is ``None``)
     pub fn set_3d_render_resolution(&mut self, resolution: (GLsizei, GLsizei)) {
         let msaa = unsafe { gl::IsEnabled(gl::MULTISAMPLE) == gl::TRUE };
         self.screen_texture = ScreenTexture::new(resolution.0, resolution.1, msaa, self.samples);

@@ -56,6 +56,9 @@ impl FallingLeafApp for App {
 
         engine.audio_system_mut().enable_hrtf();
         engine.rendering_system_mut().set_msaa(Some(4));
+        engine
+            .rendering_system_mut()
+            .set_3d_render_resolution((1920, 1080));
 
         engine.rendering_system_mut().set_skybox(Some(Skybox::new([
             "examples/3D/skybox/right.jpg",
@@ -90,6 +93,21 @@ impl FallingLeafApp for App {
 
         let _floor = entity_manager.create_entity(components!(
             Position::origin(),
+            Scale::new(5.0, 0.1, 5.0),
+            Renderable {
+                mesh_type: MeshType::Cube,
+                mesh_attribute: MeshAttribute::Textured(Texture {
+                    path: Path::new("examples/3D/wall.png").into(),
+                    filtering: Filtering::Nearest,
+                    wrapping: Wrapping::Repeat,
+                }),
+                material: Material::default(),
+            },
+            Collider::new(HitboxType::Box)
+        ));
+
+        let _ceiling = entity_manager.create_entity(components!(
+            Position::new(0.0, 10.0, 0.0),
             Scale::new(5.0, 0.1, 5.0),
             Renderable {
                 mesh_type: MeshType::Cube,

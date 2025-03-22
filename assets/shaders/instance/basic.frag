@@ -1,7 +1,5 @@
 #version 450 core
 
-#define PI 3.141592653589
-#define POINT_LIGHT_STRENGTH 300
 #define MAX_DIR_LIGHT_MAPS 5
 #define MAX_POINT_LIGHT_MAPS 5
 #define MAX_POINT_LIGHT_COUNT 20
@@ -61,8 +59,8 @@ vec3 sample_offset_directions[20] = vec3[]
 float shadow_calc_point(int i, int shadow_map_index) {
     vec3 frag_to_light = frag_pos - point_lights[i].light_pos.xyz;
     float current_depth = length(frag_to_light);
-    float bias = max(0.005 * (1.0 - dot(v_normal, normalize(-frag_to_light))), 0.0001);
-    float disk_radius = (1.0 + (length(cam_position - frag_pos) / FAR_PLANE)) / 25.0;
+    float bias = max(0.25 * (1.0 - dot(v_normal, normalize(-frag_to_light))), 0.15);
+    float disk_radius = (1.0 + (length(cam_position - frag_pos) / FAR_PLANE)) / 200.0;
 
     int samples = 20;
     float offset  = 0.1;
@@ -80,7 +78,7 @@ float shadow_calc_dir(vec4 fpl, int i) {
     vec3 proj_coords = fpl.xyz / fpl.w;
     proj_coords = proj_coords * 0.5 + 0.5;
 
-    float bias = max(0.005 * (1.0 - dot(v_normal, dir_lights[i].direction)), 0.0001);
+    float bias = max(0.05 * (1.0 - dot(v_normal, dir_lights[i].direction)), 0.001);
     int filter_size = 2;
     float shadow = 0.0;
     for (int y = -filter_size / 2; y < filter_size / 2; ++y) {
@@ -118,14 +116,15 @@ void main() {
         vec3 light_dir = normalize(point_lights[i].light_pos.xyz - frag_pos);
         float distance_to_light = length(frag_pos - point_lights[i].light_pos.xyz);
         distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
-        float diff = min(max(dot(v_normal, light_dir), 0.0) / (pow(distance_to_light, 2) * 4 * PI), 1.0);
+        float diff = min(max(dot(v_normal, light_dir), 0.0), 1.0);
         float shadow = 1.0;
         if (point_lights[i].has_shadows) {
             shadow -= shadow_calc_point(i, point_light_map_index);
             point_light_map_index += 1;
         }
-        vec3 src_light = diff * shadow * point_lights[i].color.rgb * point_lights[i].intensity;
-        final_light += src_light * POINT_LIGHT_STRENGTH / float(num_dir_lights + num_point_lights);
+        float attenuation = 1.0 / distance_to_light;
+        vec3 src_light = diff * attenuation * shadow * point_lights[i].color.rgb * point_lights[i].intensity;
+        final_light += src_light / float(num_dir_lights + num_point_lights);
     }
     // add specular lighting
     float spec_strenght = 0.3;
