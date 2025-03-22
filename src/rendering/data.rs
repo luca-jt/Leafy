@@ -376,11 +376,9 @@ impl CubeShadowMap {
             }
             gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
             gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as GLint);
-            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as GLint);
-            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_R, gl::CLAMP_TO_BORDER as GLint);
-            let border_color = Color32::WHITE.to_vec4();
-            gl::TexParameterfv(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_BORDER_COLOR, border_color.as_ptr());
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_R, gl::CLAMP_TO_EDGE as GLint);
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, dbo);
             gl::FramebufferTexture(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, shadow_cube_map, 0);
@@ -449,11 +447,11 @@ impl CubeShadowMap {
     /// bind the shadow map for reading
     pub(crate) unsafe fn bind_reading(&self, texture_unit: GLuint) {
         gl::ActiveTexture(gl::TEXTURE0 + texture_unit);
-        gl::BindTexture(gl::TEXTURE_2D, self.shadow_cube_map);
+        gl::BindTexture(gl::TEXTURE_CUBE_MAP, self.shadow_cube_map);
     }
 
     /// updates the shadow map according to a new light data
-    pub(crate) fn update_light(&mut self, pos: &glm::Vec3, light: &PointLight) {
+    pub(crate) fn update_light(&mut self, pos: &glm::Vec3) {
         self.light_pos = *pos;
         let projection = glm::perspective(1.0, 90f32.to_radians(), NEAR_PLANE, FAR_PLANE);
         self.base_light_matrices = [
@@ -615,17 +613,19 @@ impl Drop for ShadowMap {
 /// one directional light data block for uniform buffer use
 #[repr(C)]
 pub(crate) struct DirLightData {
-    pub(crate) light_src: glm::Vec4, // position of the light
+    pub(crate) light_pos: glm::Vec4, // position of the light
     pub(crate) light_matrix: glm::Mat4,
     pub(crate) color: glm::Vec4,
     pub(crate) intensity: GLfloat,
+    pub(crate) padding_12bytes: glm::Vec3, // necessary for std140 uniform buffer layout padding
     pub(crate) direction: glm::Vec3,
+    pub(crate) padding_4bytes: f32, // necessary for std140 uniform buffer layout padding
 }
 
 /// one point light data block for uniform buffer use
 #[repr(C)]
 pub(crate) struct PointLightData {
-    pub(crate) light_src: glm::Vec4, // position of the light
+    pub(crate) light_pos: glm::Vec4, // position of the light
     pub(crate) color: glm::Vec4,
     pub(crate) intensity: GLfloat,
     pub(crate) has_shadows: GLint,

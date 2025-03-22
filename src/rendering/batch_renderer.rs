@@ -100,11 +100,11 @@ impl BatchRenderer {
                     gl::Uniform1i(1 + i, i);
                 }
                 for i in 0..MAX_POINT_LIGHT_MAPS as GLint {
-                    gl::Uniform1i(6 + i, MAX_DIR_LIGHT_MAPS as GLsizei + i);
+                    gl::Uniform1i(6 + i, MAX_DIR_LIGHT_MAPS as GLint + i);
                 }
             }
             for i in 0..AVAILABLE_REGULAR_TEXTURE_COUNT as GLint {
-                gl::Uniform1i(11 + i, SHADOW_MAP_COUNT as GLsizei + i);
+                gl::Uniform1i(11 + i, SHADOW_MAP_COUNT as GLint + i);
             }
             // bind textures
             for (i, shadow_map) in dir_shadow_maps.enumerate() {

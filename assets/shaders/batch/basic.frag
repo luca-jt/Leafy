@@ -40,10 +40,10 @@ struct LightConfig {
 
 layout (std140, binding = 0, column_major) uniform light_data {
     LightConfig ambient_light;
-    int num_dir_lights;
-    int num_point_lights;
     DirLightData dir_lights[MAX_DIR_LIGHT_MAPS];
     PointLightData point_lights[MAX_POINT_LIGHT_COUNT];
+    int num_dir_lights;
+    int num_point_lights;
 };
 
 layout(location = 0) uniform bool transparent_pass;

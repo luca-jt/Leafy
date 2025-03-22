@@ -160,9 +160,9 @@ impl ShaderCatalog {
         let light_buffer = UniformBuffer::new(
             size_of::<LightConfig>()
                 + padding::<LightConfig>()
-                + size_of::<GLint>() * 2
                 + MAX_DIR_LIGHT_MAPS * size_of::<DirLightData>()
-                + MAX_POINT_LIGHT_COUNT * size_of::<PointLightData>(),
+                + MAX_POINT_LIGHT_COUNT * size_of::<PointLightData>()
+                + size_of::<GLint>() * 2,
         );
         let matrix_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2 + size_of::<glm::Vec4>());
         let ortho_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2);

@@ -136,96 +136,79 @@ impl RenderingSystem {
                 .map(|(p, l, e)| (p, l, *e))
                 .collect_vec();
 
-        // remove lights that dont exist any more and detect changes in shadow maps
+        // remove lights that dont exist any more
         self.point_lights
-            .retain(|eid, _| p_lights.iter().any(|(_, _, id)| *id == *eid));
+            .retain(|e_id, _| p_lights.iter().any(|(_, _, id)| *id == *e_id));
 
-        for p_light in p_lights.iter() {
-            if !p_light.1.has_shadows
-                && self
-                    .point_lights
-                    .get(&p_light.2)
-                    .unwrap()
-                    .shadow_map
-                    .is_some()
-            {
-                self.point_lights.get_mut(&p_light.2).unwrap().shadow_map = None;
-            } else if p_light.1.has_shadows
-                && self
-                    .point_lights
-                    .get(&p_light.2)
-                    .unwrap()
-                    .shadow_map
-                    .is_none()
-            {
-                self.point_lights.get_mut(&p_light.2).unwrap().shadow_map =
-                    Some(CubeShadowMap::new(
-                        self.shadow_resolution.map_res(),
-                        *p_light.0.data(),
-                        p_light.1,
-                    ));
-            }
-        }
-
-        // update positions of existing ones
+        // update data of existing ones
         self.point_lights
             .iter_mut()
             .for_each(|(entity, light_render_info)| {
                 let correct_light = p_lights.iter().find(|(_, _, id)| id == entity).unwrap();
                 if let Some(map) = light_render_info.shadow_map.as_mut() {
-                    map.update_light(correct_light.0.data(), correct_light.1);
+                    map.update_light(correct_light.0.data());
                 }
                 light_render_info.light_pos = *correct_light.0.data();
                 light_render_info.light = *correct_light.1;
             });
 
-        // add new light sources
-        let new_p_lights = p_lights
-            .into_iter()
-            .filter(|&(_, _, entity)| !self.point_lights.iter().any(|(id, _)| entity == *id))
-            .collect_vec();
-
-        for (pos, src, entity) in new_p_lights {
-            if self.point_lights.len() == MAX_POINT_LIGHT_COUNT {
-                panic!(
-                    "no more point light source slots available (max is {})",
-                    MAX_POINT_LIGHT_COUNT
-                );
-            }
-            if self
-                .point_lights
-                .values()
-                .filter(|render_info| render_info.light.has_shadows)
-                .count()
-                == MAX_POINT_LIGHT_MAPS
-            {
-                panic!(
-                    "no more point light source slots with shadow maps available (max is {})",
-                    MAX_POINT_LIGHT_MAPS
-                );
-            }
-            if src.has_shadows {
-                self.point_lights.insert(
-                    entity,
-                    PointLightRenderingInfo {
-                        light_pos: *pos.data(),
-                        light: *src,
-                        shadow_map: Some(CubeShadowMap::new(
-                            self.shadow_resolution.map_res(),
-                            *pos.data(),
-                            src,
-                        )),
-                    },
-                );
+        // add new light sources and detect changes in shadow maps
+        for (pos, src, entity) in p_lights {
+            if self.point_lights.keys().find(|id| **id == entity).is_some() {
+                // update the shadow map
+                if !src.has_shadows && self.point_lights.get(&entity).unwrap().shadow_map.is_some()
+                {
+                    self.point_lights.get_mut(&entity).unwrap().shadow_map = None;
+                } else if src.has_shadows
+                    && self.point_lights.get(&entity).unwrap().shadow_map.is_none()
+                {
+                    self.point_lights.get_mut(&entity).unwrap().shadow_map = Some(
+                        CubeShadowMap::new(self.shadow_resolution.map_res(), *pos.data(), src),
+                    );
+                }
             } else {
-                self.point_lights.insert(
-                    entity,
-                    PointLightRenderingInfo {
-                        light_pos: *pos.data(),
-                        light: *src,
-                        shadow_map: None,
-                    },
-                );
+                // create a new shadow map
+                if self.point_lights.len() == MAX_POINT_LIGHT_COUNT {
+                    panic!(
+                        "no more point light source slots available (max is {})",
+                        MAX_POINT_LIGHT_COUNT
+                    );
+                }
+                if src.has_shadows {
+                    if self
+                        .point_lights
+                        .values()
+                        .filter(|render_info| render_info.light.has_shadows)
+                        .count()
+                        == MAX_POINT_LIGHT_MAPS
+                    {
+                        panic!(
+                            "no more point light source slots with shadow maps available (max is {})",
+                            MAX_POINT_LIGHT_MAPS
+                        );
+                    }
+                    self.point_lights.insert(
+                        entity,
+                        PointLightRenderingInfo {
+                            light_pos: *pos.data(),
+                            light: *src,
+                            shadow_map: Some(CubeShadowMap::new(
+                                self.shadow_resolution.map_res(),
+                                *pos.data(),
+                                src,
+                            )),
+                        },
+                    );
+                } else {
+                    self.point_lights.insert(
+                        entity,
+                        PointLightRenderingInfo {
+                            light_pos: *pos.data(),
+                            light: *src,
+                            shadow_map: None,
+                        },
+                    );
+                }
             }
         }
     }
@@ -233,12 +216,13 @@ impl RenderingSystem {
     /// add entity data to the renderers
     fn add_entity_data(&mut self, entity_manager: &EntityManager) {
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        for (position, renderable, _, scale, orientation, rb, light, lod) in unsafe {
+        for (position, renderable, scale, orientation, rb, shader_type, lod) in unsafe {
             entity_manager
-                .query8::<&Position, &Renderable, Option<&EntityFlags>, Option<&Scale>, Option<&Orientation>, Option<&RigidBody>, Option<&DirectionalLight>, Option<&LOD>>((None, None))
+                .query9::<&Position, &Renderable, Option<&EntityFlags>, Option<&Scale>, Option<&Orientation>, Option<&RigidBody>, Option<&DirectionalLight>, Option<&PointLight>, Option<&LOD>>((None, None))
         }
             .filter(|(_, _, f_opt, ..)| f_opt.is_none_or(|flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.is_none_or(|dist| (pos.data() - cam_pos).norm() <= dist))
+            .map(|(p, rndrbl, _, s, o, rb, dir_light, p_light, lod)| (p, rndrbl, s, o, rb, dir_light.map_or(p_light.map_or(ShaderType::Basic, |_| ShaderType::Passthrough), |_| ShaderType::Passthrough), lod.copied().unwrap_or_default()))
         {
             let trafo = calc_model_matrix(
                 position,
@@ -246,8 +230,6 @@ impl RenderingSystem {
                 orientation.unwrap_or(&Orientation::default()),
                 &rb.copied().unwrap_or_default().center_of_mass,
             );
-            let shader_type = light.map_or(ShaderType::Basic, |_| ShaderType::Passthrough);
-            let lod = lod.copied().unwrap_or_default();
 
             let render_data = RenderData {
                 spec: RenderSpec {
@@ -561,9 +543,10 @@ impl RenderingSystem {
                     transp: rd.transparent,
                 });
                 log::debug!(
-                    "added new batch renderer for: {:?} with LOD {:?}",
+                    "added new batch renderer for: {:?} with LOD {:?} and shading style {:?}",
                     rd.spec.mesh_type,
-                    rd.spec.lod
+                    rd.spec.lod,
+                    rd.spec.shader_type
                 );
             }
             _ => {
@@ -585,9 +568,10 @@ impl RenderingSystem {
                     transp: rd.transparent,
                 });
                 log::debug!(
-                    "added new instance renderer for: {:?} with LOD {:?}",
+                    "added new instance renderer for: {:?} with LOD {:?} and shading style {:?}",
                     rd.spec.mesh_type,
-                    rd.spec.lod
+                    rd.spec.lod,
+                    rd.spec.shader_type
                 );
             }
         }
@@ -628,11 +612,13 @@ impl RenderingSystem {
             .directional_lights
             .iter()
             .map(|(_, map)| DirLightData {
-                light_src: to_vec4(&map.light_pos),
+                light_pos: to_vec4(&map.light_pos),
                 light_matrix: map.light_matrix,
                 color: map.light.color.to_vec4(),
                 intensity: map.light.intensity,
+                padding_12bytes: Default::default(),
                 direction: map.light.direction.normalize(),
+                padding_4bytes: Default::default(),
             })
             .collect_vec();
 
@@ -640,7 +626,7 @@ impl RenderingSystem {
             .point_lights
             .values()
             .map(|render_info| PointLightData {
-                light_src: to_vec4(&render_info.light_pos),
+                light_pos: to_vec4(&render_info.light_pos),
                 color: render_info.light.color.to_vec4(),
                 intensity: render_info.light.intensity,
                 has_shadows: render_info.shadow_map.is_some() as GLint,
@@ -652,29 +638,16 @@ impl RenderingSystem {
             color: self.ambient_light.0.to_vec4(),
             intensity: self.ambient_light.1,
         };
+
         self.shader_catalog.light_buffer.upload_data(
             0,
             size_of::<LightConfig>(),
             &ambient_config as *const LightConfig as *const GLvoid,
         );
 
-        let num_dir_lights = self.directional_lights.len() as GLint;
-        let num_point_lights = self.point_lights.len() as GLint;
-
-        self.shader_catalog.light_buffer.upload_data(
-            size_of::<LightConfig>() + padding::<LightConfig>(),
-            size_of::<GLint>(),
-            &num_dir_lights as *const GLint as *const GLvoid,
-        );
-        self.shader_catalog.light_buffer.upload_data(
-            size_of::<LightConfig>() + padding::<LightConfig>() + size_of::<GLint>(),
-            size_of::<GLint>(),
-            &num_point_lights as *const GLint as *const GLvoid,
-        );
-
         if !dir_light_data.is_empty() {
             self.shader_catalog.light_buffer.upload_data(
-                size_of::<LightConfig>() + padding::<LightConfig>() + size_of::<GLint>() * 2,
+                size_of::<LightConfig>() + padding::<LightConfig>(),
                 dir_light_data.len() * size_of::<DirLightData>(),
                 dir_light_data.as_ptr() as *const GLvoid,
             );
@@ -683,12 +656,32 @@ impl RenderingSystem {
             self.shader_catalog.light_buffer.upload_data(
                 size_of::<LightConfig>()
                     + padding::<LightConfig>()
-                    + size_of::<GLint>() * 2
                     + size_of::<DirLightData>() * MAX_DIR_LIGHT_MAPS,
                 p_light_data.len() * size_of::<PointLightData>(),
                 p_light_data.as_ptr() as *const GLvoid,
             );
         }
+
+        let num_dir_lights = self.directional_lights.len() as GLint;
+        let num_point_lights = self.point_lights.len() as GLint;
+
+        self.shader_catalog.light_buffer.upload_data(
+            size_of::<LightConfig>()
+                + padding::<LightConfig>()
+                + size_of::<DirLightData>() * MAX_DIR_LIGHT_MAPS
+                + size_of::<PointLightData>() * MAX_POINT_LIGHT_COUNT,
+            size_of::<GLint>(),
+            &num_dir_lights as *const GLint as *const GLvoid,
+        );
+        self.shader_catalog.light_buffer.upload_data(
+            size_of::<LightConfig>()
+                + padding::<LightConfig>()
+                + size_of::<DirLightData>() * MAX_DIR_LIGHT_MAPS
+                + size_of::<PointLightData>() * MAX_POINT_LIGHT_COUNT
+                + size_of::<GLint>(),
+            size_of::<GLint>(),
+            &num_point_lights as *const GLint as *const GLvoid,
+        );
     }
 
     /// resets all renderers to the initial state

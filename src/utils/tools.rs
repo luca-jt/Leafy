@@ -66,7 +66,7 @@ pub(crate) fn vec3_to_vector3(v: &glm::Vec3) -> Vector3<f32> {
     Vector3::new(v.x, v.y, v.z)
 }
 
-/// calculates the padding necessary for offsets in uniform buffers (multiple of 16)
+/// calculates the padding necessary for offsets of structs in uniform buffers with std140 layout (multiple of 16)
 pub(crate) fn padding<T>() -> usize {
     16 - (size_of::<T>() % 16)
 }

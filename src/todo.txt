@@ -25,3 +25,4 @@ better memory management for the entities with arenas -> dont remove the archety
 lights should be additive, not shadows
 pre-allocate the vectors used in the light source management every frame
 make state global that gets duplicated in rendering -> shadow maps + renderers + cams
+full rewrite of the rendering system
