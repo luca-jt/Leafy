@@ -330,7 +330,7 @@ impl OrthoCamera {
     pub(crate) fn new(left: f32, right: f32) -> Self {
         let position = Z_AXIS;
         Self {
-            projection: glm::ortho(left, right, -1.0, 1.0, NEAR_PLANE_SPRITE, FAR_PLANE_SPRITE),
+            projection: glm::ortho(left, right, -1.0, 1.0, NEAR_PLANE, FAR_PLANE_SPRITE),
             view: glm::look_at(&position, &ORIGIN, &Y_AXIS),
         }
     }
@@ -342,7 +342,7 @@ impl OrthoCamera {
             viewport_ratio,
             -1.0,
             1.0,
-            NEAR_PLANE_SPRITE,
+            NEAR_PLANE,
             FAR_PLANE_SPRITE,
         );
     }

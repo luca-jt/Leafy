@@ -16,7 +16,7 @@ void main() {
 
         for (int i = 0; i < 3; ++i) {
             frag_pos = gl_in[i].gl_Position;
-            g_uv = v_uv[0];
+            g_uv = v_uv[i];
             gl_Position = light_matrices[face] * frag_pos;
             EmitVertex();
         }
