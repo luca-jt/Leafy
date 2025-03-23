@@ -16,6 +16,8 @@ pub(crate) const AVAILABLE_REGULAR_TEXTURE_COUNT: usize = MAX_TEXTURE_COUNT - SH
 
 pub(crate) const NEAR_PLANE: f32 = 0.1;
 pub(crate) const FAR_PLANE: f32 = 100.0;
+pub(crate) const NEAR_PLANE_SPRITE: f32 = 1.0;
+pub(crate) const FAR_PLANE_SPRITE: f32 = 2.0;
 
 /// a single time step in the animation system
 pub(crate) const TIME_STEP: TimeDuration = TimeDuration(0.001);

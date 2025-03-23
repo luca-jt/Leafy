@@ -304,23 +304,18 @@ impl PerspectiveCamera {
     /// update the projection matrix based on a given fov
     pub(crate) fn update_fov(&mut self, fov: f32) {
         self.fov = fov.to_radians();
-        self.recompute_projection();
+        self.projection = glm::perspective(self.viewport_ratio, self.fov, NEAR_PLANE, FAR_PLANE);
     }
 
     /// updates the internally stored values for the window size and recompute the projection
     pub(crate) fn update_win_size(&mut self, viewport_ratio: f32) {
         self.viewport_ratio = viewport_ratio;
-        self.recompute_projection();
+        self.projection = glm::perspective(self.viewport_ratio, self.fov, NEAR_PLANE, FAR_PLANE);
     }
 
     /// updates the camera for given camera position and focus
     pub(crate) fn update_cam(&mut self, position: &glm::Vec3, focus: &glm::Vec3, up: &glm::Vec3) {
         self.view = glm::look_at(position, focus, up);
-    }
-
-    /// refreshes the stored projection matrix
-    fn recompute_projection(&mut self) {
-        self.projection = glm::perspective(self.viewport_ratio, self.fov, NEAR_PLANE, FAR_PLANE);
     }
 }
 
@@ -332,17 +327,29 @@ pub(crate) struct OrthoCamera {
 
 impl OrthoCamera {
     /// creates a new orthographic camera
-    pub(crate) fn new(left: f32, right: f32, bottom: f32, top: f32) -> Self {
+    pub(crate) fn new(left: f32, right: f32) -> Self {
         let position = Z_AXIS;
         Self {
-            projection: glm::ortho(left, right, bottom, top, 0.1, 2.0),
+            projection: glm::ortho(left, right, -1.0, 1.0, NEAR_PLANE_SPRITE, FAR_PLANE_SPRITE),
             view: glm::look_at(&position, &ORIGIN, &Y_AXIS),
         }
     }
 
-    /// creates a new orthographic camera from a size: `(-size, size, -size, size)`
-    pub(crate) fn from_size(size: f32) -> Self {
-        Self::new(-size, size, -size, size)
+    /// updates the internally stored values for the window size and recompute the projection
+    pub(crate) fn update_win_size(&mut self, viewport_ratio: f32) {
+        self.projection = glm::ortho(
+            -viewport_ratio,
+            viewport_ratio,
+            -1.0,
+            1.0,
+            NEAR_PLANE_SPRITE,
+            FAR_PLANE_SPRITE,
+        );
+    }
+
+    /// updates the camera for given camera position and focus
+    pub(crate) fn update_cam(&mut self, position: &glm::Vec3, focus: &glm::Vec3, up: &glm::Vec3) {
+        self.view = glm::look_at(position, focus, up);
     }
 }
 
@@ -353,7 +360,7 @@ pub(crate) struct PointLightRenderingInfo {
     pub(crate) shadow_map: Option<CubeShadowMap>,
 }
 
-/// cube shadow map for point lights
+/// cube shadow map for point lights that is shadow map agnostic
 #[repr(C)]
 pub(crate) struct CubeShadowMap {
     dbo: GLuint,

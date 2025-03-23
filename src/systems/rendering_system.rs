@@ -57,7 +57,7 @@ impl RenderingSystem {
             renderers: Vec::new(),
             sprite_renderer: SpriteRenderer::new(),
             perspective_camera: PerspectiveCamera::new(),
-            ortho_camera: OrthoCamera::from_size(1.0),
+            ortho_camera: OrthoCamera::new(-1.0, 1.0),
             shader_catalog: ShaderCatalog::new(),
             clear_color: Color32::WHITE,
             render_distance: None,
@@ -744,7 +744,7 @@ impl RenderingSystem {
     /// event listening function for window resizes
     pub(crate) fn update_viewport_ratio(&mut self, viewport_ratio: f32) {
         self.perspective_camera.update_win_size(viewport_ratio);
-        self.ortho_camera = OrthoCamera::new(-viewport_ratio, viewport_ratio, -1.0, 1.0);
+        self.ortho_camera.update_win_size(viewport_ratio);
     }
 
     /// gets the current camera position look and up direction vector

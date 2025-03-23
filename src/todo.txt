@@ -6,7 +6,7 @@ volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-doc
 graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, post-processing: b/w, depth of field
 scene files and loading of them -> serialization (serde) -> editor
 shadow anti-aliasing -> pcss
-cascaded shadow mapping
+cascaded shadow mapping -> dir light shadow maps need projection matrix size parameter
 2D animation frames
 2D sprite hitboxes with seperate collision checking
 raycasting
@@ -22,4 +22,5 @@ different obj loader that also supports mtl files and support mtl files in the e
 
 better memory management for the entities with arenas -> dont remove the archetypes?, use the arena box, swap_remove when deleting entities, minimize the hash map look ups
 pre-allocate the vectors used in the light source management every frame
-make state global that gets duplicated in rendering -> shadow maps + renderers + cams
+
+the light matrices are recalculated every frame
