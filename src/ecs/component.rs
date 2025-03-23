@@ -644,22 +644,33 @@ pub mod utils {
         pub path: Rc<Path>,
         pub filtering: Filtering,
         pub wrapping: Wrapping,
+        pub color_space: ColorSpace,
     }
 
     /// texture filtering option for rendering
-    #[derive(Debug, PartialOrd, PartialEq, Clone, Hash, Eq)]
+    #[derive(Debug, PartialOrd, PartialEq, Copy, Clone, Hash, Eq, Default)]
     pub enum Filtering {
+        #[default]
         Linear,
         Nearest,
     }
 
     /// texture wrapping mode
-    #[derive(Debug, PartialOrd, PartialEq, Clone, Hash, Eq)]
+    #[derive(Debug, PartialOrd, PartialEq, Copy, Clone, Hash, Eq, Default)]
     pub enum Wrapping {
+        #[default]
         Repeat,
         MirroredRepeat,
         ClampToEdge,
         ClampToBorder,
+    }
+
+    /// defines the color space for a texture
+    #[derive(Debug, PartialOrd, PartialEq, Copy, Clone, Hash, Eq, Default)]
+    pub enum ColorSpace {
+        #[default]
+        SRGBA,
+        RGBA8,
     }
 
     /// hitbox type specifier for an entity

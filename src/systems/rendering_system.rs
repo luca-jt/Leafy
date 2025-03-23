@@ -163,7 +163,7 @@ impl RenderingSystem {
                     && self.point_lights.get(&entity).unwrap().shadow_map.is_none()
                 {
                     self.point_lights.get_mut(&entity).unwrap().shadow_map = Some(
-                        CubeShadowMap::new(self.shadow_resolution.map_res(), *pos.data(), src),
+                        CubeShadowMap::new(self.shadow_resolution.map_res(), *pos.data()),
                     );
                 }
             } else {
@@ -195,7 +195,6 @@ impl RenderingSystem {
                             shadow_map: Some(CubeShadowMap::new(
                                 self.shadow_resolution.map_res(),
                                 *pos.data(),
-                                src,
                             )),
                         },
                     );
@@ -819,8 +818,8 @@ impl RenderingSystem {
                     .as_mut()
                     .map(|map| (info.light_pos, &info.light, map))
             })
-            .for_each(|(pos, light, map)| {
-                *map = CubeShadowMap::new(self.shadow_resolution.map_res(), pos, light)
+            .for_each(|(pos, _, map)| {
+                *map = CubeShadowMap::new(self.shadow_resolution.map_res(), pos)
             });
     }
 

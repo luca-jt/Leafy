@@ -1,4 +1,4 @@
-use crate::ecs::component::utils::{Color32, Filtering, Texture, Wrapping};
+use crate::ecs::component::utils::*;
 use crate::ecs::component::*;
 use crate::glm;
 use crate::rendering::sprite_renderer::SpriteSheet;
@@ -13,7 +13,11 @@ use std::rc::Rc;
 
 /// generates a gl texture from given image data, filtering and wrapping
 #[rustfmt::skip]
-fn generate_texture(data: &Image<u8>, filtering: &Filtering, wrapping: &Wrapping) -> GLuint {
+fn generate_texture(data: &Image<u8>, filtering: Filtering, wrapping: Wrapping, color_space: ColorSpace) -> GLuint {
+    let gl_color_space_enum = match color_space {
+        ColorSpace::SRGBA => gl::SRGB_ALPHA as GLint,
+        ColorSpace::RGBA8 => gl::RGBA8 as GLint,
+    };
     let mut tex_id = 0;
     unsafe {
         gl::GenTextures(1, &mut tex_id);
@@ -21,7 +25,7 @@ fn generate_texture(data: &Image<u8>, filtering: &Filtering, wrapping: &Wrapping
         gl::TexImage2D(
             gl::TEXTURE_2D,
             0,
-            gl::RGBA8 as GLint,
+            gl_color_space_enum,
             data.width as GLint,
             data.height as GLint,
             0,
@@ -94,7 +98,12 @@ impl TextureMap {
         log::debug!("loaded texture: {texture:?}");
         let image = stbi_load_u8_rgba(&texture.path).expect("error loading texture");
         let transparent = image.data.iter().skip(3).step_by(4).any(|a| *a < 255);
-        let tex_id = generate_texture(&image, &texture.filtering, &texture.wrapping);
+        let tex_id = generate_texture(
+            &image,
+            texture.filtering,
+            texture.wrapping,
+            texture.color_space,
+        );
         self.textures.insert(texture.clone(), tex_id);
         self.transparency_map.insert(texture.clone(), transparent);
     }
@@ -162,7 +171,12 @@ impl SpriteTextureMap {
     pub(crate) fn add_sheet(&mut self, path: Rc<Path>) {
         log::debug!("loaded sprite sheet: {:?}", path.to_str().unwrap());
         let image = stbi_load_u8_rgba(&path).expect("error loading texture");
-        let tex_id = generate_texture(&image, &Filtering::Nearest, &Wrapping::Repeat);
+        let tex_id = generate_texture(
+            &image,
+            Filtering::Nearest,
+            Wrapping::Repeat,
+            ColorSpace::RGBA8,
+        );
         let sprite_sheet = SpriteSheet {
             texture_id: tex_id,
             width: image.width,
@@ -175,7 +189,12 @@ impl SpriteTextureMap {
     pub(crate) fn add_sprite(&mut self, path: Rc<Path>) {
         log::debug!("loaded sprite: {:?}", path.to_str().unwrap());
         let image = stbi_load_u8_rgba(&path).expect("error loading texture");
-        let tex_id = generate_texture(&image, &Filtering::Nearest, &Wrapping::Repeat);
+        let tex_id = generate_texture(
+            &image,
+            Filtering::Nearest,
+            Wrapping::Repeat,
+            ColorSpace::RGBA8,
+        );
         self.sprites.insert(path, tex_id);
     }
 
@@ -348,11 +367,7 @@ pub(crate) struct CubeShadowMap {
 impl CubeShadowMap {
     /// creates a new cube shadow map with given side size (width, height)
     #[rustfmt::skip]
-    pub(crate) fn new(
-        side_size: (GLsizei, GLsizei),
-        light_pos: glm::Vec3,
-        light: &PointLight,
-    ) -> Self {
+    pub(crate) fn new(side_size: (GLsizei, GLsizei), light_pos: glm::Vec3) -> Self {
         log::debug!("created new cube shadow map for a point light");
         let mut dbo = 0;
         let mut shadow_cube_map = 0;

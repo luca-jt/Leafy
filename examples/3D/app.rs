@@ -100,6 +100,7 @@ impl FallingLeafApp for App {
                     path: Path::new("examples/3D/wall.png").into(),
                     filtering: Filtering::Nearest,
                     wrapping: Wrapping::Repeat,
+                    color_space: ColorSpace::RGBA8
                 }),
                 material: Material::default(),
             },
@@ -115,6 +116,7 @@ impl FallingLeafApp for App {
                     path: Path::new("examples/3D/wall.png").into(),
                     filtering: Filtering::Nearest,
                     wrapping: Wrapping::Repeat,
+                    color_space: ColorSpace::RGBA8
                 }),
                 material: Material::default(),
             },
