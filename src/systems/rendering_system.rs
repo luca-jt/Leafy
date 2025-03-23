@@ -103,29 +103,29 @@ impl RenderingSystem {
         self.directional_lights
             .retain(|src| dir_lights.iter().any(|(_, _, id)| *id == src.0));
         // update positions of existing ones
-        self.directional_lights
-            .iter_mut()
-            .for_each(|(entity, map)| {
-                let correct_light = dir_lights.iter().find(|(_, _, id)| id == entity).unwrap();
-                map.update_light(correct_light.0.data(), correct_light.1);
-            });
-        // add new light sources
-        let new_dir_lights = dir_lights
-            .into_iter()
-            .filter(|&(_, _, entity)| !self.directional_lights.iter().any(|(id, _)| entity == *id))
-            .collect_vec();
-
-        for (pos, src, entity) in new_dir_lights {
-            if self.directional_lights.len() == MAX_DIR_LIGHT_MAPS {
-                panic!(
-                    "no more directional light source slots available (max is {})",
-                    MAX_DIR_LIGHT_MAPS
-                );
+        for (entity, map) in self.directional_lights.iter_mut() {
+            let (correct_pos, correct_light, _) =
+                dir_lights.iter().find(|(_, _, id)| id == entity).unwrap();
+            if map.light_pos != *correct_pos.data()
+                || map.light.direction != correct_light.direction
+            {
+                map.update_light(correct_pos.data(), correct_light);
             }
-            self.directional_lights.push((
-                entity,
-                ShadowMap::new(self.shadow_resolution.map_res(), *pos.data(), src),
-            ));
+        }
+        // add new light sources
+        for (pos, src, entity) in dir_lights {
+            if !self.directional_lights.iter().any(|(id, _)| entity == *id) {
+                if self.directional_lights.len() == MAX_DIR_LIGHT_MAPS {
+                    panic!(
+                        "no more directional light source slots available (max is {})",
+                        MAX_DIR_LIGHT_MAPS
+                    );
+                }
+                self.directional_lights.push((
+                    entity,
+                    ShadowMap::new(self.shadow_resolution.map_res(), *pos.data(), src),
+                ));
+            }
         }
 
         //
@@ -141,17 +141,17 @@ impl RenderingSystem {
             .retain(|e_id, _| p_lights.iter().any(|(_, _, id)| *id == *e_id));
 
         // update data of existing ones
-        self.point_lights
-            .iter_mut()
-            .for_each(|(entity, light_render_info)| {
-                let correct_light = p_lights.iter().find(|(_, _, id)| id == entity).unwrap();
+        for (entity, light_render_info) in self.point_lights.iter_mut() {
+            let (correct_pos, correct_light, _) =
+                p_lights.iter().find(|(_, _, id)| id == entity).unwrap();
+            if light_render_info.light_pos != *correct_pos.data() {
                 if let Some(map) = light_render_info.shadow_map.as_mut() {
-                    map.update_light(correct_light.0.data());
+                    map.update_light(correct_pos.data());
                 }
-                light_render_info.light_pos = *correct_light.0.data();
-                light_render_info.light = *correct_light.1;
-            });
-
+                light_render_info.light_pos = *correct_pos.data();
+                light_render_info.light = **correct_light;
+            }
+        }
         // add new light sources and detect changes in shadow maps
         for (pos, src, entity) in p_lights {
             if self.point_lights.keys().find(|id| **id == entity).is_some() {
