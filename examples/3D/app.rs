@@ -123,6 +123,38 @@ impl FallingLeafApp for App {
             Collider::new(HitboxType::Box)
         ));
 
+        /*let _wall1 = entity_manager.create_entity(components!(
+            Position::new(0.0, 5.0, -5.0),
+            Scale::new(5.0, 0.1, 5.0),
+            Orientation::new(90.0, X_AXIS),
+            Renderable {
+                mesh_type: MeshType::Cube,
+                mesh_attribute: MeshAttribute::Textured(Texture {
+                    path: Path::new("examples/3D/wall.png").into(),
+                    filtering: Filtering::Nearest,
+                    wrapping: Wrapping::Repeat,
+                    color_space: ColorSpace::RGBA8
+                }),
+                material: Material::default(),
+            }
+        ));
+
+        let _wall2 = entity_manager.create_entity(components!(
+            Position::new(0.0, 5.0, 5.0),
+            Scale::new(5.0, 0.1, 5.0),
+            Orientation::new(90.0, X_AXIS),
+            Renderable {
+                mesh_type: MeshType::Cube,
+                mesh_attribute: MeshAttribute::Textured(Texture {
+                    path: Path::new("examples/3D/wall.png").into(),
+                    filtering: Filtering::Nearest,
+                    wrapping: Wrapping::Repeat,
+                    color_space: ColorSpace::RGBA8
+                }),
+                material: Material::default(),
+            }
+        ));*/
+
         let _hammer = entity_manager.create_entity(components!(
             Position::new(6.0, 2.0, 0.0),
             Renderable {

@@ -1,7 +1,7 @@
 raytrace the current scene
 switchable render backends -> vulkan support
 skeletal animations
-collision fix -> sequential solver? + better memory allocation
+collision fix -> sequential solver? + better memory allocation + performance
 volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
 graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, post-processing: b/w, depth of field
 scene files and loading of them -> serialization (serde) -> editor
@@ -21,4 +21,4 @@ material, normal map and light map integration
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
 
 better memory management for the entities with arenas -> dont remove the archetypes?, use the arena box, swap_remove when deleting entities, minimize the hash map look ups
-edges of cube shadow maps are not rendered properly
+simplification example directional lights problem

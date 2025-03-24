@@ -61,7 +61,7 @@ impl RenderingSystem {
             shader_catalog: ShaderCatalog::new(),
             clear_color: Color32::WHITE,
             render_distance: None,
-            shadow_resolution: ShadowResolution::High,
+            shadow_resolution: ShadowResolution::Normal,
             current_cam_config: (-Z_AXIS, Z_AXIS, Y_AXIS),
             ambient_light: (Color32::WHITE, 0.2),
             skybox: None,

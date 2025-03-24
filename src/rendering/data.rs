@@ -420,7 +420,7 @@ impl CubeShadowMap {
                 projection * glm::look_at(&light_pos, &(light_pos + Y_AXIS), &Z_AXIS),
                 projection * glm::look_at(&light_pos, &(light_pos - Y_AXIS), &-Z_AXIS),
                 projection * glm::look_at(&light_pos, &(light_pos + Z_AXIS), &-Y_AXIS),
-                projection * glm::look_at(&light_pos, &(light_pos - Y_AXIS), &-Y_AXIS),
+                projection * glm::look_at(&light_pos, &(light_pos - Z_AXIS), &-Y_AXIS),
             ],
             light_pos,
             tmp_viewport: [0; 4],
@@ -482,7 +482,7 @@ impl CubeShadowMap {
             projection * glm::look_at(&self.light_pos, &(self.light_pos + Y_AXIS), &Z_AXIS),
             projection * glm::look_at(&self.light_pos, &(self.light_pos - Y_AXIS), &-Z_AXIS),
             projection * glm::look_at(&self.light_pos, &(self.light_pos + Z_AXIS), &-Y_AXIS),
-            projection * glm::look_at(&self.light_pos, &(self.light_pos - Y_AXIS), &-Y_AXIS),
+            projection * glm::look_at(&self.light_pos, &(self.light_pos - Z_AXIS), &-Y_AXIS),
         ];
     }
 }
