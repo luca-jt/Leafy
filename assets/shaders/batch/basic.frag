@@ -80,7 +80,7 @@ float shadow_calc_dir(vec4 fpl, int i) {
     vec3 proj_coords = fpl.xyz / fpl.w;
     proj_coords = proj_coords * 0.5 + 0.5;
 
-    float bias = max(0.05 * (1.0 - dot(v_normal, dir_lights[i].direction)), 0.001);
+    float bias = max(0.05 * (1.0 - dot(v_normal, -dir_lights[i].direction)), 0.001);
     int filter_size = 2;
     float shadow = 0.0;
     for (int y = -filter_size / 2; y < filter_size / 2; ++y) {
@@ -108,9 +108,12 @@ void main() {
     vec3 final_light = vec3(ambient_light.intensity);
     // directional lights
     for (int i = 0; i < num_dir_lights; i++) {
-        float diff = min(max(dot(v_normal, dir_lights[i].direction), 0.0), 1.0);
+        float distance_to_light = length(frag_pos - dir_lights[i].light_pos.xyz);
+        distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
+        float diff = min(max(dot(v_normal, -dir_lights[i].direction), 0.0), 1.0);
         float shadow = 1.0 - shadow_calc_dir(frag_pos_dir_light[i], i);
-        vec3 src_light = diff * shadow * dir_lights[i].color.rgb * dir_lights[i].intensity;
+        float attenuation = 1.0 / distance_to_light;
+        vec3 src_light = diff * attenuation * shadow * dir_lights[i].color.rgb * dir_lights[i].intensity;
         final_light += src_light / float(num_dir_lights + num_point_lights);
     }
     // point lights

@@ -21,4 +21,3 @@ material, normal map and light map integration
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
 
 better memory management for the entities with arenas -> dont remove the archetypes?, use the arena box, swap_remove when deleting entities, minimize the hash map look ups
-simplification example directional lights problem
