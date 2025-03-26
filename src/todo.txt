@@ -1,7 +1,7 @@
 raytrace the current scene
 switchable render backends -> vulkan support
 skeletal animations
-collision fix -> sequential solver? + better memory allocation + performance
+collision fix -> sequential solver? + better memory allocation + performance, terrain collision, trees
 volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
 graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, post-processing: b/w, depth of field
 scene files and loading of them -> serialization (serde) -> editor
@@ -18,6 +18,4 @@ shading type in component -> add styles like cell shading -> together in rendera
 object outlining with stencil buffer
 bloom
 material, normal map and light map integration
-different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors
-
-swap_remove when deleting entities, minimize the hash map look ups?
+different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors, asset data arena allocator

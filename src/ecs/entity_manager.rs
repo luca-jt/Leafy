@@ -561,14 +561,14 @@ impl ECS {
 
         let archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
         for column in archetype.components.values_mut() {
-            column.remove(record.row);
+            column.swap_remove(record.row);
         }
         if archetype.components.values().nth(0).unwrap().is_empty() {
             self.archetypes.remove(&record.archetype_id);
             self.type_to_archetype
                 .retain(|_, arch_id| *arch_id != record.archetype_id);
         } else {
-            self.shift_rows(record.archetype_id, record.row);
+            self.edit_record_after_delete(record.archetype_id, record.row);
         }
         Ok(())
     }
@@ -618,7 +618,7 @@ impl ECS {
         let old_components: Vec<BumpBox<dyn Component>> = old_archetype
             .components
             .values_mut()
-            .map(|vec| vec.remove(record.row))
+            .map(|vec| vec.swap_remove(record.row))
             .collect();
 
         // remove the old archetype if there are no more components in it
@@ -626,7 +626,7 @@ impl ECS {
             self.archetypes.remove(&record.archetype_id);
             self.type_to_archetype.remove(&entity_type);
         } else {
-            self.shift_rows(old_arch_id, record.row);
+            self.edit_record_after_delete(old_arch_id, record.row);
         }
 
         // Find or create the new archetype
@@ -684,7 +684,7 @@ impl ECS {
         let mut old_components: Vec<BumpBox<dyn Component>> = old_archetype
             .components
             .values_mut()
-            .map(|vec| vec.remove(record.row))
+            .map(|vec| vec.swap_remove(record.row))
             .collect();
 
         // Remove the old archetype if there are no more components in it
@@ -692,7 +692,7 @@ impl ECS {
             self.archetypes.remove(&record.archetype_id);
             self.type_to_archetype.remove(&entity_type);
         } else {
-            self.shift_rows(old_arch_id, record.row);
+            self.edit_record_after_delete(old_arch_id, record.row);
         }
 
         // Remove the specific component
@@ -771,14 +771,24 @@ impl ECS {
             })
     }
 
-    /// shift down all row values bigger than the given row in the entity records
-    fn shift_rows(&mut self, archetype_id: ArchetypeID, bigger_than: usize) {
-        for record in self
+    /// edit the row value that is now in the old spot in the entity records after an entity was removed from an archetype
+    fn edit_record_after_delete(&mut self, archetype_id: ArchetypeID, changed_index: usize) {
+        let last_index = self
+            .archetypes
+            .get(&archetype_id)
+            .unwrap()
+            .components
+            .values()
+            .nth(0)
+            .unwrap()
+            .len();
+
+        let record = self
             .entity_index
             .values_mut()
-            .filter(|record| record.archetype_id == archetype_id && record.row > bigger_than)
-        {
-            record.row -= 1;
-        }
+            .find(|record| record.archetype_id == archetype_id && record.row == last_index)
+            .unwrap();
+
+        record.row = changed_index;
     }
 }
