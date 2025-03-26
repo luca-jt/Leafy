@@ -205,7 +205,7 @@ impl FallingLeafApp for App {
             Position::new(0.0, 1.0, 1.0),
             Scale::from_factor(0.2),
             Renderable {
-                mesh_type: MeshType::Sphere,
+                mesh_type: MeshType::Custom(Path::new("examples/3D/sphere.obj").into()),
                 mesh_attribute: MeshAttribute::Colored(Color32::BLUE),
                 material: Material::default(),
             },
@@ -217,7 +217,7 @@ impl FallingLeafApp for App {
             Position::origin(),
             Scale::from_factor(0.05),
             Renderable {
-                mesh_type: MeshType::Sphere,
+                mesh_type: MeshType::Custom(Path::new("examples/3D/sphere.obj").into()),
                 mesh_attribute: MeshAttribute::Colored(Color32::YELLOW),
                 material: Material::default(),
             }

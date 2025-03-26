@@ -13,7 +13,9 @@ impl Component for D {}
 #[test]
 fn entity_test() {
     let mut ecs = EntityManager::new();
+    let a = ecs.create_entity(components!(A, B));
     let x = ecs.create_entity(components!(A, B));
+    ecs.delete_entity(a).unwrap();
     ecs.add_component(x, C).unwrap();
     ecs.add_component(x, D).unwrap();
     assert!(ecs.has_component::<D>(x));

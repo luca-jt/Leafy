@@ -1,6 +1,7 @@
 use crate::ecs::component::Component;
 use crate::ecs::entity::{Archetype, ArchetypeID};
 use crate::ecs::entity_manager::{EntityManager, ECS};
+use crate::BumpBox;
 use std::any::{Any, TypeId};
 use std::collections::hash_map::ValuesMut;
 use std::iter::Filter;
@@ -15,7 +16,7 @@ pub trait QueryType<'a>: 'static {
     /// downcast return type
     type ReturnType;
     /// general downcast function
-    fn downcast(any: Option<&'a mut Box<dyn Component>>) -> Self::ReturnType;
+    fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType;
 }
 
 impl<'a, T> QueryType<'a> for &'static T
@@ -26,7 +27,7 @@ where
     type BaseType = T;
     type ReturnType = &'a T;
 
-    fn downcast(any: Option<&'a mut Box<dyn Component>>) -> Self::ReturnType {
+    fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType {
         (&**any.unwrap() as &dyn Any).downcast_ref::<T>().unwrap()
     }
 }
@@ -39,7 +40,7 @@ where
     type BaseType = T;
     type ReturnType = &'a mut T;
 
-    fn downcast(any: Option<&'a mut Box<dyn Component>>) -> Self::ReturnType {
+    fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType {
         (&mut **any.unwrap() as &mut dyn Any)
             .downcast_mut::<T>()
             .unwrap()
@@ -54,7 +55,7 @@ where
     type BaseType = T;
     type ReturnType = Option<&'a T>;
 
-    fn downcast(any: Option<&'a mut Box<dyn Component>>) -> Self::ReturnType {
+    fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType {
         Some((&**any? as &dyn Any).downcast_ref::<T>().unwrap())
     }
 }
@@ -67,7 +68,7 @@ where
     type BaseType = T;
     type ReturnType = Option<&'a mut T>;
 
-    fn downcast(any: Option<&'a mut Box<dyn Component>>) -> Self::ReturnType {
+    fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType {
         Some((&mut **any? as &mut dyn Any).downcast_mut::<T>().unwrap())
     }
 }

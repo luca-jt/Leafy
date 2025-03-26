@@ -1,5 +1,7 @@
+use crate::ecs::entity_manager::ENTITY_ARENA_ALLOC;
 use crate::glm;
 use crate::utils::constants::*;
+use crate::BumpVec;
 use fyrox_sound::pool::Handle;
 use fyrox_sound::source::SoundSource;
 use gl::types::GLfloat;
@@ -335,7 +337,7 @@ impl Default for RigidBody {
 /// stores all of the associated sound handles for an entity
 #[derive(Debug, Clone)]
 pub struct SoundController {
-    pub handles: Vec<Handle<SoundSource>>,
+    pub handles: BumpVec<'static, Handle<SoundSource>>,
     pub(crate) doppler_pitch: f64,
     pub(crate) last_pos: glm::Vec3,
 }
@@ -345,8 +347,11 @@ impl Component for SoundController {}
 impl SoundController {
     /// creates a new default sound controller component with no handles
     pub fn new() -> Self {
+        let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
+        let arena = unsafe { &*(arena_lock.get()) };
+
         Self {
-            handles: vec![],
+            handles: BumpVec::new_in(arena),
             doppler_pitch: 1.0,
             last_pos: ORIGIN,
         }
@@ -354,8 +359,13 @@ impl SoundController {
 
     /// creates a new sound controller with handles attached
     pub fn from_handles(handles: &[Handle<SoundSource>]) -> Self {
+        let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
+        let arena = unsafe { &*(arena_lock.get()) };
+        let mut handle_vec = BumpVec::new_in(arena);
+        handle_vec.extend_from_slice(handles);
+
         Self {
-            handles: handles.to_vec(),
+            handles: handle_vec,
             doppler_pitch: 1.0,
             last_pos: ORIGIN,
         }
@@ -560,8 +570,6 @@ pub mod utils {
         Triangle,
         Plane,
         Cube,
-        Sphere,
-        Torus,
         Custom(Rc<Path>),
     }
 

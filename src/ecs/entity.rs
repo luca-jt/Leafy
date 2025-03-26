@@ -1,5 +1,6 @@
 use crate::ecs::component::utils::*;
 use crate::ecs::component::Component;
+use crate::{BumpBox, BumpVec};
 use itertools::Itertools;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
@@ -41,8 +42,8 @@ impl EntityType {
     }
 }
 
-impl From<&Vec<Box<dyn Component>>> for EntityType {
-    fn from(value: &Vec<Box<dyn Component>>) -> Self {
+impl From<&Vec<BumpBox<'_, dyn Component>>> for EntityType {
+    fn from(value: &Vec<BumpBox<'_, dyn Component>>) -> Self {
         let mut converted = value.iter().map(|c| (**c).type_id()).collect_vec();
         converted.sort_unstable();
         EntityType(converted)
@@ -76,7 +77,7 @@ pub(crate) struct EntityRecord {
 /// archetype meta data
 pub(crate) struct Archetype {
     pub(crate) id: ArchetypeID,
-    pub(crate) components: HashMap<TypeId, Vec<Box<dyn Component>>>,
+    pub(crate) components: HashMap<TypeId, BumpVec<'static, BumpBox<'static, dyn Component>>>,
 }
 
 impl Archetype {

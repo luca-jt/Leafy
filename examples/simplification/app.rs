@@ -1,4 +1,5 @@
 use falling_leaf::prelude::*;
+use std::path::Path;
 use winit::keyboard::KeyCode;
 
 const CAM_MOVE_SPEED: f32 = 4.5;
@@ -50,7 +51,7 @@ impl FallingLeafApp for App {
         self.mesh = entity_manager.create_entity(components!(
             Position::new(0.0, 2.0, 0.0),
             Renderable {
-                mesh_type: MeshType::Torus,
+                mesh_type: MeshType::Custom(Path::new("examples/simplification/torus.obj").into()),
                 mesh_attribute: MeshAttribute::Colored(Color32::YELLOW),
                 material: Material {
                     specular: 0.0,

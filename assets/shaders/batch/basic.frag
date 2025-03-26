@@ -76,8 +76,8 @@ float shadow_calc_point(int i, int shadow_map_index) {
     return shadow;
 }
 
-float shadow_calc_dir(vec4 fpl, int i) {
-    vec3 proj_coords = fpl.xyz / fpl.w;
+float shadow_calc_dir(int i) {
+    vec3 proj_coords = frag_pos_dir_light[i].xyz / frag_pos_dir_light[i].w;
     proj_coords = proj_coords * 0.5 + 0.5;
 
     float bias = max(0.05 * (1.0 - dot(v_normal, -dir_lights[i].direction)), 0.001);
@@ -108,29 +108,29 @@ void main() {
     vec3 final_light = vec3(ambient_light.intensity);
     // directional lights
     for (int i = 0; i < num_dir_lights; i++) {
+        float diff = min(max(dot(v_normal, -dir_lights[i].direction), 0.0), 1.0);
+        float shadow = 1.0 - shadow_calc_dir(i) / float(num_dir_lights + num_point_lights);
         float distance_to_light = length(frag_pos - dir_lights[i].light_pos.xyz);
         distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
-        float diff = min(max(dot(v_normal, -dir_lights[i].direction), 0.0), 1.0);
-        float shadow = 1.0 - shadow_calc_dir(frag_pos_dir_light[i], i);
         float attenuation = 1.0 / distance_to_light;
         vec3 src_light = diff * attenuation * shadow * dir_lights[i].color.rgb * dir_lights[i].intensity;
-        final_light += src_light / float(num_dir_lights + num_point_lights);
+        final_light += src_light;
     }
     // point lights
     int point_light_map_index = 0;
     for (int i = 0; i < num_point_lights; i++) {
         vec3 light_dir = normalize(point_lights[i].light_pos.xyz - frag_pos);
-        float distance_to_light = length(frag_pos - point_lights[i].light_pos.xyz);
-        distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
         float diff = min(max(dot(v_normal, light_dir), 0.0), 1.0);
         float shadow = 1.0;
         if (point_lights[i].has_shadows) {
-            shadow -= shadow_calc_point(i, point_light_map_index);
+            shadow -= shadow_calc_point(i, point_light_map_index) / float(num_dir_lights + num_point_lights);
             point_light_map_index += 1;
         }
+        float distance_to_light = length(frag_pos - point_lights[i].light_pos.xyz);
+        distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
         float attenuation = 1.0 / distance_to_light;
         vec3 src_light = diff * attenuation * shadow * point_lights[i].color.rgb * point_lights[i].intensity;
-        final_light += src_light / float(num_dir_lights + num_point_lights);
+        final_light += src_light;
     }
     // add specular lighting
     float spec_strenght = 0.3;

@@ -17,6 +17,12 @@ jobs:
     - run: cargo build --all-targets --all-features
     - run: cargo clippy --all-features
 
+  test:
+    runs_on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: cargo test --workspace --no-fail-fast --all-features --  --show-output
+
   formatting:
     runs-on: windows-latest
     steps:

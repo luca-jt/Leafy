@@ -154,7 +154,7 @@ impl RenderingSystem {
         }
         // add new light sources and detect changes in shadow maps
         for (pos, src, entity) in p_lights {
-            if self.point_lights.keys().find(|id| **id == entity).is_some() {
+            if self.point_lights.keys().any(|id| *id == entity) {
                 // update the shadow map
                 if !src.has_shadows && self.point_lights.get(&entity).unwrap().shadow_map.is_some()
                 {

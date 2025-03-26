@@ -3,16 +3,17 @@ use crate::ecs::component::*;
 use crate::ecs::entity::*;
 use crate::rendering::data::{SpriteTextureMap, TextureMap};
 use crate::rendering::mesh::{Hitbox, Mesh};
+use crate::utils::constants::*;
 use crate::utils::file::*;
 use crate::utils::tools::types_eq;
-use crate::BumpBox;
-use crate::BumpVec;
+use crate::{BumpBox, BumpVec};
 use bumpalo::Bump;
 use itertools::Itertools;
 use std::any::{Any, TypeId};
 use std::cell::UnsafeCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
+use std::sync::{LazyLock, Mutex};
 
 /// custom result type
 pub type FLResult = Result<(), String>;
@@ -21,8 +22,21 @@ pub type FLResult = Result<(), String>;
 #[macro_export]
 macro_rules! components {
     ($($T:expr),+) => {
-        vec![Box::new($crate::utils::constants::NO_ENTITY), $(Box::new($T)), +]
+        vec![$crate::ecs::entity_manager::_component_alloc($crate::utils::constants::NO_ENTITY), $($crate::ecs::entity_manager::_component_alloc($T)), +]
     };
+}
+
+/// internal arena allocator used for entity data
+#[rustfmt::skip]
+pub(crate) static ENTITY_ARENA_ALLOC: LazyLock<Mutex<UnsafeCell<Bump>>> = LazyLock::new(|| Mutex::new(UnsafeCell::new(Bump::with_capacity(ARENA_ALLOCATOR_CHUNK_SIZE))));
+
+/// internal allocation function for entity data
+pub fn _component_alloc<T: Component>(component: T) -> BumpBox<'static, dyn Component> {
+    let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
+    unsafe {
+        let data = (*arena_lock.get()).alloc(component) as *mut T;
+        BumpBox::from_raw(data as *mut dyn Component)
+    }
 }
 
 /// the main ressource manager holding both the ECS and the asset data
@@ -53,7 +67,7 @@ impl EntityManager {
     }
 
     /// stores a new entity and returns the id of the new entity
-    pub fn create_entity(&mut self, components: Vec<Box<dyn Component>>) -> EntityID {
+    pub fn create_entity(&mut self, components: Vec<BumpBox<'static, dyn Component>>) -> EntityID {
         let entity = self.ecs.get_mut().create_entity(components);
         *self.get_component_mut::<EntityID>(entity).unwrap() = entity;
         self.add_command(AssetCommand::AddMesh(entity));
@@ -209,8 +223,6 @@ impl EntityManager {
                                 MeshType::Triangle => Mesh::from_bytes(TRIANGLE_MESH),
                                 MeshType::Plane => Mesh::from_bytes(PLANE_MESH),
                                 MeshType::Cube => Mesh::from_bytes(CUBE_MESH),
-                                MeshType::Sphere => Mesh::from_bytes(SPHERE_MESH),
-                                MeshType::Torus => Mesh::from_bytes(TORUS_MESH),
                                 MeshType::Custom(path) => Mesh::from_path(path),
                             };
                             self.asset_register
@@ -498,7 +510,6 @@ pub(crate) struct ECS {
     entity_index: HashMap<EntityID, EntityRecord>,
     pub(crate) archetypes: HashMap<ArchetypeID, Archetype>,
     type_to_archetype: HashMap<EntityType, ArchetypeID>,
-    bump: Bump,
 }
 
 impl ECS {
@@ -510,12 +521,14 @@ impl ECS {
             entity_index: HashMap::new(),
             archetypes: HashMap::new(),
             type_to_archetype: HashMap::new(),
-            bump: Bump::new(),
         }
     }
 
     /// creates a new entity with given components, stores the given data and returns the id
-    pub(crate) fn create_entity(&mut self, components: Vec<Box<dyn Component>>) -> EntityID {
+    pub(crate) fn create_entity(
+        &mut self,
+        components: Vec<BumpBox<'static, dyn Component>>,
+    ) -> EntityID {
         let new_entity = self.next_entity;
         self.next_entity += 1;
 
@@ -545,6 +558,7 @@ impl ECS {
             .entity_index
             .remove(&entity)
             .ok_or(String::from("entity ID not found"))?;
+
         let archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
         for column in archetype.components.values_mut() {
             column.remove(record.row);
@@ -553,6 +567,8 @@ impl ECS {
             self.archetypes.remove(&record.archetype_id);
             self.type_to_archetype
                 .retain(|_, arch_id| *arch_id != record.archetype_id);
+        } else {
+            self.shift_rows(record.archetype_id, record.row);
         }
         Ok(())
     }
@@ -599,7 +615,7 @@ impl ECS {
         let old_arch_id = old_archetype.id;
 
         // Remove the entity's components from the old archetype
-        let old_components: Vec<Box<dyn Component>> = old_archetype
+        let old_components: Vec<BumpBox<dyn Component>> = old_archetype
             .components
             .values_mut()
             .map(|vec| vec.remove(record.row))
@@ -636,7 +652,7 @@ impl ECS {
             .components
             .get_mut(&component.type_id())
             .unwrap()
-            .push(Box::new(component));
+            .push(_component_alloc(component));
 
         // Update the entity record
         let record = self.entity_index.get_mut(&entity).unwrap();
@@ -654,7 +670,7 @@ impl ECS {
         false
     }
 
-    /// removes a component from an entity and returns the component data if present (also returns ``None`` if the entity ID is invalid)
+    /// Removes a component from an entity and returns the component data if present (also returns ``None`` if the entity ID is invalid). Deletes the entity if there are no more components after the deletion.
     pub(crate) fn remove_component<T: Component>(&mut self, entity: EntityID) -> Option<T> {
         if !self.has_component::<T>(entity) {
             return None;
@@ -665,7 +681,7 @@ impl ECS {
         let old_arch_id = old_archetype.id;
 
         // Remove the entity's components from the old archetype
-        let mut old_components: Vec<Box<dyn Component>> = old_archetype
+        let mut old_components: Vec<BumpBox<dyn Component>> = old_archetype
             .components
             .values_mut()
             .map(|vec| vec.remove(record.row))
@@ -683,10 +699,15 @@ impl ECS {
         let index_to_remove = old_components
             .iter()
             .position(|c| (**c).type_id() == TypeId::of::<T>())?;
-        let component = (old_components.remove(index_to_remove) as Box<dyn Any>)
-            .downcast::<T>()
-            .ok()
-            .map(|b| *b);
+
+        let component = unsafe {
+            Box::from_raw(BumpBox::leak(old_components.remove(index_to_remove))
+                as *mut dyn Component as *mut dyn Any)
+        }
+        .downcast::<T>()
+        .ok()
+        .map(|b| *b);
+
         if old_components.is_empty() {
             self.entity_index.remove(&entity).unwrap();
             return component;
@@ -721,10 +742,15 @@ impl ECS {
         self.entity_index.clear();
         self.archetypes.clear();
         self.type_to_archetype.clear();
+        let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
+        unsafe { &mut *(arena_lock.get()) }.reset();
     }
 
     /// gets the archetype id of an entity type and creates a new archetype if necessary
     fn get_arch_id(&mut self, entity_type: &EntityType) -> ArchetypeID {
+        let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
+        let arena = unsafe { &*(arena_lock.get()) };
+
         *self
             .type_to_archetype
             .entry(entity_type.clone())
@@ -737,7 +763,7 @@ impl ECS {
                         id,
                         components: entity_type
                             .iter()
-                            .map(|&type_id| (type_id, Vec::new()))
+                            .map(|&type_id| (type_id, BumpVec::new_in(arena)))
                             .collect(),
                     },
                 );
@@ -747,7 +773,6 @@ impl ECS {
 
     /// shift down all row values bigger than the given row in the entity records
     fn shift_rows(&mut self, archetype_id: ArchetypeID, bigger_than: usize) {
-        debug_assert!(bigger_than > 0);
         for record in self
             .entity_index
             .values_mut()

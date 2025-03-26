@@ -56,12 +56,10 @@ pub(crate) const SCREEN_FRAG: &str = include_str!(shader_path!("screen.frag"));
 pub(crate) const SPRITE_VERT: &str = include_str!(shader_path!("sprite.vert"));
 pub(crate) const SPRITE_FRAG: &str = include_str!(shader_path!("sprite.frag"));
 
-// optional included meshes
+// included meshes
 pub(crate) const TRIANGLE_MESH: &[u8] = include_bytes!(model_path!("triangle.obj"));
 pub(crate) const PLANE_MESH: &[u8] = include_bytes!(model_path!("plane.obj"));
 pub(crate) const CUBE_MESH: &[u8] = include_bytes!(model_path!("cube.obj"));
-pub(crate) const SPHERE_MESH: &[u8] = include_bytes!(model_path!("sphere.obj"));
-pub(crate) const TORUS_MESH: &[u8] = include_bytes!(model_path!("torus.obj"));
 
 pub(crate) const SKYBOX_VERTICES: [f32; 108] = [
     -1.0,  1.0, -1.0,
