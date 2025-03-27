@@ -4,9 +4,9 @@ use crate::glm;
 use crate::rendering::sprite_renderer::SpriteSheet;
 use crate::utils::constants::*;
 use crate::utils::file::*;
+use ahash::AHashMap;
 use gl::types::*;
 use stb_image::image::Image;
-use std::collections::HashMap;
 use std::path::Path;
 use std::ptr;
 use std::rc::Rc;
@@ -80,16 +80,18 @@ pub(crate) struct Vertex {
 
 /// holds the texture ID's for the App
 pub(crate) struct TextureMap {
-    textures: HashMap<Texture, GLuint>,
-    transparency_map: HashMap<Texture, bool>,
+    textures: AHashMap<Texture, GLuint>,
+    transparency_map: AHashMap<Texture, bool>,
+    render_textures: AHashMap<Rc<Path>, GLuint>,
 }
 
 impl TextureMap {
     /// creates a new texture map
     pub(crate) fn new() -> Self {
         Self {
-            textures: HashMap::new(),
-            transparency_map: HashMap::new(),
+            textures: AHashMap::new(),
+            transparency_map: AHashMap::new(),
+            render_textures: AHashMap::new(),
         }
     }
 
@@ -154,16 +156,16 @@ impl Drop for TextureMap {
 
 /// stores the sprite sheet data for sprite rendering
 pub(crate) struct SpriteTextureMap {
-    sheets: HashMap<Rc<Path>, SpriteSheet>,
-    sprites: HashMap<Rc<Path>, GLuint>,
+    sheets: AHashMap<Rc<Path>, SpriteSheet>,
+    sprites: AHashMap<Rc<Path>, GLuint>,
 }
 
 impl SpriteTextureMap {
     /// creates a new sprite texture map
     pub(crate) fn new() -> Self {
         Self {
-            sheets: HashMap::new(),
-            sprites: HashMap::new(),
+            sheets: AHashMap::new(),
+            sprites: AHashMap::new(),
         }
     }
 

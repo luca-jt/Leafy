@@ -246,6 +246,7 @@ impl VideoSystem {
         let user_cap = self
             .fps_cap
             .is_none_or(|fps| elapsed >= Duration::from_secs_f64(1.0 / fps));
+
         self.bg_fps_cap.map_or(user_cap, |fps| {
             if self.window.as_ref().is_some_and(|win| !win.has_focus()) {
                 elapsed >= Duration::from_secs_f64(1.0 / fps)

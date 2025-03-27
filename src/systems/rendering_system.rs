@@ -13,14 +13,14 @@ use crate::systems::event_system::events::user_space::CamPositionChange;
 use crate::utils::constants::bits::user_level::INVISIBLE;
 use crate::utils::constants::*;
 use crate::utils::tools::{padding, to_vec4};
+use ahash::AHashMap;
 use gl::types::*;
 use itertools::Itertools;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 
 /// responsible for the automated rendering of all entities
 pub struct RenderingSystem {
-    point_lights: HashMap<EntityID, PointLightRenderingInfo>,
+    point_lights: AHashMap<EntityID, PointLightRenderingInfo>,
     directional_lights: Vec<(EntityID, ShadowMap)>, // Vec is fine because we dont have that many lights
     renderers: Vec<RendererType>,
     sprite_renderer: SpriteRenderer,
@@ -35,6 +35,7 @@ pub struct RenderingSystem {
     skybox: Option<Skybox>,
     screen_texture: ScreenTexture,
     samples: GLsizei,
+    tmp_storage: TempRenderStorage,
 }
 
 impl RenderingSystem {
@@ -52,7 +53,7 @@ impl RenderingSystem {
         let samples = 4;
 
         Self {
-            point_lights: HashMap::new(),
+            point_lights: AHashMap::new(),
             directional_lights: Vec::with_capacity(MAX_DIR_LIGHT_MAPS),
             renderers: Vec::new(),
             sprite_renderer: SpriteRenderer::new(),
@@ -67,6 +68,7 @@ impl RenderingSystem {
             skybox: None,
             screen_texture: ScreenTexture::new(win_w as GLsizei, win_h as GLsizei, false, samples),
             samples,
+            tmp_storage: TempRenderStorage::default(),
         }
     }
 
@@ -91,21 +93,32 @@ impl RenderingSystem {
 
     /// adds and removes light sources according to entity data
     fn update_lights(&mut self, entity_manager: &EntityManager) {
+        self.tmp_storage.clear_light_storage();
+
         //
         // directional lights
         //
-        let dir_lights = unsafe {
-            entity_manager.query3::<&Position, &DirectionalLight, &EntityID>((None, None))
-        }
-        .map(|(p, l, e)| (p, l, *e))
-        .collect_vec();
+        self.tmp_storage.dir_lights.extend(
+            unsafe {
+                entity_manager.query3::<&Position, &DirectionalLight, &EntityID>((None, None))
+            }
+            .map(|(p, l, e)| (*p, *l, *e)),
+        );
         // remove deleted shadow maps
-        self.directional_lights
-            .retain(|src| dir_lights.iter().any(|(_, _, id)| *id == src.0));
+        self.directional_lights.retain(|src| {
+            self.tmp_storage
+                .dir_lights
+                .iter()
+                .any(|(_, _, id)| *id == src.0)
+        });
         // update positions of existing ones
         for (entity, map) in self.directional_lights.iter_mut() {
-            let (correct_pos, correct_light, _) =
-                dir_lights.iter().find(|(_, _, id)| id == entity).unwrap();
+            let (correct_pos, correct_light, _) = self
+                .tmp_storage
+                .dir_lights
+                .iter()
+                .find(|(_, _, id)| id == entity)
+                .unwrap();
             if map.light_pos != *correct_pos.data()
                 || map.light.direction != correct_light.direction
             {
@@ -113,8 +126,8 @@ impl RenderingSystem {
             }
         }
         // add new light sources
-        for (pos, src, entity) in dir_lights {
-            if !self.directional_lights.iter().any(|(id, _)| entity == *id) {
+        for (pos, src, entity) in self.tmp_storage.dir_lights.iter() {
+            if !self.directional_lights.iter().any(|(id, _)| entity == id) {
                 if self.directional_lights.len() == MAX_DIR_LIGHT_MAPS {
                     panic!(
                         "no more directional light source slots available (max is {})",
@@ -122,7 +135,7 @@ impl RenderingSystem {
                     );
                 }
                 self.directional_lights.push((
-                    entity,
+                    *entity,
                     ShadowMap::new(self.shadow_resolution.map_res(), *pos.data(), src),
                 ));
             }
@@ -131,38 +144,45 @@ impl RenderingSystem {
         //
         // point lights
         //
-        let p_lights =
+        self.tmp_storage.p_lights.extend(
             unsafe { entity_manager.query3::<&Position, &PointLight, &EntityID>((None, None)) }
-                .map(|(p, l, e)| (p, l, *e))
-                .collect_vec();
+                .map(|(p, l, e)| (*p, *l, *e)),
+        );
 
         // remove lights that dont exist any more
-        self.point_lights
-            .retain(|e_id, _| p_lights.iter().any(|(_, _, id)| *id == *e_id));
+        self.point_lights.retain(|e_id, _| {
+            self.tmp_storage
+                .p_lights
+                .iter()
+                .any(|(_, _, id)| *id == *e_id)
+        });
 
         // update data of existing ones
         for (entity, light_render_info) in self.point_lights.iter_mut() {
-            let (correct_pos, correct_light, _) =
-                p_lights.iter().find(|(_, _, id)| id == entity).unwrap();
+            let (correct_pos, correct_light, _) = self
+                .tmp_storage
+                .p_lights
+                .iter()
+                .find(|(_, _, id)| id == entity)
+                .unwrap();
             if light_render_info.light_pos != *correct_pos.data() {
                 if let Some(map) = light_render_info.shadow_map.as_mut() {
                     map.update_light(correct_pos.data());
                 }
                 light_render_info.light_pos = *correct_pos.data();
-                light_render_info.light = **correct_light;
+                light_render_info.light = *correct_light;
             }
         }
         // add new light sources and detect changes in shadow maps
-        for (pos, src, entity) in p_lights {
-            if self.point_lights.keys().any(|id| *id == entity) {
+        for (pos, src, entity) in self.tmp_storage.p_lights.iter() {
+            if self.point_lights.keys().any(|id| id == entity) {
                 // update the shadow map
-                if !src.has_shadows && self.point_lights.get(&entity).unwrap().shadow_map.is_some()
-                {
-                    self.point_lights.get_mut(&entity).unwrap().shadow_map = None;
+                if !src.has_shadows && self.point_lights.get(entity).unwrap().shadow_map.is_some() {
+                    self.point_lights.get_mut(entity).unwrap().shadow_map = None;
                 } else if src.has_shadows
-                    && self.point_lights.get(&entity).unwrap().shadow_map.is_none()
+                    && self.point_lights.get(entity).unwrap().shadow_map.is_none()
                 {
-                    self.point_lights.get_mut(&entity).unwrap().shadow_map = Some(
+                    self.point_lights.get_mut(entity).unwrap().shadow_map = Some(
                         CubeShadowMap::new(self.shadow_resolution.map_res(), *pos.data()),
                     );
                 }
@@ -188,7 +208,7 @@ impl RenderingSystem {
                         );
                     }
                     self.point_lights.insert(
-                        entity,
+                        *entity,
                         PointLightRenderingInfo {
                             light_pos: *pos.data(),
                             light: *src,
@@ -200,7 +220,7 @@ impl RenderingSystem {
                     );
                 } else {
                     self.point_lights.insert(
-                        entity,
+                        *entity,
                         PointLightRenderingInfo {
                             light_pos: *pos.data(),
                             light: *src,
@@ -980,5 +1000,20 @@ impl ShadowResolution {
             ShadowResolution::Normal => (1024, 1024),
             ShadowResolution::Low => (512, 512),
         }
+    }
+}
+
+/// general temporary storage used in the update process of the renderer
+#[derive(Default)]
+struct TempRenderStorage {
+    dir_lights: Vec<(Position, DirectionalLight, EntityID)>,
+    p_lights: Vec<(Position, PointLight, EntityID)>,
+}
+
+impl TempRenderStorage {
+    /// clears the light source storage vectors
+    fn clear_light_storage(&mut self) {
+        self.dir_lights.clear();
+        self.p_lights.clear();
     }
 }

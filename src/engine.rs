@@ -3,12 +3,11 @@ use crate::ecs::entity_manager::EntityManager;
 use crate::engine_builder::EngineAttributes;
 use crate::systems::animation_system::AnimationSystem;
 use crate::systems::audio_system::AudioSystem;
-use crate::systems::event_system::EventSystem;
+use crate::systems::event_system::{Event, EventSystem};
 use crate::systems::general::*;
 use crate::systems::rendering_system::RenderingSystem;
 use crate::systems::video_system::VideoSystem;
 use crate::utils::constants::TIME_STEP;
-use std::any::Any;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::error::Error;
 use std::fmt::Debug;
@@ -189,7 +188,7 @@ impl<A: FallingLeafApp> Engine<A> {
     }
 
     /// triggers an engine-wide event in the event system and call all relevant functions/listeners
-    pub fn trigger_event<T: Any + Debug>(&self, event: T) {
+    pub fn trigger_event<T: Event>(&self, event: T) {
         self.event_system().trigger(event, self);
     }
 }

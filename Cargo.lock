@@ -612,6 +612,7 @@ dependencies = [
 name = "falling_leaf"
 version = "0.1.0"
 dependencies = [
+ "ahash",
  "bumpalo",
  "env_logger",
  "fontdue",
@@ -623,10 +624,10 @@ dependencies = [
  "itertools 0.13.0",
  "log",
  "nalgebra-glm",
- "obj-rs",
  "petgraph",
  "raw-window-handle",
  "stb_image",
+ "tobj",
  "winit",
  "winresource",
 ]
@@ -1547,16 +1548,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "obj-rs"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a502182538a65adc7e3843f820eb5a4bd3ff395017e0ba6e3ccad404e9ea1da3"
-dependencies = [
- "num-traits",
- "serde",
-]
-
-[[package]]
 name = "objc-sys"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2435,6 +2426,15 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
+name = "tobj"
+version = "4.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04aca6092e5978e708ee784e8ab9b5cf3cdb598b28f99a2f257446e7081a7025"
+dependencies = [
+ "ahash",
+]
 
 [[package]]
 name = "toml"

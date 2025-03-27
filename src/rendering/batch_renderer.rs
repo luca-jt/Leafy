@@ -5,14 +5,14 @@ use crate::glm;
 use crate::rendering::mesh::Mesh;
 use crate::utils::constants::*;
 use crate::utils::tools::mult_mat4_vec3;
+use ahash::AHashSet;
 use gl::types::*;
-use std::collections::HashSet;
 use std::ptr;
 
 /// batch renderer for the 3D rendering option
 pub(crate) struct BatchRenderer {
     batches: Vec<Batch>,
-    used_batch_indices: HashSet<usize>,
+    used_batch_indices: AHashSet<usize>,
     white_texture: GLuint,
 }
 
@@ -40,7 +40,7 @@ impl BatchRenderer {
 
         Self {
             batches: Vec::new(),
-            used_batch_indices: HashSet::new(),
+            used_batch_indices: AHashSet::new(),
             white_texture,
         }
     }

@@ -7,8 +7,8 @@ use crate::utils::constants::bits::user_level::INVISIBLE;
 use crate::utils::constants::MAX_TEXTURE_COUNT;
 use crate::utils::file::{SPRITE_PLANE_INDICES, SPRITE_PLANE_UVS, SPRITE_PLANE_VERTICES};
 use crate::utils::tools::mult_mat4_vec3;
+use ahash::AHashSet;
 use gl::types::*;
-use std::collections::HashSet;
 use std::ptr;
 
 const PLANE_MESH_NUM_VERTICES: usize = 4;
@@ -17,7 +17,7 @@ const PLANE_MESH_NUM_INDICES: usize = 6;
 /// renderer for 2D sprites
 pub(crate) struct SpriteRenderer {
     renderer_map: [Vec<SpriteBatch>; 10],
-    used_batch_indices: [HashSet<usize>; 10],
+    used_batch_indices: [AHashSet<usize>; 10],
     white_texture: GLuint,
     pub(crate) grids: [SpriteGrid; 10],
 }

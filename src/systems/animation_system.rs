@@ -10,9 +10,9 @@ use crate::utils::constants::bits::user_level::*;
 use crate::utils::constants::*;
 use crate::utils::tools::*;
 use crate::{glm, include_filter};
+use ahash::AHashSet;
 use fyrox_sound::math::get_barycentric_coords;
 use itertools::Itertools;
-use std::collections::HashSet;
 use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
 
@@ -779,7 +779,7 @@ fn reconstruct_polytope(
         .collect_vec();
 
     // find edges that are not shared between faces
-    let mut dangling_edges = HashSet::new();
+    let mut dangling_edges = AHashSet::new();
     for edge in faces_to_remove
         .iter()
         .flat_map(|face_idx| {

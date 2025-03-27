@@ -276,18 +276,6 @@ pub struct Renderable {
 
 impl Component for Renderable {}
 
-impl Renderable {
-    /// loads a renderable from a .obj file and associated .mtl files
-    pub fn from_file(file: Rc<Path>) -> Self {
-        todo!();
-        Self {
-            mesh_type: MeshType::Custom(file),
-            mesh_attribute: MeshAttribute::default(),
-            material: Material::default(),
-        }
-    }
-}
-
 /// enables gravity physics and is used for all computations involving forces
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct RigidBody {
@@ -379,7 +367,7 @@ pub struct Collider {
     pub(crate) hitbox_type: HitboxType,
     pub(crate) offset: glm::Vec3,
     pub(crate) scale: Scale,
-    pub(crate) last_collisions: Vec<CollisionInfo>,
+    pub(crate) last_collisions: BumpVec<'static, CollisionInfo>,
 }
 
 impl Component for Collider {}
@@ -387,11 +375,13 @@ impl Component for Collider {}
 impl Collider {
     /// creates a new collider from a given hitbox type
     pub fn new(hitbox_type: HitboxType) -> Self {
+        let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
+        let arena = unsafe { &*(arena_lock.get()) };
         Self {
             hitbox_type,
             offset: ORIGIN,
             scale: Scale::default(),
-            last_collisions: vec![],
+            last_collisions: BumpVec::new_in(arena),
         }
     }
 
@@ -547,6 +537,29 @@ pub mod utils {
             Self { r, g, b, a }
         }
 
+        /// uses the format ``0xRRGGBBAA``
+        pub const fn from_hex(hex: u32) -> Self {
+            Self::from_rgba(
+                ((hex & 0xFF000000) >> 24) as u8,
+                ((hex & 0x00FF0000) >> 16) as u8,
+                ((hex & 0x0000FF00) >> 8) as u8,
+                (hex & 0x000000FF) as u8,
+            )
+        }
+
+        pub const fn from_float_rgb(r: f32, g: f32, b: f32) -> Self {
+            Self::from_rgb((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8)
+        }
+
+        pub const fn from_float_rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
+            Self::from_rgba(
+                (r * 255.0) as u8,
+                (g * 255.0) as u8,
+                (b * 255.0) as u8,
+                (a * 255.0) as u8,
+            )
+        }
+
         /// converts to a float rgba vector
         pub fn to_vec4(&self) -> glm::Vec4 {
             let r = self.r as f32 / 255.0;
@@ -570,7 +583,7 @@ pub mod utils {
         Triangle,
         Plane,
         Cube,
-        Custom(Rc<Path>),
+        Custom(Rc<Path>, Rc<str>),
     }
 
     /// wether or not a mesh is colored or textured
@@ -603,12 +616,83 @@ pub mod utils {
         }
     }
 
-    /// represents a material that influences the rendering of the entity
-    #[derive(Debug, PartialEq, Copy, Clone, Default)]
-    pub struct Material {
-        pub specular: f32,
-        pub diffuse: f32,
-        pub shininess: f32,
+    /// Represents a material that influences the rendering of the entity. You can either specify custom parameters or inherit the material data from the ``.obj`` file of the ``MeshType`` of the entity.
+    #[derive(Debug, PartialEq, Clone)]
+    pub enum Material {
+        Inherit,
+        Custom {
+            ambient: Ambient,
+            diffuse: Diffuse,
+            specular: Specular,
+            spec_strength: f32,
+            shininess: Shininess,
+            normal_texture: Option<Rc<Path>>,
+        },
+    }
+
+    impl Default for Material {
+        fn default() -> Self {
+            Self::Custom {
+                ambient: Ambient::default(),
+                diffuse: Diffuse::default(),
+                specular: Specular::default(),
+                spec_strength: 0.3,
+                shininess: Shininess::default(),
+                normal_texture: None,
+            }
+        }
+    }
+
+    /// ambient color
+    #[derive(Debug, PartialEq, Clone)]
+    pub enum Ambient {
+        Value(Color32),
+        Texture(Rc<Path>),
+    }
+
+    impl Default for Ambient {
+        fn default() -> Self {
+            Self::Value(Color32::WHITE)
+        }
+    }
+
+    /// diffuse color
+    #[derive(Debug, PartialEq, Clone)]
+    pub enum Diffuse {
+        Value(Color32),
+        Texture(Rc<Path>),
+    }
+
+    impl Default for Diffuse {
+        fn default() -> Self {
+            Self::Value(Color32::WHITE)
+        }
+    }
+
+    /// specular color
+    #[derive(Debug, PartialEq, Clone)]
+    pub enum Specular {
+        Value(Color32),
+        Texture(Rc<Path>),
+    }
+
+    impl Default for Specular {
+        fn default() -> Self {
+            Self::Value(Color32::WHITE)
+        }
+    }
+
+    /// shininess (or glossiness)
+    #[derive(Debug, PartialEq, Clone)]
+    pub enum Shininess {
+        Value(f32),
+        Texture(Rc<Path>),
+    }
+
+    impl Default for Shininess {
+        fn default() -> Self {
+            Self::Value(32.0)
+        }
     }
 
     /// component wrapper struct for `std::time::Instant` to track time

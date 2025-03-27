@@ -7,11 +7,12 @@ use crate::utils::constants::*;
 use crate::utils::file::*;
 use crate::utils::tools::types_eq;
 use crate::{BumpBox, BumpVec};
+use ahash::{AHashMap, AHashSet};
 use bumpalo::Bump;
 use itertools::Itertools;
 use std::any::{Any, TypeId};
 use std::cell::UnsafeCell;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::sync::{LazyLock, Mutex};
 
@@ -42,13 +43,13 @@ pub fn _component_alloc<T: Component>(component: T) -> BumpBox<'static, dyn Comp
 /// the main ressource manager holding both the ECS and the asset data
 pub struct EntityManager {
     pub(crate) ecs: UnsafeCell<ECS>,
-    asset_register: HashMap<MeshType, Mesh>,
-    lod_register: HashMap<MeshType, [Mesh; 4]>,
+    asset_register: AHashMap<MeshType, Mesh>,
+    lod_register: AHashMap<MeshType, [Mesh; 4]>,
     pub(crate) texture_map: TextureMap,
     pub(crate) sprite_texture_map: SpriteTextureMap,
-    hitbox_register: HashMap<(HitboxType, Option<MeshType>), Hitbox>,
+    hitbox_register: AHashMap<(HitboxType, Option<MeshType>), Hitbox>,
     commands: VecDeque<AssetCommand>,
-    cache_instructions: HashSet<AssetCacheInstruction>,
+    cache_instructions: AHashSet<AssetCacheInstruction>,
 }
 
 impl EntityManager {
@@ -56,13 +57,13 @@ impl EntityManager {
     pub fn new() -> Self {
         Self {
             ecs: UnsafeCell::new(ECS::new()),
-            asset_register: HashMap::new(),
-            lod_register: HashMap::new(),
+            asset_register: AHashMap::new(),
+            lod_register: AHashMap::new(),
             texture_map: TextureMap::new(),
             sprite_texture_map: SpriteTextureMap::new(),
-            hitbox_register: HashMap::new(),
+            hitbox_register: AHashMap::new(),
             commands: VecDeque::new(),
-            cache_instructions: HashSet::new(),
+            cache_instructions: AHashSet::new(),
         }
     }
 
@@ -507,9 +508,9 @@ enum AssetCommand {
 pub(crate) struct ECS {
     next_entity: EntityID,
     next_archetype_id: ArchetypeID,
-    entity_index: HashMap<EntityID, EntityRecord>,
-    pub(crate) archetypes: HashMap<ArchetypeID, Archetype>,
-    type_to_archetype: HashMap<EntityType, ArchetypeID>,
+    entity_index: AHashMap<EntityID, EntityRecord>,
+    pub(crate) archetypes: AHashMap<ArchetypeID, Archetype>,
+    type_to_archetype: AHashMap<EntityType, ArchetypeID>,
 }
 
 impl ECS {
@@ -518,9 +519,9 @@ impl ECS {
         Self {
             next_entity: 1,
             next_archetype_id: 1,
-            entity_index: HashMap::new(),
-            archetypes: HashMap::new(),
-            type_to_archetype: HashMap::new(),
+            entity_index: AHashMap::new(),
+            archetypes: AHashMap::new(),
+            type_to_archetype: AHashMap::new(),
         }
     }
 

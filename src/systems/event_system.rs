@@ -1,8 +1,8 @@
 use crate::engine::{Engine, FallingLeafApp};
 use crate::systems::event_system::events::*;
 use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
+use ahash::AHashMap;
 use std::any::{Any, TypeId};
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
@@ -15,8 +15,8 @@ impl<T> Event for T where T: Any + Debug {}
 /// system managing the events
 pub struct EventSystem<A: FallingLeafApp> {
     phantom: PhantomData<A>,
-    listeners: HashMap<TypeId, Vec<Box<dyn Any>>>,
-    modifiers: HashMap<TypeId, Vec<Box<dyn Any>>>,
+    listeners: AHashMap<TypeId, Vec<Box<dyn Any>>>,
+    modifiers: AHashMap<TypeId, Vec<Box<dyn Any>>>,
 }
 
 impl<A: FallingLeafApp> EventSystem<A> {
@@ -24,8 +24,8 @@ impl<A: FallingLeafApp> EventSystem<A> {
     pub(crate) fn new() -> Self {
         Self {
             phantom: PhantomData,
-            listeners: HashMap::new(),
-            modifiers: HashMap::new(),
+            listeners: AHashMap::new(),
+            modifiers: AHashMap::new(),
         }
     }
 

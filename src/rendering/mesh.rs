@@ -3,17 +3,18 @@ use crate::ecs::component::Scale;
 use crate::glm;
 use crate::utils::constants::ORIGIN;
 use crate::utils::tools::{mult_mat4_vec3, to_vec4};
+use ahash::{AHashMap, AHashSet};
 use gl::types::*;
 use itertools::Itertools;
-use obj::{load_obj, Obj, TexturedVertex, Vertex};
 use petgraph::stable_graph::{NodeIndex, StableUnGraph};
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::BinaryHeap;
 use std::fs::File;
 use std::io::BufReader;
 use std::ops::{Index, IndexMut};
 use std::path::Path;
 use std::rc::Rc;
+use tobj::{self, load_obj, load_obj_buf, GPU_LOAD_OPTIONS};
 
 /// identifier for a triangle in the AOS mesh, maps to triangles that only use the unique vertices
 type TriangleID = u64;
@@ -23,8 +24,8 @@ type TriangleID = u64;
 struct AlgorithmMesh {
     vertices: Vec<glm::Vec3>,
     faces: Vec<[usize; 3]>,
-    triangle_map: HashMap<usize, HashSet<TriangleID>>,
-    windings: HashMap<TriangleID, [usize; 3]>,
+    triangle_map: AHashMap<usize, AHashSet<TriangleID>>,
+    windings: AHashMap<TriangleID, [usize; 3]>,
 }
 
 impl AlgorithmMesh {
@@ -175,7 +176,12 @@ impl AlgorithmMesh {
 
     /// removes vertices that are not used by a face and corrects the face indices
     fn remove_unused_vertices(&mut self) {
-        let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
+        let mut used_indices = self
+            .faces
+            .iter()
+            .flatten()
+            .copied()
+            .collect::<AHashSet<_>>();
         for i in 0..self.vertices.len() {
             while !used_indices.contains(&i) && i < self.vertices.len() - 1 {
                 self.vertices.swap_remove(i);
@@ -474,89 +480,16 @@ pub(crate) struct Mesh {
 }
 
 impl Mesh {
-    /// creates a new Mesh from an obj file path
-    pub(crate) fn from_path(file_path: &Rc<Path>) -> Self {
-        if let Ok(model) = load_obj(BufReader::new(
-            File::open(file_path).expect("file not found"),
-        )) {
-            Self::from_tex_obj(model)
-        } else {
-            let model: Obj<Vertex, GLuint> = load_obj(BufReader::new(
-                File::open(file_path).expect("file not found"),
-            ))
-            .expect("model must contain normals");
-            Self::from_obj(model)
-        }
-    }
-
     /// creates a new Mesh from a byte array
     pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
-        let data = BufReader::new(bytes);
-        let model: Obj<TexturedVertex, GLuint> = load_obj(data).unwrap();
-        Self::from_tex_obj(model)
+        let mut data = BufReader::new(bytes);
+        let (models, _) = load_obj_buf(&mut data, &GPU_LOAD_OPTIONS, |_| unreachable!()).unwrap();
+        Self::from_obj_data(&models[0].mesh)
     }
 
-    fn from_obj(obj: Obj<Vertex, GLuint>) -> Self {
-        // convert the data into the required format
-        let positions: Vec<glm::Vec3> = obj
-            .vertices
-            .iter()
-            .map(|vertex| glm::vec3(vertex.position[0], vertex.position[1], vertex.position[2]))
-            .collect();
-
-        let normals: Vec<glm::Vec3> = obj
-            .vertices
-            .iter()
-            .map(|vertex| glm::vec3(vertex.normal[0], vertex.normal[1], vertex.normal[2]))
-            .collect();
-
-        let indices: Vec<GLuint> = obj.indices;
-        assert_eq!(indices.len() % 3, 0, "mesh has to be triangulated");
-
-        let max_reach =
-            positions
-                .iter()
-                .copied()
-                .map(|p| p.abs())
-                .fold(ORIGIN, |mut current, p| {
-                    current.x = current.x.max(p.x);
-                    current.y = current.y.max(p.y);
-                    current.z = current.z.max(p.z);
-                    current
-                });
-
-        Self {
-            positions,
-            texture_coords: vec![glm::Vec2::zeros(); obj.vertices.len()],
-            normals,
-            indices,
-            max_reach,
-        }
-    }
-
-    /// converts the obj file format into the required data structures
-    fn from_tex_obj(obj: Obj<TexturedVertex, GLuint>) -> Self {
-        // convert the data into the required format
-        let positions: Vec<glm::Vec3> = obj
-            .vertices
-            .iter()
-            .map(|vertex| glm::vec3(vertex.position[0], vertex.position[1], vertex.position[2]))
-            .collect();
-
-        let texture_coords: Vec<glm::Vec2> = obj
-            .vertices
-            .iter()
-            .map(|vertex| glm::vec2(vertex.texture[0], vertex.texture[1]))
-            .collect();
-
-        let normals: Vec<glm::Vec3> = obj
-            .vertices
-            .iter()
-            .map(|vertex| glm::vec3(vertex.normal[0], vertex.normal[1], vertex.normal[2]))
-            .collect();
-
-        let indices: Vec<GLuint> = obj.indices;
-        assert_eq!(indices.len() % 3, 0, "mesh has to be triangulated");
+    /// loads a mesh from loaded object file data
+    fn from_obj_data(obj: &tobj::Mesh) -> Self {
+        todo!();
 
         let max_reach =
             positions
@@ -600,8 +533,8 @@ impl Mesh {
 
         let mut vertices: Vec<glm::Vec3> = Vec::new();
         let mut faces = Vec::with_capacity(original_mesh_faces.len());
-        let mut triangle_map: HashMap<usize, HashSet<TriangleID>> = HashMap::new();
-        let mut windings: HashMap<TriangleID, [usize; 3]> = HashMap::new();
+        let mut triangle_map: AHashMap<usize, AHashSet<TriangleID>> = AHashMap::new();
+        let mut windings: AHashMap<TriangleID, [usize; 3]> = AHashMap::new();
 
         for (i, face) in original_mesh_faces.into_iter().enumerate() {
             let mut aos_indices = [0_usize; 3];
@@ -854,7 +787,7 @@ impl HitboxMesh {
     ) -> Vec<Vec<usize>> {
         let faces = faces.collect_vec();
         let mut point_sets = Vec::with_capacity(faces.len());
-        let mut points_used = HashSet::new();
+        let mut points_used = AHashSet::new();
 
         for face in faces {
             let (v1, v2, v3) = (
@@ -955,7 +888,12 @@ impl HitboxMesh {
 
     /// removes vertices that are not used by a face and corrects the face indices
     fn remove_unused_vertices(&mut self) {
-        let mut used_indices = self.faces.iter().flatten().copied().collect::<HashSet<_>>();
+        let mut used_indices = self
+            .faces
+            .iter()
+            .flatten()
+            .copied()
+            .collect::<AHashSet<_>>();
         for i in 0..self.vertices.len() {
             while !used_indices.contains(&i) && i < self.vertices.len() - 1 {
                 self.vertices.swap_remove(i);

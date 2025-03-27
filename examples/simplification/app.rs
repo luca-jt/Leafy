@@ -41,11 +41,7 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Plane,
                 mesh_attribute: MeshAttribute::Colored(Color32::GREEN),
-                material: Material {
-                    specular: 0.0,
-                    diffuse: 0.0,
-                    shininess: 0.0,
-                },
+                material: Material::default(),
             }
         ));
         self.mesh = entity_manager.create_entity(components!(
@@ -53,11 +49,7 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Custom(Path::new("examples/simplification/torus.obj").into()),
                 mesh_attribute: MeshAttribute::Colored(Color32::YELLOW),
-                material: Material {
-                    specular: 0.0,
-                    diffuse: 0.0,
-                    shininess: 0.0,
-                },
+                material: Material::default()
             },
             LOD::None
         ));

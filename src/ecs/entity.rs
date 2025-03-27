@@ -1,9 +1,9 @@
 use crate::ecs::component::utils::*;
 use crate::ecs::component::Component;
 use crate::{BumpBox, BumpVec};
+use ahash::AHashMap;
 use itertools::Itertools;
 use std::any::{Any, TypeId};
-use std::collections::HashMap;
 use std::ops::Index;
 use std::path::Path;
 use std::rc::Rc;
@@ -77,7 +77,7 @@ pub(crate) struct EntityRecord {
 /// archetype meta data
 pub(crate) struct Archetype {
     pub(crate) id: ArchetypeID,
-    pub(crate) components: HashMap<TypeId, BumpVec<'static, BumpBox<'static, dyn Component>>>,
+    pub(crate) components: AHashMap<TypeId, BumpVec<'static, BumpBox<'static, dyn Component>>>,
 }
 
 impl Archetype {

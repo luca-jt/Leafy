@@ -4,6 +4,7 @@ use crate::engine::EngineMode;
 use crate::systems::event_system::events::user_space::*;
 use crate::utils::file::HRTF_SPHERE;
 use crate::utils::tools::vec3_to_vector3;
+use ahash::AHashSet;
 use fyrox_resource::io::FsResourceIo;
 use fyrox_resource::untyped::ResourceKind;
 use fyrox_sound::buffer::{DataSource, SoundBufferResource, SoundBufferResourceExtension};
@@ -16,7 +17,6 @@ use fyrox_sound::pool::Handle;
 use fyrox_sound::renderer::hrtf::{HrirSphereResource, HrirSphereResourceExt, HrtfRenderer};
 use fyrox_sound::renderer::Renderer;
 use fyrox_sound::source::{SoundSource, SoundSourceBuilder, Status};
-use std::collections::HashSet;
 use std::path::Path;
 use std::time::Duration;
 
@@ -29,11 +29,11 @@ pub struct AudioSystem {
     _sound_engine: SoundEngine,
     sound_context: SoundContext,
     pitch_on_speed_change: bool,
-    active_effect_handles: HashSet<Handle<SoundSource>>,
-    active_music_handles: HashSet<Handle<SoundSource>>,
+    active_effect_handles: AHashSet<Handle<SoundSource>>,
+    active_music_handles: AHashSet<Handle<SoundSource>>,
     using_reverb: bool,
     using_hrtf: bool,
-    removed_handles: HashSet<Handle<SoundSource>>,
+    removed_handles: AHashSet<Handle<SoundSource>>,
 }
 
 impl AudioSystem {
@@ -51,11 +51,11 @@ impl AudioSystem {
             _sound_engine: sound_engine,
             sound_context,
             pitch_on_speed_change: true,
-            active_effect_handles: HashSet::new(),
-            active_music_handles: HashSet::new(),
+            active_effect_handles: AHashSet::new(),
+            active_music_handles: AHashSet::new(),
             using_reverb: false,
             using_hrtf: false,
-            removed_handles: HashSet::new(),
+            removed_handles: AHashSet::new(),
         }
     }
 
