@@ -18,14 +18,15 @@ shading type in component -> add styles like cell shading -> together in rendera
 object outlining with stencil buffer
 bloom
 
+dont automatically check for transparency in textures and use a flag in the texture in the components
 material, normal map and light map integration
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors, asset data arena allocator
 -> preload an entire scene obj file, store materials and meshes
 
 
 
-load an obj file from the entity manager. associated material files are automatically loaded (be aware of the path and where to store the loaded info) and textures are stored
-mesh type custom component contains the obj path and the model name
-materials are inherited or manual
-texture map contains more maps for different types of textures
+materials are inherited or manual -> add option to load from file
 use all texture types in the shaders
+entity manager asset commands for the new textures
+use the vertex colors in renderers and algorithms
+material register usage

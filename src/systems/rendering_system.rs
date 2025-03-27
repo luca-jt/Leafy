@@ -258,7 +258,7 @@ impl RenderingSystem {
                 },
                 trafo: &trafo,
                 m_attr: &renderable.mesh_attribute,
-                mesh: entity_manager.asset_from_type(&renderable.mesh_type, lod).unwrap(),
+                mesh: entity_manager.mesh_from_type(&renderable.mesh_type, lod).unwrap(),
                 tex_map: &entity_manager.texture_map,
                 transparent: match &renderable.mesh_attribute {
                     MeshAttribute::Colored(color) => color.a < 255,

@@ -7,8 +7,6 @@ use fyrox_sound::source::SoundSource;
 use gl::types::GLfloat;
 use std::any::Any;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-use std::path::Path;
-use std::rc::Rc;
 use utils::*;
 
 /// the trait that all components need to implement
@@ -502,10 +500,12 @@ impl Component for Sprite {}
 pub mod utils {
     use crate::glm;
     use crate::utils::tools::map_range;
+    use std::fmt::Debug;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::rc::Rc;
     use std::time::Instant;
+    use tobj::{self, load_mtl};
 
     /// efficient 32bit color representation
     #[repr(C)]
@@ -583,7 +583,10 @@ pub mod utils {
         Triangle,
         Plane,
         Cube,
-        Custom(Rc<Path>, Rc<str>),
+        Custom {
+            file_path: Rc<Path>,
+            model_name: &'static str,
+        },
     }
 
     /// wether or not a mesh is colored or textured
@@ -619,15 +622,69 @@ pub mod utils {
     /// Represents a material that influences the rendering of the entity. You can either specify custom parameters or inherit the material data from the ``.obj`` file of the ``MeshType`` of the entity.
     #[derive(Debug, PartialEq, Clone)]
     pub enum Material {
-        Inherit,
         Custom {
             ambient: Ambient,
             diffuse: Diffuse,
             specular: Specular,
-            spec_strength: f32,
             shininess: Shininess,
             normal_texture: Option<Rc<Path>>,
         },
+        Inherit,
+    }
+
+    impl Material {
+        /// loads material data from a ``.mtl`` file independantly from other asset files
+        pub fn from_mtl_file(file: impl AsRef<Path> + Debug, name: &'static str) -> Self {
+            let (materials, name_map) = load_mtl(file).expect("unable to load mtl");
+            let material_index = name_map
+                .get(&name.to_owned())
+                .expect("material with name '{name:?}' not found");
+            let mtl = &materials[*material_index];
+
+            Self::from_mtl(mtl)
+        }
+
+        /// convert a loaded ``.mtl`` file
+        pub(crate) fn from_mtl(mtl: &tobj::Material) -> Self {
+            Self::Custom {
+                ambient: mtl.ambient.map_or(
+                    mtl.ambient_texture
+                        .clone()
+                        .map_or_else(Ambient::default, |path| {
+                            Ambient::Texture(PathBuf::from(path).into())
+                        }),
+                    |color| Ambient::Value(Color32::from_float_rgb(color[0], color[1], color[2])),
+                ),
+                diffuse: mtl.diffuse.map_or(
+                    mtl.diffuse_texture
+                        .clone()
+                        .map_or_else(Diffuse::default, |path| {
+                            Diffuse::Texture(PathBuf::from(path).into())
+                        }),
+                    |color| Diffuse::Value(Color32::from_float_rgb(color[0], color[1], color[2])),
+                ),
+                specular: mtl.specular.map_or(
+                    mtl.specular_texture
+                        .clone()
+                        .map_or_else(Specular::default, |path| {
+                            Specular::Texture(PathBuf::from(path).into())
+                        }),
+                    |color| Specular::Value(Color32::from_float_rgb(color[0], color[1], color[2])),
+                ),
+                shininess: mtl.shininess.map_or(
+                    mtl.shininess_texture
+                        .clone()
+                        .map_or_else(Shininess::default, |path| {
+                            Shininess::Texture(PathBuf::from(path).into())
+                        }),
+                    |value| Shininess::Value(value),
+                ),
+                normal_texture: mtl
+                    .normal_texture
+                    .clone()
+                    .map(|path| PathBuf::from(path).into()),
+            }
+        }
     }
 
     impl Default for Material {
@@ -636,7 +693,6 @@ pub mod utils {
                 ambient: Ambient::default(),
                 diffuse: Diffuse::default(),
                 specular: Specular::default(),
-                spec_strength: 0.3,
                 shininess: Shininess::default(),
                 normal_texture: None,
             }
@@ -758,9 +814,8 @@ pub mod utils {
     }
 
     /// defines the color space for a texture
-    #[derive(Debug, PartialOrd, PartialEq, Copy, Clone, Hash, Eq, Default)]
+    #[derive(Debug, PartialOrd, PartialEq, Copy, Clone, Hash, Eq)]
     pub enum ColorSpace {
-        #[default]
         SRGBA,
         RGBA8,
     }

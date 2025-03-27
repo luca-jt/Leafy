@@ -9,12 +9,9 @@ use itertools::Itertools;
 use petgraph::stable_graph::{NodeIndex, StableUnGraph};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::fs::File;
 use std::io::BufReader;
 use std::ops::{Index, IndexMut};
-use std::path::Path;
-use std::rc::Rc;
-use tobj::{self, load_obj, load_obj_buf, GPU_LOAD_OPTIONS};
+use tobj::{self, load_obj_buf, GPU_LOAD_OPTIONS};
 
 /// identifier for a triangle in the AOS mesh, maps to triangles that only use the unique vertices
 type TriangleID = u64;
@@ -473,8 +470,9 @@ impl Ord for ErrorVertexPair {
 #[derive(Clone)]
 pub(crate) struct Mesh {
     pub(crate) positions: Vec<glm::Vec3>,
-    pub(crate) texture_coords: Vec<glm::Vec2>,
+    pub(crate) colors: Vec<glm::Vec3>,
     pub(crate) normals: Vec<glm::Vec3>,
+    pub(crate) texture_coords: Vec<glm::Vec2>,
     pub(crate) indices: Vec<GLuint>,
     pub(crate) max_reach: glm::Vec3,
 }
@@ -488,8 +486,13 @@ impl Mesh {
     }
 
     /// loads a mesh from loaded object file data
+    #[rustfmt::skip]
     fn from_obj_data(obj: &tobj::Mesh) -> Self {
-        todo!();
+        let positions = obj.positions.iter().copied().tuples().map(|(x, y, z)| glm::vec3(x, y, z)).collect_vec();
+        let colors = obj.vertex_color.iter().copied().tuples().map(|(r, g, b)| glm::vec3(r, g, b)).collect_vec();
+        let normals = obj.normals.iter().copied().tuples().map(|(x, y, z)| glm::vec3(x, y, z)).collect_vec();
+        let texture_coords = obj.texcoords.iter().copied().tuples().map(|(u, v)| glm::vec2(u, v)).collect_vec();
+        let indices = obj.indices.clone();
 
         let max_reach =
             positions
@@ -505,8 +508,9 @@ impl Mesh {
 
         Self {
             positions,
-            texture_coords,
+            colors,
             normals,
+            texture_coords,
             indices,
             max_reach,
         }

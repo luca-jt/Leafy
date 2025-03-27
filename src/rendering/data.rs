@@ -82,7 +82,7 @@ pub(crate) struct Vertex {
 pub(crate) struct TextureMap {
     textures: AHashMap<Texture, GLuint>,
     transparency_map: AHashMap<Texture, bool>,
-    render_textures: AHashMap<Rc<Path>, GLuint>,
+    material_textures: AHashMap<Rc<Path>, GLuint>,
 }
 
 impl TextureMap {
@@ -91,7 +91,7 @@ impl TextureMap {
         Self {
             textures: AHashMap::new(),
             transparency_map: AHashMap::new(),
-            render_textures: AHashMap::new(),
+            material_textures: AHashMap::new(),
         }
     }
 
@@ -110,8 +110,21 @@ impl TextureMap {
         self.transparency_map.insert(texture.clone(), transparent);
     }
 
+    /// loads a texture that is part of materials and is used in rendering
+    pub(crate) fn add_material_texture(&mut self, path: Rc<Path>) {
+        log::debug!("loaded material texture: {path:?}");
+        let image = stbi_load_u8_rgba(&path).expect("error loading texture");
+        let tex_id = generate_texture(
+            &image,
+            Filtering::Nearest,
+            Wrapping::default(),
+            ColorSpace::RGBA8,
+        );
+        self.material_textures.insert(path.clone(), tex_id);
+    }
+
     /// deletes a stored textures based on a function bool return
-    pub(crate) fn retain<F>(&mut self, mut f: F)
+    pub(crate) fn retain_textures<F>(&mut self, mut f: F)
     where
         F: FnMut(&Texture) -> bool,
     {
@@ -126,9 +139,29 @@ impl TextureMap {
         });
     }
 
+    /// deletes a stored material textures based on a function bool return
+    pub(crate) fn retain_material_textures<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&Rc<Path>) -> bool,
+    {
+        self.material_textures.retain(|path, id| {
+            let contains = f(path);
+            if !contains {
+                log::debug!("deleted material texture: {path:?}");
+                unsafe { gl::DeleteTextures(1, id) };
+            }
+            contains
+        });
+    }
+
     /// yields a texture id for given name
     pub(crate) fn get_tex_id(&self, texture: &Texture) -> Option<GLuint> {
         self.textures.get(texture).copied()
+    }
+
+    /// yields a material texture id for given name
+    pub(crate) fn get_material_tex_id(&self, path: &Rc<Path>) -> Option<GLuint> {
+        self.material_textures.get(path).copied()
     }
 
     /// returns wether or not the texture contains transparency (a < 255)
@@ -141,8 +174,12 @@ impl TextureMap {
         for texture in self.textures.values() {
             unsafe { gl::DeleteTextures(1, texture) };
         }
+        for texture in self.material_textures.values() {
+            unsafe { gl::DeleteTextures(1, texture) };
+        }
         self.textures.clear();
         self.transparency_map.clear();
+        self.material_textures.clear();
     }
 }
 

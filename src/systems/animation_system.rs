@@ -82,7 +82,7 @@ impl AnimationSystem {
                 .query9::<&mut Position, &mut Collider, Option<&Renderable>, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))
         }.map(|(p, coll, rndrbl, v, am, s, rb, f, o)| {
                 let mt_opt = rndrbl.map(|r| &r.mesh_type);
-                let mesh_opt = mt_opt.map(|mt| entity_manager.asset_from_type(mt, LOD::None).unwrap());
+                let mesh_opt = mt_opt.map(|mt| entity_manager.mesh_from_type(mt, LOD::None).unwrap());
                 let hitbox = entity_manager.hitbox_from_data(&coll.hitbox_type, mt_opt).unwrap();
                 let scale = s.copied().unwrap_or_default();
                 let scale_matrix = scale.scale_matrix() * coll.scale.scale_matrix();
