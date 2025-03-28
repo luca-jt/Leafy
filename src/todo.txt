@@ -22,11 +22,14 @@ dont automatically check for transparency in textures and use a flag in the text
 material, normal map and light map integration
 different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors, asset data arena allocator
 -> preload an entire scene obj file, store materials and meshes
+reducing the mesh clones in algorithms
+documentation
 
-
-
-materials are inherited or manual -> add option to load from file
 use all texture types in the shaders
 entity manager asset commands for the new textures
 use the vertex colors in renderers and algorithms
-material register usage
+material texture loading needs to be independant of the obj file loading because the materialsource can be created independantly
+only delete and load by scene -> asset cache instruction references entire scene and not an individual model
+correctly treat empty attribute vectors in the mesh loading -> maybe use optionals in the mesh
+a mesh has an optional material identifier stored that is used to lookup in the material register
+make shure that the paths for the materials and the material textures are fine

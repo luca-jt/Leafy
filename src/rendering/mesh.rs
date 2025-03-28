@@ -11,6 +11,7 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::io::BufReader;
 use std::ops::{Index, IndexMut};
+use std::rc::Rc;
 use tobj::{self, load_obj_buf, GPU_LOAD_OPTIONS};
 
 /// identifier for a triangle in the AOS mesh, maps to triangles that only use the unique vertices
@@ -475,6 +476,7 @@ pub(crate) struct Mesh {
     pub(crate) texture_coords: Vec<glm::Vec2>,
     pub(crate) indices: Vec<GLuint>,
     pub(crate) max_reach: glm::Vec3,
+    pub(crate) material_name: Option<Rc<str>>, // the presence of this means the material source can be inherited
 }
 
 impl Mesh {
@@ -482,12 +484,12 @@ impl Mesh {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
         let mut data = BufReader::new(bytes);
         let (models, _) = load_obj_buf(&mut data, &GPU_LOAD_OPTIONS, |_| unreachable!()).unwrap();
-        Self::from_obj_data(&models[0].mesh)
+        Self::from_obj_data(&models[0].mesh, None)
     }
 
     /// loads a mesh from loaded object file data
     #[rustfmt::skip]
-    fn from_obj_data(obj: &tobj::Mesh) -> Self {
+    pub(crate) fn from_obj_data(obj: &tobj::Mesh, material_name: Option<Rc<str>>) -> Self {
         let positions = obj.positions.iter().copied().tuples().map(|(x, y, z)| glm::vec3(x, y, z)).collect_vec();
         let colors = obj.vertex_color.iter().copied().tuples().map(|(r, g, b)| glm::vec3(r, g, b)).collect_vec();
         let normals = obj.normals.iter().copied().tuples().map(|(x, y, z)| glm::vec3(x, y, z)).collect_vec();
@@ -513,6 +515,7 @@ impl Mesh {
             texture_coords,
             indices,
             max_reach,
+            material_name
         }
     }
 

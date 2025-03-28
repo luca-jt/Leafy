@@ -14,7 +14,6 @@ use std::any::{Any, TypeId};
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::path::Path;
 use std::rc::Rc;
 use std::sync::{LazyLock, Mutex};
 use tobj::{load_obj, GPU_LOAD_OPTIONS};
@@ -48,7 +47,7 @@ pub struct EntityManager {
     pub(crate) ecs: UnsafeCell<ECS>,
     mesh_register: AHashMap<MeshType, Mesh>,
     lod_register: AHashMap<MeshType, [Mesh; 4]>,
-    material_register: AHashMap<Rc<Path>, Material>,
+    material_register: AHashMap<Rc<str>, Material>,
     pub(crate) texture_map: TextureMap,
     pub(crate) sprite_texture_map: SpriteTextureMap,
     hitbox_register: AHashMap<(HitboxType, Option<MeshType>), Hitbox>,
@@ -186,7 +185,7 @@ impl EntityManager {
         unsafe { &*self.ecs.get() }.entity_index.keys()
     }
 
-    /// makes mesh data available for a given mesh type
+    /// makes mesh data available for a given MeshType
     pub(crate) fn mesh_from_type(&self, mesh_type: &MeshType, lod: LOD) -> Option<&Mesh> {
         match lod {
             LOD::None => self.mesh_register.get(mesh_type),
@@ -213,40 +212,74 @@ impl EntityManager {
         while let Some(command) = self.commands.pop_front() {
             match command {
                 AssetCommand::AddRenderData(entity) => {
-                    // mesh data
                     if let Some(renderable) =
                         unsafe { &*self.ecs.get() }.get_component::<Renderable>(entity)
                     {
+                        // mesh data
                         if !self
                             .mesh_register
                             .keys()
-                            .any(|t| t == &renderable.mesh_type)
-                        // TODO !!! check only for file first
+                            .any(|t| t.has_same_mesh_origin(&renderable.mesh_type))
                         {
-                            let mesh = match &renderable.mesh_type {
-                                MeshType::Triangle => Mesh::from_bytes(TRIANGLE_MESH),
-                                MeshType::Plane => Mesh::from_bytes(PLANE_MESH),
-                                MeshType::Cube => Mesh::from_bytes(CUBE_MESH),
-                                MeshType::Custom {
-                                    file_path,
-                                    model_name,
-                                } => {
+                            match &renderable.mesh_type {
+                                MeshType::Triangle => {
+                                    self.mesh_register.insert(
+                                        renderable.mesh_type.clone(),
+                                        Mesh::from_bytes(TRIANGLE_MESH),
+                                    );
+                                }
+                                MeshType::Plane => {
+                                    self.mesh_register.insert(
+                                        renderable.mesh_type.clone(),
+                                        Mesh::from_bytes(PLANE_MESH),
+                                    );
+                                }
+                                MeshType::Cube => {
+                                    self.mesh_register.insert(
+                                        renderable.mesh_type.clone(),
+                                        Mesh::from_bytes(CUBE_MESH),
+                                    );
+                                }
+                                MeshType::Custom { file_path, .. } => {
                                     let (models, materials) =
                                         load_obj(file_path, &GPU_LOAD_OPTIONS)
                                             .expect("obj file load failed");
                                     let materials = materials.expect("material file load failed");
 
-                                    let tobj_mesh = models
-                                        .iter()
-                                        .find(|model| model.name.as_str() == *model_name)
-                                        .expect("no model with such name"); // maybe just load all of them in one loop and check the names on the fly
+                                    for model in models {
+                                        log::debug!(
+                                            "inserted mesh {:?} from file {:?} in register",
+                                            model.name,
+                                            file_path
+                                        );
 
-                                    todo!();
+                                        let mtl_name = model
+                                            .mesh
+                                            .material_id
+                                            .map(|index| materials[index].name.clone().into());
+
+                                        self.mesh_register.insert(
+                                            MeshType::Custom {
+                                                file_path: file_path.clone(),
+                                                model_name: model.name.into(),
+                                            },
+                                            Mesh::from_obj_data(&model.mesh, mtl_name),
+                                        );
+                                    }
+
+                                    for material in materials {
+                                        self.material_register.insert(
+                                            material.name.clone().into(),
+                                            Material::from_mtl(&material),
+                                        );
+                                        todo!("load the material textures");
+                                        log::debug!(
+                                            "inserted material {:?} in register",
+                                            material.name
+                                        );
+                                    }
                                 }
-                            };
-                            self.mesh_register
-                                .insert(renderable.mesh_type.clone(), mesh);
-                            log::debug!("inserted mesh in register: {:?}", renderable.mesh_type);
+                            }
                         }
 
                         // texture data
@@ -306,7 +339,7 @@ impl EntityManager {
                             .entry((collider.hitbox_type, opt_mesh_type.cloned()))
                             .or_insert_with(|| {
                                 log::debug!(
-                                    "inserted hitbox {:?} in register for mesh type {:?}",
+                                    "inserted hitbox {:?} in register for MeshType {:?}",
                                     collider.hitbox_type,
                                     opt_mesh_type
                                 );

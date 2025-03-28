@@ -3,7 +3,7 @@ use crate::ecs::component::Component;
 use crate::{BumpBox, BumpVec};
 use ahash::AHashMap;
 use itertools::Itertools;
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 use std::ops::Index;
 use std::path::Path;
 use std::rc::Rc;
@@ -84,27 +84,6 @@ impl Archetype {
     /// checks wether or not the archetype contains the given component
     pub(crate) fn contains<T: Component>(&self) -> bool {
         self.components.contains_key(&TypeId::of::<T>())
-    }
-}
-
-/// all basic functionality for storing components
-pub trait ComponentStorage {
-    /// checks if a certain component is stored
-    fn contains_component<T: Component>(&self) -> bool;
-    /// get a immutable reference to a stored component if present
-    fn component_data<T: Component>(&self) -> Option<&T>;
-}
-
-impl ComponentStorage for Vec<Box<dyn Component>> {
-    fn contains_component<T: Component>(&self) -> bool {
-        self.iter().any(|b| (&**b as &dyn Any).is::<T>())
-    }
-
-    fn component_data<T: Component>(&self) -> Option<&T> {
-        let i = self
-            .iter()
-            .position(|element| (element as &dyn Any).is::<T>())?;
-        (&**self.get(i).unwrap() as &dyn Any).downcast_ref::<T>()
     }
 }
 

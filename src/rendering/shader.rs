@@ -137,7 +137,7 @@ impl Drop for ShaderProgram {
 }
 
 /// holds all the shader data and loads them if needed
-pub struct ShaderCatalog {
+pub(crate) struct ShaderCatalog {
     batch_basic: ShaderProgram,
     instance_basic: ShaderProgram,
     batch_passthrough: ShaderProgram,
@@ -156,7 +156,7 @@ pub struct ShaderCatalog {
 
 impl ShaderCatalog {
     /// creates a new shader catalog
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let light_buffer = UniformBuffer::new(
             size_of::<LightConfig>()
                 + padding::<LightConfig>()

@@ -269,7 +269,7 @@ impl Default for AngularMomentum {
 pub struct Renderable {
     pub mesh_type: MeshType,
     pub mesh_attribute: MeshAttribute,
-    pub material: Material,
+    pub material: MaterialSource,
 }
 
 impl Component for Renderable {}
@@ -585,8 +585,21 @@ pub mod utils {
         Cube,
         Custom {
             file_path: Rc<Path>,
-            model_name: &'static str,
+            model_name: Rc<str>,
         },
+    }
+
+    impl MeshType {
+        /// Checks wether or not two MeshTypes have the same origin of mesh data (this is relevant for the mesh model loading in the entity manager). This is an 'adjustment' to the regular implementation of ``PartialEq``.
+        pub(crate) fn has_same_mesh_origin(&self, other: &MeshType) -> bool {
+            match self {
+                Self::Custom { file_path: f1, .. } => match other {
+                    Self::Custom { file_path: f2, .. } => f1 == f2,
+                    _ => false,
+                },
+                _ => self == other,
+            }
+        }
     }
 
     /// wether or not a mesh is colored or textured
@@ -621,32 +634,44 @@ pub mod utils {
 
     /// Represents a material that influences the rendering of the entity. You can either specify custom parameters or inherit the material data from the ``.obj`` file of the ``MeshType`` of the entity.
     #[derive(Debug, PartialEq, Clone)]
-    pub enum Material {
-        Custom {
-            ambient: Ambient,
-            diffuse: Diffuse,
-            specular: Specular,
-            shininess: Shininess,
-            normal_texture: Option<Rc<Path>>,
-        },
+    pub enum MaterialSource {
+        Custom(Material),
         Inherit,
     }
 
-    impl Material {
+    impl MaterialSource {
         /// loads material data from a ``.mtl`` file independantly from other asset files
-        pub fn from_mtl_file(file: impl AsRef<Path> + Debug, name: &'static str) -> Self {
+        pub fn from_mtl_file(file: impl AsRef<Path> + Debug, name: String) -> Self {
             let (materials, name_map) = load_mtl(file).expect("unable to load mtl");
             let material_index = name_map
-                .get(&name.to_owned())
+                .get(&name)
                 .expect("material with name '{name:?}' not found");
             let mtl = &materials[*material_index];
 
-            Self::from_mtl(mtl)
+            Self::Custom(Material::from_mtl(mtl))
         }
+    }
 
+    impl Default for MaterialSource {
+        fn default() -> Self {
+            Self::Custom(Material::default())
+        }
+    }
+
+    /// specific material data
+    #[derive(Debug, PartialEq, Clone)]
+    pub struct Material {
+        ambient: Ambient,
+        diffuse: Diffuse,
+        specular: Specular,
+        shininess: Shininess,
+        normal_texture: Option<Rc<Path>>,
+    }
+
+    impl Material {
         /// convert a loaded ``.mtl`` file
         pub(crate) fn from_mtl(mtl: &tobj::Material) -> Self {
-            Self::Custom {
+            Self {
                 ambient: mtl.ambient.map_or(
                     mtl.ambient_texture
                         .clone()
@@ -689,7 +714,7 @@ pub mod utils {
 
     impl Default for Material {
         fn default() -> Self {
-            Self::Custom {
+            Self {
                 ambient: Ambient::default(),
                 diffuse: Diffuse::default(),
                 specular: Specular::default(),
