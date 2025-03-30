@@ -52,22 +52,25 @@ impl AlgorithmMesh {
                 (positions.len() - 1) as GLuint,
             ]);
         }
+        let max_reach = self
+            .vertices
+            .iter()
+            .map(|v| v.abs())
+            .fold(ORIGIN, |mut current, p| {
+                current.x = current.x.max(p.x);
+                current.y = current.y.max(p.y);
+                current.z = current.z.max(p.z);
+                current
+            });
 
         Mesh {
             positions,
-            texture_coords: vec![glm::Vec2::zeros(); self.faces.len() * 3],
+            colors,
             normals,
+            texture_coords: vec![glm::Vec2::zeros(); self.faces.len() * 3],
             indices,
-            max_reach: self
-                .vertices
-                .iter()
-                .map(|v| v.abs())
-                .fold(ORIGIN, |mut current, p| {
-                    current.x = current.x.max(p.x);
-                    current.y = current.y.max(p.y);
-                    current.z = current.z.max(p.z);
-                    current
-                }),
+            max_reach,
+            material_name,
         }
     }
 

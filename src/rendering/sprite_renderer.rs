@@ -117,10 +117,7 @@ impl SpriteRenderer {
             };
             match &sprite.source {
                 SpriteSource::Sheet(src) => {
-                    let sheet = entity_manager
-                        .sprite_texture_map
-                        .get_sheet(&src.path)
-                        .unwrap();
+                    let sheet = entity_manager.texture_map.get_sheet(&src.path).unwrap();
                     let mut tex_coords = SPRITE_PLANE_UVS;
                     for coord in tex_coords.iter_mut() {
                         *coord = coord.component_mul(&glm::vec2(
@@ -143,10 +140,7 @@ impl SpriteRenderer {
                     self.add_color_sprite(*color, sprite.layer, trafo);
                 }
                 SpriteSource::Single(path) => {
-                    let tex_id = entity_manager
-                        .sprite_texture_map
-                        .get_sprite_id(path)
-                        .unwrap();
+                    let tex_id = entity_manager.texture_map.get_sprite_id(path).unwrap();
                     let config = SpriteConfig {
                         tex_id,
                         tex_coords: SPRITE_PLANE_UVS,

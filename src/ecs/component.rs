@@ -1,4 +1,4 @@
-use crate::ecs::entity_manager::ENTITY_ARENA_ALLOC;
+use crate::ecs::entity_manager::*;
 use crate::glm;
 use crate::utils::constants::*;
 use crate::BumpVec;
@@ -578,26 +578,22 @@ pub mod utils {
     }
 
     /// all of the known mesh types
-    #[derive(Debug, Clone, PartialOrd, PartialEq, Hash, Eq)]
+    #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Hash, Eq)]
     pub enum MeshType {
         Triangle,
         Plane,
         Cube,
-        Custom {
-            file_path: Rc<Path>,
-            model_name: Rc<str>,
-        },
+        Custom(MeshHandle),
     }
 
     impl MeshType {
-        /// Checks wether or not two MeshTypes have the same origin of mesh data (this is relevant for the mesh model loading in the entity manager). This is an 'adjustment' to the regular implementation of ``PartialEq``.
-        pub(crate) fn has_same_mesh_origin(&self, other: &MeshType) -> bool {
+        /// Maps the ``MeshType`` to the respective ``MeshHandle``.
+        pub(crate) fn mesh_handle(&self) -> MeshHandle {
             match self {
-                Self::Custom { file_path: f1, .. } => match other {
-                    Self::Custom { file_path: f2, .. } => f1 == f2,
-                    _ => false,
-                },
-                _ => self == other,
+                Self::Triangle => 1,
+                Self::Plane => 2,
+                Self::Cube => 3,
+                Self::Custom(handle) => handle,
             }
         }
     }
@@ -636,20 +632,8 @@ pub mod utils {
     #[derive(Debug, PartialEq, Clone)]
     pub enum MaterialSource {
         Custom(Material),
+        Named(Rc<str>),
         Inherit,
-    }
-
-    impl MaterialSource {
-        /// loads material data from a ``.mtl`` file independantly from other asset files
-        pub fn from_mtl_file(file: impl AsRef<Path> + Debug, name: String) -> Self {
-            let (materials, name_map) = load_mtl(file).expect("unable to load mtl");
-            let material_index = name_map
-                .get(&name)
-                .expect("material with name '{name:?}' not found");
-            let mtl = &materials[*material_index];
-
-            Self::Custom(Material::from_mtl(mtl))
-        }
     }
 
     impl Default for MaterialSource {

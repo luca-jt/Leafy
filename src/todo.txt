@@ -19,17 +19,13 @@ object outlining with stencil buffer
 bloom
 
 dont automatically check for transparency in textures and use a flag in the texture in the components
-material, normal map and light map integration
-different obj loader that also supports mtl files and support mtl files in the engine -> https://github.com/Twinklebear/tobj -> more meshes, skeletons, vertex colors, asset data arena allocator
--> preload an entire scene obj file, store materials and meshes
-reducing the mesh clones in algorithms
-documentation
-
-use all texture types in the shaders
-entity manager asset commands for the new textures
+asset data arena allocator
+documentation (make shure the content is correct as well) + log messages
+use all texture types and materials in the shaders
 use the vertex colors in renderers and algorithms
-material texture loading needs to be independant of the obj file loading because the materialsource can be created independantly
-only delete and load by scene -> asset cache instruction references entire scene and not an individual model
+material texture loading needs to be independant of the obj file loading because the materialsource can be created independantly -> material textures need to be able to be loaded manually as well, but are still automatically loaded from a reference in an obj file
 correctly treat empty attribute vectors in the mesh loading -> maybe use optionals in the mesh
 a mesh has an optional material identifier stored that is used to lookup in the material register
-make shure that the paths for the materials and the material textures are fine
+make shure that the paths for the materials and the material textures are fine -> the tobj strings are only the names
+replace panics with default returns and an error message in the logger when possible
+reduce use statements by having a pub(crate) prelude module
