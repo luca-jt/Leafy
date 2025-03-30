@@ -1,13 +1,8 @@
 use crate::ecs::entity_manager::*;
-use crate::glm;
-use crate::utils::constants::*;
-use crate::BumpVec;
+use crate::internal_prelude::*;
 use fyrox_sound::pool::Handle;
 use fyrox_sound::source::SoundSource;
-use gl::types::GLfloat;
-use std::any::Any;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-use utils::*;
 
 /// the trait that all components need to implement
 pub trait Component: Any {}
@@ -79,22 +74,22 @@ macro_rules! impl_basic_vec_ops {
             #[doc = stringify!($component)]
             #[doc = " for given input values"]
             pub const fn new(x: f32, y: f32, z: f32) -> Self {
-                Self(glm::Vec3::new(x, y, z))
+                Self(Vec3::new(x, y, z))
             }
 
             /// grants immutable access to the stored data
-            pub fn data(&self) -> &glm::Vec3 {
+            pub fn data(&self) -> &Vec3 {
                 &self.0
             }
 
             /// grants mutable access to the stored data
-            pub fn data_mut(&mut self) -> &mut glm::Vec3 {
+            pub fn data_mut(&mut self) -> &mut Vec3 {
                 &mut self.0
             }
         }
 
-        impl From<glm::Vec3> for $component {
-            fn from(value: glm::Vec3) -> Self {
+        impl From<Vec3> for $component {
+            fn from(value: Vec3) -> Self {
                 Self(value)
             }
         }
@@ -103,7 +98,7 @@ macro_rules! impl_basic_vec_ops {
 
 /// wrapper struct for an object scaling
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
-pub struct Scale(glm::Vec3);
+pub struct Scale(Vec3);
 
 impl Component for Scale {}
 
@@ -116,8 +111,8 @@ impl Scale {
     }
 
     /// calculates the scale matrix for the stored scalars
-    pub fn scale_matrix(&self) -> glm::Mat4 {
-        glm::scale(&glm::Mat4::identity(), &self.0)
+    pub fn scale_matrix(&self) -> Mat4 {
+        glm::scale(&Mat4::identity(), &self.0)
     }
 }
 
@@ -129,18 +124,18 @@ impl Default for Scale {
 
 /// used for object orientation in 3D space
 #[derive(Debug, Clone, PartialEq, Copy)]
-pub struct Orientation(pub glm::Quat);
+pub struct Orientation(pub Quat);
 
 impl Component for Orientation {}
 
 impl Orientation {
     /// creates a new orientation with angle in degrees around axis
-    pub fn new(angle: f32, axis: glm::Vec3) -> Self {
+    pub fn new(angle: f32, axis: Vec3) -> Self {
         Self(glm::quat_angle_axis(angle.to_radians(), &axis))
     }
 
     /// generates the rotation matrix for the stored quaternion
-    pub fn rotation_matrix(&self) -> glm::Mat4 {
+    pub fn rotation_matrix(&self) -> Mat4 {
         glm::quat_to_mat4(&self.0)
     }
 }
@@ -153,7 +148,7 @@ impl Default for Orientation {
 
 /// position in 3D space
 #[derive(Debug, Clone, PartialEq, Copy)]
-pub struct Position(glm::Vec3);
+pub struct Position(Vec3);
 
 impl Component for Position {}
 
@@ -162,7 +157,7 @@ impl_basic_vec_ops!(Position);
 impl Position {
     /// creates a new position at the coordinate origin
     pub const fn origin() -> Self {
-        Self(glm::Vec3::new(0.0, 0.0, 0.0))
+        Self(Vec3::new(0.0, 0.0, 0.0))
     }
 }
 
@@ -176,7 +171,7 @@ impl Default for Position {
 
 /// velocity in 3D space, enables physics system effects
 #[derive(Debug, Clone, PartialEq, Copy)]
-pub struct Velocity(glm::Vec3);
+pub struct Velocity(Vec3);
 
 impl Component for Velocity {}
 
@@ -185,7 +180,7 @@ impl_basic_vec_ops!(Velocity);
 impl Velocity {
     /// creates a new velocity filled with zeros
     pub const fn zero() -> Self {
-        Self(glm::Vec3::new(0.0, 0.0, 0.0))
+        Self(Vec3::new(0.0, 0.0, 0.0))
     }
 }
 
@@ -207,7 +202,7 @@ impl Default for Velocity {
 
 /// acceleration in 3D space
 #[derive(Debug, Clone, PartialEq, Copy)]
-pub struct Acceleration(glm::Vec3);
+pub struct Acceleration(Vec3);
 
 impl Component for Acceleration {}
 
@@ -216,7 +211,7 @@ impl_basic_vec_ops!(Acceleration);
 impl Acceleration {
     /// creates a new acceleration filled with zeros
     pub const fn zero() -> Self {
-        Self(glm::Vec3::new(0.0, 0.0, 0.0))
+        Self(Vec3::new(0.0, 0.0, 0.0))
     }
 }
 
@@ -238,7 +233,7 @@ impl Default for Acceleration {
 
 /// describes an angular momentum by the rotational axis (rhs rotation) and its length (momentum)
 #[derive(Debug, Clone, PartialEq, Copy)]
-pub struct AngularMomentum(glm::Vec3);
+pub struct AngularMomentum(Vec3);
 
 impl Component for AngularMomentum {}
 
@@ -247,11 +242,11 @@ impl_basic_vec_ops!(AngularMomentum);
 impl AngularMomentum {
     /// creates a new angular momentum filled with zeros
     pub const fn zero() -> Self {
-        Self(glm::Vec3::new(0.0, 0.0, 0.0))
+        Self(Vec3::new(0.0, 0.0, 0.0))
     }
 
     /// creates a new angular momentum from a given axis
-    pub fn from_axis(axis: glm::Vec3) -> Self {
+    pub fn from_axis(axis: Vec3) -> Self {
         Self(axis)
     }
 }
@@ -278,8 +273,8 @@ impl Component for Renderable {}
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct RigidBody {
     pub(crate) density: f32,
-    pub(crate) inv_inertia_tensor: glm::Mat3,
-    pub(crate) center_of_mass: glm::Vec3,
+    pub(crate) inv_inertia_tensor: Mat3,
+    pub(crate) center_of_mass: Vec3,
     pub(crate) mass: f32,
     pub(crate) friction: f32,
     pub(crate) restitution: f32,
@@ -311,7 +306,7 @@ impl Default for RigidBody {
     fn default() -> Self {
         Self {
             density: 1.0,
-            inv_inertia_tensor: glm::Mat3::identity(),
+            inv_inertia_tensor: Mat3::identity(),
             center_of_mass: ORIGIN,
             mass: 1.0,
             friction: 0.5,
@@ -325,7 +320,7 @@ impl Default for RigidBody {
 pub struct SoundController {
     pub handles: BumpVec<'static, Handle<SoundSource>>,
     pub(crate) doppler_pitch: f64,
-    pub(crate) last_pos: glm::Vec3,
+    pub(crate) last_pos: Vec3,
 }
 
 impl Component for SoundController {}
@@ -363,7 +358,7 @@ impl SoundController {
 #[derive(Debug, Clone)]
 pub struct Collider {
     pub(crate) hitbox_type: HitboxType,
-    pub(crate) offset: glm::Vec3,
+    pub(crate) offset: Vec3,
     pub(crate) scale: Scale,
     pub(crate) last_collisions: BumpVec<'static, CollisionInfo>,
 }
@@ -375,6 +370,7 @@ impl Collider {
     pub fn new(hitbox_type: HitboxType) -> Self {
         let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
         let arena = unsafe { &*(arena_lock.get()) };
+
         Self {
             hitbox_type,
             offset: ORIGIN,
@@ -384,7 +380,7 @@ impl Collider {
     }
 
     /// sets the offset of the hitbox
-    pub fn with_offset(mut self, offset: glm::Vec3) -> Self {
+    pub fn with_offset(mut self, offset: Vec3) -> Self {
         self.offset = offset;
         self
     }
@@ -426,7 +422,7 @@ impl Default for PointLight {
 pub struct DirectionalLight {
     pub color: Color32,
     pub intensity: GLfloat,
-    pub direction: glm::Vec3,
+    pub direction: Vec3,
 }
 
 impl Component for DirectionalLight {}
@@ -498,14 +494,9 @@ impl Component for Sprite {}
 
 /// data structures that are not internally useful as a sole component but might have purpose in relation to other components
 pub mod utils {
-    use crate::glm;
-    use crate::utils::tools::map_range;
-    use std::fmt::Debug;
+    use crate::internal_prelude::*;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-    use std::path::{Path, PathBuf};
-    use std::rc::Rc;
-    use std::time::Instant;
-    use tobj::{self, load_mtl};
+    use tobj;
 
     /// efficient 32bit color representation
     #[repr(C)]
@@ -561,13 +552,13 @@ pub mod utils {
         }
 
         /// converts to a float rgba vector
-        pub fn to_vec4(&self) -> glm::Vec4 {
+        pub fn to_vec4(&self) -> Vec4 {
             let r = self.r as f32 / 255.0;
             let g = self.g as f32 / 255.0;
             let b = self.b as f32 / 255.0;
             let a = self.a as f32 / 255.0;
 
-            glm::vec4(r, g, b, a)
+            vec4(r, g, b, a)
         }
     }
 
@@ -587,13 +578,13 @@ pub mod utils {
     }
 
     impl MeshType {
-        /// Maps the ``MeshType`` to the respective ``MeshHandle``.
-        pub(crate) fn mesh_handle(&self) -> MeshHandle {
+        /// Maps the ``MeshType`` to the respective ``MeshHandle``. This is e.g. useful to access built-in mesh data.
+        pub fn mesh_handle(&self) -> MeshHandle {
             match self {
                 Self::Triangle => 1,
                 Self::Plane => 2,
                 Self::Cube => 3,
-                Self::Custom(handle) => handle,
+                Self::Custom(handle) => *handle,
             }
         }
     }
@@ -613,7 +604,7 @@ pub mod utils {
                 Self::Colored(color) => Some(*color),
             }
         }
-        /// returns the texture path if present
+        /// returns the texture if present
         pub fn texture(&self) -> Option<&Texture> {
             match self {
                 Self::Textured(texture) => Some(texture),
@@ -632,7 +623,7 @@ pub mod utils {
     #[derive(Debug, PartialEq, Clone)]
     pub enum MaterialSource {
         Custom(Material),
-        Named(Rc<str>),
+        Named(String),
         Inherit,
     }
 
@@ -645,11 +636,11 @@ pub mod utils {
     /// specific material data
     #[derive(Debug, PartialEq, Clone)]
     pub struct Material {
-        ambient: Ambient,
-        diffuse: Diffuse,
-        specular: Specular,
-        shininess: Shininess,
-        normal_texture: Option<Rc<Path>>,
+        pub ambient: Ambient,
+        pub diffuse: Diffuse,
+        pub specular: Specular,
+        pub shininess: Shininess,
+        pub normal_texture: Option<String>,
     }
 
     impl Material {
@@ -659,39 +650,28 @@ pub mod utils {
                 ambient: mtl.ambient.map_or(
                     mtl.ambient_texture
                         .clone()
-                        .map_or_else(Ambient::default, |path| {
-                            Ambient::Texture(PathBuf::from(path).into())
-                        }),
+                        .map_or_else(Ambient::default, |path| Ambient::Texture(path)),
                     |color| Ambient::Value(Color32::from_float_rgb(color[0], color[1], color[2])),
                 ),
                 diffuse: mtl.diffuse.map_or(
                     mtl.diffuse_texture
                         .clone()
-                        .map_or_else(Diffuse::default, |path| {
-                            Diffuse::Texture(PathBuf::from(path).into())
-                        }),
+                        .map_or_else(Diffuse::default, |path| Diffuse::Texture(path)),
                     |color| Diffuse::Value(Color32::from_float_rgb(color[0], color[1], color[2])),
                 ),
                 specular: mtl.specular.map_or(
                     mtl.specular_texture
                         .clone()
-                        .map_or_else(Specular::default, |path| {
-                            Specular::Texture(PathBuf::from(path).into())
-                        }),
+                        .map_or_else(Specular::default, |path| Specular::Texture(path)),
                     |color| Specular::Value(Color32::from_float_rgb(color[0], color[1], color[2])),
                 ),
                 shininess: mtl.shininess.map_or(
                     mtl.shininess_texture
                         .clone()
-                        .map_or_else(Shininess::default, |path| {
-                            Shininess::Texture(PathBuf::from(path).into())
-                        }),
+                        .map_or_else(Shininess::default, |path| Shininess::Texture(path)),
                     |value| Shininess::Value(value),
                 ),
-                normal_texture: mtl
-                    .normal_texture
-                    .clone()
-                    .map(|path| PathBuf::from(path).into()),
+                normal_texture: mtl.normal_texture.clone(),
             }
         }
     }
@@ -708,11 +688,11 @@ pub mod utils {
         }
     }
 
-    /// ambient color
+    /// ambient color, stores either a color value or the texture name
     #[derive(Debug, PartialEq, Clone)]
     pub enum Ambient {
         Value(Color32),
-        Texture(Rc<Path>),
+        Texture(String),
     }
 
     impl Default for Ambient {
@@ -725,7 +705,7 @@ pub mod utils {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Diffuse {
         Value(Color32),
-        Texture(Rc<Path>),
+        Texture(String),
     }
 
     impl Default for Diffuse {
@@ -738,7 +718,7 @@ pub mod utils {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Specular {
         Value(Color32),
-        Texture(Rc<Path>),
+        Texture(String),
     }
 
     impl Default for Specular {
@@ -751,7 +731,7 @@ pub mod utils {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Shininess {
         Value(f32),
-        Texture(Rc<Path>),
+        Texture(String),
     }
 
     impl Default for Shininess {
@@ -802,6 +782,20 @@ pub mod utils {
         pub filtering: Filtering,
         pub wrapping: Wrapping,
         pub color_space: ColorSpace,
+        pub is_transparent: bool,
+    }
+
+    impl Texture {
+        /// Creates a texture component with default attributes from a source path.
+        pub fn default_from_path(path: Rc<Path>) -> Self {
+            Self {
+                path,
+                filtering: Filtering::default(),
+                wrapping: Wrapping::default(),
+                color_space: ColorSpace::RGBA8,
+                is_transparent: false,
+            }
+        }
     }
 
     /// texture filtering option for rendering
@@ -841,9 +835,9 @@ pub mod utils {
     /// stores info about the last frames' collisions in the ``Collider`` component
     #[derive(Debug, Copy, Clone)]
     pub struct CollisionInfo {
-        pub momentum: glm::Vec3,
-        pub point: glm::Vec3,
-        pub normal: glm::Vec3,
+        pub momentum: Vec3,
+        pub point: Vec3,
+        pub normal: Vec3,
     }
 
     /// defines on what depth layer the sprite will be rendered on (``Layer0`` is nearest)
@@ -887,7 +881,7 @@ pub mod utils {
     /// sprite position on a defined grid or in absolute values
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub enum SpritePosition {
-        Grid(glm::Vec2),
-        Absolute(glm::Vec2),
+        Grid(Vec2),
+        Absolute(Vec2),
     }
 }

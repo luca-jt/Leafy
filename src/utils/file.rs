@@ -1,9 +1,7 @@
 #![cfg_attr(rustfmt, rustfmt_skip)]
 
-use crate::glm;
-use gl::types::GLuint;
+use crate::internal_prelude::*;
 use stb_image::image::{load_with_depth, Image, LoadResult};
-use std::path::Path;
 
 // directory paths
 macro_rules! shader_path {
@@ -111,17 +109,17 @@ pub(crate) const SCREEN_TRIANGLE_VERTICES: [f32; 15] = [
     -1.0,  3.0, 0.0, 0.0, 2.0
 ];
 
-pub(crate) const SPRITE_PLANE_VERTICES: [glm::Vec3; 4] = [
-    glm::Vec3::new(-0.5, -0.5, 0.0),
-    glm::Vec3::new(0.5, 0.5, 0.0),
-    glm::Vec3::new(-0.5, 0.5, 0.0),
-    glm::Vec3::new(0.5, -0.5, 0.0),
+pub(crate) const SPRITE_PLANE_VERTICES: [Vec3; 4] = [
+    Vec3::new(-0.5, -0.5, 0.0),
+    Vec3::new(0.5, 0.5, 0.0),
+    Vec3::new(-0.5, 0.5, 0.0),
+    Vec3::new(0.5, -0.5, 0.0),
 ];
-pub(crate) const SPRITE_PLANE_UVS: [glm::Vec2; 4] = [
-    glm::Vec2::new(0.0, 1.0),
-    glm::Vec2::new(1.0, 0.0),
-    glm::Vec2::new(0.0, 0.0),
-    glm::Vec2::new(1.0, 1.0),
+pub(crate) const SPRITE_PLANE_UVS: [Vec2; 4] = [
+    Vec2::new(0.0, 1.0),
+    Vec2::new(1.0, 0.0),
+    Vec2::new(0.0, 0.0),
+    Vec2::new(1.0, 1.0),
 ];
 pub(crate) const SPRITE_PLANE_INDICES: [GLuint; 6] = [0, 1, 2, 0, 3, 1];
 

@@ -1,6 +1,4 @@
-use crate::engine_builder::EngineAttributes;
-use crate::systems::event_system::events::WindowResize;
-use gl::types::{GLint, GLsizei};
+use crate::internal_prelude::*;
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{
     ContextApi, ContextAttributesBuilder, GlProfile, NotCurrentContext, PossiblyCurrentContext,
@@ -11,11 +9,8 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SwapInterval, WindowSurface};
 use glutin_winit::{DisplayBuilder, GlWindow};
 use raw_window_handle::HasWindowHandle;
-use std::cell::Cell;
-use std::error::Error;
 use std::ffi::{CStr, CString};
 use std::num::NonZeroU32;
-use std::time::{Duration, Instant};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{CursorGrabMode, CursorIcon, Fullscreen, Window};

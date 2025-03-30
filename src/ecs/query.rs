@@ -1,11 +1,8 @@
-use crate::ecs::component::Component;
 use crate::ecs::entity::{Archetype, ArchetypeID};
 use crate::ecs::entity_manager::{EntityManager, ECS};
-use crate::BumpBox;
-use std::any::{Any, TypeId};
+use crate::internal_prelude::*;
 use std::collections::hash_map::ValuesMut;
 use std::iter::Filter;
-use std::marker::PhantomData;
 
 /// used internally for query macros (should not be implemented elsewhere)
 pub trait QueryType<'a>: 'static {

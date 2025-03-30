@@ -1,28 +1,19 @@
-use crate::ecs::component::utils::CollisionInfo;
-use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
-use crate::engine::{Engine, FallingLeafApp};
+use crate::internal_prelude::*;
 use crate::rendering::data::calc_model_matrix;
 use crate::rendering::mesh::Hitbox;
-use crate::systems::event_system::events::user_space::*;
 use crate::utils::constants::bits::internal::*;
 use crate::utils::constants::bits::user_level::*;
-use crate::utils::constants::*;
-use crate::utils::tools::*;
-use crate::{glm, include_filter};
-use ahash::AHashSet;
 use fyrox_sound::math::get_barycentric_coords;
-use itertools::Itertools;
-use std::ops::DerefMut;
 use winit::keyboard::KeyCode;
 
 pub struct AnimationSystem {
     pub(crate) animation_speed: f32,
     gravity: Acceleration,
-    pub(crate) flying_cam_dir: Option<(glm::Vec3, f32)>,
+    pub(crate) flying_cam_dir: Option<(Vec3, f32)>,
     pub(crate) flying_cam_keys: MovementKeys,
-    pub(crate) curr_cam_pos: glm::Vec3,
-    pub(crate) prev_cam_pos: glm::Vec3,
+    pub(crate) curr_cam_pos: Vec3,
+    pub(crate) prev_cam_pos: Vec3,
 }
 
 impl AnimationSystem {
@@ -81,12 +72,12 @@ impl AnimationSystem {
             entity_manager
                 .query9::<&mut Position, &mut Collider, Option<&Renderable>, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))
         }.map(|(p, coll, rndrbl, v, am, s, rb, f, o)| {
-                let mt_opt = rndrbl.map(|r| &r.mesh_type);
-                let mesh_opt = mt_opt.map(|mt| entity_manager.mesh_from_type(mt, LOD::None).unwrap());
-                let hitbox = entity_manager.hitbox_from_data(&coll.hitbox_type, mt_opt).unwrap();
+                let handle_opt = rndrbl.map(|r| r.mesh_type.mesh_handle());
+                let mesh_opt = handle_opt.map(|handle| entity_manager.mesh_from_handle(handle, LOD::None).unwrap());
+                let hitbox = entity_manager.hitbox_from_data(coll.hitbox_type, handle_opt).unwrap();
                 let scale = s.copied().unwrap_or_default();
                 let scale_matrix = scale.scale_matrix() * coll.scale.scale_matrix();
-                let coll_reach = mesh_opt.map(|m| m.max_reach).unwrap_or(glm::Vec3::from_element(1.0)) + coll.offset.abs();
+                let coll_reach = mesh_opt.map(|m| m.max_reach).unwrap_or(Vec3::from_element(1.0)) + coll.offset.abs();
                 coll.last_collisions.clear();
                 (
                     p,
@@ -459,7 +450,7 @@ impl AnimationSystem {
                 self.flying_cam_dir = None;
             }
             Some(s) => {
-                self.flying_cam_dir = Some((glm::Vec3::zeros(), s));
+                self.flying_cam_dir = Some((Vec3::zeros(), s));
             }
         }
     }
@@ -500,16 +491,16 @@ pub struct MovementKeys {
 }
 
 /// checks if two broad oject areas represented as spheres at two positions collide
-fn spheres_collide(pos1: &glm::Vec3, radius1: f32, pos2: &glm::Vec3, radius2: f32) -> bool {
+fn spheres_collide(pos1: &Vec3, radius1: f32, pos2: &Vec3, radius2: f32) -> bool {
     (pos1 - pos2).norm() < radius1 + radius2
 }
 
 /// contains collision plane normal vector, the point of the collision and the minimal translation vector
 #[derive(Debug, Copy, Clone)]
 struct CollisionData {
-    collision_normal: glm::Vec3,
-    collision_point: glm::Vec3,
-    translation_vec: glm::Vec3,
+    collision_normal: Vec3,
+    collision_point: Vec3,
+    translation_vec: Vec3,
 }
 
 /// collider data that is used in collision checking
@@ -517,7 +508,7 @@ struct ColliderData<'a> {
     position: Position,
     scale: Scale,
     orientation: Orientation,
-    center_of_mass: glm::Vec3,
+    center_of_mass: Vec3,
     hitbox: &'a Hitbox,
     collider: &'a Collider,
     is_dynamic: bool,
@@ -529,10 +520,10 @@ impl ColliderData<'_> {
         match self.hitbox {
             Hitbox::ConvexMesh(_) => None,
             Hitbox::Sphere(radius) => {
-                let mass_offset = glm::translate(&glm::Mat4::identity(), &self.center_of_mass);
+                let mass_offset = glm::translate(&Mat4::identity(), &self.center_of_mass);
                 let inv_mass_offset = mass_offset.try_inverse().unwrap();
                 Some(SphereColliderSpec {
-                    scale_dimensions: glm::Vec3::from_element(*radius)
+                    scale_dimensions: Vec3::from_element(*radius)
                         .component_mul(self.scale.data())
                         .component_mul(self.collider.scale.data()),
                     collider_pos: self.position.data() + self.collider.offset,
@@ -557,7 +548,7 @@ impl ColliderData<'_> {
                 Some(MeshColliderSpec {
                     transform: model
                         * self.collider.scale.scale_matrix()
-                        * glm::translate(&glm::Mat4::identity(), &self.collider.offset),
+                        * glm::translate(&Mat4::identity(), &self.collider.offset),
                     points: &mesh.vertices,
                 })
             }
@@ -598,18 +589,18 @@ impl ColliderData<'_> {
 
 /// allows to find the furthest point in a given direction of a collider generially
 trait ColliderSpec {
-    fn find_furthest_point(&self, direction: &glm::Vec3) -> glm::Vec3;
+    fn find_furthest_point(&self, direction: &Vec3) -> Vec3;
 }
 
 /// specification for a sphere collider used in collision detection
 struct SphereColliderSpec {
-    scale_dimensions: glm::Vec3,
-    collider_pos: glm::Vec3,
-    rotation_mat: glm::Mat4,
+    scale_dimensions: Vec3,
+    collider_pos: Vec3,
+    rotation_mat: Mat4,
 }
 
 impl ColliderSpec for SphereColliderSpec {
-    fn find_furthest_point(&self, direction: &glm::Vec3) -> glm::Vec3 {
+    fn find_furthest_point(&self, direction: &Vec3) -> Vec3 {
         let local_direction = mult_mat4_vec3(&self.rotation_mat.transpose(), direction);
         let stretch_factor = 1.0
             / ((local_direction.x * local_direction.x)
@@ -626,12 +617,12 @@ impl ColliderSpec for SphereColliderSpec {
 
 /// specification for a mesh collider used in collision detection
 struct MeshColliderSpec<'a> {
-    transform: glm::Mat4,
-    points: &'a Vec<glm::Vec3>,
+    transform: Mat4,
+    points: &'a Vec<Vec3>,
 }
 
 impl ColliderSpec for MeshColliderSpec<'_> {
-    fn find_furthest_point(&self, direction: &glm::Vec3) -> glm::Vec3 {
+    fn find_furthest_point(&self, direction: &Vec3) -> Vec3 {
         self.points
             .iter()
             .map(|point| mult_mat4_vec3(&self.transform, point))
@@ -813,10 +804,7 @@ fn reconstruct_polytope(
 }
 
 /// finds the currently minimal face data in the EPA algorithm (face_idx, normal, distance)
-fn find_min_data(
-    polytope: &[SupportData],
-    faces: &[(usize, usize, usize)],
-) -> (usize, glm::Vec3, f32) {
+fn find_min_data(polytope: &[SupportData], faces: &[(usize, usize, usize)]) -> (usize, Vec3, f32) {
     faces
         .iter()
         .enumerate()
@@ -836,7 +824,7 @@ fn find_min_data(
 }
 
 /// dispatcher of the different simplex cases that modify the current state of the GJK algorithm
-fn solve_simplex(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+fn solve_simplex(simplex: &mut Simplex, direction: &mut Vec3) -> bool {
     match simplex.size {
         2 => solve_line(simplex, direction),
         3 => solve_triangle(simplex, direction),
@@ -846,7 +834,7 @@ fn solve_simplex(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
 }
 
 /// handles the line simplex case in GJK
-fn solve_line(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+fn solve_line(simplex: &mut Simplex, direction: &mut Vec3) -> bool {
     let a = simplex.points[0];
     let b = simplex.points[1];
     let ab = b.support - a.support;
@@ -862,7 +850,7 @@ fn solve_line(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
 }
 
 /// handles the traingle simplex case in GJK
-fn solve_triangle(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+fn solve_triangle(simplex: &mut Simplex, direction: &mut Vec3) -> bool {
     let a = simplex.points[0];
     let b = simplex.points[1];
     let c = simplex.points[2];
@@ -892,7 +880,7 @@ fn solve_triangle(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
 }
 
 /// handles the tetrahedron simplex case in GJK
-fn solve_tetrahedron(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
+fn solve_tetrahedron(simplex: &mut Simplex, direction: &mut Vec3) -> bool {
     let a = simplex.points[0];
     let b = simplex.points[1];
     let c = simplex.points[2];
@@ -921,7 +909,7 @@ fn solve_tetrahedron(simplex: &mut Simplex, direction: &mut glm::Vec3) -> bool {
 fn support(
     collider1: &impl ColliderSpec,
     collider2: &impl ColliderSpec,
-    direction: &glm::Vec3,
+    direction: &Vec3,
 ) -> SupportData {
     let fp1 = collider1.find_furthest_point(direction);
     let fp2 = collider2.find_furthest_point(&(-direction));
@@ -934,12 +922,12 @@ fn support(
 /// support data of the Minkowski difference that contains both the support point and the furthest point of collider 1
 #[derive(Debug, Default, Copy, Clone)]
 struct SupportData {
-    support: glm::Vec3,
-    fp1: glm::Vec3,
+    support: Vec3,
+    fp1: Vec3,
 }
 
 /// computes the normal vector of a tetrahedron face in outward direction in the GJK algorithm
-fn outward_normal(a: glm::Vec3, b: glm::Vec3, c: glm::Vec3, inward_point: glm::Vec3) -> glm::Vec3 {
+fn outward_normal(a: Vec3, b: Vec3, c: Vec3, inward_point: Vec3) -> Vec3 {
     let normal = (b - a).cross(&(c - a));
     if !same_direction(&normal, &(a - inward_point)) {
         return -normal;

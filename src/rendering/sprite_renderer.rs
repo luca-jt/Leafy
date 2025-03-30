@@ -1,14 +1,7 @@
-use crate::ecs::component::utils::{Color32, SpriteLayer, SpritePosition, SpriteSource};
-use crate::ecs::component::*;
 use crate::ecs::entity_manager::EntityManager;
-use crate::glm;
+use crate::internal_prelude::*;
 use crate::rendering::shader::bind_sprite_attribs;
 use crate::utils::constants::bits::user_level::INVISIBLE;
-use crate::utils::constants::MAX_TEXTURE_COUNT;
-use crate::utils::file::{SPRITE_PLANE_INDICES, SPRITE_PLANE_UVS, SPRITE_PLANE_VERTICES};
-use crate::utils::tools::mult_mat4_vec3;
-use ahash::AHashSet;
-use gl::types::*;
 use std::ptr;
 
 const PLANE_MESH_NUM_VERTICES: usize = 4;
@@ -105,14 +98,14 @@ impl SpriteRenderer {
                 SpritePosition::Grid(pos) => {
                     let grid = self.grids[sprite.layer as usize];
                     let abs_pos = (pos - grid.center) * grid.scale;
-                    let position = glm::vec3(abs_pos.x, abs_pos.y, sprite.layer.to_z_coord());
-                    &(glm::translate(&glm::Mat4::identity(), &position)
+                    let position = vec3(abs_pos.x, abs_pos.y, sprite.layer.to_z_coord());
+                    &(glm::translate(&Mat4::identity(), &position)
                         * scale
                         * Scale::from_factor(grid.scale).scale_matrix())
                 }
                 SpritePosition::Absolute(abs_pos) => {
-                    let position = glm::vec3(abs_pos.x, abs_pos.y, sprite.layer.to_z_coord());
-                    &(glm::translate(&glm::Mat4::identity(), &position) * scale)
+                    let position = vec3(abs_pos.x, abs_pos.y, sprite.layer.to_z_coord());
+                    &(glm::translate(&Mat4::identity(), &position) * scale)
                 }
             };
             match &sprite.source {
@@ -120,10 +113,10 @@ impl SpriteRenderer {
                     let sheet = entity_manager.texture_map.get_sheet(&src.path).unwrap();
                     let mut tex_coords = SPRITE_PLANE_UVS;
                     for coord in tex_coords.iter_mut() {
-                        *coord = coord.component_mul(&glm::vec2(
+                        *coord = coord.component_mul(&vec2(
                             src.pixel_size.0 as f32 / sheet.width as f32,
                             src.pixel_size.1 as f32 / sheet.height as f32,
-                        )) + glm::vec2(
+                        )) + vec2(
                             src.pixel_index.0 as f32 / sheet.width as f32,
                             src.pixel_index.1 as f32 / sheet.height as f32,
                         );
@@ -154,12 +147,7 @@ impl SpriteRenderer {
     }
 
     /// adds a sprite with a plain color
-    pub(crate) fn add_color_sprite(
-        &mut self,
-        color: Color32,
-        layer: SpriteLayer,
-        trafo: &glm::Mat4,
-    ) {
+    pub(crate) fn add_color_sprite(&mut self, color: Color32, layer: SpriteLayer, trafo: &Mat4) {
         self.used_batch_indices[layer as usize].insert(0);
         if self.renderer_map[layer as usize].is_empty() {
             self.renderer_map[layer as usize].push(SpriteBatch::new());
@@ -372,7 +360,7 @@ impl SpriteBatch {
         for i in 0..PLANE_MESH_NUM_VERTICES {
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = SpriteVertex {
                 position: mult_mat4_vec3(config.trafo, &SPRITE_PLANE_VERTICES[i]),
-                color: glm::vec4(1.0, 1.0, 1.0, 1.0),
+                color: vec4(1.0, 1.0, 1.0, 1.0),
                 uv_coords: config.tex_coords[i],
                 tex_index,
             };
@@ -383,7 +371,7 @@ impl SpriteBatch {
     }
 
     /// adds a sprite with a color to the batch
-    fn add_color_sprite(&mut self, trafo: &glm::Mat4, color: Color32) {
+    fn add_color_sprite(&mut self, trafo: &Mat4, color: Color32) {
         if self.index_count as usize >= PLANE_MESH_NUM_INDICES * self.max_num_meshes {
             // resize current batch if batch size exceeded
             self.resize_buffer();
@@ -420,18 +408,18 @@ impl Drop for SpriteBatch {
 #[derive(Default, Clone, Copy, Debug)]
 #[repr(C)]
 pub(crate) struct SpriteVertex {
-    pub(crate) position: glm::Vec3,
-    pub(crate) color: glm::Vec4,
-    pub(crate) uv_coords: glm::Vec2,
+    pub(crate) position: Vec3,
+    pub(crate) color: Vec4,
+    pub(crate) uv_coords: Vec2,
     pub(crate) tex_index: GLfloat,
 }
 
 /// the sprite render config for the renderer
 pub(crate) struct SpriteConfig<'a> {
     pub(crate) tex_id: GLuint,
-    pub(crate) tex_coords: [glm::Vec2; 4],
+    pub(crate) tex_coords: [Vec2; 4],
     pub(crate) layer: SpriteLayer,
-    pub(crate) trafo: &'a glm::Mat4,
+    pub(crate) trafo: &'a Mat4,
 }
 
 /// data associated with one sprite sheet
@@ -445,14 +433,14 @@ pub(crate) struct SpriteSheet {
 #[derive(Debug, Copy, Clone)]
 pub struct SpriteGrid {
     pub scale: f32,
-    pub center: glm::Vec2,
+    pub center: Vec2,
 }
 
 impl Default for SpriteGrid {
     fn default() -> Self {
         Self {
             scale: 1.0,
-            center: glm::vec2(0.0, 0.0),
+            center: vec2(0.0, 0.0),
         }
     }
 }

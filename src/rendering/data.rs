@@ -1,15 +1,7 @@
-use crate::ecs::component::utils::*;
-use crate::ecs::component::*;
-use crate::glm;
+use crate::internal_prelude::*;
 use crate::rendering::sprite_renderer::SpriteSheet;
-use crate::utils::constants::*;
-use crate::utils::file::*;
-use ahash::AHashMap;
-use gl::types::*;
 use stb_image::image::Image;
-use std::path::Path;
 use std::ptr;
-use std::rc::Rc;
 
 /// generates a gl texture from given image data, filtering and wrapping
 #[rustfmt::skip]
@@ -71,18 +63,17 @@ fn generate_texture(data: &Image<u8>, filtering: Filtering, wrapping: Wrapping, 
 #[derive(Default, Clone, Copy, Debug)]
 #[repr(C)]
 pub(crate) struct Vertex {
-    pub(crate) position: glm::Vec3,
-    pub(crate) color: glm::Vec4,
-    pub(crate) uv_coords: glm::Vec2,
-    pub(crate) normal: glm::Vec3,
+    pub(crate) position: Vec3,
+    pub(crate) color: Vec4,
+    pub(crate) uv_coords: Vec2,
+    pub(crate) normal: Vec3,
     pub(crate) tex_index: GLfloat,
 }
 
 /// holds the texture ID's for the App
 pub(crate) struct TextureMap {
     textures: AHashMap<Texture, GLuint>,
-    transparency_map: AHashMap<Texture, bool>,
-    material_textures: AHashMap<Rc<Path>, GLuint>,
+    material_textures: AHashMap<String, GLuint>,
     sheets: AHashMap<Rc<Path>, SpriteSheet>,
     sprites: AHashMap<Rc<Path>, GLuint>,
 }
@@ -92,11 +83,9 @@ impl TextureMap {
     pub(crate) fn new() -> Self {
         Self {
             textures: AHashMap::new(),
-            transparency_map: AHashMap::new(),
             material_textures: AHashMap::new(),
             sheets: AHashMap::new(),
             sprites: AHashMap::new(),
-            next_texture_handle: 1,
         }
     }
 
@@ -107,7 +96,6 @@ impl TextureMap {
             return false;
         }
         if let Some(image) = stbi_load_u8_rgba(&texture.path) {
-            let transparent = image.data.iter().skip(3).step_by(4).any(|a| *a < 255);
             let tex_id = generate_texture(
                 &image,
                 texture.filtering,
@@ -115,7 +103,6 @@ impl TextureMap {
                 texture.color_space,
             );
             self.textures.insert(texture.clone(), tex_id);
-            self.transparency_map.insert(texture.clone(), transparent);
             log::debug!("Loaded texture: {texture:?}.");
             true
         } else {
@@ -127,8 +114,7 @@ impl TextureMap {
     /// deletes a stored texture
     pub(crate) fn delete_texture(&mut self, texture: &Texture) -> bool {
         if let Some(id) = self.textures.remove(texture) {
-            unsafe { gl::DeleteTextures(1, id) };
-            self.transparency_map.remove(texture).unwrap();
+            unsafe { gl::DeleteTextures(1, &id) };
             log::debug!("Deleted texture: {texture:?}.");
             true
         } else {
@@ -138,7 +124,8 @@ impl TextureMap {
     }
 
     /// loads a texture that is part of materials and is used in rendering
-    pub(crate) fn add_material_texture(&mut self, path: &Rc<Path>) -> bool {
+    pub(crate) fn add_material_texture(&mut self, path: impl AsRef<Path>) -> bool {
+        let path = path.as_ref();
         if let Some(image) = stbi_load_u8_rgba(path) {
             let tex_id = generate_texture(
                 &image,
@@ -147,7 +134,8 @@ impl TextureMap {
                 ColorSpace::RGBA8,
             );
             log::debug!("Loaded material texture: {path:?}.");
-            self.material_textures.insert(path.clone(), tex_id);
+            self.material_textures
+                .insert(path.file_name().unwrap().to_str().into(), tex_id);
             true
         } else {
             log::error!("Error loading material texture file data.");
@@ -156,10 +144,16 @@ impl TextureMap {
     }
 
     /// delete a stored material texture
-    pub(crate) fn delete_material_texture(&mut self, path: &Rc<Path>) {
-        let id = self.material_textures.remove(path).unwrap();
-        unsafe { gl::DeleteTextures(1, id) };
-        log::debug!("Deleted material texture: {path:?}.");
+    pub(crate) fn delete_material_texture(&mut self, name: impl AsRef<str>) -> bool {
+        let name = name.as_ref();
+        if let Some(id) = self.material_textures.remove(name) {
+            unsafe { gl::DeleteTextures(1, &id) };
+            log::debug!("Deleted material texture: {name:?}.");
+            true
+        } else {
+            log::warn!("Material texture data not present.");
+            false
+        }
     }
 
     /// yields a texture id for given name
@@ -168,13 +162,8 @@ impl TextureMap {
     }
 
     /// yields a material texture id for given name
-    pub(crate) fn get_material_tex_id(&self, path: &Rc<Path>) -> Option<GLuint> {
-        self.material_textures.get(path).copied()
-    }
-
-    /// returns wether or not the texture contains transparency (a < 255)
-    pub(crate) fn is_transparent(&self, texture: &Texture) -> bool {
-        *self.transparency_map.get(texture).unwrap()
+    pub(crate) fn get_material_tex_id(&self, name: impl AsRef<str>) -> Option<GLuint> {
+        self.material_textures.get(name.as_ref()).copied()
     }
 
     /// adds a new sprite sheet to the map
@@ -269,7 +258,6 @@ impl TextureMap {
             unsafe { gl::DeleteTextures(1, texture) };
         }
         self.textures.clear();
-        self.transparency_map.clear();
         self.material_textures.clear();
 
         for tex_id in self.sheets.values().map(|sheet| sheet.texture_id) {
@@ -306,11 +294,11 @@ pub fn calc_model_matrix(
     position: &Position,
     scale: &Scale,
     orientation: &Orientation,
-    center_of_mass: &glm::Vec3,
-) -> glm::Mat4 {
-    let mass_offset = glm::translate(&glm::Mat4::identity(), center_of_mass);
+    center_of_mass: &Vec3,
+) -> Mat4 {
+    let mass_offset = glm::translate(&Mat4::identity(), center_of_mass);
     let inv_mass_offset = mass_offset.try_inverse().unwrap();
-    let translate = glm::translate(&glm::Mat4::identity(), position.data());
+    let translate = glm::translate(&Mat4::identity(), position.data());
     let rotate = orientation.rotation_matrix();
     let scaled = scale.scale_matrix();
     translate * mass_offset * rotate * inv_mass_offset * scaled
@@ -318,8 +306,8 @@ pub fn calc_model_matrix(
 
 /// stores the current camera config for 3D rendering
 pub(crate) struct PerspectiveCamera {
-    pub(crate) projection: glm::Mat4,
-    pub(crate) view: glm::Mat4,
+    pub(crate) projection: Mat4,
+    pub(crate) view: Mat4,
     viewport_ratio: f32,
     fov: f32,
 }
@@ -353,15 +341,15 @@ impl PerspectiveCamera {
     }
 
     /// updates the camera for given camera position and focus
-    pub(crate) fn update_cam(&mut self, position: &glm::Vec3, focus: &glm::Vec3, up: &glm::Vec3) {
+    pub(crate) fn update_cam(&mut self, position: &Vec3, focus: &Vec3, up: &Vec3) {
         self.view = glm::look_at(position, focus, up);
     }
 }
 
 /// stores the current camera config for 2D rendering
 pub(crate) struct OrthoCamera {
-    pub(crate) projection: glm::Mat4,
-    pub(crate) view: glm::Mat4,
+    pub(crate) projection: Mat4,
+    pub(crate) view: Mat4,
 }
 
 impl OrthoCamera {
@@ -387,14 +375,14 @@ impl OrthoCamera {
     }
 
     /// updates the camera for given camera position and focus
-    pub(crate) fn update_cam(&mut self, position: &glm::Vec3, focus: &glm::Vec3, up: &glm::Vec3) {
+    pub(crate) fn update_cam(&mut self, position: &Vec3, focus: &Vec3, up: &Vec3) {
         self.view = glm::look_at(position, focus, up);
     }
 }
 
 /// render info for one point light
 pub(crate) struct PointLightRenderingInfo {
-    pub(crate) light_pos: glm::Vec3,
+    pub(crate) light_pos: Vec3,
     pub(crate) light: PointLight,
     pub(crate) shadow_map: Option<CubeShadowMap>,
 }
@@ -405,15 +393,15 @@ pub(crate) struct CubeShadowMap {
     dbo: GLuint,
     shadow_cube_map: GLuint,
     side_size: (GLsizei, GLsizei),
-    pub(crate) base_light_matrices: [glm::Mat4; 6],
-    light_pos: glm::Vec3,
+    pub(crate) base_light_matrices: [Mat4; 6],
+    light_pos: Vec3,
     tmp_viewport: [GLint; 4],
 }
 
 impl CubeShadowMap {
     /// creates a new cube shadow map with given side size (width, height)
     #[rustfmt::skip]
-    pub(crate) fn new(side_size: (GLsizei, GLsizei), light_pos: glm::Vec3) -> Self {
+    pub(crate) fn new(side_size: (GLsizei, GLsizei), light_pos: Vec3) -> Self {
         log::debug!("created new cube shadow map for a point light");
         let mut dbo = 0;
         let mut shadow_cube_map = 0;
@@ -512,7 +500,7 @@ impl CubeShadowMap {
     }
 
     /// updates the shadow map according to a new light data
-    pub(crate) fn update_light(&mut self, pos: &glm::Vec3) {
+    pub(crate) fn update_light(&mut self, pos: &Vec3) {
         self.light_pos = *pos;
         let projection = glm::perspective(1.0, 90f32.to_radians(), NEAR_PLANE, FAR_PLANE);
         self.base_light_matrices = [
@@ -541,8 +529,8 @@ pub(crate) struct ShadowMap {
     dbo: GLuint,
     shadow_map: GLuint,
     size: (GLsizei, GLsizei),
-    pub(crate) light_matrix: glm::Mat4,
-    pub(crate) light_pos: glm::Vec3,
+    pub(crate) light_matrix: Mat4,
+    pub(crate) light_pos: Vec3,
     pub(crate) light: DirectionalLight,
     tmp_viewport: [GLint; 4],
 }
@@ -550,7 +538,7 @@ pub(crate) struct ShadowMap {
 impl ShadowMap {
     /// creates a new shadow map with given size (width, height)
     #[rustfmt::skip]
-    pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: glm::Vec3, light: &DirectionalLight) -> Self {
+    pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: Vec3, light: &DirectionalLight) -> Self {
         log::debug!("created new shadow map for a directional light");
         let mut dbo = 0;
         let mut shadow_map = 0;
@@ -645,7 +633,7 @@ impl ShadowMap {
     }
 
     /// updates the shadow map according to a new light data
-    pub(crate) fn update_light(&mut self, pos: &glm::Vec3, light: &DirectionalLight) {
+    pub(crate) fn update_light(&mut self, pos: &Vec3, light: &DirectionalLight) {
         self.light_pos = *pos;
         self.light = *light;
 
@@ -674,29 +662,29 @@ impl Drop for ShadowMap {
 /// one directional light data block for uniform buffer use
 #[repr(C)]
 pub(crate) struct DirLightData {
-    pub(crate) light_pos: glm::Vec4, // position of the light
-    pub(crate) light_matrix: glm::Mat4,
-    pub(crate) color: glm::Vec4,
+    pub(crate) light_pos: Vec4, // position of the light
+    pub(crate) light_matrix: Mat4,
+    pub(crate) color: Vec4,
     pub(crate) intensity: GLfloat,
-    pub(crate) padding_12bytes: glm::Vec3, // necessary for std140 uniform buffer layout padding
-    pub(crate) direction: glm::Vec3,
+    pub(crate) padding_12bytes: Vec3, // necessary for std140 uniform buffer layout padding
+    pub(crate) direction: Vec3,
     pub(crate) padding_4bytes: f32, // necessary for std140 uniform buffer layout padding
 }
 
 /// one point light data block for uniform buffer use
 #[repr(C)]
 pub(crate) struct PointLightData {
-    pub(crate) light_pos: glm::Vec4, // position of the light
-    pub(crate) color: glm::Vec4,
+    pub(crate) light_pos: Vec4, // position of the light
+    pub(crate) color: Vec4,
     pub(crate) intensity: GLfloat,
     pub(crate) has_shadows: GLint,
-    pub(crate) padding_8bytes: glm::Vec2, // necessary for std140 uniform buffer layout padding
+    pub(crate) padding_8bytes: Vec2, // necessary for std140 uniform buffer layout padding
 }
 
 /// light source data for uniform buffer use
 #[repr(C)]
 pub(crate) struct LightConfig {
-    pub(crate) color: glm::Vec4,
+    pub(crate) color: Vec4,
     pub(crate) intensity: GLfloat,
 }
 

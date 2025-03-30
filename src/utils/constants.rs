@@ -1,7 +1,6 @@
 use crate::ecs::component::utils::TimeDuration;
 use crate::ecs::component::Acceleration;
-use crate::ecs::entity::EntityID;
-use crate::glm;
+use crate::internal_prelude::*;
 
 pub(crate) const WIN_TITLE: &str = "Falling Leaf";
 pub(crate) const DEFAULT_WIN_WIDTH: u32 = 800;
@@ -26,10 +25,10 @@ pub(crate) const TIME_STEP: TimeDuration = TimeDuration(0.001);
 /// earth's gravity
 pub const G: Acceleration = Acceleration::new(0.0, -9.81, 0.0);
 
-pub const ORIGIN: glm::Vec3 = glm::Vec3::new(0.0, 0.0, 0.0);
-pub const X_AXIS: glm::Vec3 = glm::Vec3::new(1.0, 0.0, 0.0);
-pub const Y_AXIS: glm::Vec3 = glm::Vec3::new(0.0, 1.0, 0.0);
-pub const Z_AXIS: glm::Vec3 = glm::Vec3::new(0.0, 0.0, 1.0);
+pub const ORIGIN: Vec3 = Vec3::new(0.0, 0.0, 0.0);
+pub const X_AXIS: Vec3 = Vec3::new(1.0, 0.0, 0.0);
+pub const Y_AXIS: Vec3 = Vec3::new(0.0, 1.0, 0.0);
+pub const Z_AXIS: Vec3 = Vec3::new(0.0, 0.0, 1.0);
 
 /// placeholder for an empty entity slot (will never point to an entity)
 pub const NO_ENTITY: EntityID = 0;

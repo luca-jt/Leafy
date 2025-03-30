@@ -1,17 +1,9 @@
-use crate::ecs::component::utils::HitboxType;
-use crate::ecs::component::Scale;
-use crate::glm;
-use crate::utils::constants::ORIGIN;
-use crate::utils::tools::{mult_mat4_vec3, to_vec4};
-use ahash::{AHashMap, AHashSet};
-use gl::types::*;
-use itertools::Itertools;
+use crate::internal_prelude::*;
 use petgraph::stable_graph::{NodeIndex, StableUnGraph};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::io::BufReader;
 use std::ops::{Index, IndexMut};
-use std::rc::Rc;
 use tobj::{self, load_obj_buf, GPU_LOAD_OPTIONS};
 
 /// identifier for a triangle in the AOS mesh, maps to triangles that only use the unique vertices
@@ -20,7 +12,10 @@ type TriangleID = u64;
 /// mesh containing vertex structs as opposed to the regular SOA mesh which allows for easier processing
 #[derive(Debug, Clone)]
 struct AlgorithmMesh {
-    vertices: Vec<glm::Vec3>,
+    name: String,
+    source_file: Rc<Path>,
+    material_name: Option<String>,
+    vertices: Vec<Vec3>,
     faces: Vec<[usize; 3]>,
     triangle_map: AHashMap<usize, AHashSet<TriangleID>>,
     windings: AHashMap<TriangleID, [usize; 3]>,
@@ -64,13 +59,15 @@ impl AlgorithmMesh {
             });
 
         Mesh {
+            name: self.name,
+            source_file: self.source_file,
             positions,
-            colors,
-            normals,
-            texture_coords: vec![glm::Vec2::zeros(); self.faces.len() * 3],
+            colors: None, // TODO: we might want to keep track of these vertex attributes in the future in mesh manipulation
+            normals: Some(normals),
+            texture_coords: None,
             indices,
             max_reach,
-            material_name,
+            material_name: self.material_name,
         }
     }
 
@@ -140,7 +137,7 @@ impl AlgorithmMesh {
         for vertex in self.vertices.iter() {
             mesh_graph.add_node(ErrorVertex {
                 position: *vertex,
-                error_matrix: glm::Mat4::default(),
+                error_matrix: Mat4::default(),
             });
         }
 
@@ -354,8 +351,8 @@ impl AlgorithmMesh {
 }
 
 /// calculates the initital error matrix for a vertex at index
-fn calculate_error_matrix(mesh_graph: &MeshErrorGraph, index: NodeIndex<usize>) -> glm::Mat4 {
-    let mut accumulator = glm::Mat4::zeros();
+fn calculate_error_matrix(mesh_graph: &MeshErrorGraph, index: NodeIndex<usize>) -> Mat4 {
+    let mut accumulator = Mat4::zeros();
 
     let incident_triangles = mesh_graph
         .neighbors(index)
@@ -412,15 +409,15 @@ fn add_valid_vertex_pair(
     let vertex2 = mesh_graph.index(v2);
 
     let q_new = vertex1.error_matrix + vertex2.error_matrix; // new error matrix
-    let partial_derivative_mat = glm::Mat4::from_columns(&[
-        glm::vec4(q_new.m11, q_new.m12, q_new.m13, 0.0),
-        glm::vec4(q_new.m12, q_new.m22, q_new.m23, 0.0),
-        glm::vec4(q_new.m13, q_new.m23, q_new.m33, 0.0),
-        glm::vec4(q_new.m14, q_new.m24, q_new.m34, 1.0),
+    let partial_derivative_mat = Mat4::from_columns(&[
+        vec4(q_new.m11, q_new.m12, q_new.m13, 0.0),
+        vec4(q_new.m12, q_new.m22, q_new.m23, 0.0),
+        vec4(q_new.m13, q_new.m23, q_new.m33, 0.0),
+        vec4(q_new.m14, q_new.m24, q_new.m34, 1.0),
     ]);
 
     let v_new = if let Some(inv_deriv_mat) = partial_derivative_mat.try_inverse() {
-        inv_deriv_mat * glm::vec4(0.0, 0.0, 0.0, 1.0)
+        inv_deriv_mat * vec4(0.0, 0.0, 0.0, 1.0)
     } else {
         // fall back on choosing v_new as the midpoint
         to_vec4(&((vertex1.position + vertex2.position) / 2.0))
@@ -442,8 +439,8 @@ type MeshErrorGraph = StableUnGraph<ErrorVertex, (), usize>;
 
 #[derive(Debug, Default, Copy, Clone)]
 struct ErrorVertex {
-    position: glm::Vec3,
-    error_matrix: glm::Mat4,
+    position: Vec3,
+    error_matrix: Mat4,
 }
 
 /// stores one vertex pair with error data that is used in the mesh simplification algorithm
@@ -452,7 +449,7 @@ struct ErrorVertexPair {
     v1: NodeIndex<usize>,
     v2: NodeIndex<usize>,
     error: f32,
-    v_new: glm::Vec3,
+    v_new: Vec3,
 }
 
 impl Eq for ErrorVertexPair {}
@@ -473,13 +470,15 @@ impl Ord for ErrorVertexPair {
 /// a mesh that can be rendered in gl
 #[derive(Clone)]
 pub(crate) struct Mesh {
-    pub(crate) positions: Vec<glm::Vec3>,
-    pub(crate) colors: Vec<glm::Vec3>,
-    pub(crate) normals: Vec<glm::Vec3>,
-    pub(crate) texture_coords: Vec<glm::Vec2>,
+    pub(crate) name: String,
+    pub(crate) source_file: Rc<Path>,
+    pub(crate) positions: Vec<Vec3>,
+    pub(crate) colors: Option<Vec<Vec3>>,
+    pub(crate) normals: Option<Vec<Vec3>>,
+    pub(crate) texture_coords: Option<Vec<Vec2>>,
     pub(crate) indices: Vec<GLuint>,
-    pub(crate) max_reach: glm::Vec3,
-    pub(crate) material_name: Option<Rc<str>>, // the presence of this means the material source can be inherited
+    pub(crate) max_reach: Vec3,
+    pub(crate) material_name: Option<String>, // the presence of this means the material source can be inherited
 }
 
 impl Mesh {
@@ -487,16 +486,34 @@ impl Mesh {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
         let mut data = BufReader::new(bytes);
         let (models, _) = load_obj_buf(&mut data, &GPU_LOAD_OPTIONS, |_| unreachable!()).unwrap();
-        Self::from_obj_data(&models[0].mesh, None)
+        Self::from_obj_data(&models[0], Path::new("internal").into(), None)
     }
 
     /// loads a mesh from loaded object file data
     #[rustfmt::skip]
-    pub(crate) fn from_obj_data(obj: &tobj::Mesh, material_name: Option<Rc<str>>) -> Self {
-        let positions = obj.positions.iter().copied().tuples().map(|(x, y, z)| glm::vec3(x, y, z)).collect_vec();
-        let colors = obj.vertex_color.iter().copied().tuples().map(|(r, g, b)| glm::vec3(r, g, b)).collect_vec();
-        let normals = obj.normals.iter().copied().tuples().map(|(x, y, z)| glm::vec3(x, y, z)).collect_vec();
-        let texture_coords = obj.texcoords.iter().copied().tuples().map(|(u, v)| glm::vec2(u, v)).collect_vec();
+    pub(crate) fn from_obj_data(model: &tobj::Model, source_file: Rc<Path>, material_name: Option<String>) -> Self {
+        let obj = &model.mesh;
+
+        let positions = obj.positions.iter().copied().tuples().map(|(x, y, z)| vec3(x, y, z)).collect_vec();
+
+        let colors = if obj.vertex_color.is_empty() {
+            None
+        } else {
+            Some(obj.vertex_color.iter().copied().tuples().map(|(r, g, b)| vec3(r, g, b)).collect_vec())
+        };
+
+        let normals = if obj.normals.is_empty() {
+            None
+        } else {
+            Some(obj.normals.iter().copied().tuples().map(|(x, y, z)| vec3(x, y, z)).collect_vec())
+        };
+
+        let texture_coords = if obj.texcoords.is_empty() {
+            None
+        } else {
+            Some(obj.texcoords.iter().copied().tuples().map(|(u, v)| vec2(u, v)).collect_vec())
+        };
+
         let indices = obj.indices.clone();
 
         let max_reach =
@@ -512,6 +529,8 @@ impl Mesh {
                 });
 
         Self {
+            name: model.name.clone(),
+            source_file,
             positions,
             colors,
             normals,
@@ -541,7 +560,7 @@ impl Mesh {
             original_mesh_faces[i / 3][i % 3] = *index as usize;
         }
 
-        let mut vertices: Vec<glm::Vec3> = Vec::new();
+        let mut vertices: Vec<Vec3> = Vec::new();
         let mut faces = Vec::with_capacity(original_mesh_faces.len());
         let mut triangle_map: AHashMap<usize, AHashSet<TriangleID>> = AHashMap::new();
         let mut windings: AHashMap<TriangleID, [usize; 3]> = AHashMap::new();
@@ -574,6 +593,9 @@ impl Mesh {
             faces.push(aos_indices);
         }
         AlgorithmMesh {
+            name: self.name.clone(),
+            source_file: self.source_file.clone(),
+            material_name: self.material_name.clone(),
             vertices,
             faces,
             triangle_map,
@@ -582,7 +604,7 @@ impl Mesh {
     }
 
     /// generates the inverse inertia tensor matrix, center of mass and the mass
-    pub(crate) fn intertia_data(&self, density: f32, scale: &Scale) -> (glm::Mat3, glm::Vec3, f32) {
+    pub(crate) fn intertia_data(&self, density: f32, scale: &Scale) -> (Mat3, Vec3, f32) {
         // inertia matrix entries
         let (mut ia, mut ib, mut ic, mut iap, mut ibp, mut icp) =
             (0f32, 0f32, 0f32, 0f32, 0f32, 0f32);
@@ -625,10 +647,10 @@ impl Mesh {
         icp = density * icp / 120.0 - mass * center_of_mass.x * center_of_mass.z;
 
         (
-            glm::Mat3::from_columns(&[
-                glm::vec3(ia, -ibp, -icp),
-                glm::vec3(-ibp, ib, -iap),
-                glm::vec3(-icp, -iap, ic),
+            Mat3::from_columns(&[
+                vec3(ia, -ibp, -icp),
+                vec3(-ibp, ib, -iap),
+                vec3(-icp, -iap, ic),
             ])
             .try_inverse()
             .unwrap(),
@@ -659,7 +681,7 @@ impl Mesh {
 }
 
 /// computes the inertia moment for a given traingle and index
-fn inertia_moment(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize) -> f32 {
+fn inertia_moment(triangle: &(Vec3, Vec3, Vec3), i: usize) -> f32 {
     triangle.0[i] * triangle.0[i]
         + triangle.1[i] * triangle.2[i]
         + triangle.1[i] * triangle.1[i]
@@ -669,7 +691,7 @@ fn inertia_moment(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize) -> f32
 }
 
 /// computes the inertia product for a given traingle and indices
-fn inertia_product(triangle: &(glm::Vec3, glm::Vec3, glm::Vec3), i: usize, j: usize) -> f32 {
+fn inertia_product(triangle: &(Vec3, Vec3, Vec3), i: usize, j: usize) -> f32 {
     2.0 * triangle.0[i] * triangle.0[j]
         + triangle.1[i] * triangle.2[j]
         + triangle.2[i] * triangle.1[j]
@@ -692,30 +714,30 @@ impl Hitbox {
     pub(crate) fn from_generic_type(hitbox_type: HitboxType) -> Self {
         match hitbox_type {
             HitboxType::Sphere => Self::Sphere(1.0),
-            _ => Self::ConvexMesh(HitboxMesh::box_from_dims(&glm::Vec3::from_element(1.0))),
+            _ => Self::ConvexMesh(HitboxMesh::box_from_dims(&Vec3::from_element(1.0))),
         }
     }
 }
 
 /// contains all of the hitbox vertex data
 pub(crate) struct HitboxMesh {
-    pub(crate) vertices: Vec<glm::Vec3>,
+    pub(crate) vertices: Vec<Vec3>,
     pub(crate) faces: Vec<[usize; 3]>,
 }
 
 impl HitboxMesh {
     /// creates a box mesh from reach dimensions
-    fn box_from_dims(dim: &glm::Vec3) -> Self {
+    fn box_from_dims(dim: &Vec3) -> Self {
         Self {
             vertices: vec![
-                glm::vec3(-dim.x, -dim.y, dim.z),
-                glm::vec3(-dim.x, dim.y, dim.z),
-                glm::vec3(-dim.x, -dim.y, -dim.z),
-                glm::vec3(-dim.x, dim.y, -dim.z),
-                glm::vec3(dim.x, -dim.y, dim.z),
-                glm::vec3(dim.x, dim.y, dim.z),
-                glm::vec3(dim.x, -dim.y, -dim.z),
-                glm::vec3(dim.x, dim.y, -dim.z),
+                vec3(-dim.x, -dim.y, dim.z),
+                vec3(-dim.x, dim.y, dim.z),
+                vec3(-dim.x, -dim.y, -dim.z),
+                vec3(-dim.x, dim.y, -dim.z),
+                vec3(dim.x, -dim.y, dim.z),
+                vec3(dim.x, dim.y, dim.z),
+                vec3(dim.x, -dim.y, -dim.z),
+                vec3(dim.x, dim.y, -dim.z),
             ],
             faces: vec![
                 [1, 2, 0],

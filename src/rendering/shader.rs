@@ -1,11 +1,7 @@
-use crate::glm;
+use crate::internal_prelude::*;
 use crate::rendering::data::*;
 use crate::rendering::sprite_renderer::SpriteVertex;
 use crate::systems::rendering_system::{RendererArch, ShaderSpec};
-use crate::utils::constants::*;
-use crate::utils::file::*;
-use crate::utils::tools::padding;
-use gl::types::*;
 use std::ffi::CString;
 use std::{mem, ptr};
 
@@ -164,8 +160,8 @@ impl ShaderCatalog {
                 + MAX_POINT_LIGHT_COUNT * size_of::<PointLightData>()
                 + size_of::<GLint>() * 2,
         );
-        let matrix_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2 + size_of::<glm::Vec4>());
-        let ortho_buffer = UniformBuffer::new(size_of::<glm::Mat4>() * 2);
+        let matrix_buffer = UniformBuffer::new(size_of::<Mat4>() * 2 + size_of::<Vec4>());
+        let ortho_buffer = UniformBuffer::new(size_of::<Mat4>() * 2);
 
         Self {
             batch_basic: Self::create_batch_basic(&light_buffer, &matrix_buffer),

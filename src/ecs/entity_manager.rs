@@ -1,22 +1,8 @@
-use crate::ecs::component::utils::*;
-use crate::ecs::component::*;
 use crate::ecs::entity::*;
+use crate::internal_prelude::*;
 use crate::rendering::data::*;
 use crate::rendering::mesh::{Hitbox, Mesh};
-use crate::utils::constants::*;
-use crate::utils::file::*;
-use crate::utils::tools::types_eq;
-use crate::{BumpBox, BumpVec};
-use ahash::{AHashMap, AHashSet};
-use bumpalo::Bump;
-use itertools::Itertools;
-use std::any::{Any, TypeId};
-use std::cell::UnsafeCell;
-use std::collections::VecDeque;
-use std::fmt::Debug;
-use std::rc::Rc;
-use std::sync::{LazyLock, Mutex};
-use tobj::{load_obj, GPU_LOAD_OPTIONS};
+use tobj::{load_mtl, load_obj, GPU_LOAD_OPTIONS};
 
 /// Identifier for a loaded mesh in the entity manager.
 pub type MeshHandle = u64;
@@ -47,9 +33,9 @@ pub struct EntityManager {
     pub(crate) ecs: UnsafeCell<ECS>,
     mesh_register: AHashMap<MeshHandle, Mesh>,
     lod_register: AHashMap<MeshHandle, [Mesh; 4]>,
-    material_register: AHashMap<Rc<str>, Material>,
+    material_register: AHashMap<String, Material>,
     pub(crate) texture_map: TextureMap,
-    hitbox_register: AHashMap<HitboxHandle, Hitbox>,
+    hitbox_register: AHashMap<(HitboxType, Option<MeshHandle>), Hitbox>,
     next_mesh_handle: MeshHandle,
 }
 
@@ -63,9 +49,9 @@ impl EntityManager {
 
         Self {
             ecs: UnsafeCell::new(ECS::new()),
-            mesh_register: AHashMap::new(),
+            mesh_register,
             lod_register: AHashMap::new(),
-            material_register,
+            material_register: AHashMap::new(),
             texture_map: TextureMap::new(),
             hitbox_register: AHashMap::new(),
             next_mesh_handle: 4,
@@ -80,14 +66,9 @@ impl EntityManager {
         entity
     }
 
-    /// deletes an entity from the register by id and returns the removed entity
-    pub fn delete_entity(&mut self, entity: EntityID) -> FLResult {
-        if unsafe { &*self.ecs.get() }.has_component::<Renderable>(entity) {
-            todo!("material textures");
-        }
-        self.ecs.get_mut().delete_entity(entity)?;
-        self.exec_commands();
-        Ok(())
+    /// Deletes an entity from the register by ``EntityID`` and returns wether or not the removal was successful.
+    pub fn delete_entity(&mut self, entity: EntityID) -> bool {
+        self.ecs.get_mut().delete_entity(entity)
     }
 
     /// yields the component data reference of an entity if present (also returns ``None`` if the entity ID is invalid)
@@ -100,15 +81,15 @@ impl EntityManager {
         self.ecs.get_mut().get_component_mut::<T>(entity)
     }
 
-    /// adds a component to an existing entity (returns ``Err`` if the component is already present or the entity ID is invalid)
-    pub fn add_component<T: Component>(&mut self, entity: EntityID, component: T) -> FLResult {
-        self.ecs.get_mut().add_component::<T>(entity, component)?;
-        if types_eq::<T, Renderable>() {
-            todo!("material textures");
-        } else if types_eq::<T, Scale>() || types_eq::<T, RigidBody>() {
+    /// Adds a component to an existing entity (returns ``false`` if the component is already present or the ``EntityID`` is invalid).
+    pub fn add_component<T: Component>(&mut self, entity: EntityID, component: T) -> bool {
+        let success = self.ecs.get_mut().add_component::<T>(entity, component);
+        if (types_eq::<T, Renderable>() || types_eq::<T, Scale>() || types_eq::<T, RigidBody>())
+            && success
+        {
             self.recompute_rigid_body_data(entity);
         }
-        Ok(())
+        success
     }
 
     /// checks wether or not an entity has a component of given type associated with it (also returns ``false`` if the entity ID is invalid)
@@ -119,12 +100,8 @@ impl EntityManager {
     /// removes a component from an entity and returns the component data if present
     pub fn remove_component<T: Component>(&mut self, entity: EntityID) -> Option<T> {
         let removed = self.ecs.get_mut().remove_component::<T>(entity);
-        if removed.is_some() {
-            if types_eq::<T, Renderable>() {
-                todo!("material textures");
-            } else if types_eq::<T, Scale>() {
-                self.recompute_rigid_body_data(entity);
-            }
+        if removed.is_some() && types_eq::<T, Scale>() {
+            self.recompute_rigid_body_data(entity);
         }
         removed
     }
@@ -134,13 +111,26 @@ impl EntityManager {
         unsafe { &*self.ecs.get() }.entity_index.keys().copied()
     }
 
-    /// Loads all the meshes in the ``.obj`` file and all the mentioned materials.
+    /// Iterator of all the currently stored mesh handles.
+    pub fn all_mesh_handles(&self) -> impl Iterator<Item = MeshHandle> + use<'_> {
+        self.mesh_register.keys().copied()
+    }
+
+    /// Iterator of all the currently stored material names.
+    pub fn all_material_names(&self) -> impl Iterator<Item = &str> {
+        self.material_register.keys().map(|s| s.as_str())
+    }
+
+    /// Loads all the meshes in the ``.obj`` file and all the mentioned materials. Returns all the handles to the loaded meshes.
     pub fn load_asset_file(
         &mut self,
         file_path: impl AsRef<Path>,
     ) -> Result<Vec<MeshHandle>, String> {
-        let (models, materials) = load_obj(file_path, &GPU_LOAD_OPTIONS)?;
-        let materials = materials?;
+        let file_path = file_path.as_ref();
+
+        let (models, materials) =
+            load_obj(file_path, &GPU_LOAD_OPTIONS).map_err(|e| e.to_string())?;
+        let materials = materials.map_err(|e| e.to_string())?;
 
         let mut handles = Vec::with_capacity(models.len());
 
@@ -150,22 +140,26 @@ impl EntityManager {
             let mtl_name = model
                 .mesh
                 .material_id
-                .map(|index| materials[index].name.clone().into());
+                .map(|index| materials[index].name.clone());
 
             let handle = self.next_mesh_handle;
             self.next_mesh_handle += 1;
-            self.mesh_register
-                .insert(handle, Mesh::from_obj_data(&model.mesh, mtl_name));
-            load_data.handles.push(handle);
+
+            self.mesh_register.insert(
+                handle,
+                Mesh::from_obj_data(&model, Rc::from(file_path), mtl_name),
+            );
+
+            handles.push(handle);
         }
 
-        for material in materials {
-            let mtl_name = material.name.clone().into();
+        for mtl in materials {
             self.material_register
-                .insert(mtl_name, Material::from_mtl(&material));
-            log::debug!("Loaded material {:?}.", material.name);
+                .insert(mtl.name.clone(), Material::from_mtl(&mtl));
 
-            todo!("load the material textures");
+            log::debug!("Loaded material {:?}.", mtl.name);
+
+            self.load_material_textures_from_mtl(&mtl, file_path);
         }
 
         Ok(handles)
@@ -173,26 +167,31 @@ impl EntityManager {
 
     /// Deletes a loaded mesh from the internal register. Returns wether or not the mesh existed. Also deletes potentially generated LODs for that mesh if present.
     pub fn delete_mesh(&mut self, handle: MeshHandle) -> bool {
-        todo!("material and -texture removal");
-        let success = self.mesh_register.remove(handle).is_some();
-        if success {
-            self.lod_register.remove(handle);
-            log::debug!("deleted mesh and associated LODs from register: {mesh_type:?}");
+        if let Some(mesh) = self.mesh_register.remove(&handle) {
+            self.lod_register.remove(&handle);
+            log::debug!(
+                "Deleted mesh and associated LODs from register: {:?}",
+                mesh.name
+            );
+            true
+        } else {
+            log::warn!("Required mesh data not present.");
+            false
         }
-        success
     }
 
     /// Loads all the material data in a ``.mtl`` file and returns wether or not the file could be loaded.
-    pub fn load_materials(&mut self, path: impl AsRef<Path> + Debug) -> bool {
-        match load_mtl(file) {
+    pub fn load_materials(&mut self, path: impl AsRef<Path>) -> bool {
+        let path = path.as_ref();
+        match load_mtl(path) {
             Ok((materials, _)) => {
-                for material in materials {
-                    let mtl_name = material.name.clone().into();
+                for mtl in materials {
                     self.material_register
-                        .insert(mtl_name, Material::from_mtl(&material));
-                    log::debug!("Loaded material {:?}.", material.name);
+                        .insert(mtl.name.clone(), Material::from_mtl(&mtl));
 
-                    todo!("load the material textures");
+                    log::debug!("Loaded material {:?}.", mtl.name);
+
+                    self.load_material_textures_from_mtl(&mtl, path);
                 }
                 true
             }
@@ -203,58 +202,127 @@ impl EntityManager {
         }
     }
 
-    /// Deletes a stored material and returns wether or not the material was present.
-    pub fn delete_material(&mut self, name: &Rc<str>) -> bool {
-        let success = self.material_register.remove(name).is_some();
-        if success {
-            log::debug!("Deleted material {name:?}.");
-            todo!("delete the material textures if needed");
+    /// Loads all of the necessary material textures from mtl data.
+    fn load_material_textures_from_mtl(&mut self, mtl: &tobj::Material, file_path: &Path) {
+        if let Some(ambient_texture) = mtl.ambient_texture.as_ref() {
+            let mut full_texture_path = PathBuf::from(file_path);
+            full_texture_path.set_file_name(ambient_texture);
+            self.texture_map
+                .add_material_texture(full_texture_path.as_path());
         }
-        success
+        if let Some(diffuse_texture) = mtl.diffuse_texture.as_ref() {
+            let mut full_texture_path = PathBuf::from(file_path);
+            full_texture_path.set_file_name(diffuse_texture);
+            self.texture_map
+                .add_material_texture(full_texture_path.as_path());
+        }
+        if let Some(specular_texture) = mtl.specular_texture.as_ref() {
+            let mut full_texture_path = PathBuf::from(file_path);
+            full_texture_path.set_file_name(specular_texture);
+            self.texture_map
+                .add_material_texture(full_texture_path.as_path());
+        }
+        if let Some(shininess_texture) = mtl.shininess_texture.as_ref() {
+            let mut full_texture_path = PathBuf::from(file_path);
+            full_texture_path.set_file_name(shininess_texture);
+            self.texture_map
+                .add_material_texture(full_texture_path.as_path());
+        }
+        if let Some(normal_texture) = mtl.normal_texture.as_ref() {
+            let mut full_texture_path = PathBuf::from(file_path);
+            full_texture_path.set_file_name(normal_texture);
+            self.texture_map.add_material_texture(full_texture_path);
+        }
+    }
+
+    /// Deletes a stored material and returns wether or not the material was present.
+    pub fn delete_material(&mut self, name: impl AsRef<str>) -> bool {
+        let name = name.as_ref();
+        if let Some(mtl) = self.material_register.remove(name) {
+            log::debug!("Deleted material {name:?}.");
+            self.delete_material_textures_from_material(mtl);
+            true
+        } else {
+            log::warn!("Required material data '{name:?}' not present.");
+            false
+        }
+    }
+
+    /// Deletes all the referenced material textures in a stored material.
+    fn delete_material_textures_from_material(&mut self, mtl: Material) {
+        if let Ambient::Texture(file_name) = mtl.ambient {
+            self.texture_map.delete_material_texture(file_name);
+        }
+        if let Diffuse::Texture(file_name) = mtl.diffuse {
+            self.texture_map.delete_material_texture(file_name);
+        }
+        if let Specular::Texture(file_name) = mtl.specular {
+            self.texture_map.delete_material_texture(file_name);
+        }
+        if let Shininess::Texture(file_name) = mtl.shininess {
+            self.texture_map.delete_material_texture(file_name);
+        }
+        if let Some(file_name) = mtl.normal_texture {
+            self.texture_map.delete_material_texture(file_name);
+        }
     }
 
     /// Generates all LODs for a loaded mesh. Returns wether or not the given mesh was present and LODs were loaded.
     pub fn load_lods(&mut self, handle: MeshHandle) -> bool {
-        if let Some(mesh) = self.mesh_from_type(handle, LOD::None) {
+        if self.lod_register.contains_key(&handle) {
+            log::warn!("LOD data already present.");
+            return false;
+        }
+        let opt_mesh = self.mesh_from_handle(handle, LOD::None);
+        if opt_mesh.is_some() {
+            let mesh = opt_mesh.unwrap();
             let lod_array = mesh.generate_lods();
-            self.lod_register.insert(mesh_type.clone(), lod_array);
-            log::debug!("loaded LODs in register for mesh: {mesh_type:?}");
+            log::debug!("loaded LODs in register for mesh: {:?}", mesh.name);
+            self.lod_register.insert(handle, lod_array);
             true
         } else {
+            log::warn!("Required mesh data not present.");
             false
         }
     }
 
     /// Deletes the stored LODs for a given mesh from the internal registers and returns wether or not that mesh was present.
     pub fn delete_lods(&mut self, handle: MeshHandle) -> bool {
-        let success = self.lod_register.remove(handle).is_some();
-        todo!("have some way of looking up mesh meta data from a handle so we can display it here in the log for example");
+        let success = self.lod_register.remove(&handle).is_some();
         if success {
-            log::debug!("Deleted LODs from register for mesh: {mesh_type:?}.");
+            let mesh_name = self.mesh_name_from_handle(handle).unwrap();
+            log::debug!("Deleted LODs from register for mesh: {mesh_name:?}.");
+        } else {
+            log::warn!("Required LOD data not present.");
         }
         success
     }
 
     /// Loads a hitbox that optionally depends on a loaded mesh and returns wether or not the loading was successful.
-    pub fn load_hitbox(&mut self, hitbox_type: HitboxType, handle: Option<MeshHandle>) -> bool {
-        todo!("store the name of a mesh in the struct so that handles are enough to get some information -> same for materials");
-        if !self.hitbox_register.contains_key(&(hitbox_type, mesh_type)) {
-            let hitbox = if let Some(mesh_type) = opt_mesh_type {
-                self.mesh_register
-                    .get(mesh_type)
-                    .unwrap()
-                    .generate_hitbox(&hitbox_type)
+    pub fn load_hitbox(&mut self, hitbox_type: HitboxType, opt_handle: Option<MeshHandle>) -> bool {
+        if !self
+            .hitbox_register
+            .contains_key(&(hitbox_type, opt_handle))
+        {
+            let hitbox = if let Some(handle) = opt_handle {
+                if let Some(mesh) = self.mesh_register.get(&handle) {
+                    mesh.generate_hitbox(&hitbox_type)
+                } else {
+                    log::warn!("Mesh data not present.");
+                    return false;
+                }
             } else {
                 Hitbox::from_generic_type(hitbox_type)
             };
 
             self.hitbox_register
-                .insert((hitbox_type, mesh_type), hitbox);
+                .insert((hitbox_type, opt_handle), hitbox);
 
+            let mesh_name = opt_handle.map(|handle| self.mesh_name_from_handle(handle).unwrap());
             log::debug!(
-                "loaded hitbox {:?} in register for MeshType {:?}",
+                "Loaded hitbox {:?} in register for mesh {:?}",
                 hitbox_type,
-                mesh_type
+                mesh_name
             );
             true
         } else {
@@ -263,16 +331,24 @@ impl EntityManager {
     }
 
     /// Deletes a loaded hitbox and returns wether or not the hitbox was actually present.
-    pub fn delete_hitbox(&mut self, hitbox_type: HitboxType, handle: MeshHandle) -> bool {
-        let success = self
-            .hitbox_register
-            .remove(&(hitbox_type, mesh_type))
-            .is_some();
-
-        if success {
-            log::debug!("deleted hitbox {hitbox_type:?} from register for mesh {mesh_type:?}");
+    pub fn delete_hitbox(
+        &mut self,
+        hitbox_type: HitboxType,
+        opt_handle: Option<MeshHandle>,
+    ) -> bool {
+        if let Some(handle) = opt_handle {
+            if !self.mesh_register.contains_key(&handle) {
+                log::warn!("Mesh data not present.");
+                return false;
+            }
         }
-        success
+        if let Some(hitbox) = self.hitbox_register.remove(&(hitbox_type, opt_handle)) {
+            let mesh_name = opt_handle.map(|handle| self.mesh_name_from_handle(handle).unwrap());
+            log::debug!("Deleted hitbox {hitbox_type:?} from register for mesh {mesh_name:?}");
+            true
+        } else {
+            false
+        }
     }
 
     /// Loads a texture in the internal register and returns wether or not the loading was successful.
@@ -286,19 +362,18 @@ impl EntityManager {
     }
 
     /// Loads a material texture in the internal register and returns wether or not the loading was successful.
-    pub fn load_material_texture(&mut self, path: &Rc<Path>) -> bool {
-        todo!("with these textures the path function argument here and in other similar cases should be the full path");
+    pub fn load_material_texture(&mut self, path: impl AsRef<Path>) -> bool {
         self.texture_map.add_material_texture(path)
     }
 
     /// Deletes a stored material texture and returns wether or not the texture was present.
-    pub fn delete_material_texture(&mut self, path: &Rc<Path>) -> bool {
-        self.texture_map.delete_material_texture(path)
+    pub fn delete_material_texture(&mut self, name: &Rc<str>) -> bool {
+        self.texture_map.delete_material_texture(name)
     }
 
     /// Loads the texture data for a sprite and makes
     pub fn load_sprite(&mut self, path: &Rc<Path>) -> bool {
-        self.texture_map.add_sprite(path.clone())
+        self.texture_map.add_sprite(path)
     }
 
     /// Deletes a stored sprite and returns wether or not the deletion was successful.
@@ -316,19 +391,31 @@ impl EntityManager {
         self.texture_map.delete_sheet(path)
     }
 
-    /// Computes the rigid body physics data from component data and stores it for physics sim. When you update component data that influences this, you can call this function to refresh the state. Relevant components are ``RigidBody``, ``Scale`` and ``Renderable``.
+    /// Checks the current state of the entities that exist and deletes all the assets that are not currently used by any of them.
+    pub fn delete_unused_assets(&mut self) {
+        todo!();
+    }
+
+    /// Deletes all the asset data that was loaded from the given file path.
+    pub fn delete_data_from_file_origin(&mut self, path: impl AsRef<Path>) {
+        todo!();
+    }
+
+    /// Computes the rigid body physics data from component data and stores it for physics sim. When you update component data that influences this, you can call this function to refresh the state. Relevant components are ``RigidBody``, ``Scale`` and ``Renderable``. When creating a new entity or adding/removing a relevant component, this will be called automatically if necessary.
     pub fn recompute_rigid_body_data(&mut self, entity: EntityID) {
         if unsafe { &*self.ecs.get() }.has_component::<Renderable>(entity)
             && unsafe { &*self.ecs.get() }.has_component::<RigidBody>(entity)
         {
-            let mt = &unsafe { &*self.ecs.get() }
+            let handle = unsafe { &*self.ecs.get() }
                 .get_component::<Renderable>(entity)
                 .unwrap()
-                .mesh_type;
+                .mesh_type
+                .mesh_handle();
 
             let mesh = self
-                .mesh_from_type(mt, LOD::None)
+                .mesh_from_handle(handle, LOD::None)
                 .expect("mesh data missing");
+
             let scale = unsafe { &*self.ecs.get() }
                 .get_component::<Scale>(entity)
                 .copied();
@@ -353,13 +440,43 @@ impl EntityManager {
         }
     }
 
-    /// makes mesh data available for a given MeshType
-    pub(crate) fn mesh_from_type(&self, mesh_type: &MeshType, lod: LOD) -> Option<&Mesh> {
+    /// Access to the name of a mesh with a handle.
+    pub fn mesh_name_from_handle(&self, handle: MeshHandle) -> Option<&str> {
+        if let Some(mesh) = self.mesh_register.get(&handle) {
+            Some(&mesh.name.as_str())
+        } else {
+            log::warn!("Mesh data not present.");
+            None
+        }
+    }
+
+    /// Access to the source file path of a loaded mesh with a handle.
+    pub fn mesh_source_file_from_handle(&self, handle: MeshHandle) -> Option<&Path> {
+        if let Some(mesh) = self.mesh_register.get(&handle) {
+            Some(mesh.source_file.as_ref())
+        } else {
+            log::warn!("Mesh data not present.");
+            None
+        }
+    }
+
+    /// Access to the optional name of the native material of a loaded mesh with a handle.
+    pub fn mesh_native_material_name_from_handle(&self, handle: MeshHandle) -> Option<&str> {
+        if let Some(mesh) = self.mesh_register.get(&handle) {
+            Some(&mesh.material_name.as_ref()?.as_str())
+        } else {
+            log::warn!("Mesh data not present.");
+            None
+        }
+    }
+
+    /// Makes mesh data available for a given ``MeshHandle`` and ``LOD`` if it is stored.
+    pub(crate) fn mesh_from_handle(&self, handle: MeshHandle, lod: LOD) -> Option<&Mesh> {
         match lod {
-            LOD::None => self.mesh_register.get(mesh_type),
+            LOD::None => self.mesh_register.get(&handle),
             _ => Some(
                 self.lod_register
-                    .get(mesh_type)?
+                    .get(&handle)?
                     .get(lod as usize - 1)
                     .unwrap(),
             ),
@@ -367,11 +484,8 @@ impl EntityManager {
     }
 
     /// makes hitbox data available for given entity data
-    pub(crate) fn hitbox_from_data(
-        &self,
-        hitbox: HitboxType,
-        opt_handle: Option<MeshHandle>,
-    ) -> Option<&Hitbox> {
+    #[rustfmt::skip]
+    pub(crate) fn hitbox_from_data(&self, hitbox: HitboxType, opt_handle: Option<MeshHandle>) -> Option<&Hitbox> {
         self.hitbox_register.get(&(hitbox, opt_handle))
     }
 
@@ -383,7 +497,6 @@ impl EntityManager {
         self.texture_map.clear();
         self.texture_map.clear();
         self.hitbox_register.clear();
-        self.commands.clear();
     }
 }
 
@@ -436,25 +549,25 @@ impl ECS {
         new_entity
     }
 
-    /// deletes a stored entity and all the associated component data
-    pub(crate) fn delete_entity(&mut self, entity: EntityID) -> FLResult {
-        let record = self
-            .entity_index
-            .remove(&entity)
-            .ok_or(String::from("entity ID not found"))?;
-
-        let archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
-        for column in archetype.components.values_mut() {
-            column.swap_remove(record.row);
-        }
-        if archetype.components.values().nth(0).unwrap().is_empty() {
-            self.archetypes.remove(&record.archetype_id);
-            self.type_to_archetype
-                .retain(|_, arch_id| *arch_id != record.archetype_id);
+    /// Deletes a stored entity and all the associated component data. Returns wether or not the removal was successful.
+    pub(crate) fn delete_entity(&mut self, entity: EntityID) -> bool {
+        if let Some(record) = self.entity_index.remove(&entity) {
+            let archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
+            for column in archetype.components.values_mut() {
+                column.swap_remove(record.row);
+            }
+            if archetype.components.values().nth(0).unwrap().is_empty() {
+                self.archetypes.remove(&record.archetype_id);
+                self.type_to_archetype
+                    .retain(|_, arch_id| *arch_id != record.archetype_id);
+            } else {
+                self.edit_record_after_delete(record.archetype_id, record.row);
+            }
+            true
         } else {
-            self.edit_record_after_delete(record.archetype_id, record.row);
+            log::warn!("EntityID {entity:?} not found.");
+            false
         }
-        Ok(())
     }
 
     /// yields the component data reference of an entity if present (also returns ``None`` if the entity ID is invalid)
@@ -484,16 +597,19 @@ impl ECS {
         ))
     }
 
-    /// adds a component to an existing entity
-    pub(crate) fn add_component<T: Component>(
-        &mut self,
-        entity: EntityID,
-        component: T,
-    ) -> FLResult {
+    /// Adds a component to an existing entity and returns ``false`` if the component was already present.
+    pub(crate) fn add_component<T: Component>(&mut self, entity: EntityID, component: T) -> bool {
         if self.has_component::<T>(entity) {
-            return Err(String::from("entity already has this component"));
+            let component_name = type_name_of_val(&component);
+            log::warn!("The entity {entity:?} already has a component of type {component_name:?}.");
+            return false;
         }
-        let mut entity_type = self.get_entity_type(entity).ok_or("entity ID not found")?;
+        let entity_type = self.get_entity_type(entity);
+        if entity_type.is_none() {
+            log::warn!("EntityID not found.");
+            return false;
+        }
+        let mut entity_type = entity_type.unwrap();
         let record = self.entity_index.get(&entity).unwrap();
         let old_archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
         let old_arch_id = old_archetype.id;
@@ -542,7 +658,8 @@ impl ECS {
         let record = self.entity_index.get_mut(&entity).unwrap();
         record.archetype_id = new_archetype_id;
         record.row = new_row;
-        Ok(())
+
+        true
     }
 
     /// checks wether or not an entity has a component of given type associated with it (also returns ``false`` if the entity ID is invalid)

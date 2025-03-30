@@ -1,10 +1,7 @@
 use super::data::*;
 use super::shader::*;
-use crate::ecs::component::utils::Color32;
-use crate::glm;
+use crate::internal_prelude::*;
 use crate::rendering::mesh::Mesh;
-use crate::utils::constants::*;
-use gl::types::*;
 use std::ptr;
 
 /// instance renderer for the 3D rendering option
@@ -18,8 +15,8 @@ pub(crate) struct InstanceRenderer {
     ibo: GLuint,
     white_texture: GLuint,
     index_count: GLsizei,
-    models: Vec<glm::Mat4>,
-    normal_matrices: Vec<glm::Mat3>,
+    models: Vec<Mat4>,
+    normal_matrices: Vec<Mat3>,
     pos_idx: usize,
     pub(crate) color: Color32,
     pub(crate) tex_id: GLuint,
@@ -39,8 +36,8 @@ impl InstanceRenderer {
         let mut nmbo = 0; // normal matrices
         let mut ibo = 0; // indices
         let mut white_texture = 0;
-        let models = vec![glm::Mat4::identity(); max_num_instances];
-        let normal_matrices = vec![glm::Mat3::identity(); max_num_instances];
+        let models = vec![Mat4::identity(); max_num_instances];
+        let normal_matrices = vec![Mat3::identity(); max_num_instances];
 
         unsafe {
             // GENERATE BUFFERS
@@ -52,7 +49,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, pbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_vertices() * size_of::<glm::Vec3>()) as GLsizeiptr,
+                (mesh.num_vertices() * size_of::<Vec3>()) as GLsizeiptr,
                 mesh.positions.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -63,7 +60,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, tbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_vertices() * size_of::<glm::Vec2>()) as GLsizeiptr,
+                (mesh.num_vertices() * size_of::<Vec2>()) as GLsizeiptr,
                 mesh.texture_coords.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -74,7 +71,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, nbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.num_vertices() * size_of::<glm::Vec3>()) as GLsizeiptr,
+                (mesh.num_vertices() * size_of::<Vec3>()) as GLsizeiptr,
                 mesh.normals.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
@@ -87,7 +84,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, mbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (max_num_instances * size_of::<glm::Mat4>()) as GLsizeiptr,
+                (max_num_instances * size_of::<Mat4>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -98,7 +95,7 @@ impl InstanceRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, nmbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (max_num_instances * size_of::<glm::Mat3>()) as GLsizeiptr,
+                (max_num_instances * size_of::<Mat3>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -157,16 +154,16 @@ impl InstanceRenderer {
         let add_size: usize = self.max_num_instances * 2;
         self.max_num_instances += add_size;
         self.models.reserve_exact(add_size);
-        self.models.extend(vec![glm::Mat4::identity(); add_size]);
+        self.models.extend(vec![Mat4::identity(); add_size]);
         self.normal_matrices.reserve_exact(add_size);
         self.normal_matrices
-            .extend(vec![glm::Mat3::identity(); add_size]);
+            .extend(vec![Mat3::identity(); add_size]);
         log::debug!("resized instance renderer to: {:?}", self.max_num_instances);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (self.max_num_instances * size_of::<glm::Mat4>()) as GLsizeiptr,
+                (self.max_num_instances * size_of::<Mat4>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -174,7 +171,7 @@ impl InstanceRenderer {
     }
 
     /// adds a position where the mesh shall be rendered
-    pub(crate) fn add_position(&mut self, trafo: &glm::Mat4, mesh: &Mesh) {
+    pub(crate) fn add_position(&mut self, trafo: &Mat4, mesh: &Mesh) {
         if self.pos_idx == self.max_num_instances {
             self.resize_buffer();
         }
@@ -189,7 +186,7 @@ impl InstanceRenderer {
     pub(crate) fn confirm_positions(&self) {
         unsafe {
             // dynamically copy the updated model data
-            let models_size: GLsizeiptr = (self.pos_idx * size_of::<glm::Mat4>()) as GLsizeiptr;
+            let models_size: GLsizeiptr = (self.pos_idx * size_of::<Mat4>()) as GLsizeiptr;
             gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
@@ -197,7 +194,7 @@ impl InstanceRenderer {
                 models_size,
                 self.models.as_ptr() as *const GLvoid,
             );
-            let norm_mat_size: GLsizeiptr = (self.pos_idx * size_of::<glm::Mat3>()) as GLsizeiptr;
+            let norm_mat_size: GLsizeiptr = (self.pos_idx * size_of::<Mat3>()) as GLsizeiptr;
             gl::BindBuffer(gl::ARRAY_BUFFER, self.nmbo);
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,

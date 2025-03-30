@@ -1,8 +1,5 @@
-use crate::ecs::component::utils::*;
-use crate::ecs::component::*;
-use crate::ecs::entity::EntityID;
 use crate::ecs::entity_manager::EntityManager;
-use crate::glm;
+use crate::internal_prelude::*;
 use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::*;
 use crate::rendering::instance_renderer::InstanceRenderer;
@@ -11,11 +8,6 @@ use crate::rendering::shader::{ShaderCatalog, ShaderType};
 use crate::rendering::sprite_renderer::{SpriteGrid, SpriteRenderer};
 use crate::systems::event_system::events::user_space::CamPositionChange;
 use crate::utils::constants::bits::user_level::INVISIBLE;
-use crate::utils::constants::*;
-use crate::utils::tools::{padding, to_vec4};
-use ahash::AHashMap;
-use gl::types::*;
-use itertools::Itertools;
 use std::cmp::Ordering;
 
 /// responsible for the automated rendering of all entities
@@ -30,7 +22,7 @@ pub struct RenderingSystem {
     clear_color: Color32,
     render_distance: Option<f32>,
     shadow_resolution: ShadowResolution,
-    current_cam_config: (glm::Vec3, glm::Vec3, glm::Vec3),
+    current_cam_config: (Vec3, Vec3, Vec3),
     ambient_light: (Color32, f32),
     skybox: Option<Skybox>,
     screen_texture: ScreenTexture,
@@ -252,17 +244,17 @@ impl RenderingSystem {
 
             let render_data = RenderData {
                 spec: RenderSpec {
-                    mesh_type: renderable.mesh_type.clone(),
+                    mesh_type: renderable.mesh_type,
                     shader_type,
                     lod,
                 },
                 trafo: &trafo,
                 m_attr: &renderable.mesh_attribute,
-                mesh: entity_manager.mesh_from_type(&renderable.mesh_type, lod).unwrap(),
+                mesh: entity_manager.mesh_from_handle(renderable.mesh_type.mesh_handle(), lod).unwrap(),
                 tex_map: &entity_manager.texture_map,
                 transparent: match &renderable.mesh_attribute {
                     MeshAttribute::Colored(color) => color.a < 255,
-                    MeshAttribute::Textured(texture) => entity_manager.texture_map.is_transparent(texture),
+                    MeshAttribute::Textured(texture) => texture.is_transparent,
                 }
             };
 
@@ -556,7 +548,7 @@ impl RenderingSystem {
                     }
                 }
                 self.renderers.push(RendererType::Batch {
-                    spec: rd.spec.clone(),
+                    spec: rd.spec,
                     renderer,
                     used: true,
                     transp: rd.transparent,
@@ -580,7 +572,7 @@ impl RenderingSystem {
                 }
                 renderer.add_position(rd.trafo, rd.mesh);
                 self.renderers.push(RendererType::Instance {
-                    spec: rd.spec.clone(),
+                    spec: rd.spec,
                     attribute: rd.m_attr.clone(),
                     renderer,
                     used: true,
@@ -601,30 +593,30 @@ impl RenderingSystem {
     fn update_uniform_buffers(&self) {
         self.shader_catalog.matrix_buffer.upload_data(
             0,
-            size_of::<glm::Mat4>(),
-            &self.perspective_camera.projection as *const glm::Mat4 as *const GLvoid,
+            size_of::<Mat4>(),
+            &self.perspective_camera.projection as *const Mat4 as *const GLvoid,
         );
         self.shader_catalog.matrix_buffer.upload_data(
-            size_of::<glm::Mat4>(),
-            size_of::<glm::Mat4>(),
-            &self.perspective_camera.view as *const glm::Mat4 as *const GLvoid,
+            size_of::<Mat4>(),
+            size_of::<Mat4>(),
+            &self.perspective_camera.view as *const Mat4 as *const GLvoid,
         );
         let cam_pos_4 = to_vec4(&self.current_cam_config.0);
         self.shader_catalog.matrix_buffer.upload_data(
-            size_of::<glm::Mat4>() * 2,
-            size_of::<glm::Vec4>(),
-            &cam_pos_4 as *const glm::Vec4 as *const GLvoid,
+            size_of::<Mat4>() * 2,
+            size_of::<Vec4>(),
+            &cam_pos_4 as *const Vec4 as *const GLvoid,
         );
 
         self.shader_catalog.ortho_buffer.upload_data(
             0,
-            size_of::<glm::Mat4>(),
-            &self.ortho_camera.projection as *const glm::Mat4 as *const GLvoid,
+            size_of::<Mat4>(),
+            &self.ortho_camera.projection as *const Mat4 as *const GLvoid,
         );
         self.shader_catalog.ortho_buffer.upload_data(
-            size_of::<glm::Mat4>(),
-            size_of::<glm::Mat4>(),
-            &self.ortho_camera.view as *const glm::Mat4 as *const GLvoid,
+            size_of::<Mat4>(),
+            size_of::<Mat4>(),
+            &self.ortho_camera.view as *const Mat4 as *const GLvoid,
         );
 
         let dir_light_data = self
@@ -768,7 +760,7 @@ impl RenderingSystem {
     }
 
     /// gets the current camera position look and up direction vector
-    pub fn current_cam_config(&self) -> (glm::Vec3, glm::Vec3, glm::Vec3) {
+    pub fn current_cam_config(&self) -> (Vec3, Vec3, Vec3) {
         self.current_cam_config
     }
 
@@ -858,7 +850,7 @@ impl RenderingSystem {
 }
 
 /// specifies what renderer to use for rendering an entity
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq)]
 struct RenderSpec {
     mesh_type: MeshType,
     shader_type: ShaderType,
@@ -975,7 +967,7 @@ impl Ord for RendererType {
 /// data bundle for rendering
 struct RenderData<'a> {
     spec: RenderSpec,
-    trafo: &'a glm::Mat4,
+    trafo: &'a Mat4,
     m_attr: &'a MeshAttribute,
     mesh: &'a Mesh,
     tex_map: &'a TextureMap,

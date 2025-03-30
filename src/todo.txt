@@ -18,14 +18,8 @@ shading type in component -> add styles like cell shading -> together in rendera
 object outlining with stencil buffer
 bloom
 
-dont automatically check for transparency in textures and use a flag in the texture in the components
-asset data arena allocator
-documentation (make shure the content is correct as well) + log messages
-use all texture types and materials in the shaders
-use the vertex colors in renderers and algorithms
-material texture loading needs to be independant of the obj file loading because the materialsource can be created independantly -> material textures need to be able to be loaded manually as well, but are still automatically loaded from a reference in an obj file
-correctly treat empty attribute vectors in the mesh loading -> maybe use optionals in the mesh
-a mesh has an optional material identifier stored that is used to lookup in the material register
-make shure that the paths for the materials and the material textures are fine -> the tobj strings are only the names
 replace panics with default returns and an error message in the logger when possible
-reduce use statements by having a pub(crate) prelude module
+documentation (make shure the content is correct as well) + log messages
+asset data arena allocator
+use the vertex colors
+use all texture types and materials in the shaders

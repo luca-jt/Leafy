@@ -1,12 +1,5 @@
-use crate::ecs::component::utils::*;
-use crate::ecs::component::Component;
-use crate::{BumpBox, BumpVec};
-use ahash::AHashMap;
-use itertools::Itertools;
-use std::any::TypeId;
+use crate::internal_prelude::*;
 use std::ops::Index;
-use std::path::Path;
-use std::rc::Rc;
 use std::slice::Iter;
 
 /// unique identifier for an entity
@@ -84,38 +77,5 @@ impl Archetype {
     /// checks wether or not the archetype contains the given component
     pub(crate) fn contains<T: Component>(&self) -> bool {
         self.components.contains_key(&TypeId::of::<T>())
-    }
-}
-
-/// type that enables caching of loaded assets in the entity manager
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum AssetCacheInstruction {
-    MeshData(MeshType),
-    TextureData(Texture),
-    HitboxData(HitboxType, Option<MeshType>),
-    SpriteSheetData(Rc<Path>),
-}
-
-impl From<MeshType> for AssetCacheInstruction {
-    fn from(value: MeshType) -> Self {
-        Self::MeshData(value)
-    }
-}
-
-impl From<Texture> for AssetCacheInstruction {
-    fn from(value: Texture) -> Self {
-        Self::TextureData(value)
-    }
-}
-
-impl From<(HitboxType, Option<MeshType>)> for AssetCacheInstruction {
-    fn from(value: (HitboxType, Option<MeshType>)) -> Self {
-        Self::HitboxData(value.0, value.1)
-    }
-}
-
-impl From<Rc<Path>> for AssetCacheInstruction {
-    fn from(value: Rc<Path>) -> Self {
-        Self::SpriteSheetData(value)
     }
 }

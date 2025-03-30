@@ -1,10 +1,4 @@
-use crate::engine::{Engine, FallingLeafApp};
-use crate::systems::event_system::events::*;
-use crate::utils::tools::{weak_ptr, SharedPtr, WeakPtr};
-use ahash::AHashMap;
-use std::any::{Any, TypeId};
-use std::fmt::Debug;
-use std::marker::PhantomData;
+use crate::internal_prelude::*;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
 
@@ -228,7 +222,7 @@ struct EventFunction<T: Event, A: FallingLeafApp> {
 }
 
 pub mod events {
-    use std::path::PathBuf;
+    use crate::internal_prelude::*;
     use winit::event::{DeviceId, MouseButton, TouchPhase};
     use winit::keyboard::KeyCode;
 
@@ -347,8 +341,7 @@ pub mod events {
 
     /// contains all events that are also meant to be triggered by the user
     pub mod user_space {
-        use crate::engine::EngineMode;
-        use crate::glm;
+        use crate::internal_prelude::*;
 
         /// global change of the engine mode
         #[derive(Debug, Copy, Clone, PartialEq)]
@@ -359,9 +352,9 @@ pub mod events {
         /// Change of the users camera position, look and up direction vector used for rendering and audio processing. Changing the up axis to anything but the Y-axis will make the built-in mouse camera control useless and not work properly!
         #[derive(Debug, Copy, Clone, PartialEq)]
         pub struct CamPositionChange {
-            pub new_pos: glm::Vec3,
-            pub new_look: glm::Vec3,
-            pub new_up: glm::Vec3,
+            pub new_pos: Vec3,
+            pub new_look: Vec3,
+            pub new_up: Vec3,
         }
 
         /// changes the animation speed of the rendering system

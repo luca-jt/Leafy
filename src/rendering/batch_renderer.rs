@@ -1,12 +1,7 @@
 use super::data::*;
 use super::shader::{bind_batch_attribs, ShaderType};
-use crate::ecs::component::utils::Color32;
-use crate::glm;
+use crate::internal_prelude::*;
 use crate::rendering::mesh::Mesh;
-use crate::utils::constants::*;
-use crate::utils::tools::mult_mat4_vec3;
-use ahash::AHashSet;
-use gl::types::*;
 use std::ptr;
 
 /// batch renderer for the 3D rendering option
@@ -141,7 +136,7 @@ impl BatchRenderer {
     /// draws a mesh with a texture
     pub(crate) fn draw_tex_mesh(
         &mut self,
-        trafo: &glm::Mat4,
+        trafo: &Mat4,
         tex_id: GLuint,
         mesh: &Mesh,
         shader_type: ShaderType,
@@ -163,7 +158,7 @@ impl BatchRenderer {
     /// draws a mesh with a color
     pub(crate) fn draw_color_mesh(
         &mut self,
-        trafo: &glm::Mat4,
+        trafo: &Mat4,
         color: Color32,
         mesh: &Mesh,
         shader_type: ShaderType,
@@ -349,7 +344,7 @@ impl Batch {
     }
 
     /// adds a mesh with a texture to the batch
-    fn try_add_tex_mesh(&mut self, trafo: &glm::Mat4, tex_id: GLuint, mesh: &Mesh) -> bool {
+    fn try_add_tex_mesh(&mut self, trafo: &Mat4, tex_id: GLuint, mesh: &Mesh) -> bool {
         // determine texture index
         let mut tex_index: GLfloat = -1.0;
         for (i, id) in self.all_tex_ids.iter().enumerate() {
@@ -374,7 +369,7 @@ impl Batch {
         for i in 0..mesh.num_vertices() {
             *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = Vertex {
                 position: mult_mat4_vec3(trafo, &mesh.positions[i]),
-                color: glm::vec4(1.0, 1.0, 1.0, 1.0),
+                color: vec4(1.0, 1.0, 1.0, 1.0),
                 uv_coords: mesh.texture_coords[i],
                 normal: glm::mat4_to_mat3(&trafo.try_inverse().unwrap().transpose())
                     * mesh.normals[i],
@@ -387,7 +382,7 @@ impl Batch {
     }
 
     /// adds a mesh with a color to the batch
-    fn add_color_mesh(&mut self, trafo: &glm::Mat4, color: Color32, mesh: &Mesh) {
+    fn add_color_mesh(&mut self, trafo: &Mat4, color: Color32, mesh: &Mesh) {
         if self.index_count as usize >= mesh.num_indices() * self.max_num_meshes {
             // resize current batch if batch size exceeded
             self.resize_buffer(mesh);

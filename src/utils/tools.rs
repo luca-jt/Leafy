@@ -1,9 +1,6 @@
-use crate::glm;
+use crate::internal_prelude::*;
 use fyrox_sound::algebra::Vector3;
-use std::any::TypeId;
-use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Sub};
-use std::rc::{Rc, Weak};
 
 /// alias for a ``Rc<RefCell>``
 pub type SharedPtr<T> = Rc<RefCell<T>>;
@@ -29,28 +26,28 @@ where
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
 }
 
-/// converts a glm::Vec3 to a glm::Vec4 by adding a 1.0 in the w slot
-pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
-    glm::vec4(v.x, v.y, v.z, 1.0)
+/// converts a Vec3 to a Vec4 by adding a 1.0 in the w slot
+pub fn to_vec4(v: &Vec3) -> Vec4 {
+    vec4(v.x, v.y, v.z, 1.0)
 }
 
 /// converts ``v`` to a ``Vec4`` and right-multiplies it to ``m`` and returns the result converted back
-pub fn mult_mat4_vec3(m: &glm::Mat4, v: &glm::Vec3) -> glm::Vec3 {
+pub fn mult_mat4_vec3(m: &Mat4, v: &Vec3) -> Vec3 {
     (m * to_vec4(v)).xyz()
 }
 
 /// checks if two vectors point in the same direction
-pub fn same_direction(direction: &glm::Vec3, other: &glm::Vec3) -> bool {
+pub fn same_direction(direction: &Vec3, other: &Vec3) -> bool {
     direction.dot(other) > f32::EPSILON
 }
 
 /// normalizes a vector if the vector has a length, otherwhise return ``None``
-pub fn normalize_non_zero(v: glm::Vec3) -> Option<glm::Vec3> {
+pub fn normalize_non_zero(v: Vec3) -> Option<Vec3> {
     v.try_normalize(f32::EPSILON)
 }
 
 /// clamp a vector to the given bounds for the norm such that |v| is in range [lb, ub]
-pub fn clamp_norm(v: glm::Vec3, lb: f32, ub: f32) -> glm::Vec3 {
+pub fn clamp_norm(v: Vec3, lb: f32, ub: f32) -> Vec3 {
     let norm = v.norm();
     if norm > ub {
         v * ub / norm
@@ -62,7 +59,7 @@ pub fn clamp_norm(v: glm::Vec3, lb: f32, ub: f32) -> glm::Vec3 {
 }
 
 /// easy conversion between vector types
-pub(crate) fn vec3_to_vector3(v: &glm::Vec3) -> Vector3<f32> {
+pub(crate) fn vec3_to_vector3(v: &Vec3) -> Vector3<f32> {
     Vector3::new(v.x, v.y, v.z)
 }
 

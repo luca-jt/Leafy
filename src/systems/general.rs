@@ -1,12 +1,5 @@
-use crate::ecs::component::utils::TimeDuration;
-use crate::ecs::component::{EntityFlags, Position, SoundController};
-use crate::engine::{Engine, FallingLeafApp};
-use crate::glm;
-use crate::systems::event_system::events::user_space::*;
-use crate::systems::event_system::events::*;
+use crate::internal_prelude::*;
 use crate::utils::constants::bits::user_level::DOPPLER_EFFECT;
-use crate::utils::constants::Y_AXIS;
-use crate::utils::tools::map_range;
 use std::f32::consts::{FRAC_PI_2, PI};
 
 /// starts moving the camera in the direction the key was pressed for
@@ -76,23 +69,23 @@ pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: 
         let look_dir = cam_config.1.normalize(); // new z
         let right_dir = look_dir.cross(&Y_AXIS).normalize(); // new x
         let up_dir = right_dir.cross(&look_dir).normalize(); // new y
-        let look_trafo = glm::Mat3::from_columns(&[right_dir, up_dir, look_dir]);
+        let look_trafo = Mat3::from_columns(&[right_dir, up_dir, look_dir]);
 
-        let forward_dir = glm::vec3(look_dir.x, 0.0, look_dir.z);
+        let forward_dir = vec3(look_dir.x, 0.0, look_dir.z);
         let forward_dir_norm = forward_dir.norm();
         let current_vert_angle = forward_dir_norm.acos();
         let add_angle = sens / 1000.0;
 
         let hori_factor = forward_dir_norm; // accounts for different circle radii when the vertical angle changes
         let add_hori_angle = add_angle * event.delta_x as f32 * hori_factor;
-        let look_hori = look_trafo * glm::vec3(add_hori_angle.sin(), 0.0, add_hori_angle.cos());
+        let look_hori = look_trafo * vec3(add_hori_angle.sin(), 0.0, add_hori_angle.cos());
 
         let angle_block = PI / 16.0;
         let add_vert_angle = (add_angle * -event.delta_y as f32).clamp(
             -FRAC_PI_2 + angle_block + current_vert_angle,
             FRAC_PI_2 - angle_block - current_vert_angle,
         );
-        let look_vert = look_trafo * glm::vec3(0.0, add_vert_angle.sin(), add_vert_angle.cos());
+        let look_vert = look_trafo * vec3(0.0, add_vert_angle.sin(), add_vert_angle.cos());
 
         engine.trigger_event(CamPositionChange {
             new_pos: cam_config.0,
@@ -114,7 +107,7 @@ pub(crate) fn update_cam<T: FallingLeafApp>(engine: &Engine<T>, dt: TimeDuration
         return;
     }
     let cam_move_config = engine.animation_system().flying_cam_dir.unwrap();
-    if cam_move_config.0 != glm::Vec3::zeros() {
+    if cam_move_config.0 != Vec3::zeros() {
         let cam_config = engine.rendering_system().current_cam_config();
         let move_vector = cam_move_config.0.normalize();
         let changed = move_vector * dt.0 * cam_move_config.1;
@@ -123,7 +116,7 @@ pub(crate) fn update_cam<T: FallingLeafApp>(engine: &Engine<T>, dt: TimeDuration
         look_z.y = 0.0;
         look_z.normalize_mut();
         let look_x = look_z.cross(&Y_AXIS).normalize();
-        let look_space_matrix = glm::Mat3::from_columns(&[look_x, Y_AXIS, look_z]);
+        let look_space_matrix = Mat3::from_columns(&[look_x, Y_AXIS, look_z]);
 
         engine.trigger_event(CamPositionChange {
             new_pos: cam_config.0 + look_space_matrix * changed,
