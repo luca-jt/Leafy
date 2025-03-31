@@ -18,9 +18,8 @@ shading type in component -> add styles like cell shading -> together in rendera
 object outlining with stencil buffer
 bloom
 
-replace panics with default returns and an error message in the logger when possible
+replace expects and some unwraps with default returns and an error message in the logger when possible
 asset data arena allocator
 use the vertex colors
 use all texture types and materials in the shaders
 material texture loading with shininess textures with float values might cause problems
-event trigger in event system?

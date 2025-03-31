@@ -23,33 +23,41 @@ impl FallingLeafApp for App {
             new_look: ORIGIN - start_pos,
             new_up: Y_AXIS,
         });
+
         engine
             .video_system_mut()
             .set_mouse_fpp_cam_control(Some(CAM_MOUSE_SPEED));
+
         engine
             .animation_system_mut()
             .set_flying_cam_movement(Some(CAM_MOVE_SPEED));
 
         let mut entity_manager = engine.entity_manager_mut();
-        entity_manager.create_entity(components!(
+
+        let torus_mesh = entity_manager.load_asset_file("examples/simplification/torus.obj")[0];
+        assert!(entity_manager.load_lods(torus_mesh));
+
+        let _light = entity_manager.create_entity(components!(
             Position::new(1.0, 10.0, 1.0),
             DirectionalLight::default()
         ));
+
         let _floor = entity_manager.create_entity(components!(
             Position::origin(),
             Scale::from_factor(5.0),
             Renderable {
                 mesh_type: MeshType::Plane,
                 mesh_attribute: MeshAttribute::Colored(Color32::GREEN),
-                material: Material::default(),
+                material: MaterialSource::default(),
             }
         ));
+
         self.mesh = entity_manager.create_entity(components!(
             Position::new(0.0, 2.0, 0.0),
             Renderable {
-                mesh_type: MeshType::Custom(Path::new("examples/simplification/torus.obj").into()),
+                mesh_type: MeshType::Custom(torus_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::YELLOW),
-                material: Material::default()
+                material: MaterialSource::default()
             },
             LOD::None
         ));

@@ -44,7 +44,6 @@ pub mod prelude {
     pub use crate::utils::constants::*;
     pub use crate::utils::tools::*;
     pub use gl::types::*;
-    pub use winit::window::Theme;
 }
 
 /// Common internally used names.

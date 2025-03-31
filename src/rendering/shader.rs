@@ -34,7 +34,7 @@ fn compile_shader(src: &str, ty: GLenum) -> GLuint {
             );
             panic!(
                 "{}",
-                std::str::from_utf8(&buf).expect("ShaderInfoLog not valid UTF-8.")
+                std::str::from_utf8(&buf).expect("ShaderInfoLog is not valid UTF-8.")
             );
         }
     }
@@ -81,7 +81,7 @@ fn link_program(vs: GLuint, fs: GLuint, gs: Option<GLuint>) -> GLuint {
             );
             panic!(
                 "{}",
-                std::str::from_utf8(&buf).expect("ProgramInfoLog not valid utf8")
+                std::str::from_utf8(&buf).expect("ProgramInfoLog is not valid UTF-8.")
             );
         }
         program

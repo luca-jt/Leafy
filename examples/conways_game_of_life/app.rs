@@ -40,6 +40,7 @@ impl FallingLeafApp for App {
         engine
             .rendering_system_mut()
             .set_gl_clearcolor(Color32::TRANSPARENT);
+
         let mut rendering_system = engine.rendering_system_mut();
         let sprite_grid = rendering_system.sprite_grid_mut(SpriteLayer::Layer0);
         sprite_grid.scale = 0.02;

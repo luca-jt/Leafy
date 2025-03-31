@@ -36,12 +36,16 @@ impl App {
 
 impl FallingLeafApp for App {
     fn init(&mut self, engine: &Engine<Self>) {
+        //
+        // initial settings
+        //
         let start_pos = vec3(0.0, 5.0, -5.0);
         engine.trigger_event(CamPositionChange {
             new_pos: start_pos,
             new_look: ORIGIN - start_pos,
             new_up: Y_AXIS,
         });
+
         engine
             .video_system_mut()
             .set_mouse_fpp_cam_control(Some(CAM_MOUSE_SPEED));
@@ -69,24 +73,61 @@ impl FallingLeafApp for App {
             "examples/3D/skybox/back.jpg",
         ])));
 
+        //
+        // asset loading
+        //
         let mut entity_manager = engine.entity_manager_mut();
+
+        let hammer_mesh = entity_manager.load_asset_file("examples/3D/hammer.obj")[0];
+        let sphere_mesh = entity_manager.load_asset_file("examples/3D/sphere.obj")[0];
+
+        let wall_texture = Texture {
+            path: Path::new("examples/3D/wall.png").into(),
+            filtering: Filtering::Nearest,
+            wrapping: Wrapping::Repeat,
+            color_space: ColorSpace::RGBA8,
+        };
+        assert!(entity_manager.load_texture(&wall_texture));
+
+        assert!(
+            entity_manager.load_hitbox(HitboxType::ConvexHull, Some(MeshType::Cube.mesh_handle()))
+        );
+        assert!(entity_manager.load_hitbox(HitboxType::Box, Some(MeshType::Cube.mesh_handle())));
+
+        let hit_sound =
+            engine
+                .audio_system_mut()
+                .load_sound("examples/3D/hit.wav", SoundType::SFX, false);
+
+        let heli_sound = engine.audio_system_mut().load_sound(
+            "examples/3D/helicopter.wav",
+            SoundType::SFX,
+            true,
+        );
+        engine.audio_system_mut().set_looping(heli_sound, true);
+        engine.audio_system_mut().play(heli_sound);
+
+        //
+        // entities
+        //
         let _light1 = entity_manager.create_entity(components!(
             Position::new(-1.0, 6.0, -1.0),
             PointLight::default(),
             Renderable {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
-                material: Material::default(),
+                material: MaterialSource::default(),
             },
             Scale::from_factor(0.1)
         ));
+
         let _light2 = entity_manager.create_entity(components!(
             Position::new(1.0, 6.0, 1.0),
             PointLight::default(),
             Renderable {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
-                material: Material::default(),
+                material: MaterialSource::default(),
             },
             Scale::from_factor(0.1)
         ));
@@ -96,13 +137,8 @@ impl FallingLeafApp for App {
             Scale::new(5.0, 0.1, 5.0),
             Renderable {
                 mesh_type: MeshType::Cube,
-                mesh_attribute: MeshAttribute::Textured(Texture {
-                    path: Path::new("examples/3D/wall.png").into(),
-                    filtering: Filtering::Nearest,
-                    wrapping: Wrapping::Repeat,
-                    color_space: ColorSpace::RGBA8
-                }),
-                material: Material::default(),
+                mesh_attribute: MeshAttribute::Textured(wall_texture.clone()),
+                material: MaterialSource::default(),
             },
             Collider::new(HitboxType::Box)
         ));
@@ -112,55 +148,18 @@ impl FallingLeafApp for App {
             Scale::new(5.0, 0.1, 5.0),
             Renderable {
                 mesh_type: MeshType::Cube,
-                mesh_attribute: MeshAttribute::Textured(Texture {
-                    path: Path::new("examples/3D/wall.png").into(),
-                    filtering: Filtering::Nearest,
-                    wrapping: Wrapping::Repeat,
-                    color_space: ColorSpace::RGBA8
-                }),
-                material: Material::default(),
+                mesh_attribute: MeshAttribute::Textured(wall_texture),
+                material: MaterialSource::default(),
             },
             Collider::new(HitboxType::Box)
         ));
 
-        /*let _wall1 = entity_manager.create_entity(components!(
-            Position::new(0.0, 5.0, -5.0),
-            Scale::new(5.0, 0.1, 5.0),
-            Orientation::new(90.0, X_AXIS),
-            Renderable {
-                mesh_type: MeshType::Cube,
-                mesh_attribute: MeshAttribute::Textured(Texture {
-                    path: Path::new("examples/3D/wall.png").into(),
-                    filtering: Filtering::Nearest,
-                    wrapping: Wrapping::Repeat,
-                    color_space: ColorSpace::RGBA8
-                }),
-                material: Material::default(),
-            }
-        ));
-
-        let _wall2 = entity_manager.create_entity(components!(
-            Position::new(0.0, 5.0, 5.0),
-            Scale::new(5.0, 0.1, 5.0),
-            Orientation::new(90.0, X_AXIS),
-            Renderable {
-                mesh_type: MeshType::Cube,
-                mesh_attribute: MeshAttribute::Textured(Texture {
-                    path: Path::new("examples/3D/wall.png").into(),
-                    filtering: Filtering::Nearest,
-                    wrapping: Wrapping::Repeat,
-                    color_space: ColorSpace::RGBA8
-                }),
-                material: Material::default(),
-            }
-        ));*/
-
         let _hammer = entity_manager.create_entity(components!(
             Position::new(6.0, 2.0, 0.0),
             Renderable {
-                mesh_type: MeshType::Custom(Path::new("examples/3D/hammer.obj").into()),
+                mesh_type: MeshType::Custom(hammer_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::GREY),
-                material: Material::default(),
+                material: MaterialSource::default(),
             },
             Velocity::zero(),
             RigidBody::default().with_density(5.0),
@@ -170,18 +169,13 @@ impl FallingLeafApp for App {
             EntityFlags::from_flags(&[FLOATING])
         ));
 
-        let hit_sound =
-            engine
-                .audio_system_mut()
-                .load_sound("examples/3D/hit.wav", SoundType::SFX, false);
-
         self.player = entity_manager.create_entity(components!(
             Position::new(0.0, 4.0, 0.0),
             Scale::from_factor(0.2),
             Renderable {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::RED),
-                material: Material::default(),
+                material: MaterialSource::default(),
             },
             Velocity::new(-1.0, 0.0, 0.0),
             Orientation::new(45.0, Y_AXIS + Z_AXIS),
@@ -193,36 +187,32 @@ impl FallingLeafApp for App {
             SoundController::from_handles(&[hit_sound])
         ));
 
-        let heli_sound = engine.audio_system_mut().load_sound(
-            "examples/3D/helicopter.wav",
-            SoundType::SFX,
-            true,
-        );
-        engine.audio_system_mut().set_looping(heli_sound, true);
-        engine.audio_system_mut().play(heli_sound);
-
         self.sphere = entity_manager.create_entity(components!(
             Position::new(0.0, 1.0, 1.0),
             Scale::from_factor(0.2),
             Renderable {
-                mesh_type: MeshType::Custom(Path::new("examples/3D/sphere.obj").into()),
+                mesh_type: MeshType::Custom(sphere_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::BLUE),
-                material: Material::default(),
+                material: MaterialSource::default(),
             },
             SoundController::from_handles(&[heli_sound]),
             TouchTime(TimePoint::now()),
             EntityFlags::from_flags(&[DOPPLER_EFFECT])
         ));
+
         self.collision_point = entity_manager.create_entity(components!(
             Position::origin(),
             Scale::from_factor(0.05),
             Renderable {
-                mesh_type: MeshType::Custom(Path::new("examples/3D/sphere.obj").into()),
+                mesh_type: MeshType::Custom(sphere_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::YELLOW),
-                material: Material::default(),
+                material: MaterialSource::default(),
             }
         ));
 
+        //
+        // event functions
+        //
         engine.event_system_mut().add_modifier(jump);
         engine.event_system_mut().add_modifier(quit_app);
         engine.event_system_mut().add_modifier(toggle_cursor);
@@ -236,9 +226,11 @@ impl FallingLeafApp for App {
             .unwrap()
             .0
             .delta_time();
+
         let pos = entity_manager
             .get_component_mut::<Position>(self.sphere)
             .unwrap();
+
         let av = FRAC_PI_2;
         pos.data_mut().x = (secs * av).0.sin() * 3.0;
         pos.data_mut().z = (secs * av).0.cos() * 3.0;
@@ -271,6 +263,7 @@ fn jump(event: &KeyPress, engine: &Engine<App>) {
         let v_ref = entity_manager
             .get_component_mut::<Velocity>(engine.app().player)
             .unwrap();
+
         v_ref.data_mut().y = 5.0;
     }
 }
@@ -290,6 +283,7 @@ fn toggle_cursor(event: &KeyPress, engine: &Engine<App>) {
             engine
                 .video_system_mut()
                 .set_mouse_fpp_cam_control(Some(CAM_MOUSE_SPEED));
+
             engine.app_mut().using_mouse_control = true;
         }
     }

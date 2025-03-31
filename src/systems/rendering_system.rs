@@ -121,10 +121,8 @@ impl RenderingSystem {
         for (pos, src, entity) in self.tmp_storage.dir_lights.iter() {
             if !self.directional_lights.iter().any(|(id, _)| entity == id) {
                 if self.directional_lights.len() == MAX_DIR_LIGHT_MAPS {
-                    panic!(
-                        "no more directional light source slots available (max is {})",
-                        MAX_DIR_LIGHT_MAPS
-                    );
+                    log::error!("No more directional light source slots available (max is {MAX_DIR_LIGHT_MAPS:?}).");
+                    continue;
                 }
                 self.directional_lights.push((
                     *entity,
@@ -182,10 +180,8 @@ impl RenderingSystem {
             } else {
                 // create a new shadow map
                 if self.point_lights.len() == MAX_POINT_LIGHT_COUNT {
-                    panic!(
-                        "no more point light source slots available (max is {})",
-                        MAX_POINT_LIGHT_COUNT
-                    );
+                    log::error!("No more point light source slots available (max is {MAX_POINT_LIGHT_COUNT:?}).");
+                    continue;
                 }
                 if src.has_shadows {
                     if self
@@ -195,10 +191,8 @@ impl RenderingSystem {
                         .count()
                         == MAX_POINT_LIGHT_MAPS
                     {
-                        panic!(
-                            "no more point light source slots with shadow maps available (max is {})",
-                            MAX_POINT_LIGHT_MAPS
-                        );
+                        log::error!("No more point light source slots with shadow maps available (max is {MAX_POINT_LIGHT_MAPS:?}).");
+                        continue;
                     }
                     self.point_lights.insert(
                         *entity,

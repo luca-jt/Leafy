@@ -25,9 +25,13 @@ impl FallingLeafApp for App {
             .scale = 0.5;
 
         let mut entity_manager = engine.entity_manager_mut();
+
+        let sprite_path = Path::new("examples/2D/sprite.png").into();
+        assert!(entity_manager.load_sprite(&sprite_path));
+
         self.sprite = entity_manager.create_entity(components!(
             Sprite {
-                source: SpriteSource::Single(Path::new("examples/2D/sprite.png").into()),
+                source: SpriteSource::Single(sprite_path),
                 position: SpritePosition::Grid(vec2(-1.0, 0.0)),
                 layer: SpriteLayer::Layer0,
             },
