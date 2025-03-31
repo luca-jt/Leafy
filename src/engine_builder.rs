@@ -7,7 +7,7 @@ use winit::platform::windows::IconExtWindows;
 #[cfg(target_os = "windows")]
 use winit::window::Icon;
 
-/// builder for the Engine that allows for easy modification of intial parameters
+/// Builder structure for the ``Engine`` that allows for easy modification of intial parameters. You create this before running the engine and you can use all of the ``.with_...()`` functions to specify the start configuration of the engine.
 pub struct EngineAttributes {
     title: &'static str,
     pub(crate) fps_cap: Option<f64>,
@@ -26,7 +26,7 @@ pub struct EngineAttributes {
 }
 
 impl EngineAttributes {
-    /// creates new engine attributes (enigine builder with default values)
+    /// Creates new ``EngineAttributes`` with default parameters.
     pub fn new() -> Self {
         Self {
             title: WIN_TITLE,
@@ -46,112 +46,117 @@ impl EngineAttributes {
         }
     }
 
-    /// sets a default window title
+    /// Sets a default window title.
     pub fn with_title(mut self, title: &'static str) -> Self {
         self.title = title;
         self
     }
 
-    /// sets an optional fps cap for the rendering process (default is ``None`` because vsync is enabled)
+    /// Sets an optional FPS cap for the rendering process (default is ``None`` because VSYNC is enabled).
     pub fn with_fps_cap(mut self, cap: Option<f64>) -> Self {
         self.fps_cap = cap;
         self
     }
 
-    /// sets an optional fps cap for the rendering process when the app is not in focus (default is ``None``)
+    /// Sets an optional FPS cap for the rendering process when the app is not in focus (default is ``None``).
     pub fn with_bg_fps_cap(mut self, cap: Option<f64>) -> Self {
         self.bg_fps_cap = cap;
         self
     }
 
-    /// sets the width and height for the window (default is 800 x 450) (logical pixels)
+    /// Sets the width and height for the window (default is 800 x 450) in physical size.
     pub fn with_size(mut self, width: u32, height: u32) -> Self {
         self.size = (width, height);
         self
     }
 
-    /// sets an optional minimum size for the window (default is ``None``)
+    /// Sets an optional minimum size (width, height) for the window (default is ``None``).
     pub fn with_min_size(mut self, size: Option<(u32, u32)>) -> Self {
         self.min_size = size;
         self
     }
 
-    /// sets an optional window ratio (width/height) to keep at all times during resizes of the window (default is ``None``)
+    /// Sets an optional window ratio (width/height) to keep at all times during resizes of the window (default is ``None``).
     pub fn with_fixed_ratio(mut self, ratio: Option<f32>) -> Self {
         self.enforced_ratio = ratio;
         self
     }
 
-    /// sets the window as transparent (default is ``false``)
+    /// Sets the window as transparent (default is ``false``). This enables to render to the background with an alpha value.
     pub fn with_transparent(mut self, flag: bool) -> Self {
         self.transparent = flag;
         self
     }
 
-    /// sets the window icon from a file (must be .ico) (only works on windows)
+    /// Sets the window icon from a file (must be a ``.ico`` file) (only works on windows).
     pub fn with_icon(mut self, path: PathBuf) -> Self {
         self.icon = AppIcon::Custom(path);
         self
     }
 
-    /// sets the window to be resizable (default is ``true``)
+    /// Sets the window to be resizable (default is ``true``).
     pub fn with_resizable(mut self, flag: bool) -> Self {
         self.resizable = flag;
         self
     }
 
-    /// sets the windows' optional maximum size (default is ``None``)
+    /// Sets the window's optional maximum size (width, height) (default is ``None``).
     pub fn with_max_size(mut self, size: Option<(u32, u32)>) -> Self {
         self.max_size = size;
         self
     }
 
-    /// sets the window as fullscreen (default is ``false``)
+    /// Sets the window as fullscreen (default is ``false``).
     pub fn with_fullscreen(mut self, flag: bool) -> Self {
         self.fullscreen = flag;
         self
     }
 
-    /// sets the window as maximized (default is ``false``)
+    // Sets the window as maximized (default is ``false``).
     pub fn with_maximized(mut self, flag: bool) -> Self {
         self.maximized = flag;
         self
     }
 
-    /// enables/disables vsync (default is ``true``) (disabling this will set the frame rate to unlimited)
+    /// Enables/disables VSYNC (default is ``true``) (disabling this and not setting an FPS cap will set the frame rate to unlimited).
     pub fn with_vsync(mut self, flag: bool) -> Self {
         self.use_vsync = flag;
         self
     }
 
-    /// sets the theme (light or dark) for the window (default is the System default)
+    /// Sets the theme (light or dark) for the window (default is the system default).
     pub fn with_theme(mut self, theme: Theme) -> Self {
         self.theme = Some(theme);
         self
     }
 
-    /// builds the actual engine and performs compatibility checks
+    /// Builds the actual engine and performs compatibility checks.
     pub fn build_engine<A: FallingLeafApp>(self) -> Result<Engine<A>, String> {
         if let Some(min_size) = self.min_size {
             if min_size.0 > self.size.0 || min_size.1 > self.size.1 {
                 return Err(String::from(
-                    "minimun window size can not be bigger than initial size",
+                    "Minimun window size can not be bigger than initial size.",
                 ));
             }
         }
         if let Some(max_size) = self.max_size {
             if max_size.0 < self.size.0 || max_size.1 < self.size.1 {
                 return Err(String::from(
-                    "maximun window size can not be smaller than initial size",
+                    "Maximun window size can not be smaller than initial size.",
                 ));
             }
+        }
+        if self.fullscreen && self.maximized {
+            return Err(String::from(
+                "The game can not be maximimzed and in fullscreen mode at the same time.",
+            ));
         }
         let engine = Engine::new(self);
 
         Ok(engine)
     }
 
-    /// generate the winit window attributes used for window construction
+    /// Generate the winit window attributes used for window construction.
     pub(crate) fn generate_win_attrs(&self) -> WindowAttributes {
         let mut window_attributes = Window::default_attributes()
             .with_transparent(self.transparent)

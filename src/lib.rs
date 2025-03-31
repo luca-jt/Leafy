@@ -12,6 +12,7 @@ pub use itertools;
 pub use log;
 pub use nalgebra_glm as glm;
 pub use petgraph;
+pub use stb_image;
 pub use winit;
 
 /// All features that are very common to use.
@@ -36,11 +37,14 @@ pub mod prelude {
     pub use crate::glm::Vec4;
     pub use crate::include_filter;
     pub use crate::itertools::Itertools;
+    pub use crate::log;
     pub use crate::systems::event_system::events::user_space::*;
     pub use crate::systems::event_system::events::*;
+    pub use crate::systems::rendering_system::ShadowResolution;
     pub use crate::utils::constants::*;
     pub use crate::utils::tools::*;
     pub use gl::types::*;
+    pub use winit::window::Theme;
 }
 
 /// Common internally used names.

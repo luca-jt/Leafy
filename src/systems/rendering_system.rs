@@ -10,10 +10,10 @@ use crate::systems::event_system::events::user_space::CamPositionChange;
 use crate::utils::constants::bits::user_level::INVISIBLE;
 use std::cmp::Ordering;
 
-/// responsible for the automated rendering of all entities
+/// The system responsible for automated rendering of all entities.
 pub struct RenderingSystem {
     point_lights: AHashMap<EntityID, PointLightRenderingInfo>,
-    directional_lights: Vec<(EntityID, ShadowMap)>, // Vec is fine because we dont have that many lights
+    directional_lights: Vec<(EntityID, ShadowMap)>, // Vec and linear traversal is fine because we dont have that many lights
     renderers: Vec<RendererType>,
     sprite_renderer: SpriteRenderer,
     perspective_camera: PerspectiveCamera,
@@ -157,6 +157,7 @@ impl RenderingSystem {
                 .iter()
                 .find(|(_, _, id)| id == entity)
                 .unwrap();
+
             if light_render_info.light_pos != *correct_pos.data() {
                 if let Some(map) = light_render_info.shadow_map.as_mut() {
                     map.update_light(correct_pos.data());
@@ -554,8 +555,8 @@ impl RenderingSystem {
                     transp: rd.transparent,
                 });
                 log::debug!(
-                    "added new batch renderer for: {:?} with LOD {:?} and shading style {:?}",
-                    rd.spec.mesh_type,
+                    "Added new BatchRenderer for mesh {:?} with LOD {:?} and shading style {:?}.",
+                    rd.mesh.name,
                     rd.spec.lod,
                     rd.spec.shader_type
                 );
@@ -579,8 +580,8 @@ impl RenderingSystem {
                     transp: rd.transparent,
                 });
                 log::debug!(
-                    "added new instance renderer for: {:?} with LOD {:?} and shading style {:?}",
-                    rd.spec.mesh_type,
+                    "Added new InstanceRenderer for mesh {:?} with LOD {:?} and shading style {:?}.",
+                    rd.mesh.name,
                     rd.spec.lod,
                     rd.spec.shader_type
                 );
@@ -759,19 +760,19 @@ impl RenderingSystem {
         self.ortho_camera.update_win_size(viewport_ratio);
     }
 
-    /// gets the current camera position look and up direction vector
+    /// Gets the current camera position, look and up direction vector.
     pub fn current_cam_config(&self) -> (Vec3, Vec3, Vec3) {
         self.current_cam_config
     }
 
-    /// sets the anti-aliasing mode for rendering (default is ``None``), samples should be 2, 4, or 8
+    /// Sets the anti-aliasing mode for rendering (default is ``None``), samples should be 2, 4, or 8.
     pub fn set_msaa(&mut self, msaa_samples: Option<GLsizei>) {
         let use_msaa = msaa_samples.is_some();
         let msaa = unsafe { gl::IsEnabled(gl::MULTISAMPLE) == gl::TRUE };
         if msaa == use_msaa {
             return;
         }
-        log::debug!("set anti-aliasing to {use_msaa:?}");
+        log::debug!("Set anti-aliasing: {use_msaa:?}.");
         if use_msaa {
             unsafe { gl::Enable(gl::MULTISAMPLE) };
             self.screen_texture.msaa = true;
@@ -786,39 +787,39 @@ impl RenderingSystem {
     pub fn set_3d_render_resolution(&mut self, resolution: (GLsizei, GLsizei)) {
         let msaa = unsafe { gl::IsEnabled(gl::MULTISAMPLE) == gl::TRUE };
         self.screen_texture = ScreenTexture::new(resolution.0, resolution.1, msaa, self.samples);
+        log::debug!("Set 3D render resolution to {resolution:?}.");
     }
 
-    /// sets the current skybox that is used in the rendering process (default is ``None``)
+    /// Sets the current skybox that is used in the rendering process (default is ``None``).
     pub fn set_skybox(&mut self, skybox: Option<Skybox>) {
         self.skybox = skybox;
     }
 
-    /// access to the sprite grid config of the given layer
+    /// Access to the sprite grid config of the given layer.
     pub fn sprite_grid_mut(&mut self, layer: SpriteLayer) -> &mut SpriteGrid {
         &mut self.sprite_renderer.grids[layer as usize]
     }
 
-    /// change OpenGL's background clear color (default is WHITE)
+    /// Changes the rendering backend's background clear color (default is WHITE).
     pub fn set_gl_clearcolor(&mut self, color: Color32) {
-        log::trace!("set gl clear color: {color:?}");
         self.clear_color = color;
+        log::trace!("Set background clear color: {color:?}.");
     }
 
-    /// set the FOV for 3D rendering in degrees (default is 45°)
+    /// Sets the FOV for 3D rendering in degrees (default is 45°).
     pub fn set_fov(&mut self, fov: f32) {
-        log::trace!("set FOV: {fov:?}");
         self.perspective_camera.update_fov(fov);
+        log::trace!("Set FOV: {fov:?}.");
     }
 
-    /// changes the render distance to `distance` units from the current camera position
+    /// Changes the render distance to `distance` units from the current camera position.
     pub fn set_render_distance(&mut self, distance: Option<f32>) {
-        log::debug!("set render distance: {distance:?}");
         self.render_distance = distance;
+        log::debug!("Set render distance: {distance:?}.");
     }
 
-    /// changes the shadow map resolution (default is normal)
+    /// Changes the shadow map resolution (default is normal).
     pub fn set_shadow_resolution(&mut self, resolution: ShadowResolution) {
-        log::debug!("set shadow map resolution: {resolution:?}");
         self.shadow_resolution = resolution;
         self.directional_lights.iter_mut().for_each(|(_, map)| {
             *map = ShadowMap::new(self.shadow_resolution.map_res(), map.light_pos, &map.light)
@@ -833,12 +834,13 @@ impl RenderingSystem {
             .for_each(|(pos, _, map)| {
                 *map = CubeShadowMap::new(self.shadow_resolution.map_res(), pos)
             });
+        log::debug!("Set shadow map resolution: {resolution:?}.");
     }
 
-    /// changes the ambient light (default is white and 0.3)
+    /// Changes the ambient light (default is white and 0.2).
     pub fn set_ambient_light(&mut self, color: Color32, intensity: f32) {
-        log::debug!("set ambient light to {color:?} with intensity {intensity:?}");
         self.ambient_light = (color, intensity);
+        log::debug!("Set ambient light to {color:?} with intensity {intensity:?}.");
     }
 
     pub(crate) fn on_cam_position_change(&mut self, event: &CamPositionChange) {
@@ -974,7 +976,7 @@ struct RenderData<'a> {
     transparent: bool,
 }
 
-/// all possible settings for shadow map resolution
+/// All possible settings for shadow map resolution.
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ShadowResolution {
     Ultra,
@@ -984,8 +986,8 @@ pub enum ShadowResolution {
 }
 
 impl ShadowResolution {
-    /// yields the actual corresponding map resolution to the setting
-    fn map_res(&self) -> (GLsizei, GLsizei) {
+    /// Yields the actual corresponding map resolution to the setting.
+    pub fn map_res(&self) -> (GLsizei, GLsizei) {
         match self {
             ShadowResolution::Ultra => (4096, 4096),
             ShadowResolution::High => (2048, 2048),

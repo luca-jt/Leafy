@@ -243,7 +243,7 @@ impl SpriteBatch {
 
             gl::BindVertexArray(0);
         }
-        log::debug!("new sprite batch created");
+        log::debug!("New SpriteBatch created.");
 
         Self {
             vao,
@@ -266,7 +266,7 @@ impl SpriteBatch {
             SpriteVertex::default();
             PLANE_MESH_NUM_VERTICES * add_size
         ]);
-        log::debug!("resized sprite batch to: {:?}", self.max_num_meshes);
+        log::debug!("Resized SpriteBatch to size: {:?}.", self.max_num_meshes);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferData(
@@ -395,7 +395,7 @@ impl SpriteBatch {
 
 impl Drop for SpriteBatch {
     fn drop(&mut self) {
-        log::debug!("dropped sprite batch");
+        log::debug!("Dropped SpriteBatch.");
         unsafe {
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteBuffers(1, &self.ibo);
@@ -429,7 +429,7 @@ pub(crate) struct SpriteSheet {
     pub(crate) height: usize,
 }
 
-/// config data for a sprite grid (default is scale 1 and center origin)
+/// Config data for a sprite grid that can be used to control the behavior of the sprite rendering (default is scale 1 and center origin). The center specifies the point the grid is rendered at in the center of the screen in grid coordinates. The scale is a factor relative to the screens size (1.0 would render each sprite as large as the viewport).
 #[derive(Debug, Copy, Clone)]
 pub struct SpriteGrid {
     pub scale: f32,

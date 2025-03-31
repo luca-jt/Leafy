@@ -7,7 +7,7 @@ use tobj::{load_mtl, load_obj, GPU_LOAD_OPTIONS};
 /// Identifier for a loaded mesh in the entity manager.
 pub type MeshHandle = u64;
 
-/// create a component list for entity creation (must use)
+/// Creates a component list for entity creation (must use).
 #[macro_export]
 macro_rules! components {
     ($($T:expr),+) => {
@@ -19,7 +19,7 @@ macro_rules! components {
 #[rustfmt::skip]
 pub(crate) static ENTITY_ARENA_ALLOC: LazyLock<Mutex<UnsafeCell<Bump>>> = LazyLock::new(|| Mutex::new(UnsafeCell::new(Bump::with_capacity(ARENA_ALLOCATOR_CHUNK_SIZE))));
 
-/// internal allocation function for entity data
+/// Internal allocation function for entity data. NOT TO BE USED ELSEWHERE!
 pub fn _component_alloc<T: Component>(component: T) -> BumpBox<'static, dyn Component> {
     let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
     unsafe {
@@ -28,7 +28,7 @@ pub fn _component_alloc<T: Component>(component: T) -> BumpBox<'static, dyn Comp
     }
 }
 
-/// the main ressource manager holding both the ECS and the asset data
+/// The main manager holding both the ECS containing the enitity data and the asset data ressource registers.
 pub struct EntityManager {
     pub(crate) ecs: UnsafeCell<ECS>,
     mesh_register: AHashMap<MeshHandle, Mesh>,
@@ -40,8 +40,8 @@ pub struct EntityManager {
 }
 
 impl EntityManager {
-    /// creates a new entitiy manager
-    pub fn new() -> Self {
+    /// Creates a new entitiy manager.
+    pub(crate) fn new() -> Self {
         let mut mesh_register = AHashMap::new();
         mesh_register.insert(1, Mesh::from_bytes(TRIANGLE_MESH));
         mesh_register.insert(2, Mesh::from_bytes(PLANE_MESH));
@@ -58,7 +58,7 @@ impl EntityManager {
         }
     }
 
-    /// stores a new entity and returns the id of the new entity
+    /// Stores the components, creates a new entity and returns the id of the that entity.
     pub fn create_entity(&mut self, components: Vec<BumpBox<'static, dyn Component>>) -> EntityID {
         let entity = self.ecs.get_mut().create_entity(components);
         *self.get_component_mut::<EntityID>(entity).unwrap() = entity;
@@ -71,12 +71,12 @@ impl EntityManager {
         self.ecs.get_mut().delete_entity(entity)
     }
 
-    /// yields the component data reference of an entity if present (also returns ``None`` if the entity ID is invalid)
+    /// Yields the component data reference of an entity if present (also returns ``None`` if the entity ID is invalid).
     pub fn get_component<T: Component>(&self, entity: EntityID) -> Option<&T> {
         unsafe { &*self.ecs.get() }.get_component::<T>(entity)
     }
 
-    /// Yields the mutable component data reference of an entity if present (also returns ``None`` if the entity ID is invalid). If data is modified that influences loaded asset data, you have to recompute it manually with the managers methods.
+    /// Yields the mutable component data reference of an entity if present (also returns ``None`` if the entity ID is invalid). If data is modified that influences engine behavior and requires internal recomputations, you have to do that manually with the managers methods.
     pub fn get_component_mut<T: Component>(&mut self, entity: EntityID) -> Option<&mut T> {
         self.ecs.get_mut().get_component_mut::<T>(entity)
     }
@@ -92,12 +92,12 @@ impl EntityManager {
         success
     }
 
-    /// checks wether or not an entity has a component of given type associated with it (also returns ``false`` if the entity ID is invalid)
+    /// Checks wether or not an entity has a component of given type associated with it (also returns ``false`` if the entity ID is invalid).
     pub fn has_component<T: Component>(&self, entity: EntityID) -> bool {
         unsafe { &*self.ecs.get() }.has_component::<T>(entity)
     }
 
-    /// removes a component from an entity and returns the component data if present
+    /// Removes a component from an entity and returns the component data if present.
     pub fn remove_component<T: Component>(&mut self, entity: EntityID) -> Option<T> {
         let removed = self.ecs.get_mut().remove_component::<T>(entity);
         if removed.is_some() && types_eq::<T, Scale>() {
@@ -269,15 +269,15 @@ impl EntityManager {
 
     /// Generates all LODs for a loaded mesh. Returns wether or not the given mesh was present and LODs were loaded.
     pub fn load_lods(&mut self, handle: MeshHandle) -> bool {
-        if self.lod_register.contains_key(&handle) {
-            log::warn!("LOD data already present.");
-            return false;
-        }
         let opt_mesh = self.mesh_from_handle(handle, LOD::None);
         if opt_mesh.is_some() {
             let mesh = opt_mesh.unwrap();
+            if self.lod_register.contains_key(&handle) {
+                log::warn!("LOD data already present for mesh {:?}.", mesh.name);
+                return false;
+            }
             let lod_array = mesh.generate_lods();
-            log::debug!("loaded LODs in register for mesh: {:?}", mesh.name);
+            log::debug!("Loaded LODs in register for mesh: {:?}.", mesh.name);
             self.lod_register.insert(handle, lod_array);
             true
         } else {
@@ -308,7 +308,7 @@ impl EntityManager {
                 if let Some(mesh) = self.mesh_register.get(&handle) {
                     mesh.generate_hitbox(&hitbox_type)
                 } else {
-                    log::warn!("Mesh data not present.");
+                    log::warn!("Mesh data not present for loading the hitbox {hitbox_type:?}.");
                     return false;
                 }
             } else {
@@ -338,7 +338,7 @@ impl EntityManager {
     ) -> bool {
         if let Some(handle) = opt_handle {
             if !self.mesh_register.contains_key(&handle) {
-                log::warn!("Mesh data not present.");
+                log::warn!("Mesh data not present for hitbox {hitbox_type:?}.");
                 return false;
             }
         }
@@ -489,7 +489,7 @@ impl EntityManager {
         self.hitbox_register.get(&(hitbox, opt_handle))
     }
 
-    /// clears all of the stored entites and their associated data and invalidates all of the IDs yielded from the system up to this point
+    /// Clears all of the stored entites and their associated data and invalidates all of the IDs and Handles yielded from the system up to this point.
     pub fn clear(&mut self) {
         self.ecs.get_mut().clear();
         self.mesh_register.clear();
@@ -497,6 +497,7 @@ impl EntityManager {
         self.texture_map.clear();
         self.texture_map.clear();
         self.hitbox_register.clear();
+        log::debug!("Cleared the entity manager.");
     }
 }
 
@@ -668,6 +669,7 @@ impl ECS {
             let archetype = self.archetypes.get(&record.archetype_id).unwrap();
             return archetype.components.contains_key(&TypeId::of::<T>());
         }
+        log::warn!("No entity found with ID: {entity:?}.");
         false
     }
 

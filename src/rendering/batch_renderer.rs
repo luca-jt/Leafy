@@ -176,7 +176,7 @@ impl BatchRenderer {
 
 impl Drop for BatchRenderer {
     fn drop(&mut self) {
-        log::debug!("dropped batch renderer");
+        log::debug!("Dropped BatchRenderer.");
         unsafe { gl::DeleteTextures(1, &self.white_texture) };
     }
 }
@@ -236,7 +236,7 @@ impl Batch {
 
             gl::BindVertexArray(0);
         }
-        log::debug!("new batch created");
+        log::debug!("New Batch created for mesh {:?}.", mesh.name);
 
         Self {
             vao,
@@ -257,7 +257,7 @@ impl Batch {
         self.obj_buffer.reserve_exact(add_size);
         self.obj_buffer
             .extend(vec![Vertex::default(); mesh.num_vertices() * add_size]);
-        log::debug!("resized batch to: {:?}", self.max_num_meshes);
+        log::debug!("Resized Batch to size: {:?}.", self.max_num_meshes);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferData(
@@ -408,7 +408,7 @@ impl Batch {
 
 impl Drop for Batch {
     fn drop(&mut self) {
-        log::debug!("dropped batch");
+        log::debug!("Dropped Batch.");
         unsafe {
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteBuffers(1, &self.ibo);

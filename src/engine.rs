@@ -12,7 +12,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowId;
 
-/// main engine
+/// The main engine. This is the basis for all apps that use this library. You can control all functionalities of it with the methods of this struct. All of the different systems have their respective accessor functions in both immutable and mutable variants. This way you can control the interior mutability of the engine.
 pub struct Engine<A: FallingLeafApp> {
     app: Option<RefCell<A>>,
     exit_state: Option<Result<(), Box<dyn Error>>>,
@@ -29,7 +29,7 @@ pub struct Engine<A: FallingLeafApp> {
 }
 
 impl<A: FallingLeafApp> Engine<A> {
-    /// engine setup on startup
+    /// Engine setup on startup.
     pub(crate) fn new(config: EngineAttributes) -> Self {
         let video_system = VideoSystem::new(config);
         let audio_system = AudioSystem::new();
@@ -61,7 +61,7 @@ impl<A: FallingLeafApp> Engine<A> {
         }
     }
 
-    /// runs the main loop
+    /// Runs the main loop of the engine and is the main function that is called after the creation of the engine. This takes in your app struct that you created that implements the ``FallingLeafApp`` trait.
     pub fn run(&mut self, app: A) -> Result<(), Box<dyn Error>> {
         self.app = Some(RefCell::new(app));
         let event_loop = EventLoop::new().unwrap();
@@ -70,7 +70,7 @@ impl<A: FallingLeafApp> Engine<A> {
         self.exit_state.take().unwrap()
     }
 
-    /// gets called every frame and contains the main app logic
+    /// Gets called every frame and contains the main engine logic.
     fn on_frame_redraw(&mut self) {
         self.app_mut().on_frame_update(self);
 
@@ -83,7 +83,7 @@ impl<A: FallingLeafApp> Engine<A> {
             .render(self.entity_manager().deref());
     }
 
-    /// all of the time-sensitive simulations
+    /// All of the time-sensitive simulations for a single time step.
     fn time_step_sim(&mut self) {
         let dt = self.time_of_last_sim.delta_time();
         let transformed_dt = dt * self.animation_system().animation_speed;
@@ -101,87 +101,87 @@ impl<A: FallingLeafApp> Engine<A> {
         self.time_of_last_sim.reset();
     }
 
-    /// access to the stored app
+    /// Access to the stored app. This way you can access your app struct in event functions. You should not use this inside the ``FallingLeafApp`` trait functions as that would harm the dynamically checked borrowing rules.
     pub fn app(&self) -> Ref<A> {
         self.app.as_ref().unwrap().borrow()
     }
 
-    /// mutable access to the stored app
+    /// Mutable access to the stored app. This way you can access your app struct in event functions. You should not use this inside the ``FallingLeafApp`` trait functions as that would harm the dynamically checked borrowing rules.
     pub fn app_mut(&self) -> RefMut<A> {
         self.app.as_ref().unwrap().borrow_mut()
     }
 
-    /// access to the engines animation system
+    /// Access to the engine's animation system.
     pub fn animation_system(&self) -> Ref<AnimationSystem> {
         self.animation_system.borrow()
     }
 
-    /// mutable access to the engines animation system
+    /// Autable access to the engine's animation system.
     pub fn animation_system_mut(&self) -> RefMut<AnimationSystem> {
         self.animation_system.borrow_mut()
     }
 
-    /// access to the engines rendering system
+    /// Access to the engine's rendering system.
     pub fn rendering_system(&self) -> Ref<RenderingSystem> {
         self.rendering_system.as_ref().unwrap().borrow()
     }
 
-    /// mutable access to the engines rendering system
+    /// Mutable access to the engine's rendering system.
     pub fn rendering_system_mut(&self) -> RefMut<RenderingSystem> {
         self.rendering_system.as_ref().unwrap().borrow_mut()
     }
 
-    /// access to the engines audio system
+    /// Access to the engine's audio system.
     pub fn audio_system(&self) -> Ref<AudioSystem> {
         self.audio_system.borrow()
     }
 
-    /// mutable access to the engines audio system
+    /// Mutable access to the engine's audio system.
     pub fn audio_system_mut(&self) -> RefMut<AudioSystem> {
         self.audio_system.borrow_mut()
     }
 
-    /// access to the engines video system
+    /// Access to the engine's video system.
     pub fn video_system(&self) -> Ref<VideoSystem> {
         self.video_system.borrow()
     }
 
-    /// mutable access to the engines video system
+    /// Mutable access to the engine's video system.
     pub fn video_system_mut(&self) -> RefMut<VideoSystem> {
         self.video_system.borrow_mut()
     }
 
-    /// access to the engines event system
+    /// Access to the engine's event system.
     pub fn event_system(&self) -> Ref<EventSystem<A>> {
         self.event_system.borrow()
     }
 
-    /// mutable access to the engines event system
+    /// Mutable access to the engine's event system.
     pub fn event_system_mut(&self) -> RefMut<EventSystem<A>> {
         self.event_system.borrow_mut()
     }
 
-    /// access to the engines entity manager
+    /// Access to the engine's entity manager.
     pub fn entity_manager(&self) -> Ref<EntityManager> {
         self.entity_manager.borrow()
     }
 
-    /// mutable access to the engines entity manager
+    /// Mutable access to the engine's entity manager.
     pub fn entity_manager_mut(&self) -> RefMut<EntityManager> {
         self.entity_manager.borrow_mut()
     }
 
-    /// the current mode of the engine
+    /// The current mode of the engine.
     pub fn mode(&self) -> EngineMode {
         self.mode.get()
     }
 
-    /// quits the running engine and exit the event loop
+    /// Quits the running engine and exit the event loop.
     pub fn quit(&self) {
         self.should_quit.set(true);
     }
 
-    /// triggers an engine-wide event in the event system and call all relevant functions/listeners
+    /// Triggers an engine-wide event in the event system and call all relevant functions/listeners.
     pub fn trigger_event<T: Event>(&self, event: T) {
         self.event_system().trigger(event, self);
     }
@@ -236,15 +236,15 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
     }
 }
 
-/// all necessary app functionality to run the engine with
+/// All necessary app functionality to run the engine with. An app struct that is used with the engine has to implement this trait.
 pub trait FallingLeafApp: Sized + 'static {
-    /// initialize the app (e.g. add event handling)
+    /// Initializes the app (e.g. add event handling, loading data, settings) at engine start-up. This function will only run once.
     fn init(&mut self, engine: &Engine<Self>);
-    /// run this update code every frame
+    /// Runs every frame and is supposed to be used to implement the logic of your app struct.
     fn on_frame_update(&mut self, engine: &Engine<Self>);
 }
 
-/// all possible states of the engine that influence its behavior
+/// All possible states of the engine that influence its behavior. Can be changed by triggering an ``EngineModeChange`` user space event.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EngineMode {
     Running,

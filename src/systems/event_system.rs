@@ -2,11 +2,11 @@ use crate::internal_prelude::*;
 use winit::event::{DeviceEvent, DeviceId, ElementState, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
 
-/// includes all of the requirements for a type to be used as an event
+/// Includes all of the requirements for a type to be used as an event. This trait is automatically implemented.
 pub trait Event: Any + Debug {}
 impl<T> Event for T where T: Any + Debug {}
 
-/// system managing the events
+/// The system managing the events in the engine. It manages all listeners for different event types dispatches the event triggers to them.
 pub struct EventSystem<A: FallingLeafApp> {
     phantom: PhantomData<A>,
     listeners: AHashMap<TypeId, Vec<Box<dyn Any>>>,
@@ -23,22 +23,22 @@ impl<A: FallingLeafApp> EventSystem<A> {
         }
     }
 
-    /// subscribe a handler to a specific event type
+    /// Subscribes a handler to a specific event type.
     pub fn add_listener<T: Event>(&mut self, handler: &SharedPtr<impl EventObserver<T> + 'static>) {
         let listeners = self.listeners.entry(TypeId::of::<T>()).or_default();
         listeners.push(Box::new(weak_ptr(handler) as WeakPtr<dyn EventObserver<T>>));
     }
 
-    /// add a entity system modifier for a specific event type to the system
+    /// Adds an entity system modifier function for a specific event type to the system. It will then be automatically called on an event trigger.
     pub fn add_modifier<T: Event>(&mut self, modifier: fn(&T, &Engine<A>)) {
         let wrapper = EventFunction { f: modifier };
         let modifiers = self.modifiers.entry(TypeId::of::<T>()).or_default();
         modifiers.push(Box::new(wrapper));
     }
 
-    /// trigger an event and call all relevant functions/listeners
+    /// Triggers an event and calls all relevant functions/listeners.
     pub(crate) fn trigger<T: Event>(&self, event: T, engine: &Engine<A>) {
-        log::trace!("triggered event: {event:?}");
+        log::trace!("Triggered event: {event:?}.");
         if let Some(handlers) = self.listeners.get(&TypeId::of::<T>()) {
             for handler in handlers {
                 let casted_handler = handler
@@ -209,10 +209,9 @@ impl<A: FallingLeafApp> EventSystem<A> {
     }
 }
 
-/// every struct that is supposed to be added to the event system as a listener has to implement this trait
-/// for the specfic type of event it should listen to
+/// Every struct that is supposed to be added to the event system as a listener has to implement this trait for the specfic type of event it should listen to.
 pub trait EventObserver<T: Event>: Any {
-    /// runs on every event trigger
+    /// This function is called on every event trigger.
     fn on_event(&mut self, event: &T);
 }
 
@@ -226,7 +225,7 @@ pub mod events {
     use winit::event::{DeviceId, MouseButton, TouchPhase};
     use winit::keyboard::KeyCode;
 
-    /// key press event data
+    /// Key press event data.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct KeyPress {
         pub key: KeyCode,
@@ -234,7 +233,7 @@ pub mod events {
         pub is_repeat: bool,
     }
 
-    /// key release event data
+    /// Key release event data.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct KeyRelease {
         pub key: KeyCode,
@@ -242,14 +241,14 @@ pub mod events {
         pub is_repeat: bool,
     }
 
-    /// mouse move event data (not for 3D camera control)
+    /// Mouse move event data (not suitable for 3D camera control).
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct MouseMove {
         pub to_x: f64,
         pub to_y: f64,
     }
 
-    /// mouse scroll event data
+    /// Mouse scroll event data (not suitable for game controls).
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct MouseScroll {
         pub vertical_lines: f32,
@@ -257,93 +256,93 @@ pub mod events {
         pub phase: TouchPhase,
     }
 
-    /// mouse click event data
+    /// Mouse click event data.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct MouseClick {
         pub button: MouseButton,
     }
 
-    /// mouse click event data
+    /// Mouse click event data.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct MouseRelease {
         pub button: MouseButton,
     }
 
-    /// window resize event data (physical size)
+    /// Window resize event data (physical pixel size).
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct WindowResize {
         pub width: u32,
         pub height: u32,
     }
 
-    /// window focus lost event
+    /// Window focus lost event.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct WindowLostFocus;
 
-    /// window focus gained event
+    /// Window focus gained event.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct WindowGainedFocus;
 
-    /// window move event
+    /// Window move event.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct WindowMoved {
         pub to_x: u32,
         pub to_y: u32,
     }
 
-    /// file drop event
+    /// File drop event data.
     #[derive(Debug, Clone, PartialEq)]
     pub struct FileDropped {
         pub path: PathBuf,
     }
 
-    /// file hover event
+    /// File hover event.
     #[derive(Debug, Clone, PartialEq)]
     pub struct FileHovered {
         pub path: PathBuf,
     }
 
-    /// file hover cancel event
+    /// File hover cancel event.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct FileHoverCancelled;
 
-    /// DPI scale factor change event
+    /// DPI scale factor change event.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct DPIScaleChange {
         pub scale_factor: f64,
     }
 
-    /// triggered if a device (might also be virtual from the OS) is added
+    /// Triggered if a device (might also be virtual from the OS) is added.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct RawDeviceAdded {
         pub device_id: DeviceId,
     }
 
-    /// triggered if a device (might also be virtual from the OS) is removed
+    /// Triggered if a device (might also be virtual from the OS) is removed.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct RawDeviceRemoved {
         pub device_id: DeviceId,
     }
 
-    /// raw mouse move data (e.g. useful for game controls)
+    /// Raw mouse move data (e.g. useful for game controls).
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct RawMouseMotion {
         pub delta_x: f64,
         pub delta_y: f64,
     }
 
-    /// raw mouse scroll data (e.g. useful for game controls)
+    /// Raw mouse scroll data (e.g. useful for game controls).
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct RawMouseScroll {
         pub vertical_delta: f32,
         pub horizontal_delta: f32,
     }
 
-    /// contains all events that are also meant to be triggered by the user
+    /// Contains all events that are also meant to be triggered by the user. They may be triggered by the engine.
     pub mod user_space {
         use crate::internal_prelude::*;
 
-        /// global change of the engine mode
+        /// Global change of the current engine mode.
         #[derive(Debug, Copy, Clone, PartialEq)]
         pub struct EngineModeChange {
             pub new_mode: EngineMode,
@@ -357,7 +356,7 @@ pub mod events {
             pub new_up: Vec3,
         }
 
-        /// changes the animation speed of the rendering system
+        /// Changes the animation speed of the rendering system and also might affect other systems' behavior.
         #[derive(Debug, Copy, Clone, PartialEq)]
         pub struct AnimationSpeedChange {
             pub new_animation_speed: f32,

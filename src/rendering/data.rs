@@ -92,7 +92,7 @@ impl TextureMap {
     /// adds a texture from file
     pub(crate) fn add_texture(&mut self, texture: &Texture) -> bool {
         if self.textures.contains_key(texture) {
-            log::warn!("Texture data already present.");
+            log::warn!("Texture data for {texture:?} already present.");
             return false;
         }
         if let Some(image) = stbi_load_u8_rgba(&texture.path) {
@@ -106,7 +106,7 @@ impl TextureMap {
             log::debug!("Loaded texture: {texture:?}.");
             true
         } else {
-            log::error!("Error loading texture file data.");
+            log::error!("Error loading texture file data for {texture:?}.");
             false
         }
     }
@@ -118,7 +118,7 @@ impl TextureMap {
             log::debug!("Deleted texture: {texture:?}.");
             true
         } else {
-            log::warn!("Texture data not present.");
+            log::warn!("Texture data not present for {texture:?}.");
             false
         }
     }
@@ -138,7 +138,7 @@ impl TextureMap {
                 .insert(path.file_name().unwrap().to_str().into(), tex_id);
             true
         } else {
-            log::error!("Error loading material texture file data.");
+            log::error!("Error loading material texture file data from {path:?}.");
             false
         }
     }
@@ -151,7 +151,7 @@ impl TextureMap {
             log::debug!("Deleted material texture: {name:?}.");
             true
         } else {
-            log::warn!("Material texture data not present.");
+            log::warn!("Material texture data not present for name: {name:?}.");
             false
         }
     }
@@ -168,8 +168,9 @@ impl TextureMap {
 
     /// adds a new sprite sheet to the map
     pub(crate) fn add_sheet(&mut self, path: &Rc<Path>) -> bool {
+        let path_str = path.to_str().unwrap();
         if self.sheets.contains_key(path) {
-            log::warn!("Sprite sheet data already present.");
+            log::warn!("Sprite sheet data already present for source: {path_str:?}.");
             return false;
         }
         if let Some(image) = stbi_load_u8_rgba(path) {
@@ -184,31 +185,33 @@ impl TextureMap {
                 width: image.width,
                 height: image.height,
             };
-            log::debug!("loaded sprite sheet: {:?}", path.to_str().unwrap());
+            log::debug!("Loaded sprite sheet: {path_str:?}.");
             self.sheets.insert(path.clone(), sprite_sheet);
             true
         } else {
-            log::error!("Error loading sprite sheet file data.");
+            log::error!("Error loading sprite sheet file data from: {path_str:?}.");
             false
         }
     }
 
     /// deletes a stored sheets based on a function bool return
     pub(crate) fn delete_sheet(&mut self, path: &Rc<Path>) -> bool {
+        let path_str = path.to_str().unwrap();
         if let Some(sheet) = self.sheets.remove(path) {
             unsafe { gl::DeleteTextures(1, &sheet.texture_id) };
-            log::debug!("deleted sprite sheet: {path:?}");
+            log::debug!("Deleted sprite sheet: {path_str:?}.");
             true
         } else {
-            log::warn!("Sprite sheet data not present.");
+            log::warn!("Sprite sheet data not present for source: {path_str:?}.");
             false
         }
     }
 
     /// adds a new sprite texture to the map
     pub(crate) fn add_sprite(&mut self, path: &Rc<Path>) -> bool {
+        let path_str = path.to_str().unwrap();
         if self.sprites.contains_key(path) {
-            log::warn!("Sprite sheet data already present.");
+            log::warn!("Sprite sheet data already present for source: {path_str:?}.");
             return false;
         }
         if let Some(image) = stbi_load_u8_rgba(path) {
@@ -218,23 +221,24 @@ impl TextureMap {
                 Wrapping::Repeat,
                 ColorSpace::RGBA8,
             );
-            log::debug!("loaded sprite: {:?}", path.to_str().unwrap());
+            log::debug!("Loaded sprite: {path_str:?}.");
             self.sprites.insert(path.clone(), tex_id);
             true
         } else {
-            log::error!("Error loading sprite file data.");
+            log::error!("Error loading sprite file data from source: {path_str:?}.");
             false
         }
     }
 
     /// deletes a stored sprite textures based on a function bool return
     pub(crate) fn delete_sprite(&mut self, path: &Rc<Path>) -> bool {
+        let path_str = path.to_str().unwrap();
         if let Some(id) = self.sprites.remove(path) {
             unsafe { gl::DeleteTextures(1, &id) };
-            log::debug!("deleted sprite: {path:?}");
+            log::debug!("Deleted sprite: {path_str:?}.");
             true
         } else {
-            log::warn!("Sprite data not present.");
+            log::warn!("Sprite data not present for source: {path_str:?}.");
             false
         }
     }
@@ -289,7 +293,7 @@ impl Drop for TextureMap {
     }
 }
 
-/// calculate the model matrix for a given position, scale and orientation
+/// Calculate the model matrix for a given ``Position``, ``Scale``, ``Orientation``, and center of mass.
 pub fn calc_model_matrix(
     position: &Position,
     scale: &Scale,
@@ -402,7 +406,7 @@ impl CubeShadowMap {
     /// creates a new cube shadow map with given side size (width, height)
     #[rustfmt::skip]
     pub(crate) fn new(side_size: (GLsizei, GLsizei), light_pos: Vec3) -> Self {
-        log::debug!("created new cube shadow map for a point light");
+        log::debug!("Created new cube shadow map for a point light.");
         let mut dbo = 0;
         let mut shadow_cube_map = 0;
 
@@ -516,7 +520,7 @@ impl CubeShadowMap {
 
 impl Drop for CubeShadowMap {
     fn drop(&mut self) {
-        log::debug!("dropped cube shadow map");
+        log::debug!("Dropped cube shadow map.");
         unsafe {
             gl::DeleteTextures(1, &self.shadow_cube_map);
             gl::DeleteFramebuffers(1, &self.dbo);
@@ -539,7 +543,7 @@ impl ShadowMap {
     /// creates a new shadow map with given size (width, height)
     #[rustfmt::skip]
     pub(crate) fn new(size: (GLsizei, GLsizei), light_pos: Vec3, light: &DirectionalLight) -> Self {
-        log::debug!("created new shadow map for a directional light");
+        log::debug!("Created new shadow map for a directional light.");
         let mut dbo = 0;
         let mut shadow_map = 0;
 
@@ -651,7 +655,7 @@ impl ShadowMap {
 
 impl Drop for ShadowMap {
     fn drop(&mut self) {
-        log::debug!("dropped directional shadow map");
+        log::debug!("Dropped directional shadow map.");
         unsafe {
             gl::DeleteTextures(1, &self.shadow_map);
             gl::DeleteFramebuffers(1, &self.dbo);
@@ -732,7 +736,7 @@ impl Drop for UniformBuffer {
     }
 }
 
-/// a sky box that can be added to the rendering system
+/// A sky box that can be added to the rendering system.
 pub struct Skybox {
     cube_map: GLuint,
     vao: GLuint,
@@ -740,7 +744,7 @@ pub struct Skybox {
 }
 
 impl Skybox {
-    /// creates a new skybox cube map from input texture paths ``[right, left, top, bottom, front, back]``
+    /// Creates a new skybox cube map from input texture paths ``[right, left, top, bottom, front, back]``.
     #[rustfmt::skip]
     pub fn new(paths: [impl AsRef<Path>; 6]) -> Self {
         let mut cube_map = 0;
@@ -789,7 +793,7 @@ impl Skybox {
             gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
             gl::BindVertexArray(0);
         }
-        log::trace!("created skybox");
+        log::trace!("Created skybox.");
 
         Self { cube_map, vao, vbo }
     }
@@ -813,7 +817,7 @@ impl Skybox {
 
 impl Drop for Skybox {
     fn drop(&mut self) {
-        log::trace!("dropped skybox");
+        log::trace!("Dropped skybox.");
         unsafe {
             gl::DeleteTextures(1, &self.cube_map);
             gl::DeleteBuffers(1, &self.vbo);

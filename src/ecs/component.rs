@@ -4,7 +4,7 @@ use fyrox_sound::pool::Handle;
 use fyrox_sound::source::SoundSource;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
-/// the trait that all components need to implement
+/// The trait that all components need to implement. Must be manually implemented.
 pub trait Component: Any {}
 
 macro_rules! impl_arithmetic_basics {
@@ -70,19 +70,19 @@ macro_rules! impl_arithmetic_basics {
 macro_rules! impl_basic_vec_ops {
     ($component:ident) => {
         impl $component {
-            #[doc = "creates a new "]
+            #[doc = "Creates a new "]
             #[doc = stringify!($component)]
-            #[doc = " for given input values"]
+            #[doc = " for given input values."]
             pub const fn new(x: f32, y: f32, z: f32) -> Self {
                 Self(Vec3::new(x, y, z))
             }
 
-            /// grants immutable access to the stored data
+            /// Grants immutable access to the stored data.
             pub fn data(&self) -> &Vec3 {
                 &self.0
             }
 
-            /// grants mutable access to the stored data
+            /// Grants mutable access to the stored data.
             pub fn data_mut(&mut self) -> &mut Vec3 {
                 &mut self.0
             }
@@ -96,7 +96,7 @@ macro_rules! impl_basic_vec_ops {
     };
 }
 
-/// wrapper struct for an object scaling
+/// Wrapper for an object scaling. Each vector component is the factor for each dimension.
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct Scale(Vec3);
 
@@ -105,12 +105,12 @@ impl Component for Scale {}
 impl_basic_vec_ops!(Scale);
 
 impl Scale {
-    /// creates an even scaling with a given factor
+    /// Creates an even scaling with a given factor.
     pub const fn from_factor(factor: f32) -> Self {
         Self::new(factor, factor, factor)
     }
 
-    /// calculates the scale matrix for the stored scalars
+    /// Calculates the scale matrix from the stored scalars.
     pub fn scale_matrix(&self) -> Mat4 {
         glm::scale(&Mat4::identity(), &self.0)
     }
@@ -122,19 +122,19 @@ impl Default for Scale {
     }
 }
 
-/// used for object orientation in 3D space
+/// Used for object orientation in 3D space. Based on a quaternion.
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Orientation(pub Quat);
 
 impl Component for Orientation {}
 
 impl Orientation {
-    /// creates a new orientation with angle in degrees around axis
+    /// Creates a new ``Orientation`` with angle in degrees around an axis.
     pub fn new(angle: f32, axis: Vec3) -> Self {
         Self(glm::quat_angle_axis(angle.to_radians(), &axis))
     }
 
-    /// generates the rotation matrix for the stored quaternion
+    /// Generates the rotation matrix for the stored quaternion.
     pub fn rotation_matrix(&self) -> Mat4 {
         glm::quat_to_mat4(&self.0)
     }
@@ -146,7 +146,7 @@ impl Default for Orientation {
     }
 }
 
-/// position in 3D space
+/// Position in 3D space.
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Position(Vec3);
 
@@ -155,7 +155,7 @@ impl Component for Position {}
 impl_basic_vec_ops!(Position);
 
 impl Position {
-    /// creates a new position at the coordinate origin
+    /// Creates a new position at the coordinate origin.
     pub const fn origin() -> Self {
         Self(Vec3::new(0.0, 0.0, 0.0))
     }
@@ -169,7 +169,7 @@ impl Default for Position {
     }
 }
 
-/// velocity in 3D space, enables physics system effects
+/// Velocity in 3D space. Enables some physics system effects.
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Velocity(Vec3);
 
@@ -178,7 +178,7 @@ impl Component for Velocity {}
 impl_basic_vec_ops!(Velocity);
 
 impl Velocity {
-    /// creates a new velocity filled with zeros
+    /// Creates a new ``Velocity`` filled with zeros.
     pub const fn zero() -> Self {
         Self(Vec3::new(0.0, 0.0, 0.0))
     }
@@ -200,7 +200,7 @@ impl Default for Velocity {
     }
 }
 
-/// acceleration in 3D space
+/// Acceleration in 3D space.
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Acceleration(Vec3);
 
@@ -209,7 +209,7 @@ impl Component for Acceleration {}
 impl_basic_vec_ops!(Acceleration);
 
 impl Acceleration {
-    /// creates a new acceleration filled with zeros
+    /// Creates a new ``Acceleration`` filled with zeros.
     pub const fn zero() -> Self {
         Self(Vec3::new(0.0, 0.0, 0.0))
     }
@@ -231,7 +231,7 @@ impl Default for Acceleration {
     }
 }
 
-/// describes an angular momentum by the rotational axis (rhs rotation) and its length (momentum)
+/// Describes an angular momentum by the rotational axis (rhs rotation) and its length (momentum).
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct AngularMomentum(Vec3);
 
@@ -240,12 +240,12 @@ impl Component for AngularMomentum {}
 impl_basic_vec_ops!(AngularMomentum);
 
 impl AngularMomentum {
-    /// creates a new angular momentum filled with zeros
+    /// Creates a new ``AngularMomentum`` filled with zeros.
     pub const fn zero() -> Self {
         Self(Vec3::new(0.0, 0.0, 0.0))
     }
 
-    /// creates a new angular momentum from a given axis
+    /// Creates a new ``AngularMomentum`` from a given axis.
     pub fn from_axis(axis: Vec3) -> Self {
         Self(axis)
     }
@@ -259,7 +259,7 @@ impl Default for AngularMomentum {
     }
 }
 
-/// contains all of the data for a renderable object in 3D
+/// Contains all of the data for a renderable object in 3D.
 #[derive(Debug, Clone)]
 pub struct Renderable {
     pub mesh_type: MeshType,
@@ -269,7 +269,7 @@ pub struct Renderable {
 
 impl Component for Renderable {}
 
-/// enables gravity physics and is used for all computations involving forces
+/// Enables gravity physics and is used for all computations involving forces.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct RigidBody {
     pub(crate) density: f32,
@@ -283,19 +283,19 @@ pub struct RigidBody {
 impl Component for RigidBody {}
 
 impl RigidBody {
-    /// changes the density of the rigid body (should be > 0)
+    /// Changes the density of the rigid body (should be > 0).
     pub fn with_density(mut self, density: f32) -> Self {
         self.density = density;
         self
     }
 
-    /// changes the friction of the rigid body (should be >= 0)
+    /// Changes the friction of the rigid body (should be >= 0).
     pub fn with_friction(mut self, friction: f32) -> Self {
         self.friction = friction;
         self
     }
 
-    /// changes the restitution coefficient of the rigid body (clamped to [0, 1])
+    /// Changes the restitution coefficient of the rigid body (clamped to [0, 1]).
     pub fn with_restitution(mut self, restitution: f32) -> Self {
         self.restitution = restitution.clamp(0.0, 1.0);
         self
@@ -315,7 +315,7 @@ impl Default for RigidBody {
     }
 }
 
-/// stores all of the associated sound handles for an entity
+/// Stores all of the associated sound handles for an entity.
 #[derive(Debug, Clone)]
 pub struct SoundController {
     pub handles: BumpVec<'static, Handle<SoundSource>>,
@@ -326,7 +326,7 @@ pub struct SoundController {
 impl Component for SoundController {}
 
 impl SoundController {
-    /// creates a new default sound controller component with no handles
+    /// Creates a new default ``SoundController`` component with no handles.
     pub fn new() -> Self {
         let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
         let arena = unsafe { &*(arena_lock.get()) };
@@ -338,7 +338,7 @@ impl SoundController {
         }
     }
 
-    /// creates a new sound controller with handles attached
+    /// Creates a new ``SoundController`` with given handles attached.
     pub fn from_handles(handles: &[Handle<SoundSource>]) -> Self {
         let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
         let arena = unsafe { &*(arena_lock.get()) };
@@ -353,8 +353,7 @@ impl SoundController {
     }
 }
 
-/// adds a hitbox to an entity and specifies the positional offset and scale of it relative to the enity's
-/// (requires ``Renderable`` to work and should only be used with meshes that have a volume)
+/// Adds a hitbox to an entity and specifies the position and scale of it relative to the enity's (requires ``Renderable`` to work and should only be used with meshes that have a volume).
 #[derive(Debug, Clone)]
 pub struct Collider {
     pub(crate) hitbox_type: HitboxType,
@@ -366,7 +365,7 @@ pub struct Collider {
 impl Component for Collider {}
 
 impl Collider {
-    /// creates a new collider from a given hitbox type
+    /// Creates a new ``Collider`` from a given hitbox type.
     pub fn new(hitbox_type: HitboxType) -> Self {
         let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
         let arena = unsafe { &*(arena_lock.get()) };
@@ -379,25 +378,25 @@ impl Collider {
         }
     }
 
-    /// sets the offset of the hitbox
+    /// Sets the offset of the hitbox.
     pub fn with_offset(mut self, offset: Vec3) -> Self {
         self.offset = offset;
         self
     }
 
-    /// sets the scale of the hitbox
+    /// Sets the scale of the hitbox.
     pub fn with_scale(mut self, scale: Scale) -> Self {
         self.scale = scale;
         self
     }
 
-    /// access to the collision data of the collider from the last iteration
+    /// Access to the collision data of the collider from the last iteration.
     pub fn collision_info(&self) -> &[CollisionInfo] {
         &self.last_collisions
     }
 }
 
-/// point light component (requires a ``Position`` to work)
+/// Point light component (requires a ``Position`` to work).
 #[derive(Debug, Copy, Clone)]
 pub struct PointLight {
     pub color: Color32,
@@ -417,7 +416,7 @@ impl Default for PointLight {
     }
 }
 
-/// directional light component (requires a ``Position`` to work)
+/// Directional light component (requires a ``Position`` to work).
 #[derive(Debug, Copy, Clone)]
 pub struct DirectionalLight {
     pub color: Color32,
@@ -437,7 +436,7 @@ impl Default for DirectionalLight {
     }
 }
 
-/// 64bit flag bitmap for enabling special entity behavior (default: all turned off, the same as component not present)
+/// 64bit flag bitmap for enabling special entity behavior (default: all turned off, the same as component not present).
 /// ### Info
 /// You can use this component independantly of the rest of the engine if you want to.
 /// The bits 6-63 do not influence engine behavior and are free to customize.
@@ -447,7 +446,7 @@ pub struct EntityFlags(u64);
 impl Component for EntityFlags {}
 
 impl EntityFlags {
-    /// creates a new ``EntityFlags`` component with the given flags already set
+    /// Creates a new ``EntityFlags`` component with the given flags already set.
     pub fn from_flags(flags: &[u64]) -> Self {
         let mut instance = Self::default();
         for flag in flags {
@@ -456,20 +455,18 @@ impl EntityFlags {
         instance
     }
 
-    /// get the bool value of the ``n'th`` flag bit (``n`` is in ``(0..=63)``)
-    /// (bit constants available in ``constants::bits``)
+    /// Gets the bool value of the ``n``'th flag bit (``n`` is in ``(0..=63)``) (bit constants available in ``constants::bits``).
     pub fn get_bit(&self, n: u64) -> bool {
         ((self.0 >> n) & 1) == 1
     }
 
-    /// set the bool value of the ``n'th`` flag bit (``n`` is in ``(0..=63)``)
-    /// (bit constants available in ``constants::bits``)
+    /// Sets the bool value of the ``n``'th flag bit (``n`` is in ``(0..=63)``) (bit constants available in ``constants::bits``).
     pub fn set_bit(&mut self, n: u64, value: bool) {
         self.0 = (self.0 & !(1 << n)) | ((value as u64) << n);
     }
 }
 
-/// sets the level of detail for a mesh if used in combination with a ``MeshType``
+/// Defines the level of detail for a mesh if used in combination with a ``MeshType``.
 #[derive(Debug, Copy, Clone, PartialEq, Hash, Eq, Default)]
 pub enum LOD {
     #[default]
@@ -482,7 +479,7 @@ pub enum LOD {
 
 impl Component for LOD {}
 
-/// holds data for sprite rendering
+/// Holds data for sprite rendering.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Sprite {
     pub source: SpriteSource,
@@ -492,13 +489,12 @@ pub struct Sprite {
 
 impl Component for Sprite {}
 
-/// data structures that are not internally useful as a sole component but might have purpose in relation to other components
+/// Data structures that are not internally useful as a sole component but might have purpose in relation to other components. Many of them might also be usable as general-purpose types.
 pub mod utils {
     use crate::internal_prelude::*;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-    use tobj;
 
-    /// efficient 32bit color representation
+    /// Efficient 32bit color representation.
     #[repr(C)]
     #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
     pub struct Color32 {
@@ -528,7 +524,7 @@ pub mod utils {
             Self { r, g, b, a }
         }
 
-        /// uses the format ``0xRRGGBBAA``
+        /// Uses the format ``0xRRGGBBAA``.
         pub const fn from_hex(hex: u32) -> Self {
             Self::from_rgba(
                 ((hex & 0xFF000000) >> 24) as u8,
@@ -538,10 +534,12 @@ pub mod utils {
             )
         }
 
+        /// Creates a new ``Color32`` from float RGB values in range [0, 1].
         pub const fn from_float_rgb(r: f32, g: f32, b: f32) -> Self {
             Self::from_rgb((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8)
         }
 
+        /// Creates a new ``Color32`` from float RGBA values in range [0, 1].
         pub const fn from_float_rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
             Self::from_rgba(
                 (r * 255.0) as u8,
@@ -551,7 +549,7 @@ pub mod utils {
             )
         }
 
-        /// converts to a float rgba vector
+        /// Converts the color to a float RGBA vector. This is most commonly used in rendering.
         pub fn to_vec4(&self) -> Vec4 {
             let r = self.r as f32 / 255.0;
             let g = self.g as f32 / 255.0;
@@ -568,7 +566,7 @@ pub mod utils {
         }
     }
 
-    /// all of the known mesh types
+    /// Determines what mesh should be attached to an entity.
     #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Hash, Eq)]
     pub enum MeshType {
         Triangle,
@@ -589,7 +587,7 @@ pub mod utils {
         }
     }
 
-    /// wether or not a mesh is colored or textured
+    /// Determines wether or not a mesh is colored or textured.
     #[derive(Debug, PartialEq, Clone)]
     pub enum MeshAttribute {
         Colored(Color32),
@@ -597,14 +595,14 @@ pub mod utils {
     }
 
     impl MeshAttribute {
-        /// returns the color if present
+        /// Returns the color if present.
         pub fn color(&self) -> Option<Color32> {
             match self {
                 Self::Textured(_) => None,
                 Self::Colored(color) => Some(*color),
             }
         }
-        /// returns the texture if present
+        /// Returns the texture if present.
         pub fn texture(&self) -> Option<&Texture> {
             match self {
                 Self::Textured(texture) => Some(texture),
@@ -633,7 +631,7 @@ pub mod utils {
         }
     }
 
-    /// specific material data
+    /// Specific material data with components either being a value or a texture to sample from.
     #[derive(Debug, PartialEq, Clone)]
     pub struct Material {
         pub ambient: Ambient,
@@ -688,7 +686,7 @@ pub mod utils {
         }
     }
 
-    /// ambient color, stores either a color value or the texture name
+    /// Ambient color, stores either a color value or the texture name.
     #[derive(Debug, PartialEq, Clone)]
     pub enum Ambient {
         Value(Color32),
@@ -701,7 +699,7 @@ pub mod utils {
         }
     }
 
-    /// diffuse color
+    /// Diffuse color, stores either a color value or the texture name.
     #[derive(Debug, PartialEq, Clone)]
     pub enum Diffuse {
         Value(Color32),
@@ -714,7 +712,7 @@ pub mod utils {
         }
     }
 
-    /// specular color
+    /// Specular color, stores either a color value or the texture name.
     #[derive(Debug, PartialEq, Clone)]
     pub enum Specular {
         Value(Color32),
@@ -727,7 +725,7 @@ pub mod utils {
         }
     }
 
-    /// shininess (or glossiness)
+    /// Shininess (or glossiness), stores either a value or the texture name.
     #[derive(Debug, PartialEq, Clone)]
     pub enum Shininess {
         Value(f32),
@@ -740,28 +738,28 @@ pub mod utils {
         }
     }
 
-    /// component wrapper struct for `std::time::Instant` to track time
+    /// Component wrapper for `std::time::Instant` to track time.
     #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
     pub struct TimePoint(Instant);
 
     impl TimePoint {
-        /// wrapper for Instant::now()
+        /// Wrapper for ``Instant::now()``.
         pub fn now() -> Self {
             TimePoint(Instant::now())
         }
 
-        /// reset the internal time point to Instant::now()
+        /// Reset the internal time point to ``Instant::now()``.
         pub fn reset(&mut self) {
             self.0 = Instant::now();
         }
 
-        /// generate the delta time since the last reset in seconds
+        /// Generate the delta time since the last reset in seconds.
         pub fn delta_time(&self) -> TimeDuration {
             TimeDuration(self.0.elapsed().as_secs_f32())
         }
     }
 
-    /// time duration unit in seconds used for physics computations
+    /// Time duration unit in seconds used for physics computations.
     #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
     pub struct TimeDuration(pub f32);
 
@@ -775,7 +773,7 @@ pub mod utils {
         }
     }
 
-    /// represents all texture types with path data
+    /// Represents a texture that can be used in rendering. Specifies all loading parameters and the file location.
     #[derive(Debug, PartialOrd, PartialEq, Clone, Hash, Eq)]
     pub struct Texture {
         pub path: Rc<Path>,
@@ -798,7 +796,7 @@ pub mod utils {
         }
     }
 
-    /// texture filtering option for rendering
+    /// Texture filtering option for rendering.
     #[derive(Debug, PartialOrd, PartialEq, Copy, Clone, Hash, Eq, Default)]
     pub enum Filtering {
         #[default]
@@ -806,7 +804,7 @@ pub mod utils {
         Nearest,
     }
 
-    /// texture wrapping mode
+    /// Texture wrapping mode.
     #[derive(Debug, PartialOrd, PartialEq, Copy, Clone, Hash, Eq, Default)]
     pub enum Wrapping {
         #[default]
@@ -816,14 +814,14 @@ pub mod utils {
         ClampToBorder,
     }
 
-    /// defines the color space for a texture
+    /// Defines the color space for a texture.
     #[derive(Debug, PartialOrd, PartialEq, Copy, Clone, Hash, Eq)]
     pub enum ColorSpace {
         SRGBA,
         RGBA8,
     }
 
-    /// hitbox type specifier for an entity
+    /// Hitbox type specifier for an entity.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub enum HitboxType {
         ConvexHull,
@@ -832,7 +830,7 @@ pub mod utils {
         Box,
     }
 
-    /// stores info about the last frames' collisions in the ``Collider`` component
+    /// Stores info about the last frame's collisions in the ``Collider`` component.
     #[derive(Debug, Copy, Clone)]
     pub struct CollisionInfo {
         pub momentum: Vec3,
@@ -840,7 +838,7 @@ pub mod utils {
         pub normal: Vec3,
     }
 
-    /// defines on what depth layer the sprite will be rendered on (``Layer0`` is nearest)
+    /// Defines on what depth layer the sprite will be rendered on (``Layer0`` is nearest).
     #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
     pub enum SpriteLayer {
         Layer0 = 0,
@@ -856,13 +854,13 @@ pub mod utils {
     }
 
     impl SpriteLayer {
-        /// converts the sprite layer to the corresponding z coordinate for rendering
+        /// Converts the sprite layer to the corresponding z coordinate for rendering. Also used internally and mainly public for info.
         pub fn to_z_coord(self) -> f32 {
             map_range((0.0, 9.0), (0.8, -0.8), self as isize as f32)
         }
     }
 
-    /// defines ways to source sprite data from
+    /// Defines ways to source sprite data from.
     #[derive(Debug, Clone, PartialEq)]
     pub enum SpriteSource {
         Sheet(SpriteSheetSource),
@@ -870,7 +868,7 @@ pub mod utils {
         Single(Rc<Path>),
     }
 
-    /// source data for a sprite from a sprite sheet
+    /// Source data for a sprite from a sprite sheet.
     #[derive(Debug, Clone, PartialEq, Hash, Eq)]
     pub struct SpriteSheetSource {
         pub path: Rc<Path>,
@@ -878,7 +876,7 @@ pub mod utils {
         pub pixel_size: (usize, usize),
     }
 
-    /// sprite position on a defined grid or in absolute values
+    /// Sprite position on a defined grid or in absolute values.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub enum SpritePosition {
         Grid(Vec2),

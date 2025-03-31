@@ -158,7 +158,10 @@ impl InstanceRenderer {
         self.normal_matrices.reserve_exact(add_size);
         self.normal_matrices
             .extend(vec![Mat3::identity(); add_size]);
-        log::debug!("resized instance renderer to: {:?}", self.max_num_instances);
+        log::debug!(
+            "Resized InstanceRenderer to size: {:?}.",
+            self.max_num_instances
+        );
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
             gl::BufferData(
@@ -306,7 +309,7 @@ impl InstanceRenderer {
 
 impl Drop for InstanceRenderer {
     fn drop(&mut self) {
-        log::debug!("dropped instance renderer");
+        log::debug!("Dropped InstanceRenderer.");
         unsafe {
             gl::DeleteBuffers(1, &self.pbo);
             gl::DeleteBuffers(1, &self.tbo);

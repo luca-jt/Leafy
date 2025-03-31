@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::io::BufReader;
 use std::ops::{Index, IndexMut};
-use tobj::{self, load_obj_buf, GPU_LOAD_OPTIONS};
+use tobj::{load_obj_buf, GPU_LOAD_OPTIONS};
 
 /// identifier for a triangle in the AOS mesh, maps to triangles that only use the unique vertices
 type TriangleID = u64;

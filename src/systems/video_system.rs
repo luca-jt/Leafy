@@ -15,7 +15,7 @@ use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{CursorGrabMode, CursorIcon, Fullscreen, Window};
 
-/// holds the video backend attributes
+/// The system that is responsible for managing the window and its backend attributes.
 pub struct VideoSystem {
     pub(crate) config_template: ConfigTemplateBuilder,
     pub(crate) display_builder: DisplayBuilder,
@@ -83,7 +83,10 @@ impl VideoSystem {
             }
         };
 
-        log::info!("Picked a config with {} samples", gl_config.num_samples());
+        log::info!(
+            "Picked a rendering backend config with {} samples.",
+            gl_config.num_samples()
+        );
 
         let raw_window_handle = window
             .as_ref()
@@ -161,10 +164,10 @@ impl VideoSystem {
 
         if self.stored_config.use_vsync {
             if let Err(res) = self.enable_vsync() {
-                eprintln!("Error setting vsync: {res:?}");
+                eprintln!("Error setting VSYNC: {res:?}");
             }
         } else if let Err(res) = self.disable_vsync() {
-            eprintln!("Error setting vsync: {res:?}");
+            eprintln!("Error setting VSYNC: {res:?}");
         }
 
         Ok(())
@@ -173,7 +176,7 @@ impl VideoSystem {
     /// called when the engine application is suspended
     pub(crate) fn on_suspended(&mut self) {
         // this event is only raised on Android, where the backing NativeWindow for a GL Surface can appear and disappear at any moment
-        log::info!("Android window removed");
+        log::info!("Android window removed.");
 
         // destroy the GL Surface and un-current the GL Context before ndk-glue releases the window back to the system
         let gl_context = self.gl_context.take().unwrap();
@@ -186,9 +189,9 @@ impl VideoSystem {
             .is_none());
     }
 
-    /// enables vsync for opengl
+    /// Enables VSYNC for the rendering backend.
     pub fn enable_vsync(&mut self) -> Result<(), String> {
-        log::debug!("enabled vsync");
+        log::debug!("Enabled VSYNC.");
         if let (Some(gl_surface), Some(gl_context)) =
             (self.gl_surface.as_ref(), self.gl_context.as_ref())
         {
@@ -196,12 +199,12 @@ impl VideoSystem {
                 .set_swap_interval(gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
                 .map_err(|err| err.to_string());
         }
-        Err(String::from("vsync disable failed"))
+        Err(String::from("VSYNC enable failed."))
     }
 
-    /// disables vsync for opengl
+    /// Disables VSYNC for the rendering backend.
     pub fn disable_vsync(&mut self) -> Result<(), String> {
-        log::debug!("disabled vsync");
+        log::debug!("Disabled VSYNC.");
         if let (Some(gl_surface), Some(gl_context)) =
             (self.gl_surface.as_ref(), self.gl_context.as_ref())
         {
@@ -209,10 +212,10 @@ impl VideoSystem {
                 .set_swap_interval(gl_context, SwapInterval::DontWait)
                 .map_err(|err| err.to_string());
         }
-        Err(String::from("vsync disable failed"))
+        Err(String::from("VSYNC disable failed."))
     }
 
-    /// call the opengl window swap
+    /// Call the opengl window swap.
     pub(crate) fn swap_window(&self) {
         if let (Some(gl_surface), Some(gl_context)) =
             (self.gl_surface.as_ref(), self.gl_context.as_ref())
@@ -327,70 +330,70 @@ impl VideoSystem {
         }
     }
 
-    /// gets the current fps in seconds
+    /// Gets the current FPS.
     #[inline]
     pub fn current_fps(&self) -> f64 {
         self.current_fps
     }
 
-    /// the current inner window resolution (width, height)
+    /// Gets the current inner window resolution in physical size pixels (width, height).
     pub fn window_resolution(&self) -> PhysicalSize<u32> {
         self.window.as_ref().unwrap().inner_size()
     }
 
-    /// the current DPI scale factor of the window
+    /// Gets the current DPI scale factor of the window.
     pub fn dpi_scale(&self) -> f64 {
         self.window.as_ref().unwrap().scale_factor()
     }
 
-    /// set the optional fps cap value for the rendering process
+    /// Sets the optional FPS cap value for the rendering process. This is the same setting that you could also specify in the ``EngineAttributes`` at start-up.
     pub fn set_fps_cap(&mut self, new_cap: Option<f64>) {
-        log::trace!("set fps cap: {new_cap:?}");
+        log::trace!("Set FPS cap: {new_cap:?}.");
         self.fps_cap = new_cap;
     }
 
-    /// set the optional fps cap value for the rendering process when the app is out of focus
+    /// Sets the optional FPS cap value for the rendering process for when the app is out of focus. This is the same setting that you could also specify in the ``EngineAttributes`` at start-up.
     pub fn set_bg_fps_cap(&mut self, new_cap: Option<f64>) {
-        log::trace!("set background fps cap: {new_cap:?}");
+        log::trace!("Set background FPS cap: {new_cap:?}.");
         self.bg_fps_cap = new_cap;
     }
 
-    /// changes the title bar text in the window
-    pub fn set_window_title(&self, title: &str) {
+    /// Changes the title bar text in the window.
+    pub fn set_window_title(&self, title: impl AsRef<str>) {
         if let Some(window) = self.window.as_ref() {
-            window.set_title(title);
+            window.set_title(title.as_ref());
         }
     }
 
-    /// changes the appearance of the windows' cursor
+    /// Changes the appearance of the windows' cursor.
     pub fn set_cursor(&self, cursor: CursorIcon) {
         if let Some(window) = self.window.as_ref() {
             window.set_cursor(cursor);
         }
     }
 
-    /// brings the window into focus
+    /// Brings the window into focus.
     pub fn focus_window(&self) {
         if let Some(window) = self.window.as_ref() {
             window.focus_window();
+            log::trace!("Focussed Window.");
         }
     }
 
-    /// enables/disables the grab mode for the cursor (makes it unable to leave the window)
+    /// Enables/disables the grab mode for the cursor (makes it unable to leave the window).
     pub fn set_cursor_confined(&self, flag: bool) {
-        log::trace!("set cursor confined: {flag:?}");
         if let Some(window) = self.window.as_ref() {
             if flag {
                 window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
             } else {
                 window.set_cursor_grab(CursorGrabMode::None).unwrap();
             }
+            log::trace!("Set cursor confined: {flag:?}.");
         }
     }
 
-    /// enables/disables fullscreen for the window
+    /// Enables/disables fullscreen for the window.
     pub fn set_fullscreen(&self, flag: bool) {
-        log::trace!("set fullscreen: {flag:?}");
         if let Some(window) = self.window.as_ref() {
             if flag {
                 window.set_fullscreen(Some(Fullscreen::Borderless(None)));
@@ -400,21 +403,20 @@ impl VideoSystem {
                 }
                 window.set_fullscreen(None);
             }
+            log::debug!("Set fullscreen: {flag:?}.");
         }
     }
 
-    /// makes the cursor visible/invisible
+    /// Makes the cursor visible/invisible.
     pub fn set_cursor_visible(&self, flag: bool) {
-        log::trace!("set cursor visibility: {flag:?}");
         if let Some(window) = self.window.as_ref() {
             window.set_cursor_visible(flag);
+            log::trace!("Set cursor visibility: {flag:?}.");
         }
     }
 
-    /// enables/disables the link to the first person 3D camera control for the mouse with some senstivity
-    /// (default is ``None``)
+    /// Enables/disables the link to the first person 3D camera control for the mouse with some senstivity (default is ``None``).
     pub fn set_mouse_fpp_cam_control(&mut self, sensitivity: Option<f32>) {
-        log::trace!("set mouse cam control: {sensitivity:?}");
         match sensitivity {
             None => {
                 self.set_cursor_visible(true);
@@ -426,26 +428,26 @@ impl VideoSystem {
             }
         }
         self.mouse_cam_sens = sensitivity;
+        log::trace!("Set mouse cam control sensitivity: {sensitivity:?}.");
     }
 
-    /// Forces the rendering viewport to a ratio (width / height) regardless of the window size.
-    /// Probably only useful without transparency enabled.
+    /// Forces the rendering viewport to a ratio (width / height) regardless of the window size. Probably only useful without transparency enabled.
     pub fn force_viewport_ratio(&mut self, ratio: Option<f32>) {
         self.forced_viewport_ratio = ratio;
-        log::debug!("forcing viewport ratio: {ratio:?}");
+        log::debug!("Forcing viewport ratio: {ratio:?}.");
     }
 }
 
 /// prints info about the used gl renderer
 fn log_gl_config() {
     if let Some(renderer) = get_gl_string(gl::RENDERER) {
-        log::info!("Running on {}", renderer.to_string_lossy());
+        log::info!("Running on {}.", renderer.to_string_lossy());
     }
     if let Some(version) = get_gl_string(gl::VERSION) {
-        log::info!("OpenGL Version {}", version.to_string_lossy());
+        log::info!("OpenGL Version: {}.", version.to_string_lossy());
     }
     if let Some(shaders_version) = get_gl_string(gl::SHADING_LANGUAGE_VERSION) {
-        log::info!("Shaders version on {}", shaders_version.to_string_lossy());
+        log::info!("Shaders version: {}.", shaders_version.to_string_lossy());
     }
 }
 

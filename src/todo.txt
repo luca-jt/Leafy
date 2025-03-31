@@ -19,7 +19,8 @@ object outlining with stencil buffer
 bloom
 
 replace panics with default returns and an error message in the logger when possible
-documentation (make shure the content is correct as well) + log messages
 asset data arena allocator
 use the vertex colors
 use all texture types and materials in the shaders
+material texture loading with shininess textures with float values might cause problems
+event trigger in event system?

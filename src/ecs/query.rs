@@ -4,15 +4,15 @@ use crate::internal_prelude::*;
 use std::collections::hash_map::ValuesMut;
 use std::iter::Filter;
 
-/// used internally for query macros (should not be implemented elsewhere)
+/// Used internally for query macros (should not be implemented elsewhere).
 pub trait QueryType<'a>: 'static {
-    /// indicates wether the type is optional for the filtering
+    /// Indicates wether or not the type is optional for filtering purposes.
     const IS_OPTIONAL: bool;
-    /// base component type
+    /// Base component type.
     type BaseType: Component;
-    /// downcast return type
+    /// Downcast return type.
     type ReturnType;
-    /// general downcast function
+    /// General downcast function.
     fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType;
 }
 
@@ -70,7 +70,7 @@ where
     }
 }
 
-/// a query filter that requires components to be included in an entity
+/// A query filter that requires components to be included in an entity.
 #[derive(Debug, Clone)]
 pub struct IncludeFilter(pub Vec<TypeId>);
 
@@ -82,7 +82,7 @@ impl IncludeFilter {
     }
 }
 
-/// easy creation of a boxed include filter from given component types
+/// Easy creation of an ``IncludeFilter`` from given component types.
 #[macro_export]
 macro_rules! include_filter {
     ($($T:ty),*) => {
@@ -90,7 +90,7 @@ macro_rules! include_filter {
     };
 }
 
-/// a query filter that requires components to be excluded from an entity
+/// A query filter that requires components to be excluded from an entity.
 #[derive(Debug, Clone)]
 pub struct ExcludeFilter(pub Vec<TypeId>);
 
@@ -102,7 +102,7 @@ impl ExcludeFilter {
     }
 }
 
-/// easy creation of a boxed exclude filter from given component types
+/// Easy creation of an ``ExcludeFilter`` from given component types.
 #[macro_export]
 macro_rules! exclude_filter {
     ($($T:ty),*) => {

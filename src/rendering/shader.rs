@@ -34,7 +34,7 @@ fn compile_shader(src: &str, ty: GLenum) -> GLuint {
             );
             panic!(
                 "{}",
-                std::str::from_utf8(&buf).expect("ShaderInfoLog not valid utf8")
+                std::str::from_utf8(&buf).expect("ShaderInfoLog not valid UTF-8.")
             );
         }
     }
@@ -91,22 +91,32 @@ fn link_program(vs: GLuint, fs: GLuint, gs: Option<GLuint>) -> GLuint {
 /// shader program to use to render
 pub(crate) struct ShaderProgram {
     pub(crate) id: GLuint,
+    name: &'static str,
 }
 
 impl ShaderProgram {
     /// creates new shader program
-    pub(crate) fn new(vertex_file: &str, fragment_file: &str, geometry_file: Option<&str>) -> Self {
+    pub(crate) fn new(
+        vertex_file: &str,
+        fragment_file: &str,
+        geometry_file: Option<&str>,
+        name: &'static str,
+    ) -> Self {
         // compile and link shader program
+        let start_time = Instant::now();
+
         let vs = compile_shader(vertex_file, gl::VERTEX_SHADER);
         let fs = compile_shader(fragment_file, gl::FRAGMENT_SHADER);
         let gs = geometry_file.map(|file| compile_shader(file, gl::GEOMETRY_SHADER));
         let id = link_program(vs, fs, gs);
 
+        let elapsed_time = start_time.elapsed().as_micros() as f64 / 1000.0;
+
         let c_out_color = CString::new("out_color").unwrap();
         unsafe { gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()) };
-        log::trace!("compiled shader: {id:?}");
+        log::debug!("Compiled shader {name:?}: {elapsed_time:.2}.");
 
-        Self { id }
+        Self { id, name }
     }
 
     /// binds the shader program
@@ -127,7 +137,7 @@ impl ShaderProgram {
 
 impl Drop for ShaderProgram {
     fn drop(&mut self) {
-        log::trace!("deleted shader: {:?}", self.id);
+        log::trace!("Deleted shader: {:?}.", self.name);
         unsafe { gl::DeleteProgram(self.id) };
     }
 }
@@ -212,7 +222,7 @@ impl ShaderCatalog {
 
     /// creates a new sprite shader
     fn create_sprite(ortho_buffer: &UniformBuffer) -> ShaderProgram {
-        let program = ShaderProgram::new(SPRITE_VERT, SPRITE_FRAG, None);
+        let program = ShaderProgram::new(SPRITE_VERT, SPRITE_FRAG, None, "Sprite");
 
         program.add_unif_buffer("ortho_block", ortho_buffer, 2);
 
@@ -221,12 +231,12 @@ impl ShaderCatalog {
 
     /// creates a new screen texture shader
     fn create_screen() -> ShaderProgram {
-        ShaderProgram::new(SCREEN_VERT, SCREEN_FRAG, None)
+        ShaderProgram::new(SCREEN_VERT, SCREEN_FRAG, None, "Screen Texture")
     }
 
     /// creates a new skybox shader
     fn create_skybox(matrix_buffer: &UniformBuffer) -> ShaderProgram {
-        let program = ShaderProgram::new(SKYBOX_VERT, SKYBOX_FRAG, None);
+        let program = ShaderProgram::new(SKYBOX_VERT, SKYBOX_FRAG, None, "Skybox");
 
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
@@ -238,7 +248,7 @@ impl ShaderCatalog {
         light_buffer: &UniformBuffer,
         matrix_buffer: &UniformBuffer,
     ) -> ShaderProgram {
-        let program = ShaderProgram::new(BATCH_B_VERT, BATCH_B_FRAG, None);
+        let program = ShaderProgram::new(BATCH_B_VERT, BATCH_B_FRAG, None, "Batch Basic");
 
         program.add_unif_buffer("light_data", light_buffer, 0);
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
@@ -251,7 +261,7 @@ impl ShaderCatalog {
         light_buffer: &UniformBuffer,
         matrix_buffer: &UniformBuffer,
     ) -> ShaderProgram {
-        let program = ShaderProgram::new(INSTANCE_B_VERT, INSTANCE_B_FRAG, None);
+        let program = ShaderProgram::new(INSTANCE_B_VERT, INSTANCE_B_FRAG, None, "Instance Basic");
 
         program.add_unif_buffer("light_data", light_buffer, 0);
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
@@ -261,7 +271,7 @@ impl ShaderCatalog {
 
     /// creates a new passthrough batch renderer shader
     fn create_batch_passthrough(matrix_buffer: &UniformBuffer) -> ShaderProgram {
-        let program = ShaderProgram::new(BATCH_PT_VERT, BATCH_PT_FRAG, None);
+        let program = ShaderProgram::new(BATCH_PT_VERT, BATCH_PT_FRAG, None, "Batch Passthrough");
 
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
@@ -270,7 +280,12 @@ impl ShaderCatalog {
 
     /// creates a new passthrough instance renderer shader
     fn create_instance_passthrough(matrix_buffer: &UniformBuffer) -> ShaderProgram {
-        let program = ShaderProgram::new(INSTANCE_PT_VERT, INSTANCE_PT_FRAG, None);
+        let program = ShaderProgram::new(
+            INSTANCE_PT_VERT,
+            INSTANCE_PT_FRAG,
+            None,
+            "Instance Passthrough",
+        );
 
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
@@ -279,12 +294,17 @@ impl ShaderCatalog {
 
     /// creates a new shadow rendering shader for the batch renderer
     fn create_batch_shadow() -> ShaderProgram {
-        ShaderProgram::new(BATCH_SHADOW_VERT, BATCH_SHADOW_FRAG, None)
+        ShaderProgram::new(BATCH_SHADOW_VERT, BATCH_SHADOW_FRAG, None, "Batch Shadow")
     }
 
     /// creates a new shadow rendering shader for the instance renderer
     fn create_instance_shadow() -> ShaderProgram {
-        ShaderProgram::new(INSTANCE_SHADOW_VERT, INSTANCE_SHADOW_FRAG, None)
+        ShaderProgram::new(
+            INSTANCE_SHADOW_VERT,
+            INSTANCE_SHADOW_FRAG,
+            None,
+            "Instance Shadow",
+        )
     }
 
     /// creates a new cube map shadow rendering shader for the batch renderer
@@ -293,6 +313,7 @@ impl ShaderCatalog {
             BATCH_CUBE_SHADOW_VERT,
             BATCH_CUBE_SHADOW_FRAG,
             Some(BATCH_CUBE_SHADOW_GEOM),
+            "Batch Cube Shadow",
         )
     }
 
@@ -302,6 +323,7 @@ impl ShaderCatalog {
             INSTANCE_CUBE_SHADOW_VERT,
             INSTANCE_CUBE_SHADOW_FRAG,
             Some(INSTANCE_CUBE_SHADOW_GEOM),
+            "Instance Cube Shadow",
         )
     }
 }

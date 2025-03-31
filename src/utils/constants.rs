@@ -22,7 +22,7 @@ pub(crate) const ARENA_ALLOCATOR_CHUNK_SIZE: usize = 10_000_000;
 /// a single time step in the animation system
 pub(crate) const TIME_STEP: TimeDuration = TimeDuration(0.001);
 
-/// earth's gravity
+/// Earth's gravity.
 pub const G: Acceleration = Acceleration::new(0.0, -9.81, 0.0);
 
 pub const ORIGIN: Vec3 = Vec3::new(0.0, 0.0, 0.0);
@@ -30,30 +30,30 @@ pub const X_AXIS: Vec3 = Vec3::new(1.0, 0.0, 0.0);
 pub const Y_AXIS: Vec3 = Vec3::new(0.0, 1.0, 0.0);
 pub const Z_AXIS: Vec3 = Vec3::new(0.0, 0.0, 1.0);
 
-/// placeholder for an empty entity slot (will never point to an entity)
+/// Placeholder for an empty entity slot (will never point to an entity).
 pub const NO_ENTITY: EntityID = 0;
 
-/// the number of the LOD's available
+/// The number of mesh LOD's available (includes the base mesh aside from simplified versions).
 pub const NUM_LODS: i32 = 5;
 
-/// contains all built-in bit flag constants
+/// Contains all built-in bit flag constants to be used with the ``EntityFlags`` component.
 pub mod bits {
-    /// flags that are used for internal processing and should not be set manually, but can be read by anybody
+    /// Flags that are used for internal processing and should not be set manually, but can be read by anybody.
     pub mod internal {
         /// is set when a collision with that entity occurs
         pub const COLLIDED: u64 = 1;
     }
-    /// flags that can be set by the user to enable certain behavior in the engine
+    /// Flags that can be set by the user to enable certain behavior in the engine.
     pub mod user_level {
-        /// makes an entity invisible and skips the rendering process for it
+        /// Makes an entity invisible and skips the rendering process for it.
         pub const INVISIBLE: u64 = 0;
-        /// inidcates wether or not the entity is effected by gravity
+        /// Inidcates wether or not the entity is effected by gravity.
         pub const FLOATING: u64 = 2;
-        /// makes an entity with a collider only register collisions, not respond to them physics-whise
+        /// Makes an entity with a ``Collider`` component only register collisions, not respond to them physics-whise.
         pub const IGNORING_COLLISION: u64 = 3;
-        /// seperates entities at collision even whithout velocity component, also ignores dynamic collision responses when used on entities with velocity
+        /// Enables seperating entities at collision even without ``Velocity`` component. Also ignores dynamic collision responses when used on entities with velocity.
         pub const STATIC_COLLISION: u64 = 4;
-        /// enables the doppler effect audio pitch for an entity
+        /// Enables the doppler effect audio pitch for an entity.
         pub const DOPPLER_EFFECT: u64 = 5;
     }
 }

@@ -126,7 +126,7 @@ pub(crate) const SPRITE_PLANE_INDICES: [GLuint; 6] = [0, 1, 2, 0, 3, 1];
 // audio data
 pub(crate) const HRTF_SPHERE: &[u8] = include_bytes!(audio_path!("IRC_1002_C.bin"));
 
-/// loads an u8 image (probably PNG) using stb image from a given path
+/// Loads an ``Image<u8>`` (probably PNG) with an alpha channel using stb_image from a given path.
 pub fn stbi_load_u8_rgba(file_path: impl AsRef<Path>) -> Option<Image<u8>> {
     match load_with_depth(file_path, 4, false) {
         LoadResult::ImageU8(im) => Some(im),

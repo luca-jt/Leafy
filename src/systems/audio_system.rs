@@ -13,7 +13,7 @@ use fyrox_sound::renderer::hrtf::{HrirSphereResource, HrirSphereResourceExt, Hrt
 use fyrox_sound::renderer::Renderer;
 use fyrox_sound::source::{SoundSource, SoundSourceBuilder, Status};
 
-/// system managing the audio
+/// The system managing the audio state of the engine. You can control general settings and create new handles to use audio with entities.
 pub struct AudioSystem {
     master_volume: f32,
     music_volume: f32,
@@ -86,14 +86,15 @@ impl AudioSystem {
         }
     }
 
-    /// Loads a sound from file and caches it (default state of the source is stopped and not looping).
-    /// Sounds loaded this way should only be attached to at most one entity!
+    /// Loads a sound from file and caches it (default state of the source is stopped and not looping). Sounds loaded this way should only be attached to at most one entity!
     pub fn load_sound(
         &mut self,
         file_path: impl AsRef<Path>,
         sound_type: SoundType,
         spatial: bool,
     ) -> Handle<SoundSource> {
+        let file_path = file_path.as_ref();
+
         let volume = self.absolute_volume(sound_type);
         let buffer = SoundBufferResource::new_generic(
             block_on(DataSource::from_file(file_path, &FsResourceIo)).unwrap(),
@@ -119,10 +120,11 @@ impl AudioSystem {
                 self.active_music_handles.insert(handle);
             }
         }
+        log::debug!("Loaded {sound_type:?} sound: {file_path:?}.");
         handle
     }
 
-    /// removes a sound source from the system
+    /// Removes a sound source from the system.
     pub fn remove_sound(&mut self, handle: Handle<SoundSource>) {
         self.active_effect_handles.remove(&handle);
         self.active_music_handles.remove(&handle);
@@ -131,61 +133,61 @@ impl AudioSystem {
         self.removed_handles.insert(handle);
     }
 
-    /// plays a sound
+    /// Plays a sound.
     pub fn play(&self, handle: Handle<SoundSource>) {
         let mut state = self.sound_context.state();
         state.source_mut(handle).play();
     }
 
-    /// pauses a sound
+    /// Pauses a sound.
     pub fn pause(&self, handle: Handle<SoundSource>) {
         let mut state = self.sound_context.state();
         state.source_mut(handle).pause();
     }
 
-    /// stops a sound
+    /// Stops a sound.
     pub fn stop(&self, handle: Handle<SoundSource>) {
         let mut state = self.sound_context.state();
         state.source_mut(handle).stop().expect("error rewinding");
     }
 
-    /// sets wether or not a sound should loop
+    /// Sets wether or not a sound should loop.
     pub fn set_looping(&self, handle: Handle<SoundSource>, looping: bool) {
         let mut state = self.sound_context.state();
         state.source_mut(handle).set_looping(looping);
     }
 
-    /// sets the playback time for a sound
+    /// Sets the playback time for a sound.
     pub fn set_playback_time(&self, handle: Handle<SoundSource>, time: Duration) {
         let mut state = self.sound_context.state();
         state.source_mut(handle).set_playback_time(time);
     }
 
-    /// sets the panning for a sound (must be in range ``-1..=1`` where -1 = only left, 0 = both, 1 = only right)
+    /// Sets the panning for a sound (must be in range ``-1..=1`` where -1 = only left, 0 = both, 1 = only right).
     pub fn set_panning(&self, handle: Handle<SoundSource>, panning: f32) {
         let mut state = self.sound_context.state();
         state.source_mut(handle).set_panning(panning);
     }
 
-    /// sets the radius around the sound in which no distance attenuation is applied
+    /// Sets the radius around the sound in which no distance attenuation is applied.
     pub fn set_radius(&self, handle: Handle<SoundSource>, radius: f32) {
         let mut state = self.sound_context.state();
         state.source_mut(handle).set_radius(radius);
     }
 
-    /// sets the rolloff factor for a sound in distance attenuation
+    /// Sets the roll-off factor for a sound in distance attenuation.
     pub fn set_rolloff_factor(&self, handle: Handle<SoundSource>, rolloff: f32) {
         let mut state = self.sound_context.state();
         state.source_mut(handle).set_rolloff_factor(rolloff);
     }
 
-    /// sets maximum distance for a sound until which distance gain will be applicable
+    /// Sets maximum distance for a sound until which distance gain will be applicable.
     pub fn set_max_distance(&self, handle: Handle<SoundSource>, distance: f32) {
         let mut state = self.sound_context.state();
         state.source_mut(handle).set_max_distance(distance);
     }
 
-    /// sets the gain for a sound (does not influence the volume settings)
+    /// Sets the relative gain for a sound (does not influence the volume settings).
     pub fn set_gain(&self, handle: Handle<SoundSource>, gain: f32) {
         let mut state = self.sound_context.state();
         if self.active_effect_handles.contains(&handle) {
@@ -197,13 +199,14 @@ impl AudioSystem {
                 .source_mut(handle)
                 .set_gain(gain * self.absolute_volume(SoundType::Music));
         } else {
-            panic!("handle not in storage");
+            log::warn!("Handle not in storage.");
+            return;
         }
     }
 
-    /// use sound rendering on the hrtf sphere
+    /// Use sound rendering on the HRTF sphere.
     pub fn enable_hrtf(&mut self) {
-        log::trace!("enabled HRTF");
+        log::trace!("Enabled HRTF.");
         let hrir_sphere = HrirSphere::new(HRTF_SPHERE, SAMPLE_RATE).unwrap();
         self.sound_context
             .state()
@@ -213,19 +216,20 @@ impl AudioSystem {
         self.using_hrtf = true;
     }
 
-    /// disable sound rendering on the hrtf sphere
+    /// Disable sound rendering on the HRTF sphere.
     pub fn disable_hrtf(&mut self) {
-        log::trace!("disabled HRTF");
+        log::trace!("Disabled HRTF.");
         self.sound_context.state().set_renderer(Renderer::Default);
         self.using_hrtf = false;
     }
 
-    /// add a reverb effect (requires hrtf)
+    /// Add a reverb effect (requires HRTF).
     pub fn add_reverb(&mut self, decay_time: f32) {
         if !self.using_hrtf {
-            panic!("no hrtf enabled");
+            log::error!("No HRTF enabled. Required for reverb.");
+            return;
         }
-        log::trace!("enabled reverb");
+        log::trace!("Enabled reverb with decay time {decay_time:?}.");
         if self.using_reverb {
             self.disable_reverb();
         }
@@ -236,12 +240,13 @@ impl AudioSystem {
             .bus_graph_mut()
             .primary_bus_mut()
             .add_effect(Effect::Reverb(reverb));
+
         self.using_reverb = true;
     }
 
-    /// disable the reverb effect
+    /// Disable the reverb effect.
     pub fn disable_reverb(&mut self) {
-        log::trace!("disabled reverb");
+        log::trace!("Disabled reverb.");
         if !self.using_reverb {
             return;
         }
@@ -253,9 +258,9 @@ impl AudioSystem {
         self.using_reverb = false;
     }
 
-    /// changes the volume of the given type to the specified value
+    /// Changes the volume of the given type to the specified value.
     pub fn set_volume(&mut self, volume_type: VolumeType, new_volume: f32) {
-        log::trace!("set volume {volume_type:?} to {new_volume:?}");
+        log::trace!("Set volume {volume_type:?} to {new_volume:?}.");
         let mut state = self.sound_context.state();
         let old_sfx_volume = self.absolute_volume(SoundType::SFX);
         let old_music_volume = self.absolute_volume(SoundType::Music);
@@ -298,9 +303,9 @@ impl AudioSystem {
         }
     }
 
-    /// changes the pitch of an entity's sound independantly of the speed pitch change
+    /// Changes the pitch of an entity's sound independantly of other pitch changes.
     pub fn set_pitch(&self, handle: Handle<SoundSource>, pitch: f64) {
-        log::trace!("set pitch of handle {handle:?} to {pitch:?}");
+        log::trace!("Set pitch of handle {handle:?} to {pitch:?}.");
         let mut state = self.sound_context.state();
         let source = state.source_mut(handle);
         if self.pitch_on_speed_change {
@@ -310,9 +315,9 @@ impl AudioSystem {
         }
     }
 
-    /// enables/disbles the pitch change on animation speed change (default is ``true``)
+    /// Enables/disbles the pitch change on animation speed change (default is ``true``).
     pub fn set_pitch_on_speed_change(&mut self, flag: bool) {
-        log::debug!("set pitch on speed change: {flag:?}");
+        log::debug!("Set pitch on speed change: {flag:?}.");
         if self.pitch_on_speed_change == flag {
             return;
         }
@@ -330,7 +335,7 @@ impl AudioSystem {
         }
     }
 
-    /// calculate the total resulting volume for either the sfx or music
+    /// Calculate the total resulting volume for either the SFX or music.
     fn absolute_volume(&self, sound_type: SoundType) -> f32 {
         match sound_type {
             SoundType::SFX => self.master_volume * self.sfx_volume,
@@ -338,7 +343,7 @@ impl AudioSystem {
         }
     }
 
-    /// changes the audio playback state based on the engine mode
+    /// Changes the audio playback state based on the engine mode.
     pub(crate) fn on_mode_change(&mut self, event: &EngineModeChange) {
         match event.new_mode {
             EngineMode::Running => {
@@ -380,7 +385,7 @@ impl AudioSystem {
     }
 }
 
-/// all versions of audio volume
+/// All versions of audio volume that can be controlled in the audio system.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VolumeType {
     Master,
@@ -388,7 +393,7 @@ pub enum VolumeType {
     Music,
 }
 
-/// type of sound
+/// Specifies what type a sound should be. This influences e.g. volume settings.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SoundType {
     SFX,

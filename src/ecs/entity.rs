@@ -2,7 +2,7 @@ use crate::internal_prelude::*;
 use std::ops::Index;
 use std::slice::Iter;
 
-/// unique identifier for an entity
+/// Unique identifier for an entity. This is always attached to an entity as a component and should not be changed.
 pub type EntityID = u64;
 
 impl Component for EntityID {}

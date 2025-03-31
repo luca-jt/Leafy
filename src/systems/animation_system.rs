@@ -7,6 +7,7 @@ use crate::utils::constants::bits::user_level::*;
 use fyrox_sound::math::get_barycentric_coords;
 use winit::keyboard::KeyCode;
 
+/// The system responsible for all animations of entities in the engine. This includes physics and user-determined animations.
 pub struct AnimationSystem {
     pub(crate) animation_speed: f32,
     gravity: Acceleration,
@@ -442,9 +443,9 @@ impl AnimationSystem {
         }
     }
 
-    /// enables/disables the built-in flying cam movement with a movement speed
+    /// Enables/disables the built-in flying cam movement with a movement speed constant.
     pub fn set_flying_cam_movement(&mut self, speed: Option<f32>) {
-        log::trace!("set flying cam movement: {speed:?}");
+        log::trace!("Set flying cam movement: {speed:?}.");
         match speed {
             None => {
                 self.flying_cam_dir = None;
@@ -455,19 +456,18 @@ impl AnimationSystem {
         }
     }
 
-    /// changes the movement keys used for the built-in flying camera movement
-    /// (default: up - Space, down - LeftShift, directions - WASD)
+    /// Changes the movement keys used for the built-in flying camera movement (default: up - Space, down - LeftShift, directions - WASD).
     pub fn define_movement_keys(&mut self, keys: MovementKeys) {
         self.flying_cam_keys = keys;
     }
 
-    /// changes the gravity value used for physics computations (default is ``constants::G``)
+    /// Changes the gravity value used for physics computations (default is ``constants::G``).
     pub fn set_gravity(&mut self, a: Acceleration) {
-        log::debug!("set gravity: {a:?}");
+        log::debug!("Set gravity to {a:?}.");
         self.gravity = a;
     }
 
-    /// general event handling function for the animation speed change
+    /// General event handling function for the animation speed change.
     pub(crate) fn on_animation_speed_change(&mut self, event: &AnimationSpeedChange) {
         self.animation_speed = event.new_animation_speed;
     }
@@ -479,7 +479,7 @@ impl AnimationSystem {
     }
 }
 
-/// defines a set of movement keys for camera control
+/// Defines a set of movement keys for the engine-internal camera control.
 #[derive(Debug, Copy, Clone)]
 pub struct MovementKeys {
     pub up: KeyCode,
@@ -557,7 +557,7 @@ impl ColliderData<'_> {
     }
 
     /// checks if two hitboxes collide with each other
-    pub(crate) fn collides_with(&self, other: &Self) -> Option<CollisionData> {
+    pub fn collides_with(&self, other: &Self) -> Option<CollisionData> {
         // calculate the factor of one colliders translation vector
         let translate_factor = if self.is_dynamic && other.is_dynamic {
             0.5
