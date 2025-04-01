@@ -1,4 +1,3 @@
-pub mod batch_renderer;
 pub mod data;
 pub mod instance_renderer;
 pub mod mesh;

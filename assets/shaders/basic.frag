@@ -7,6 +7,7 @@
 
 in vec2 v_uv;
 in vec3 v_normal;
+in vec4 v_color;
 in vec3 frag_pos;
 in vec4 frag_pos_dir_light[MAX_DIR_LIGHT_MAPS];
 in vec3 cam_position;
@@ -97,7 +98,7 @@ float shadow_calc_dir(int i) {
 }
 
 void main() {
-    vec4 textured = texture(tex_sampler, v_uv).rgba * color;
+    vec4 textured = texture(tex_sampler, v_uv).rgba * color * v_color;
     if (textured.a < 0.001 || (textured.a < 0.999 && !transparent_pass)) {
         discard;
     }

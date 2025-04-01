@@ -1,6 +1,7 @@
 #version 450 core
 
 in vec2 v_uv;
+in vec4 v_color;
 
 out vec4 out_color;
 
@@ -9,9 +10,9 @@ layout(location = 1) uniform sampler2D tex_sampler;
 layout(location = 2) uniform bool transparent_pass;
 
 void main() {
-    vec4 textured = texture(tex_sampler, v_uv).rgba;
+    vec4 textured = texture(tex_sampler, v_uv).rgba * color * v_color;
     if (textured.a < 0.001 || (textured.a < 0.999 && !transparent_pass)) {
         discard;
     }
-    out_color = textured * color;
+    out_color = textured;
 }

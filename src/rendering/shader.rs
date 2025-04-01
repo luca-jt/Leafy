@@ -1,7 +1,6 @@
 use crate::internal_prelude::*;
 use crate::rendering::data::*;
 use crate::rendering::sprite_renderer::SpriteVertex;
-use crate::systems::rendering_system::{RendererArch, ShaderSpec};
 use std::ffi::CString;
 use std::{mem, ptr};
 
@@ -114,7 +113,7 @@ impl ShaderProgram {
 
         let c_out_color = CString::new("out_color").unwrap();
         unsafe { gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()) };
-        log::debug!("Compiled shader {name:?}: {elapsed_time:.2}.");
+        log::debug!("Compiled shader {name:?}: {elapsed_time:.2} ms");
 
         Self { id, name }
     }
@@ -144,14 +143,10 @@ impl Drop for ShaderProgram {
 
 /// holds all the shader data and loads them if needed
 pub(crate) struct ShaderCatalog {
-    batch_basic: ShaderProgram,
-    instance_basic: ShaderProgram,
-    batch_passthrough: ShaderProgram,
-    instance_passthrough: ShaderProgram,
-    batch_shadow: ShaderProgram,
-    instance_shadow: ShaderProgram,
-    batch_cube_shadow: ShaderProgram,
-    instance_cube_shadow: ShaderProgram,
+    basic: ShaderProgram,
+    passthrough: ShaderProgram,
+    pub(crate) shadow: ShaderProgram,
+    pub(crate) cube_shadow: ShaderProgram,
     pub(crate) skybox: ShaderProgram,
     pub(crate) screen: ShaderProgram,
     pub(crate) sprite: ShaderProgram,
@@ -174,14 +169,10 @@ impl ShaderCatalog {
         let ortho_buffer = UniformBuffer::new(size_of::<Mat4>() * 2);
 
         Self {
-            batch_basic: Self::create_batch_basic(&light_buffer, &matrix_buffer),
-            instance_basic: Self::create_instance_basic(&light_buffer, &matrix_buffer),
-            batch_passthrough: Self::create_batch_passthrough(&matrix_buffer),
-            instance_passthrough: Self::create_instance_passthrough(&matrix_buffer),
-            batch_shadow: Self::create_batch_shadow(),
-            instance_shadow: Self::create_instance_shadow(),
-            batch_cube_shadow: Self::create_batch_cube_shadow(),
-            instance_cube_shadow: Self::create_instance_cube_shadow(),
+            basic: Self::create_basic(&light_buffer, &matrix_buffer),
+            passthrough: Self::create_passthrough(&matrix_buffer),
+            shadow: Self::create_shadow(),
+            cube_shadow: Self::create_cube_shadow(),
             skybox: Self::create_skybox(&matrix_buffer),
             screen: Self::create_screen(),
             sprite: Self::create_sprite(&ortho_buffer),
@@ -192,31 +183,10 @@ impl ShaderCatalog {
     }
 
     /// calls ``gl::UseProgram`` for the spec's corresponding shader
-    pub(crate) fn use_shader(&self, shader_spec: ShaderSpec) {
-        match shader_spec.arch {
-            RendererArch::Batch => match shader_spec.shader_type {
-                ShaderType::Passthrough => self.batch_passthrough.use_program(),
-                ShaderType::Basic => self.batch_basic.use_program(),
-            },
-            RendererArch::Instance => match shader_spec.shader_type {
-                ShaderType::Passthrough => self.instance_passthrough.use_program(),
-                ShaderType::Basic => self.instance_basic.use_program(),
-            },
-        }
-    }
-
-    /// uses the corresponding shadow shader for the given renderer architecture
-    pub(crate) fn use_shadow_shader(&self, arch: RendererArch, is_cube_map: bool) {
-        if is_cube_map {
-            match arch {
-                RendererArch::Batch => self.batch_cube_shadow.use_program(),
-                RendererArch::Instance => self.instance_cube_shadow.use_program(),
-            }
-        } else {
-            match arch {
-                RendererArch::Batch => self.batch_shadow.use_program(),
-                RendererArch::Instance => self.instance_shadow.use_program(),
-            }
+    pub(crate) fn use_shader(&self, shader_type: &ShaderType) {
+        match shader_type {
+            ShaderType::Passthrough => self.passthrough.use_program(),
+            ShaderType::Basic => self.basic.use_program(),
         }
     }
 
@@ -243,46 +213,21 @@ impl ShaderCatalog {
         program
     }
 
-    /// creates a new basic batch renderer shader
-    fn create_batch_basic(
-        light_buffer: &UniformBuffer,
-        matrix_buffer: &UniformBuffer,
-    ) -> ShaderProgram {
-        let program = ShaderProgram::new(BATCH_B_VERT, BATCH_B_FRAG, None, "Batch Basic");
-
-        program.add_unif_buffer("light_data", light_buffer, 0);
-        program.add_unif_buffer("matrix_block", matrix_buffer, 1);
-
-        program
-    }
-
     /// creates a new basic instance renderer shader
-    fn create_instance_basic(
-        light_buffer: &UniformBuffer,
-        matrix_buffer: &UniformBuffer,
-    ) -> ShaderProgram {
-        let program = ShaderProgram::new(INSTANCE_B_VERT, INSTANCE_B_FRAG, None, "Instance Basic");
+    fn create_basic(light_buffer: &UniformBuffer, matrix_buffer: &UniformBuffer) -> ShaderProgram {
+        let program = ShaderProgram::new(BASIC_VERT, BASIC_FRAG, None, "Instance Basic");
 
         program.add_unif_buffer("light_data", light_buffer, 0);
-        program.add_unif_buffer("matrix_block", matrix_buffer, 1);
-
-        program
-    }
-
-    /// creates a new passthrough batch renderer shader
-    fn create_batch_passthrough(matrix_buffer: &UniformBuffer) -> ShaderProgram {
-        let program = ShaderProgram::new(BATCH_PT_VERT, BATCH_PT_FRAG, None, "Batch Passthrough");
-
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
 
         program
     }
 
     /// creates a new passthrough instance renderer shader
-    fn create_instance_passthrough(matrix_buffer: &UniformBuffer) -> ShaderProgram {
+    fn create_passthrough(matrix_buffer: &UniformBuffer) -> ShaderProgram {
         let program = ShaderProgram::new(
-            INSTANCE_PT_VERT,
-            INSTANCE_PT_FRAG,
+            PASSTHROUGH_VERT,
+            PASSTHROUGH_FRAG,
             None,
             "Instance Passthrough",
         );
@@ -292,102 +237,20 @@ impl ShaderCatalog {
         program
     }
 
-    /// creates a new shadow rendering shader for the batch renderer
-    fn create_batch_shadow() -> ShaderProgram {
-        ShaderProgram::new(BATCH_SHADOW_VERT, BATCH_SHADOW_FRAG, None, "Batch Shadow")
-    }
-
     /// creates a new shadow rendering shader for the instance renderer
-    fn create_instance_shadow() -> ShaderProgram {
-        ShaderProgram::new(
-            INSTANCE_SHADOW_VERT,
-            INSTANCE_SHADOW_FRAG,
-            None,
-            "Instance Shadow",
-        )
-    }
-
-    /// creates a new cube map shadow rendering shader for the batch renderer
-    fn create_batch_cube_shadow() -> ShaderProgram {
-        ShaderProgram::new(
-            BATCH_CUBE_SHADOW_VERT,
-            BATCH_CUBE_SHADOW_FRAG,
-            Some(BATCH_CUBE_SHADOW_GEOM),
-            "Batch Cube Shadow",
-        )
+    fn create_shadow() -> ShaderProgram {
+        ShaderProgram::new(SHADOW_VERT, SHADOW_FRAG, None, "Instance Shadow")
     }
 
     /// creates a new cube map shadow rendering shader for the instance renderer
-    fn create_instance_cube_shadow() -> ShaderProgram {
+    fn create_cube_shadow() -> ShaderProgram {
         ShaderProgram::new(
-            INSTANCE_CUBE_SHADOW_VERT,
-            INSTANCE_CUBE_SHADOW_FRAG,
-            Some(INSTANCE_CUBE_SHADOW_GEOM),
+            CUBE_SHADOW_VERT,
+            CUBE_SHADOW_FRAG,
+            Some(CUBE_SHADOW_GEOM),
             "Instance Cube Shadow",
         )
     }
-}
-
-/// all shader variants for entity rendering
-#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq, PartialOrd, Ord)]
-pub(crate) enum ShaderType {
-    Passthrough,
-    Basic,
-}
-
-/// binds all necessary vertex attrib pointers for the batch renderer depending on the program
-pub(crate) unsafe fn bind_batch_attribs(shader_type: ShaderType) {
-    gl::EnableVertexAttribArray(0);
-    gl::VertexAttribPointer(
-        0,
-        3,
-        gl::FLOAT,
-        gl::FALSE as GLboolean,
-        size_of::<Vertex>() as GLsizei,
-        mem::offset_of!(Vertex, position) as *const GLvoid,
-    );
-
-    gl::EnableVertexAttribArray(1);
-    gl::VertexAttribPointer(
-        1,
-        4,
-        gl::FLOAT,
-        gl::FALSE as GLboolean,
-        size_of::<Vertex>() as GLsizei,
-        mem::offset_of!(Vertex, color) as *const GLvoid,
-    );
-
-    gl::EnableVertexAttribArray(2);
-    gl::VertexAttribPointer(
-        2,
-        2,
-        gl::FLOAT,
-        gl::FALSE as GLboolean,
-        size_of::<Vertex>() as GLsizei,
-        mem::offset_of!(Vertex, uv_coords) as *const GLvoid,
-    );
-
-    if shader_type != ShaderType::Passthrough {
-        gl::EnableVertexAttribArray(3);
-        gl::VertexAttribPointer(
-            3,
-            3,
-            gl::FLOAT,
-            gl::FALSE as GLboolean,
-            size_of::<Vertex>() as GLsizei,
-            mem::offset_of!(Vertex, normal) as *const GLvoid,
-        );
-    }
-
-    gl::EnableVertexAttribArray(4);
-    gl::VertexAttribPointer(
-        4,
-        1,
-        gl::FLOAT,
-        gl::FALSE as GLboolean,
-        size_of::<Vertex>() as GLsizei,
-        mem::offset_of!(Vertex, tex_index) as *const GLvoid,
-    );
 }
 
 /// binds all necessary vertex attrib pointers for the sprite batch renderer
@@ -449,6 +312,12 @@ pub(crate) unsafe fn bind_instance_tbo() {
 pub(crate) unsafe fn bind_instance_nbo() {
     gl::EnableVertexAttribArray(2);
     gl::VertexAttribPointer(2, 3, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
+}
+
+/// binds the cbo attrib pointer for the instance renderer
+pub(crate) unsafe fn bind_instance_cbo() {
+    gl::EnableVertexAttribArray(3);
+    gl::VertexAttribPointer(3, 4, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
 }
 
 /// binds the mbo attrib pointer for the instance renderer

@@ -265,6 +265,7 @@ pub struct Renderable {
     pub mesh_type: MeshType,
     pub mesh_attribute: MeshAttribute,
     pub material: MaterialSource,
+    pub shader_type: ShaderType,
 }
 
 impl Component for Renderable {}
@@ -881,5 +882,14 @@ pub mod utils {
     pub enum SpritePosition {
         Grid(Vec2),
         Absolute(Vec2),
+    }
+
+    /// all shader variants for entity rendering
+    #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq, PartialOrd, Ord, Default)]
+    pub enum ShaderType {
+        #[default]
+        Basic,
+        Passthrough,
+        //Custom()
     }
 }

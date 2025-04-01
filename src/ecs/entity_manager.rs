@@ -121,16 +121,23 @@ impl EntityManager {
         self.material_register.keys().map(|s| s.as_str())
     }
 
-    /// Loads all the meshes in the ``.obj`` file and all the mentioned materials. Returns all the handles to the loaded meshes.
-    pub fn load_asset_file(
-        &mut self,
-        file_path: impl AsRef<Path>,
-    ) -> Result<Vec<MeshHandle>, String> {
+    /// Loads all the meshes in the ``.obj`` file and all the mentioned materials. Returns all the handles to the loaded meshes. If the loading fails, the returned ``Vec<MeshHandle>`` will be empty.
+    pub fn load_asset_file(&mut self, file_path: impl AsRef<Path>) -> Vec<MeshHandle> {
         let file_path = file_path.as_ref();
 
-        let (models, materials) =
-            load_obj(file_path, &GPU_LOAD_OPTIONS).map_err(|e| e.to_string())?;
-        let materials = materials.map_err(|e| e.to_string())?;
+        let (models, materials) = match load_obj(file_path, &GPU_LOAD_OPTIONS) {
+            Ok((ms, mtl_load_result)) => match mtl_load_result {
+                Ok(mtls) => (ms, mtls),
+                Err(msg) => {
+                    log::error!("Error loading asset file: {msg:?}.");
+                    return Vec::new();
+                }
+            },
+            Err(msg) => {
+                log::error!("Error loading asset file: {msg:?}.");
+                return Vec::new();
+            }
+        };
 
         let mut handles = Vec::with_capacity(models.len());
 
@@ -165,7 +172,7 @@ impl EntityManager {
             self.load_material_textures_from_mtl(&mtl, file_path);
         }
 
-        Ok(handles)
+        handles
     }
 
     /// Deletes a loaded mesh from the internal register. Returns wether or not the mesh existed. Also deletes potentially generated LODs for that mesh if present.
@@ -327,7 +334,7 @@ impl EntityManager {
 
             let mesh_name = opt_handle.map(|handle| self.mesh_name_from_handle(handle).unwrap());
             log::debug!(
-                "Loaded hitbox {:?} in register for mesh {:?}",
+                "Loaded hitbox {:?} in register for mesh {:?}.",
                 hitbox_type,
                 mesh_name
             );
@@ -349,7 +356,11 @@ impl EntityManager {
                 return false;
             }
         }
-        if let Some(hitbox) = self.hitbox_register.remove(&(hitbox_type, opt_handle)) {
+        if self
+            .hitbox_register
+            .remove(&(hitbox_type, opt_handle))
+            .is_some()
+        {
             let mesh_name = opt_handle.map(|handle| self.mesh_name_from_handle(handle).unwrap());
             log::debug!("Deleted hitbox {hitbox_type:?} from register for mesh {mesh_name:?}");
             true

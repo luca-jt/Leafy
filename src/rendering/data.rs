@@ -59,17 +59,6 @@ fn generate_texture(data: &Image<u8>, filtering: Filtering, wrapping: Wrapping, 
     tex_id
 }
 
-/// data for a single vertex
-#[derive(Default, Clone, Copy, Debug)]
-#[repr(C)]
-pub(crate) struct Vertex {
-    pub(crate) position: Vec3,
-    pub(crate) color: Vec4,
-    pub(crate) uv_coords: Vec2,
-    pub(crate) normal: Vec3,
-    pub(crate) tex_index: GLfloat,
-}
-
 /// holds the texture ID's for the App
 pub(crate) struct TextureMap {
     textures: AHashMap<Texture, GLuint>,
@@ -103,10 +92,10 @@ impl TextureMap {
                 texture.color_space,
             );
             self.textures.insert(texture.clone(), tex_id);
-            log::debug!("Loaded texture: {texture:?}.");
+            log::debug!("Loaded texture: {texture:?}");
             true
         } else {
-            log::error!("Error loading texture file data for {texture:?}.");
+            log::error!("Error loading texture file data for {texture:?}");
             false
         }
     }
@@ -115,10 +104,10 @@ impl TextureMap {
     pub(crate) fn delete_texture(&mut self, texture: &Texture) -> bool {
         if let Some(id) = self.textures.remove(texture) {
             unsafe { gl::DeleteTextures(1, &id) };
-            log::debug!("Deleted texture: {texture:?}.");
+            log::debug!("Deleted texture: {texture:?}");
             true
         } else {
-            log::warn!("Texture data not present for {texture:?}.");
+            log::warn!("Texture data not present for {texture:?}");
             false
         }
     }
@@ -135,7 +124,7 @@ impl TextureMap {
             );
             log::debug!("Loaded material texture: {path:?}.");
             self.material_textures
-                .insert(path.file_name().unwrap().to_str().into(), tex_id);
+                .insert(path.file_name().unwrap().to_str().unwrap().into(), tex_id);
             true
         } else {
             log::error!("Error loading material texture file data from {path:?}.");
@@ -384,14 +373,7 @@ impl OrthoCamera {
     }
 }
 
-/// render info for one point light
-pub(crate) struct PointLightRenderingInfo {
-    pub(crate) light_pos: Vec3,
-    pub(crate) light: PointLight,
-    pub(crate) shadow_map: Option<CubeShadowMap>,
-}
-
-/// cube shadow map for point lights that is shadow map agnostic
+/// shadow cube map for point lights that is shadow map agnostic
 #[repr(C)]
 pub(crate) struct CubeShadowMap {
     dbo: GLuint,
@@ -403,10 +385,10 @@ pub(crate) struct CubeShadowMap {
 }
 
 impl CubeShadowMap {
-    /// creates a new cube shadow map with given side size (width, height)
+    /// creates a new shadow cube map with given side size (width, height)
     #[rustfmt::skip]
     pub(crate) fn new(side_size: (GLsizei, GLsizei), light_pos: Vec3) -> Self {
-        log::debug!("Created new cube shadow map for a point light.");
+        log::debug!("Created new shadow cube map.");
         let mut dbo = 0;
         let mut shadow_cube_map = 0;
 
@@ -520,7 +502,7 @@ impl CubeShadowMap {
 
 impl Drop for CubeShadowMap {
     fn drop(&mut self) {
-        log::debug!("Dropped cube shadow map.");
+        log::debug!("Dropped shadow cube map.");
         unsafe {
             gl::DeleteTextures(1, &self.shadow_cube_map);
             gl::DeleteFramebuffers(1, &self.dbo);

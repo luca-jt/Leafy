@@ -12,16 +12,14 @@ cascaded shadow mapping -> dir light shadow maps need projection matrix size par
 raycasting
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution)
 
-
+add built-in shading styles like cell shading and custom shaders
+make instance renderer able to render textured and colored at the same time?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
 bloom
 
 asset data arena allocator
 material texture loading with shininess textures with float values might cause problems
-use the vertex colors
 use all texture types and materials in the shaders
 all asset loading fails or missing data need to be backed with defaults
-shading type in component -> add styles like cell shading -> together in renderable component
-dont use batch rendering for regular 3D objects -> rewrite of the rendering system with different enums for shading style determination
-instance renderer color buffer
+differentiation between sprite camera and regular ortho cam -> usage of that regular ortho cam

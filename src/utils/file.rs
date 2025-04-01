@@ -29,24 +29,15 @@ macro_rules! model_path {
 }
 
 // shader files
-pub(crate) const BATCH_B_FRAG: &str = include_str!(shader_path!("batch/basic.frag"));
-pub(crate) const BATCH_B_VERT: &str = include_str!(shader_path!("batch/basic.vert"));
-pub(crate) const BATCH_PT_FRAG: &str = include_str!(shader_path!("batch/passthrough.frag"));
-pub(crate) const BATCH_PT_VERT: &str = include_str!(shader_path!("batch/passthrough.vert"));
-pub(crate) const INSTANCE_B_FRAG: &str = include_str!(shader_path!("instance/basic.frag"));
-pub(crate) const INSTANCE_B_VERT: &str = include_str!(shader_path!("instance/basic.vert"));
-pub(crate) const INSTANCE_PT_FRAG: &str = include_str!(shader_path!("instance/passthrough.frag"));
-pub(crate) const INSTANCE_PT_VERT: &str = include_str!(shader_path!("instance/passthrough.vert"));
-pub(crate) const INSTANCE_SHADOW_FRAG: &str = include_str!(shader_path!("instance/shadow.frag"));
-pub(crate) const INSTANCE_SHADOW_VERT: &str = include_str!(shader_path!("instance/shadow.vert"));
-pub(crate) const INSTANCE_CUBE_SHADOW_VERT: &str = include_str!(shader_path!("instance/cube_shadow.vert"));
-pub(crate) const INSTANCE_CUBE_SHADOW_FRAG: &str = include_str!(shader_path!("instance/cube_shadow.frag"));
-pub(crate) const INSTANCE_CUBE_SHADOW_GEOM: &str = include_str!(shader_path!("instance/cube_shadow.geom"));
-pub(crate) const BATCH_SHADOW_FRAG: &str = include_str!(shader_path!("batch/shadow.frag"));
-pub(crate) const BATCH_SHADOW_VERT: &str = include_str!(shader_path!("batch/shadow.vert"));
-pub(crate) const BATCH_CUBE_SHADOW_VERT: &str = include_str!(shader_path!("batch/cube_shadow.vert"));
-pub(crate) const BATCH_CUBE_SHADOW_FRAG: &str = include_str!(shader_path!("batch/cube_shadow.frag"));
-pub(crate) const BATCH_CUBE_SHADOW_GEOM: &str = include_str!(shader_path!("batch/cube_shadow.geom"));
+pub(crate) const BASIC_FRAG: &str = include_str!(shader_path!("basic.frag"));
+pub(crate) const BASIC_VERT: &str = include_str!(shader_path!("basic.vert"));
+pub(crate) const PASSTHROUGH_FRAG: &str = include_str!(shader_path!("passthrough.frag"));
+pub(crate) const PASSTHROUGH_VERT: &str = include_str!(shader_path!("passthrough.vert"));
+pub(crate) const SHADOW_FRAG: &str = include_str!(shader_path!("shadow.frag"));
+pub(crate) const SHADOW_VERT: &str = include_str!(shader_path!("shadow.vert"));
+pub(crate) const CUBE_SHADOW_VERT: &str = include_str!(shader_path!("cube_shadow.vert"));
+pub(crate) const CUBE_SHADOW_FRAG: &str = include_str!(shader_path!("cube_shadow.frag"));
+pub(crate) const CUBE_SHADOW_GEOM: &str = include_str!(shader_path!("cube_shadow.geom"));
 pub(crate) const SKYBOX_VERT: &str = include_str!(shader_path!("skybox.vert"));
 pub(crate) const SKYBOX_FRAG: &str = include_str!(shader_path!("skybox.frag"));
 pub(crate) const SCREEN_VERT: &str = include_str!(shader_path!("screen.vert"));

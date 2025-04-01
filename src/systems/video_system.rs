@@ -441,13 +441,13 @@ impl VideoSystem {
 /// prints info about the used gl renderer
 fn log_gl_config() {
     if let Some(renderer) = get_gl_string(gl::RENDERER) {
-        log::info!("Running on {}.", renderer.to_string_lossy());
+        log::info!("Running on {}", renderer.to_string_lossy());
     }
     if let Some(version) = get_gl_string(gl::VERSION) {
-        log::info!("OpenGL Version: {}.", version.to_string_lossy());
+        log::info!("OpenGL Version: {}", version.to_string_lossy());
     }
     if let Some(shaders_version) = get_gl_string(gl::SHADING_LANGUAGE_VERSION) {
-        log::info!("Shaders version: {}.", shaders_version.to_string_lossy());
+        log::info!("Shaders version: {}", shaders_version.to_string_lossy());
     }
 }
 

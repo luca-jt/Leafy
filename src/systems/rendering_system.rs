@@ -1,10 +1,9 @@
 use crate::ecs::entity_manager::EntityManager;
 use crate::internal_prelude::*;
-use crate::rendering::batch_renderer::BatchRenderer;
 use crate::rendering::data::*;
 use crate::rendering::instance_renderer::InstanceRenderer;
 use crate::rendering::mesh::Mesh;
-use crate::rendering::shader::{ShaderCatalog, ShaderType};
+use crate::rendering::shader::ShaderCatalog;
 use crate::rendering::sprite_renderer::{SpriteGrid, SpriteRenderer};
 use crate::systems::event_system::events::user_space::CamPositionChange;
 use crate::utils::constants::bits::user_level::INVISIBLE;
@@ -69,14 +68,15 @@ impl RenderingSystem {
         self.clear_gl_screen();
         self.update_lights(entity_manager);
         self.update_uniform_buffers();
-        self.reset_renderer_usage();
+        self.reset_renderers();
+
         self.add_entity_data(entity_manager);
         self.confirm_data();
         self.render_shadows();
         self.bind_screen_texture();
         self.render_geometry();
         self.render_transparent();
-        self.reset_renderers();
+
         self.render_skybox();
         self.render_screen_texture();
         self.cleanup_renderers();
@@ -222,13 +222,13 @@ impl RenderingSystem {
     /// add entity data to the renderers
     fn add_entity_data(&mut self, entity_manager: &EntityManager) {
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        for (position, renderable, scale, orientation, rb, shader_type, lod) in unsafe {
+        for (position, renderable, scale, orientation, rb, lod) in unsafe {
             entity_manager
-                .query9::<&Position, &Renderable, Option<&EntityFlags>, Option<&Scale>, Option<&Orientation>, Option<&RigidBody>, Option<&DirectionalLight>, Option<&PointLight>, Option<&LOD>>((None, None))
+                .query7::<&Position, &Renderable, Option<&EntityFlags>, Option<&Scale>, Option<&Orientation>, Option<&RigidBody>, Option<&LOD>>((None, None))
         }
             .filter(|(_, _, f_opt, ..)| f_opt.is_none_or(|flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.is_none_or(|dist| (pos.data() - cam_pos).norm() <= dist))
-            .map(|(p, rndrbl, _, s, o, rb, dir_light, p_light, lod)| (p, rndrbl, s, o, rb, dir_light.map_or(p_light.map_or(ShaderType::Basic, |_| ShaderType::Passthrough), |_| ShaderType::Passthrough), lod.copied().unwrap_or_default()))
+            .map(|(p, rndrbl, _, s, o, rb, lod)| (p, rndrbl, s, o, rb, lod.copied().unwrap_or_default()))
         {
             let trafo = calc_model_matrix(
                 position,
@@ -240,13 +240,13 @@ impl RenderingSystem {
             let render_data = RenderData {
                 spec: RenderSpec {
                     mesh_type: renderable.mesh_type,
-                    shader_type,
+                    shader_type: renderable.shader_type,
                     lod,
                 },
                 trafo: &trafo,
-                m_attr: &renderable.mesh_attribute,
+                mesh_attribute: &renderable.mesh_attribute,
                 mesh: entity_manager.mesh_from_handle(renderable.mesh_type.mesh_handle(), lod).unwrap(),
-                tex_map: &entity_manager.texture_map,
+                texture_map: &entity_manager.texture_map,
                 transparent: match &renderable.mesh_attribute {
                     MeshAttribute::Colored(color) => color.a < 255,
                     MeshAttribute::Textured(texture) => texture.is_transparent,
@@ -264,14 +264,7 @@ impl RenderingSystem {
     /// confirms all of the added data in the renderers
     fn confirm_data(&mut self) {
         for renderer_type in self.renderers.iter_mut() {
-            match renderer_type {
-                RendererType::Batch { renderer, .. } => {
-                    renderer.confirm_data();
-                }
-                RendererType::Instance { renderer, .. } => {
-                    renderer.confirm_positions();
-                }
-            }
+            renderer_type.renderer.confirm_positions();
         }
     }
 
@@ -318,34 +311,23 @@ impl RenderingSystem {
             .values()
             .filter_map(|info| info.shadow_map.as_ref());
 
-        let mut current_shader = None;
-        for renderer_type in self.renderers.iter().filter(|r| r.transparent()) {
-            let new_shader = renderer_type.required_shader();
+        let mut current_shader: Option<ShaderType> = None;
+
+        for renderer_type in self.renderers.iter().filter(|r| r.transparent) {
+            let new_shader_type = renderer_type.spec.shader_type;
             if current_shader
-                .map(|shader_spec| shader_spec != new_shader)
+                .map(|shader_spec| shader_spec != new_shader_type)
                 .unwrap_or(true)
             {
-                self.shader_catalog.use_shader(new_shader);
-                current_shader = Some(new_shader);
+                self.shader_catalog.use_shader(&new_shader_type);
+                current_shader = Some(new_shader_type);
             }
-            match renderer_type {
-                RendererType::Batch { spec, renderer, .. } => {
-                    renderer.flush(
-                        dir_shadow_maps.clone(),
-                        cube_shadow_maps.clone(),
-                        spec.shader_type,
-                        true,
-                    );
-                }
-                RendererType::Instance { spec, renderer, .. } => {
-                    renderer.draw_all(
-                        dir_shadow_maps.clone(),
-                        cube_shadow_maps.clone(),
-                        spec.shader_type,
-                        true,
-                    );
-                }
-            }
+            renderer_type.renderer.draw_all(
+                dir_shadow_maps.clone(),
+                cube_shadow_maps.clone(),
+                renderer_type.spec.shader_type,
+                true,
+            );
         }
         unsafe {
             gl::Enable(gl::CULL_FACE);
@@ -362,34 +344,23 @@ impl RenderingSystem {
             .values()
             .filter_map(|info| info.shadow_map.as_ref());
 
-        let mut current_shader = None;
+        let mut current_shader: Option<ShaderType> = None;
+
         for renderer_type in self.renderers.iter() {
-            let new_shader = renderer_type.required_shader();
+            let new_shader_type = renderer_type.spec.shader_type;
             if current_shader
-                .map(|shader_spec| shader_spec != new_shader)
+                .map(|shader_spec| shader_spec != new_shader_type)
                 .unwrap_or(true)
             {
-                self.shader_catalog.use_shader(new_shader);
-                current_shader = Some(new_shader);
+                self.shader_catalog.use_shader(&new_shader_type);
+                current_shader = Some(new_shader_type);
             }
-            match renderer_type {
-                RendererType::Batch { spec, renderer, .. } => {
-                    renderer.flush(
-                        dir_shadow_maps.clone(),
-                        cube_shadow_maps.clone(),
-                        spec.shader_type,
-                        false,
-                    );
-                }
-                RendererType::Instance { spec, renderer, .. } => {
-                    renderer.draw_all(
-                        dir_shadow_maps.clone(),
-                        cube_shadow_maps.clone(),
-                        spec.shader_type,
-                        false,
-                    );
-                }
-            }
+            renderer_type.renderer.draw_all(
+                dir_shadow_maps.clone(),
+                cube_shadow_maps.clone(),
+                renderer_type.spec.shader_type,
+                false,
+            );
         }
     }
 
@@ -398,60 +369,30 @@ impl RenderingSystem {
         //
         // directional lights
         //
-        let mut current_renderer_arch = None;
         for (_, shadow_map) in self.directional_lights.iter_mut() {
             shadow_map.bind_writing();
+            self.shader_catalog.shadow.use_program();
+            shadow_map.bind_light_matrix();
+
             for renderer_type in self.renderers.iter_mut() {
-                let new_arch = renderer_type.required_shader().arch;
-                if current_renderer_arch
-                    .map(|arch| arch != new_arch)
-                    .unwrap_or(true)
-                {
-                    current_renderer_arch = Some(new_arch);
-                    self.shader_catalog
-                        .use_shadow_shader(current_renderer_arch.unwrap(), false);
-                    shadow_map.bind_light_matrix();
-                }
-                match renderer_type {
-                    RendererType::Batch { renderer, .. } => {
-                        renderer.render_shadows();
-                    }
-                    RendererType::Instance { renderer, .. } => {
-                        renderer.render_shadows();
-                    }
-                }
+                renderer_type.renderer.render_shadows();
             }
             shadow_map.unbind_writing();
         }
         //
         // point lights
         //
-        current_renderer_arch = None;
         for shadow_cube_map in self
             .point_lights
             .values_mut()
             .filter_map(|info| info.shadow_map.as_mut())
         {
             shadow_cube_map.bind_writing();
+            self.shader_catalog.cube_shadow.use_program();
+            shadow_cube_map.bind_light_uniforms();
+
             for renderer_type in self.renderers.iter_mut() {
-                let new_arch = renderer_type.required_shader().arch;
-                if current_renderer_arch
-                    .map(|arch| arch != new_arch)
-                    .unwrap_or(true)
-                {
-                    current_renderer_arch = Some(new_arch);
-                    self.shader_catalog
-                        .use_shadow_shader(current_renderer_arch.unwrap(), true);
-                    shadow_cube_map.bind_light_uniforms();
-                }
-                match renderer_type {
-                    RendererType::Batch { renderer, .. } => {
-                        renderer.render_cube_shadows();
-                    }
-                    RendererType::Instance { renderer, .. } => {
-                        renderer.render_cube_shadows();
-                    }
-                }
+                renderer_type.renderer.render_cube_shadows();
             }
             shadow_cube_map.unbind_writing();
         }
@@ -459,63 +400,24 @@ impl RenderingSystem {
 
     /// try to add the render data to an existing renderer
     fn try_add_data(&mut self, rd: &RenderData) -> bool {
-        for r_type in self.renderers.iter_mut() {
-            if let RendererType::Batch {
-                spec,
-                renderer,
-                used,
-                transp,
-            } = r_type
-            {
-                if *spec == rd.spec {
-                    *transp = *transp || rd.transparent;
-                    *used = true;
-                    return match rd.m_attr {
-                        MeshAttribute::Textured(path) => {
-                            renderer.draw_tex_mesh(
-                                rd.trafo,
-                                rd.tex_map.get_tex_id(path).unwrap(),
-                                rd.mesh,
-                                spec.shader_type,
-                            );
-                            true
+        for renderer_type in self.renderers.iter_mut() {
+            if renderer_type.spec == rd.spec && &renderer_type.attribute == rd.mesh_attribute {
+                match rd.mesh_attribute {
+                    MeshAttribute::Textured(path) => {
+                        if rd.texture_map.get_tex_id(path).unwrap() == renderer_type.renderer.tex_id
+                        {
+                            renderer_type.renderer.add_position(rd.trafo, rd.mesh);
+                            renderer_type.transparent = renderer_type.transparent || rd.transparent;
+                            renderer_type.used = true;
+                            return true;
                         }
-                        MeshAttribute::Colored(color) => {
-                            renderer.draw_color_mesh(
-                                rd.trafo,
-                                *color,
-                                rd.mesh,
-                                rd.spec.shader_type,
-                            );
-                            true
-                        }
-                    };
-                }
-            } else if let RendererType::Instance {
-                spec,
-                attribute,
-                renderer,
-                used,
-                transp,
-            } = r_type
-            {
-                if *spec == rd.spec && attribute == rd.m_attr {
-                    match rd.m_attr {
-                        MeshAttribute::Textured(path) => {
-                            if rd.tex_map.get_tex_id(path).unwrap() == renderer.tex_id {
-                                renderer.add_position(rd.trafo, rd.mesh);
-                                *transp = *transp || rd.transparent;
-                                *used = true;
-                                return true;
-                            }
-                        }
-                        MeshAttribute::Colored(color) => {
-                            if *color == renderer.color {
-                                renderer.add_position(rd.trafo, rd.mesh);
-                                *transp = *transp || rd.transparent;
-                                *used = true;
-                                return true;
-                            }
+                    }
+                    MeshAttribute::Colored(color) => {
+                        if *color == renderer_type.renderer.color {
+                            renderer_type.renderer.add_position(rd.trafo, rd.mesh);
+                            renderer_type.transparent = renderer_type.transparent || rd.transparent;
+                            renderer_type.used = true;
+                            return true;
                         }
                     }
                 }
@@ -526,61 +428,34 @@ impl RenderingSystem {
 
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
-        match rd.spec.mesh_type {
-            MeshType::Triangle | MeshType::Plane | MeshType::Cube => {
-                let mut renderer = BatchRenderer::new();
-                match rd.m_attr {
-                    MeshAttribute::Colored(color) => {
-                        renderer.draw_color_mesh(rd.trafo, *color, rd.mesh, rd.spec.shader_type);
-                    }
-                    MeshAttribute::Textured(path) => {
-                        renderer.draw_tex_mesh(
-                            rd.trafo,
-                            rd.tex_map.get_tex_id(path).unwrap(),
-                            rd.mesh,
-                            rd.spec.shader_type,
-                        );
-                    }
-                }
-                self.renderers.push(RendererType::Batch {
-                    spec: rd.spec,
-                    renderer,
-                    used: true,
-                    transp: rd.transparent,
-                });
-                log::debug!(
-                    "Added new BatchRenderer for mesh {:?} with LOD {:?} and shading style {:?}.",
-                    rd.mesh.name,
-                    rd.spec.lod,
-                    rd.spec.shader_type
-                );
+        let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.shader_type);
+
+        match rd.mesh_attribute {
+            MeshAttribute::Textured(texture) => {
+                renderer.tex_id = rd.texture_map.get_tex_id(texture).unwrap();
             }
-            _ => {
-                let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.shader_type);
-                match rd.m_attr {
-                    MeshAttribute::Textured(path) => {
-                        renderer.tex_id = rd.tex_map.get_tex_id(path).unwrap();
-                    }
-                    MeshAttribute::Colored(color) => {
-                        renderer.color = *color;
-                    }
-                }
-                renderer.add_position(rd.trafo, rd.mesh);
-                self.renderers.push(RendererType::Instance {
-                    spec: rd.spec,
-                    attribute: rd.m_attr.clone(),
-                    renderer,
-                    used: true,
-                    transp: rd.transparent,
-                });
-                log::debug!(
-                    "Added new InstanceRenderer for mesh {:?} with LOD {:?} and shading style {:?}.",
-                    rd.mesh.name,
-                    rd.spec.lod,
-                    rd.spec.shader_type
-                );
+            MeshAttribute::Colored(color) => {
+                renderer.color = *color;
             }
         }
+
+        renderer.add_position(rd.trafo, rd.mesh);
+
+        self.renderers.push(RendererType {
+            spec: rd.spec,
+            attribute: rd.mesh_attribute.clone(),
+            renderer,
+            used: true,
+            transparent: rd.transparent,
+        });
+
+        log::debug!(
+            "Added new InstanceRenderer for mesh {:?} with LOD {:?} and shading style {:?}.",
+            rd.mesh.name,
+            rd.spec.lod,
+            rd.spec.shader_type
+        );
+
         self.renderers.sort_unstable();
     }
 
@@ -693,50 +568,15 @@ impl RenderingSystem {
     /// resets all renderers to the initial state
     fn reset_renderers(&mut self) {
         for renderer_type in self.renderers.iter_mut() {
-            match renderer_type {
-                RendererType::Batch {
-                    renderer, transp, ..
-                } => {
-                    renderer.reset();
-                    *transp = false;
-                }
-                RendererType::Instance {
-                    renderer, transp, ..
-                } => {
-                    renderer.reset();
-                    *transp = false;
-                }
-            }
+            renderer_type.renderer.reset();
+            renderer_type.transparent = false;
+            renderer_type.used = false;
         }
     }
 
     /// drop renderers that are not used anymore
     fn cleanup_renderers(&mut self) {
-        self.renderers.retain(|r_type| r_type.used());
-        for renderer_type in self.renderers.iter_mut() {
-            match renderer_type {
-                RendererType::Batch { renderer, .. } => {
-                    renderer.clean_batches();
-                }
-                RendererType::Instance { .. } => {}
-            }
-        }
-    }
-
-    /// resets the usage flags of all renderers to false
-    fn reset_renderer_usage(&mut self) {
-        for renderer in self.renderers.iter_mut() {
-            match renderer {
-                RendererType::Batch { used, transp, .. } => {
-                    *used = false;
-                    *transp = false;
-                }
-                RendererType::Instance { used, transp, .. } => {
-                    *used = false;
-                    *transp = false;
-                }
-            }
-        }
+        self.renderers.retain(|renderer_type| renderer_type.used);
     }
 
     /// clears the OpenGL viewport
@@ -766,7 +606,7 @@ impl RenderingSystem {
         if msaa == use_msaa {
             return;
         }
-        log::debug!("Set anti-aliasing: {use_msaa:?}.");
+        log::debug!("Set anti-aliasing: {use_msaa:?}");
         if use_msaa {
             unsafe { gl::Enable(gl::MULTISAMPLE) };
             self.screen_texture.msaa = true;
@@ -781,7 +621,7 @@ impl RenderingSystem {
     pub fn set_3d_render_resolution(&mut self, resolution: (GLsizei, GLsizei)) {
         let msaa = unsafe { gl::IsEnabled(gl::MULTISAMPLE) == gl::TRUE };
         self.screen_texture = ScreenTexture::new(resolution.0, resolution.1, msaa, self.samples);
-        log::debug!("Set 3D render resolution to {resolution:?}.");
+        log::debug!("Set 3D render resolution: {resolution:?}");
     }
 
     /// Sets the current skybox that is used in the rendering process (default is ``None``).
@@ -853,85 +693,20 @@ struct RenderSpec {
     lod: LOD,
 }
 
-/// all variants of renderer architecture
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub(crate) enum RendererArch {
-    Batch,
-    Instance,
-}
-
-/// identifies a shader (combines renderer architecture and shader type)
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub(crate) struct ShaderSpec {
-    pub(crate) arch: RendererArch,
-    pub(crate) shader_type: ShaderType,
-}
-
-/// stores the renderer type with rendered entity type + renderer
-enum RendererType {
-    Batch {
-        spec: RenderSpec,
-        renderer: BatchRenderer,
-        used: bool,
-        transp: bool,
-    },
-    Instance {
-        spec: RenderSpec,
-        attribute: MeshAttribute,
-        renderer: InstanceRenderer,
-        used: bool,
-        transp: bool,
-    },
-}
-
-impl RendererType {
-    /// returns the value of the renderers use flag
-    fn used(&self) -> bool {
-        match self {
-            RendererType::Batch { used, .. } => *used,
-            RendererType::Instance { used, .. } => *used,
-        }
-    }
-
-    /// returns the value of the renderers transparency flag
-    fn transparent(&self) -> bool {
-        match self {
-            RendererType::Batch { transp, .. } => *transp,
-            RendererType::Instance { transp, .. } => *transp,
-        }
-    }
-
-    /// returns the shader requirement for this shader
-    fn required_shader(&self) -> ShaderSpec {
-        match self {
-            RendererType::Batch { spec, .. } => ShaderSpec {
-                arch: RendererArch::Batch,
-                shader_type: spec.shader_type,
-            },
-            RendererType::Instance { spec, .. } => ShaderSpec {
-                arch: RendererArch::Instance,
-                shader_type: spec.shader_type,
-            },
-        }
-    }
+/// stores the renderer type with rendered entity parameters + renderer
+struct RendererType {
+    spec: RenderSpec,
+    attribute: MeshAttribute,
+    renderer: InstanceRenderer,
+    used: bool,
+    transparent: bool,
 }
 
 impl Eq for RendererType {}
 
 impl PartialEq<Self> for RendererType {
     fn eq(&self, other: &Self) -> bool {
-        match self {
-            RendererType::Batch { spec: spec1, .. } => match other {
-                RendererType::Batch { spec: spec2, .. } => spec1.shader_type == spec2.shader_type,
-                RendererType::Instance { .. } => false,
-            },
-            RendererType::Instance { spec: spec1, .. } => match other {
-                RendererType::Batch { .. } => false,
-                RendererType::Instance { spec: spec2, .. } => {
-                    spec1.shader_type == spec2.shader_type
-                }
-            },
-        }
+        self.spec.shader_type == other.spec.shader_type
     }
 }
 
@@ -943,20 +718,7 @@ impl PartialOrd<Self> for RendererType {
 
 impl Ord for RendererType {
     fn cmp(&self, other: &Self) -> Ordering {
-        match self {
-            RendererType::Batch { spec: spec1, .. } => match other {
-                RendererType::Batch { spec: spec2, .. } => {
-                    spec1.shader_type.cmp(&spec2.shader_type)
-                }
-                RendererType::Instance { .. } => Ordering::Less,
-            },
-            RendererType::Instance { spec: spec1, .. } => match other {
-                RendererType::Batch { .. } => Ordering::Greater,
-                RendererType::Instance { spec: spec2, .. } => {
-                    spec1.shader_type.cmp(&spec2.shader_type)
-                }
-            },
-        }
+        self.spec.shader_type.cmp(&other.spec.shader_type)
     }
 }
 
@@ -964,9 +726,9 @@ impl Ord for RendererType {
 struct RenderData<'a> {
     spec: RenderSpec,
     trafo: &'a Mat4,
-    m_attr: &'a MeshAttribute,
+    mesh_attribute: &'a MeshAttribute,
     mesh: &'a Mesh,
-    tex_map: &'a TextureMap,
+    texture_map: &'a TextureMap,
     transparent: bool,
 }
 
@@ -1004,4 +766,11 @@ impl TempRenderStorage {
         self.dir_lights.clear();
         self.p_lights.clear();
     }
+}
+
+/// render info for one point light
+struct PointLightRenderingInfo {
+    pub(crate) light_pos: Vec3,
+    pub(crate) light: PointLight,
+    pub(crate) shadow_map: Option<CubeShadowMap>,
 }

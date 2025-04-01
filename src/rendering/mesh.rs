@@ -58,13 +58,17 @@ impl AlgorithmMesh {
                 current
             });
 
+        // TODO: we might want to keep track of these vertex attributes in the future in mesh manipulation
+        let texture_coords = vec![vec2(0.0, 0.0); positions.len()];
+        let colors = vec![vec4(1.0, 1.0, 1.0, 1.0); positions.len()];
+
         Mesh {
             name: self.name,
             source_file: self.source_file,
             positions,
-            colors: None, // TODO: we might want to keep track of these vertex attributes in the future in mesh manipulation
-            normals: Some(normals),
-            texture_coords: None,
+            colors,
+            normals,
+            texture_coords,
             indices,
             max_reach,
             material_name: self.material_name,
@@ -473,9 +477,9 @@ pub(crate) struct Mesh {
     pub(crate) name: String,
     pub(crate) source_file: Rc<Path>,
     pub(crate) positions: Vec<Vec3>,
-    pub(crate) colors: Option<Vec<Vec4>>,
-    pub(crate) normals: Option<Vec<Vec3>>,
-    pub(crate) texture_coords: Option<Vec<Vec2>>,
+    pub(crate) colors: Vec<Vec4>,
+    pub(crate) normals: Vec<Vec3>,
+    pub(crate) texture_coords: Vec<Vec2>,
     pub(crate) indices: Vec<GLuint>,
     pub(crate) max_reach: Vec3,
     pub(crate) material_name: Option<String>, // the presence of this means the material source can be inherited
@@ -495,26 +499,35 @@ impl Mesh {
         let obj = &model.mesh;
 
         let positions = obj.positions.iter().copied().tuples().map(|(x, y, z)| vec3(x, y, z)).collect_vec();
+        let indices = obj.indices.clone();
 
         let colors = if obj.vertex_color.is_empty() {
-            None
+            vec![vec4(1.0, 1.0, 1.0, 1.0); positions.len()]
         } else {
-            Some(obj.vertex_color.iter().copied().tuples().map(|(r, g, b)| vec4(r, g, b, 1.0)).collect_vec())
+            obj.vertex_color.iter().copied().tuples().map(|(r, g, b)| vec4(r, g, b, 1.0)).collect_vec()
         };
 
         let normals = if obj.normals.is_empty() {
-            None
+            let mut computed = vec![ORIGIN; positions.len()];
+            for (a, b, c) in indices.iter().copied().tuples() {
+                let p1 = positions[a as usize];
+                let p2 = positions[b as usize];
+                let p3 = positions[c as usize];
+                let normal = (p2 - p1).cross(&(p3 - p1)).normalize();
+                computed[a as usize] = normal;
+                computed[b as usize] = normal;
+                computed[c as usize] = normal;
+            }
+            computed
         } else {
-            Some(obj.normals.iter().copied().tuples().map(|(x, y, z)| vec3(x, y, z)).collect_vec())
+            obj.normals.iter().copied().tuples().map(|(x, y, z)| vec3(x, y, z)).collect_vec()
         };
 
         let texture_coords = if obj.texcoords.is_empty() {
-            None
+            vec![vec2(0.0, 0.0); positions.len()]
         } else {
-            Some(obj.texcoords.iter().copied().tuples().map(|(u, v)| vec2(u, v)).collect_vec())
+            obj.texcoords.iter().copied().tuples().map(|(u, v)| vec2(u, v)).collect_vec()
         };
-
-        let indices = obj.indices.clone();
 
         let max_reach =
             positions
@@ -529,10 +542,6 @@ impl Mesh {
                 });
 
         let name = model.name.clone();
-
-        if normals.is_none() && texture_coords.is_none() {
-            log::warn!("Mesh {name:?} does not contain either normal vectors or texture coordinates to use for normal map sampling.");
-        }
 
         Self {
             name,

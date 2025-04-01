@@ -10,6 +10,7 @@ pub(crate) struct InstanceRenderer {
     pbo: GLuint,
     tbo: GLuint,
     nbo: GLuint,
+    cbo: GLuint,
     mbo: GLuint,
     nmbo: GLuint,
     ibo: GLuint,
@@ -32,6 +33,7 @@ impl InstanceRenderer {
         let mut pbo = 0; // positions
         let mut tbo = 0; // uv
         let mut nbo = 0; // normals
+        let mut cbo = 0; // vertex colors
         let mut mbo = 0; // models (includes offsets)
         let mut nmbo = 0; // normal matrices
         let mut ibo = 0; // indices
@@ -44,7 +46,7 @@ impl InstanceRenderer {
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
 
-            // vertex position buffer
+            // VERTEX POSITION BUFFER
             gl::CreateBuffers(1, &mut pbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, pbo);
             gl::BufferData(
@@ -55,7 +57,7 @@ impl InstanceRenderer {
             );
             bind_instance_pbo();
 
-            // uv coord buffer
+            // UV COORDINATE BUFFER
             gl::CreateBuffers(1, &mut tbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, tbo);
             gl::BufferData(
@@ -66,7 +68,7 @@ impl InstanceRenderer {
             );
             bind_instance_tbo();
 
-            // normal vector buffer
+            // NORMAL VECTOR BUFFER
             gl::CreateBuffers(1, &mut nbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, nbo);
             gl::BufferData(
@@ -79,7 +81,18 @@ impl InstanceRenderer {
                 bind_instance_nbo();
             }
 
-            // model buffer
+            // VERTEX COLOR BUFFER
+            gl::CreateBuffers(1, &mut cbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, cbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (mesh.num_vertices() * size_of::<Vec4>()) as GLsizeiptr,
+                mesh.colors.as_ptr() as *const GLvoid,
+                gl::STATIC_DRAW,
+            );
+            bind_instance_cbo();
+
+            // MODEL MATRIX BUFFER
             gl::CreateBuffers(1, &mut mbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, mbo);
             gl::BufferData(
@@ -90,7 +103,7 @@ impl InstanceRenderer {
             );
             bind_instance_mbo();
 
-            // normal matrix buffer
+            // NORMAL MATRIX BUFFER
             gl::CreateBuffers(1, &mut nmbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, nmbo);
             gl::BufferData(
@@ -99,7 +112,9 @@ impl InstanceRenderer {
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
-            bind_instance_nmbo();
+            if shader_type != ShaderType::Passthrough {
+                bind_instance_nmbo();
+            }
 
             // INDECES
             gl::GenBuffers(1, &mut ibo);
@@ -135,6 +150,7 @@ impl InstanceRenderer {
             pbo,
             tbo,
             nbo,
+            cbo,
             mbo,
             nmbo,
             ibo,
@@ -153,20 +169,32 @@ impl InstanceRenderer {
     fn resize_buffer(&mut self) {
         let add_size: usize = self.max_num_instances * 2;
         self.max_num_instances += add_size;
+
         self.models.reserve_exact(add_size);
         self.models.extend(vec![Mat4::identity(); add_size]);
+
         self.normal_matrices.reserve_exact(add_size);
         self.normal_matrices
             .extend(vec![Mat3::identity(); add_size]);
+
         log::debug!(
             "Resized InstanceRenderer to size: {:?}.",
             self.max_num_instances
         );
+
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 (self.max_num_instances * size_of::<Mat4>()) as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.nmbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (self.max_num_instances * size_of::<Mat3>()) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
@@ -181,6 +209,7 @@ impl InstanceRenderer {
         self.models[self.pos_idx] = *trafo;
         self.normal_matrices[self.pos_idx] =
             glm::mat4_to_mat3(&trafo.try_inverse().unwrap().transpose());
+
         self.index_count += mesh.num_indices() as GLsizei;
         self.pos_idx += 1;
     }
@@ -231,7 +260,7 @@ impl InstanceRenderer {
         }
     }
 
-    /// renders to a cube shadow map
+    /// renders to a shadow cube map
     pub(crate) fn render_cube_shadows(&self) {
         unsafe {
             // bind texture
@@ -314,6 +343,7 @@ impl Drop for InstanceRenderer {
             gl::DeleteBuffers(1, &self.pbo);
             gl::DeleteBuffers(1, &self.tbo);
             gl::DeleteBuffers(1, &self.nbo);
+            gl::DeleteBuffers(1, &self.cbo);
             gl::DeleteBuffers(1, &self.mbo);
             gl::DeleteBuffers(1, &self.nmbo);
             gl::DeleteBuffers(1, &self.ibo);
