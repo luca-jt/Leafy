@@ -473,7 +473,7 @@ pub(crate) struct Mesh {
     pub(crate) name: String,
     pub(crate) source_file: Rc<Path>,
     pub(crate) positions: Vec<Vec3>,
-    pub(crate) colors: Option<Vec<Vec3>>,
+    pub(crate) colors: Option<Vec<Vec4>>,
     pub(crate) normals: Option<Vec<Vec3>>,
     pub(crate) texture_coords: Option<Vec<Vec2>>,
     pub(crate) indices: Vec<GLuint>,
@@ -499,7 +499,7 @@ impl Mesh {
         let colors = if obj.vertex_color.is_empty() {
             None
         } else {
-            Some(obj.vertex_color.iter().copied().tuples().map(|(r, g, b)| vec3(r, g, b)).collect_vec())
+            Some(obj.vertex_color.iter().copied().tuples().map(|(r, g, b)| vec4(r, g, b, 1.0)).collect_vec())
         };
 
         let normals = if obj.normals.is_empty() {
@@ -528,8 +528,14 @@ impl Mesh {
                     current
                 });
 
+        let name = model.name.clone();
+
+        if normals.is_none() && texture_coords.is_none() {
+            log::warn!("Mesh {name:?} does not contain either normal vectors or texture coordinates to use for normal map sampling.");
+        }
+
         Self {
-            name: model.name.clone(),
+            name,
             source_file,
             positions,
             colors,

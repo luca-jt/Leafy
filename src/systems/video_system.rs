@@ -120,7 +120,7 @@ impl VideoSystem {
                             .unwrap_or_else(|_| {
                                 gl_display
                                     .create_context(&gl_config, &legacy_context_attributes)
-                                    .expect("failed to create context")
+                                    .expect("Failed to create GL context.")
                             })
                     })
             });
@@ -136,7 +136,7 @@ impl VideoSystem {
 
         let attrs = window
             .build_surface_attributes(Default::default())
-            .expect("Failed to build surface attributes");
+            .expect("Failed to build GL surface attributes.");
 
         let gl_surface = unsafe {
             gl_config

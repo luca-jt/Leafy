@@ -1,5 +1,5 @@
 raytrace the current scene
-switchable render backends -> vulkan support
+switchable render backends -> vulkan support, use a static reference to a dyn trait object
 skeletal animations
 collision fix -> sequential solver? + better memory allocation + performance, terrain collision, trees
 volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
@@ -10,16 +10,18 @@ cascaded shadow mapping -> dir light shadow maps need projection matrix size par
 2D animation frames
 2D sprite hitboxes with seperate collision checking
 raycasting
-particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution), permanent, ... , compute shaders?
-ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
+particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution)
 
-full rewrite of the rendering system
-shading type in component -> add styles like cell shading -> together in renderable component?
+
+ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
 bloom
 
-replace expects and some unwraps with default returns and an error message in the logger when possible
 asset data arena allocator
+material texture loading with shininess textures with float values might cause problems
 use the vertex colors
 use all texture types and materials in the shaders
-material texture loading with shininess textures with float values might cause problems
+all asset loading fails or missing data need to be backed with defaults
+shading type in component -> add styles like cell shading -> together in renderable component
+dont use batch rendering for regular 3D objects -> rewrite of the rendering system with different enums for shading style determination
+instance renderer color buffer

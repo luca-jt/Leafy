@@ -64,7 +64,7 @@ impl<A: FallingLeafApp> Engine<A> {
     /// Runs the main loop of the engine and is the main function that is called after the creation of the engine. This takes in your app struct that you created that implements the ``FallingLeafApp`` trait.
     pub fn run(&mut self, app: A) -> Result<(), Box<dyn Error>> {
         self.app = Some(RefCell::new(app));
-        let event_loop = EventLoop::new().unwrap();
+        let event_loop = EventLoop::new().expect("Error creating event loop.");
         event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run_app(self)?;
         self.exit_state.take().unwrap()

@@ -135,8 +135,6 @@ impl EntityManager {
         let mut handles = Vec::with_capacity(models.len());
 
         for model in models {
-            log::debug!("Loaded mesh {:?} from file {:?}.", model.name, file_path);
-
             let mtl_name = model
                 .mesh
                 .material_id
@@ -149,16 +147,21 @@ impl EntityManager {
                 handle,
                 Mesh::from_obj_data(&model, Rc::from(file_path), mtl_name),
             );
+            log::debug!("Loaded mesh {:?} from file {:?}.", model.name, file_path);
 
             handles.push(handle);
         }
 
         for mtl in materials {
+            let mtl_name = mtl.name.clone();
+            if self.material_register.contains_key(&mtl_name) {
+                log::warn!("Material '{mtl_name:?}' is already loaded and is overwritten.");
+            }
+
             self.material_register
-                .insert(mtl.name.clone(), Material::from_mtl(&mtl));
+                .insert(mtl_name, Material::from_mtl(&mtl));
 
             log::debug!("Loaded material {:?}.", mtl.name);
-
             self.load_material_textures_from_mtl(&mtl, file_path);
         }
 
@@ -186,11 +189,15 @@ impl EntityManager {
         match load_mtl(path) {
             Ok((materials, _)) => {
                 for mtl in materials {
+                    let mtl_name = mtl.name.clone();
+                    if self.material_register.contains_key(&mtl_name) {
+                        log::warn!("Material '{mtl_name:?}' is already loaded and is overwritten.");
+                    }
+
                     self.material_register
-                        .insert(mtl.name.clone(), Material::from_mtl(&mtl));
+                        .insert(mtl_name, Material::from_mtl(&mtl));
 
                     log::debug!("Loaded material {:?}.", mtl.name);
-
                     self.load_material_textures_from_mtl(&mtl, path);
                 }
                 true
@@ -412,9 +419,12 @@ impl EntityManager {
                 .mesh_type
                 .mesh_handle();
 
-            let mesh = self
-                .mesh_from_handle(handle, LOD::None)
-                .expect("mesh data missing");
+            let opt_mesh = self.mesh_from_handle(handle, LOD::None);
+            if opt_mesh.is_none() {
+                log::error!("No mesh data present to use for computing rigid body data.");
+                return;
+            }
+            let mesh = opt_mesh.unwrap();
 
             let scale = unsafe { &*self.ecs.get() }
                 .get_component::<Scale>(entity)

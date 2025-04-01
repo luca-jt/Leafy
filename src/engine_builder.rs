@@ -146,11 +146,6 @@ impl EngineAttributes {
                 ));
             }
         }
-        if self.fullscreen && self.maximized {
-            return Err(String::from(
-                "The game can not be maximimzed and in fullscreen mode at the same time.",
-            ));
-        }
         let engine = Engine::new(self);
 
         Ok(engine)

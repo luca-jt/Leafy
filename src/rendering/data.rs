@@ -744,29 +744,34 @@ pub struct Skybox {
 }
 
 impl Skybox {
-    /// Creates a new skybox cube map from input texture paths ``[right, left, top, bottom, front, back]``.
+    /// Trys to create a new skybox cube map from input texture paths ``[right, left, top, bottom, front, back]``. Returns ``None`` if the texture loading from the given paths was unsuccessful.
     #[rustfmt::skip]
-    pub fn new(paths: [impl AsRef<Path>; 6]) -> Self {
+    pub fn try_new(paths: [impl AsRef<Path>; 6]) -> Option<Self> {
         let mut cube_map = 0;
         unsafe {
             gl::GenTextures(1, &mut cube_map);
             gl::BindTexture(gl::TEXTURE_CUBE_MAP, cube_map);
         }
         for i in 0..6 {
-            let texture =
-                stbi_load_u8_rgba(&paths[i as usize]).expect("error loading skybox texture");
-            unsafe {
-                gl::TexImage2D(
-                    gl::TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                    0,
-                    gl::RGBA8 as GLint,
-                    texture.width as GLint,
-                    texture.height as GLint,
-                    0,
-                    gl::RGBA,
-                    gl::UNSIGNED_BYTE,
-                    texture.data.as_ptr() as *const GLvoid,
-                );
+            let path = paths[i as usize].as_ref();
+            if let Some(texture) = stbi_load_u8_rgba(path) {
+                unsafe {
+                    gl::TexImage2D(
+                        gl::TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                        0,
+                        gl::RGBA8 as GLint,
+                        texture.width as GLint,
+                        texture.height as GLint,
+                        0,
+                        gl::RGBA,
+                        gl::UNSIGNED_BYTE,
+                        texture.data.as_ptr() as *const GLvoid,
+                    );
+                }
+            } else {
+                log::warn!("Error loading skybox texture from {path:?}.");
+                unsafe { gl::DeleteTextures(1, &cube_map) };
+                return None;
             }
         }
         unsafe {
@@ -795,7 +800,7 @@ impl Skybox {
         }
         log::trace!("Created skybox.");
 
-        Self { cube_map, vao, vbo }
+        Some(Self { cube_map, vao, vbo })
     }
 
     /// renders the skybox

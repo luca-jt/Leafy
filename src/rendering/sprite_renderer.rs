@@ -152,10 +152,7 @@ impl SpriteRenderer {
         if self.renderer_map[layer as usize].is_empty() {
             self.renderer_map[layer as usize].push(SpriteBatch::new());
         }
-        self.renderer_map[layer as usize]
-            .first_mut()
-            .unwrap()
-            .add_color_sprite(trafo, color);
+        self.renderer_map[layer as usize][0].add_color_sprite(trafo, color);
     }
 
     /// adds a sprite with a texture
@@ -358,7 +355,7 @@ impl SpriteBatch {
         }
         // copy mesh vertex data into the object buffer
         for i in 0..PLANE_MESH_NUM_VERTICES {
-            *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = SpriteVertex {
+            self.obj_buffer[self.obj_buffer_ptr] = SpriteVertex {
                 position: mult_mat4_vec3(config.trafo, &SPRITE_PLANE_VERTICES[i]),
                 color: vec4(1.0, 1.0, 1.0, 1.0),
                 uv_coords: config.tex_coords[i],
@@ -381,7 +378,7 @@ impl SpriteBatch {
 
         // copy mesh vertex data into the object buffer
         for i in 0..PLANE_MESH_NUM_VERTICES {
-            *self.obj_buffer.get_mut(self.obj_buffer_ptr).unwrap() = SpriteVertex {
+            self.obj_buffer[self.obj_buffer_ptr] = SpriteVertex {
                 position: mult_mat4_vec3(trafo, &SPRITE_PLANE_VERTICES[i]),
                 color: color.to_vec4(),
                 uv_coords: SPRITE_PLANE_UVS[i],

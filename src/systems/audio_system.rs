@@ -32,7 +32,7 @@ pub struct AudioSystem {
 impl AudioSystem {
     /// creates a new audio system
     pub(crate) fn new() -> Self {
-        let sound_engine = SoundEngine::new().unwrap();
+        let sound_engine = SoundEngine::new().expect("Error creating sound engine.");
         let sound_context = SoundContext::new();
         sound_engine.state().add_context(sound_context.clone());
 
@@ -148,7 +148,7 @@ impl AudioSystem {
     /// Stops a sound.
     pub fn stop(&self, handle: Handle<SoundSource>) {
         let mut state = self.sound_context.state();
-        state.source_mut(handle).stop().expect("error rewinding");
+        state.source_mut(handle).stop().unwrap();
     }
 
     /// Sets wether or not a sound should loop.
@@ -285,19 +285,18 @@ impl AudioSystem {
                 self.sfx_volume = new_volume;
                 for sfx_handle in self.active_effect_handles.iter().copied() {
                     let sfx_source = state.source_mut(sfx_handle);
-                    sfx_source.set_gain(
-                        sfx_source.gain() / old_sfx_volume * self.absolute_volume(SoundType::SFX),
-                    );
+                    let new_gain =
+                        sfx_source.gain() / old_sfx_volume * self.absolute_volume(SoundType::SFX);
+                    sfx_source.set_gain(new_gain);
                 }
             }
             VolumeType::Music => {
                 self.music_volume = new_volume;
                 for music_handle in self.active_music_handles.iter().copied() {
                     let music_source = state.source_mut(music_handle);
-                    music_source.set_gain(
-                        music_source.gain() / old_music_volume
-                            * self.absolute_volume(SoundType::Music),
-                    );
+                    let new_gain = music_source.gain() / old_music_volume
+                        * self.absolute_volume(SoundType::Music);
+                    music_source.set_gain(new_gain);
                 }
             }
         }

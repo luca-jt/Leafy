@@ -97,6 +97,7 @@ impl AnimationSystem {
                 )
             })
             .collect_vec();
+
         if entity_data.len() <= 1 {
             return;
         }

@@ -64,14 +64,14 @@ impl FallingLeafApp for App {
             .rendering_system_mut()
             .set_3d_render_resolution((1920, 1080));
 
-        engine.rendering_system_mut().set_skybox(Some(Skybox::new([
+        engine.rendering_system_mut().set_skybox(Skybox::try_new([
             "examples/3D/skybox/right.jpg",
             "examples/3D/skybox/left.jpg",
             "examples/3D/skybox/top.jpg",
             "examples/3D/skybox/bottom.jpg",
             "examples/3D/skybox/front.jpg",
             "examples/3D/skybox/back.jpg",
-        ])));
+        ]));
 
         //
         // asset loading
