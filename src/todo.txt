@@ -1,9 +1,9 @@
 raytrace the current scene
 switchable render backends -> vulkan support, use a static reference to a dyn trait object
 skeletal animations
-collision fix -> sequential solver? + better memory allocation + performance, terrain collision, trees
+collision fix -> sequential solver? + better memory allocation + performance, terrain collision, trees, better time step management (seems to be too slow)
 volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
-graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, post-processing: b/w, depth of field
+graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, depth of field
 scene files and loading of them -> serialization (serde) -> editor
 shadow anti-aliasing -> pcss
 cascaded shadow mapping -> dir light shadow maps need projection matrix size parameter

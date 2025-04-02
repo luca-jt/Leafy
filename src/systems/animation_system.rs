@@ -9,10 +9,13 @@ use winit::keyboard::KeyCode;
 
 /// The system responsible for all animations of entities in the engine. This includes physics and user-determined animations.
 pub struct AnimationSystem {
+    /// Changes the gravity value used for physics computations (default is ``constants::G``).
+    pub gravity: Acceleration,
+    /// Changes the movement keys used for the built-in flying camera movement (default: up - Space, down - LeftShift, directions - WASD).
+    pub flying_cam_keys: MovementKeys,
+
     pub(crate) animation_speed: f32,
-    gravity: Acceleration,
     pub(crate) flying_cam_dir: Option<(Vec3, f32)>,
-    pub(crate) flying_cam_keys: MovementKeys,
     pub(crate) curr_cam_pos: Vec3,
     pub(crate) prev_cam_pos: Vec3,
 }
@@ -21,17 +24,10 @@ impl AnimationSystem {
     /// creates a new animation system
     pub(crate) fn new() -> Self {
         Self {
-            animation_speed: 1.0,
             gravity: G,
+            flying_cam_keys: MovementKeys::default(),
+            animation_speed: 1.0,
             flying_cam_dir: None,
-            flying_cam_keys: MovementKeys {
-                up: KeyCode::Space,
-                down: KeyCode::ShiftLeft,
-                forward: KeyCode::KeyW,
-                backward: KeyCode::KeyS,
-                left: KeyCode::KeyA,
-                right: KeyCode::KeyD,
-            },
             curr_cam_pos: ORIGIN,
             prev_cam_pos: ORIGIN,
         }
@@ -457,17 +453,6 @@ impl AnimationSystem {
         }
     }
 
-    /// Changes the movement keys used for the built-in flying camera movement (default: up - Space, down - LeftShift, directions - WASD).
-    pub fn define_movement_keys(&mut self, keys: MovementKeys) {
-        self.flying_cam_keys = keys;
-    }
-
-    /// Changes the gravity value used for physics computations (default is ``constants::G``).
-    pub fn set_gravity(&mut self, a: Acceleration) {
-        log::debug!("Set gravity to {a:?}.");
-        self.gravity = a;
-    }
-
     /// General event handling function for the animation speed change.
     pub(crate) fn on_animation_speed_change(&mut self, event: &AnimationSpeedChange) {
         self.animation_speed = event.new_animation_speed;
@@ -489,6 +474,19 @@ pub struct MovementKeys {
     pub backward: KeyCode,
     pub left: KeyCode,
     pub right: KeyCode,
+}
+
+impl Default for MovementKeys {
+    fn default() -> Self {
+        Self {
+            up: KeyCode::Space,
+            down: KeyCode::ShiftLeft,
+            forward: KeyCode::KeyW,
+            backward: KeyCode::KeyS,
+            left: KeyCode::KeyA,
+            right: KeyCode::KeyD,
+        }
+    }
 }
 
 /// checks if two broad oject areas represented as spheres at two positions collide
@@ -558,7 +556,7 @@ impl ColliderData<'_> {
     }
 
     /// checks if two hitboxes collide with each other
-    pub fn collides_with(&self, other: &Self) -> Option<CollisionData> {
+    fn collides_with(&self, other: &Self) -> Option<CollisionData> {
         // calculate the factor of one colliders translation vector
         let translate_factor = if self.is_dynamic && other.is_dynamic {
             0.5

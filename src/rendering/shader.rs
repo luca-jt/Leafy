@@ -143,8 +143,7 @@ impl Drop for ShaderProgram {
 
 /// holds all the shader data and loads them if needed
 pub(crate) struct ShaderCatalog {
-    basic: ShaderProgram,
-    passthrough: ShaderProgram,
+    render_shaders: AHashMap<ShaderType, ShaderProgram>,
     pub(crate) shadow: ShaderProgram,
     pub(crate) cube_shadow: ShaderProgram,
     pub(crate) skybox: ShaderProgram,
@@ -168,9 +167,18 @@ impl ShaderCatalog {
         let matrix_buffer = UniformBuffer::new(size_of::<Mat4>() * 2 + size_of::<Vec4>());
         let ortho_buffer = UniformBuffer::new(size_of::<Mat4>() * 2);
 
+        let mut render_shaders = AHashMap::new();
+        render_shaders.insert(
+            ShaderType::Basic,
+            Self::create_basic(&light_buffer, &matrix_buffer),
+        );
+        render_shaders.insert(
+            ShaderType::Passthrough,
+            Self::create_passthrough(&matrix_buffer),
+        );
+
         Self {
-            basic: Self::create_basic(&light_buffer, &matrix_buffer),
-            passthrough: Self::create_passthrough(&matrix_buffer),
+            render_shaders,
             shadow: Self::create_shadow(),
             cube_shadow: Self::create_cube_shadow(),
             skybox: Self::create_skybox(&matrix_buffer),
@@ -182,12 +190,9 @@ impl ShaderCatalog {
         }
     }
 
-    /// calls ``gl::UseProgram`` for the spec's corresponding shader
+    /// calls ``gl::UseProgram`` for the shader type's corresponding shader
     pub(crate) fn use_shader(&self, shader_type: &ShaderType) {
-        match shader_type {
-            ShaderType::Passthrough => self.passthrough.use_program(),
-            ShaderType::Basic => self.basic.use_program(),
-        }
+        self.render_shaders.get(shader_type).unwrap().use_program();
     }
 
     /// creates a new sprite shader

@@ -60,18 +60,19 @@ impl FallingLeafApp for App {
 
         engine.audio_system_mut().enable_hrtf();
         engine.rendering_system_mut().set_msaa(Some(4));
+
         engine
             .rendering_system_mut()
-            .set_3d_render_resolution((1920, 1080));
+            .set_render_resolution((1920, 1080));
 
-        engine.rendering_system_mut().set_skybox(Skybox::try_new([
+        engine.rendering_system_mut().skybox = Skybox::try_new([
             "examples/3D/skybox/right.jpg",
             "examples/3D/skybox/left.jpg",
             "examples/3D/skybox/top.jpg",
             "examples/3D/skybox/bottom.jpg",
             "examples/3D/skybox/front.jpg",
             "examples/3D/skybox/back.jpg",
-        ]));
+        ]);
 
         //
         // asset loading

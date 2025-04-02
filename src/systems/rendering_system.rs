@@ -11,6 +11,17 @@ use std::cmp::Ordering;
 
 /// The system responsible for automated rendering of all entities.
 pub struct RenderingSystem {
+    /// Changes the rendering backend's background clear color (default is WHITE).
+    pub clear_color: Color32,
+    /// Changes the render distance to `distance` units from the current camera position (default is ``None``). ``None`` means infinite render distance.
+    pub render_distance: Option<f32>,
+    /// Changes the ambient light color and intensity (default is white and 0.2).
+    pub ambient_light: (Color32, f32),
+    /// Sets the current skybox that is used in the rendering process (default is ``None``).
+    pub skybox: Option<Skybox>,
+    /// Access to post processign paramters for rendering.
+    pub post_processing_params: PostProcessingParams,
+
     point_lights: AHashMap<EntityID, PointLightRenderingInfo>,
     directional_lights: Vec<(EntityID, ShadowMap)>, // Vec and linear traversal is fine because we dont have that many lights
     renderers: Vec<RendererType>,
@@ -18,14 +29,10 @@ pub struct RenderingSystem {
     perspective_camera: PerspectiveCamera,
     ortho_camera: OrthoCamera,
     shader_catalog: ShaderCatalog,
-    clear_color: Color32,
-    render_distance: Option<f32>,
     shadow_resolution: ShadowResolution,
     current_cam_config: (Vec3, Vec3, Vec3),
-    ambient_light: (Color32, f32),
-    skybox: Option<Skybox>,
     screen_texture: ScreenTexture,
-    samples: GLsizei,
+    samples: GLsizei, // for msaa
     tmp_storage: TempRenderStorage,
 }
 
@@ -44,6 +51,11 @@ impl RenderingSystem {
         let samples = 4;
 
         Self {
+            clear_color: Color32::WHITE,
+            render_distance: None,
+            ambient_light: (Color32::WHITE, 0.2),
+            skybox: None,
+            post_processing_params: PostProcessingParams::default(),
             point_lights: AHashMap::new(),
             directional_lights: Vec::with_capacity(MAX_DIR_LIGHT_MAPS),
             renderers: Vec::new(),
@@ -51,12 +63,8 @@ impl RenderingSystem {
             perspective_camera: PerspectiveCamera::new(),
             ortho_camera: OrthoCamera::new(-1.0, 1.0),
             shader_catalog: ShaderCatalog::new(),
-            clear_color: Color32::WHITE,
-            render_distance: None,
             shadow_resolution: ShadowResolution::Normal,
             current_cam_config: (-Z_AXIS, Z_AXIS, Y_AXIS),
-            ambient_light: (Color32::WHITE, 0.2),
-            skybox: None,
             screen_texture: ScreenTexture::new(win_w as GLsizei, win_h as GLsizei, false, samples),
             samples,
             tmp_storage: TempRenderStorage::default(),
@@ -286,7 +294,7 @@ impl RenderingSystem {
     fn render_screen_texture(&self) {
         self.screen_texture.unbind();
         self.shader_catalog.screen.use_program();
-        self.screen_texture.render();
+        self.screen_texture.render(self.post_processing_params);
     }
 
     /// renders the skybox if present
@@ -617,27 +625,21 @@ impl RenderingSystem {
         self.samples = msaa_samples.unwrap_or(4);
     }
 
-    /// Sets the resolution that is used for the screen texture in 3D rendering (width, height).
-    pub fn set_3d_render_resolution(&mut self, resolution: (GLsizei, GLsizei)) {
+    /// Sets the resolution that is used for the screen texture in **3D** rendering (width, height). The default is the same as the size of the window.
+    pub fn set_render_resolution(&mut self, resolution: (GLsizei, GLsizei)) {
         let msaa = unsafe { gl::IsEnabled(gl::MULTISAMPLE) == gl::TRUE };
         self.screen_texture = ScreenTexture::new(resolution.0, resolution.1, msaa, self.samples);
         log::debug!("Set 3D render resolution: {resolution:?}");
     }
 
-    /// Sets the current skybox that is used in the rendering process (default is ``None``).
-    pub fn set_skybox(&mut self, skybox: Option<Skybox>) {
-        self.skybox = skybox;
+    /// The currently used 3D render resolution of the screen texture.
+    pub fn render_resolution(&self) -> (u32, u32) {
+        self.screen_texture.resolution()
     }
 
     /// Access to the sprite grid config of the given layer.
     pub fn sprite_grid_mut(&mut self, layer: SpriteLayer) -> &mut SpriteGrid {
         &mut self.sprite_renderer.grids[layer as usize]
-    }
-
-    /// Changes the rendering backend's background clear color (default is WHITE).
-    pub fn set_gl_clearcolor(&mut self, color: Color32) {
-        self.clear_color = color;
-        log::trace!("Set background clear color: {color:?}.");
     }
 
     /// Sets the FOV for 3D rendering in degrees (default is 45°).
@@ -646,10 +648,9 @@ impl RenderingSystem {
         log::trace!("Set FOV: {fov:?}.");
     }
 
-    /// Changes the render distance to `distance` units from the current camera position.
-    pub fn set_render_distance(&mut self, distance: Option<f32>) {
-        self.render_distance = distance;
-        log::debug!("Set render distance: {distance:?}.");
+    /// The current FOV of the perspective camera in degrees.
+    pub fn fov(&self) -> f32 {
+        self.perspective_camera.fov()
     }
 
     /// Changes the shadow map resolution (default is normal).
@@ -671,10 +672,9 @@ impl RenderingSystem {
         log::debug!("Set shadow map resolution: {resolution:?}.");
     }
 
-    /// Changes the ambient light (default is white and 0.2).
-    pub fn set_ambient_light(&mut self, color: Color32, intensity: f32) {
-        self.ambient_light = (color, intensity);
-        log::debug!("Set ambient light to {color:?} with intensity {intensity:?}.");
+    /// The currently used shadow map resolution.
+    pub fn shadow_resolution(&self) -> ShadowResolution {
+        self.shadow_resolution
     }
 
     pub(crate) fn on_cam_position_change(&mut self, event: &CamPositionChange) {

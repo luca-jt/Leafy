@@ -337,6 +337,12 @@ impl PerspectiveCamera {
     pub(crate) fn update_cam(&mut self, position: &Vec3, focus: &Vec3, up: &Vec3) {
         self.view = glm::look_at(position, focus, up);
     }
+
+    /// current FOV in degrees
+    #[inline]
+    pub(crate) fn fov(&self) -> f32 {
+        self.fov.to_degrees()
+    }
 }
 
 /// stores the current camera config for 2D rendering
@@ -973,15 +979,25 @@ impl ScreenTexture {
     }
 
     /// render the screen texture triangle
-    pub(crate) fn render(&self) {
+    pub(crate) fn render(&self, params: PostProcessingParams) {
         unsafe {
             gl::BindVertexArray(self.vao);
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.texture);
             gl::Uniform1i(0, 0);
+            gl::Uniform1f(1, params.gamma);
+            gl::Uniform1f(2, params.hue);
+            gl::Uniform1f(3, params.saturation);
+            gl::Uniform1f(4, params.value);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
             gl::BindVertexArray(0);
         }
+    }
+
+    /// the current resolution
+    #[inline]
+    pub(crate) fn resolution(&self) -> (u32, u32) {
+        (self.width as u32, self.height as u32)
     }
 }
 
@@ -995,6 +1011,26 @@ impl Drop for ScreenTexture {
             gl::DeleteFramebuffers(1, &self.multi_fbo);
             gl::DeleteTextures(1, &self.texture);
             gl::DeleteFramebuffers(1, &self.fbo);
+        }
+    }
+}
+
+/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself!
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct PostProcessingParams {
+    pub gamma: f32,
+    pub hue: f32,
+    pub saturation: f32,
+    pub value: f32,
+}
+
+impl Default for PostProcessingParams {
+    fn default() -> Self {
+        Self {
+            gamma: 1.0,
+            hue: 1.0,
+            saturation: 1.0,
+            value: 1.0,
         }
     }
 }

@@ -37,11 +37,8 @@ impl App {
 
 impl FallingLeafApp for App {
     fn init(&mut self, engine: &Engine<Self>) {
-        engine
-            .rendering_system_mut()
-            .set_gl_clearcolor(Color32::TRANSPARENT);
-
         let mut rendering_system = engine.rendering_system_mut();
+        rendering_system.clear_color = Color32::TRANSPARENT;
         let sprite_grid = rendering_system.sprite_grid_mut(SpriteLayer::Layer0);
         sprite_grid.scale = 0.02;
         sprite_grid.center = Vec2::from_element(GRID_SIZE as f32 / 2.0);
