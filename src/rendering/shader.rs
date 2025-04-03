@@ -113,7 +113,7 @@ impl ShaderProgram {
 
         let c_out_color = CString::new("out_color").unwrap();
         unsafe { gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()) };
-        log::debug!("Compiled shader {name:?}: {elapsed_time:.2} ms");
+        log::debug!("Compiled shader {name:?}: {elapsed_time:.2}ms");
 
         Self { id, name }
     }

@@ -1,4 +1,3 @@
-use crate::ecs::entity_manager::*;
 use crate::internal_prelude::*;
 use fyrox_sound::pool::Handle;
 use fyrox_sound::source::SoundSource;
@@ -264,7 +263,7 @@ impl Default for AngularMomentum {
 pub struct Renderable {
     pub mesh_type: MeshType,
     pub mesh_attribute: MeshAttribute,
-    pub material: MaterialSource,
+    pub material_source: MaterialSource,
     pub shader_type: ShaderType,
 }
 
@@ -319,7 +318,7 @@ impl Default for RigidBody {
 /// Stores all of the associated sound handles for an entity.
 #[derive(Debug, Clone)]
 pub struct SoundController {
-    pub handles: BumpVec<'static, Handle<SoundSource>>,
+    pub handles: Vec<Handle<SoundSource>>,
     pub(crate) doppler_pitch: f64,
     pub(crate) last_pos: Vec3,
 }
@@ -329,11 +328,8 @@ impl Component for SoundController {}
 impl SoundController {
     /// Creates a new default ``SoundController`` component with no handles.
     pub fn new() -> Self {
-        let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
-        let arena = unsafe { &*(arena_lock.get()) };
-
         Self {
-            handles: BumpVec::new_in(arena),
+            handles: Vec::new(),
             doppler_pitch: 1.0,
             last_pos: ORIGIN,
         }
@@ -341,9 +337,7 @@ impl SoundController {
 
     /// Creates a new ``SoundController`` with given handles attached.
     pub fn from_handles(handles: &[Handle<SoundSource>]) -> Self {
-        let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
-        let arena = unsafe { &*(arena_lock.get()) };
-        let mut handle_vec = BumpVec::new_in(arena);
+        let mut handle_vec = Vec::new();
         handle_vec.extend_from_slice(handles);
 
         Self {
@@ -360,7 +354,7 @@ pub struct Collider {
     pub(crate) hitbox_type: HitboxType,
     pub(crate) offset: Vec3,
     pub(crate) scale: Scale,
-    pub(crate) last_collisions: BumpVec<'static, CollisionInfo>,
+    pub(crate) last_collisions: Vec<CollisionInfo>,
 }
 
 impl Component for Collider {}
@@ -368,14 +362,11 @@ impl Component for Collider {}
 impl Collider {
     /// Creates a new ``Collider`` from a given hitbox type.
     pub fn new(hitbox_type: HitboxType) -> Self {
-        let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
-        let arena = unsafe { &*(arena_lock.get()) };
-
         Self {
             hitbox_type,
             offset: ORIGIN,
             scale: Scale::default(),
-            last_collisions: BumpVec::new_in(arena),
+            last_collisions: Vec::new(),
         }
     }
 
@@ -626,6 +617,16 @@ pub mod utils {
         Inherit,
     }
 
+    impl MaterialSource {
+        /// the specific material data if present
+        pub(crate) fn material(&self) -> Option<&Material> {
+            match self {
+                Self::Custom(material) => Some(material),
+                _ => None,
+            }
+        }
+    }
+
     impl Default for MaterialSource {
         fn default() -> Self {
             Self::Custom(Material::default())
@@ -671,6 +672,38 @@ pub mod utils {
                     |value| Shininess::Value(value),
                 ),
                 normal_texture: mtl.normal_texture.clone(),
+            }
+        }
+
+        /// returns the ambient color as a rgb float vec if present
+        pub(crate) fn ambient_color_val(&self) -> Option<Vec3> {
+            match self.ambient {
+                Ambient::Value(color) => Some(color.to_vec4().xyz()),
+                Ambient::Texture(_) => None,
+            }
+        }
+
+        /// returns the diffuse color as a rgb float vec if present
+        pub(crate) fn diffuse_color_val(&self) -> Option<Vec3> {
+            match self.diffuse {
+                Diffuse::Value(color) => Some(color.to_vec4().xyz()),
+                Diffuse::Texture(_) => None,
+            }
+        }
+
+        /// returns the specular color as a rgb float vec if present
+        pub(crate) fn specular_color_val(&self) -> Option<Vec3> {
+            match self.specular {
+                Specular::Value(color) => Some(color.to_vec4().xyz()),
+                Specular::Texture(_) => None,
+            }
+        }
+
+        /// returns the shininess as a float if present
+        pub(crate) fn shininess_val(&self) -> Option<f32> {
+            match self.shininess {
+                Shininess::Value(val) => Some(val),
+                Shininess::Texture(_) => None,
             }
         }
     }

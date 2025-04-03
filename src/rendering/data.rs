@@ -372,11 +372,6 @@ impl OrthoCamera {
             FAR_PLANE_SPRITE,
         );
     }
-
-    /// updates the camera for given camera position and focus
-    pub(crate) fn update_cam(&mut self, position: &Vec3, focus: &Vec3, up: &Vec3) {
-        self.view = glm::look_at(position, focus, up);
-    }
 }
 
 /// shadow cube map for point lights that is shadow map agnostic
@@ -1033,4 +1028,13 @@ impl Default for PostProcessingParams {
             value: 1.0,
         }
     }
+}
+
+/// stores all material data for the renderer
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub(crate) struct MaterialData {
+    pub(crate) ambient_color: Vec3,
+    pub(crate) diffuse_color: Vec3,
+    pub(crate) specular_color: Vec3,
+    pub(crate) shininess: f32,
 }

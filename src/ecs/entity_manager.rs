@@ -17,11 +17,11 @@ macro_rules! components {
 
 /// internal arena allocator used for entity data
 #[rustfmt::skip]
-pub(crate) static ENTITY_ARENA_ALLOC: LazyLock<Mutex<UnsafeCell<Bump>>> = LazyLock::new(|| Mutex::new(UnsafeCell::new(Bump::with_capacity(ARENA_ALLOCATOR_CHUNK_SIZE))));
+pub(crate) static ENTITY_ARENA: GlobalArenaAllocator = global_arena_allocator::<ENTITY_ALLOCATOR_CHUNK_SIZE>();
 
 /// Internal allocation function for entity data. NOT TO BE USED ELSEWHERE!
 pub fn _component_alloc<T: Component>(component: T) -> BumpBox<'static, dyn Component> {
-    let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
+    let arena_lock = ENTITY_ARENA.lock().unwrap();
     unsafe {
         let data = (*arena_lock.get()).alloc(component) as *mut T;
         BumpBox::from_raw(data as *mut dyn Component)
@@ -578,11 +578,7 @@ impl ECS {
             for column in archetype.components.values_mut() {
                 column.swap_remove(record.row);
             }
-            if archetype.components.values().nth(0).unwrap().is_empty() {
-                self.archetypes.remove(&record.archetype_id);
-                self.type_to_archetype
-                    .retain(|_, arch_id| *arch_id != record.archetype_id);
-            } else {
+            if !archetype.components.values().nth(0).unwrap().is_empty() {
                 self.edit_record_after_delete(record.archetype_id, record.row);
             }
             true
@@ -643,11 +639,7 @@ impl ECS {
             .map(|vec| vec.swap_remove(record.row))
             .collect();
 
-        // remove the old archetype if there are no more components in it
-        if old_archetype.components.values().nth(0).unwrap().is_empty() {
-            self.archetypes.remove(&record.archetype_id);
-            self.type_to_archetype.remove(&entity_type);
-        } else {
+        if !old_archetype.components.values().nth(0).unwrap().is_empty() {
             self.edit_record_after_delete(old_arch_id, record.row);
         }
 
@@ -711,11 +703,7 @@ impl ECS {
             .map(|vec| vec.swap_remove(record.row))
             .collect();
 
-        // Remove the old archetype if there are no more components in it
-        if old_archetype.components.values().nth(0).unwrap().is_empty() {
-            self.archetypes.remove(&record.archetype_id);
-            self.type_to_archetype.remove(&entity_type);
-        } else {
+        if !old_archetype.components.values().nth(0).unwrap().is_empty() {
             self.edit_record_after_delete(old_arch_id, record.row);
         }
 
@@ -766,15 +754,11 @@ impl ECS {
         self.entity_index.clear();
         self.archetypes.clear();
         self.type_to_archetype.clear();
-        let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
-        unsafe { &mut *(arena_lock.get()) }.reset();
+        reset_global_arena(&ENTITY_ARENA);
     }
 
     /// gets the archetype id of an entity type and creates a new archetype if necessary
     fn get_arch_id(&mut self, entity_type: &EntityType) -> ArchetypeID {
-        let arena_lock = ENTITY_ARENA_ALLOC.lock().unwrap();
-        let arena = unsafe { &*(arena_lock.get()) };
-
         *self
             .type_to_archetype
             .entry(entity_type.clone())
@@ -787,7 +771,7 @@ impl ECS {
                         id,
                         components: entity_type
                             .iter()
-                            .map(|&type_id| (type_id, BumpVec::new_in(arena)))
+                            .map(|&type_id| (type_id, vec_in_global_arena(&ENTITY_ARENA)))
                             .collect(),
                     },
                 );

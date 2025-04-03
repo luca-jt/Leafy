@@ -36,10 +36,6 @@ path = "examples/conways_game_of_life/main.rs"
 name = "simplification"
 path = "examples/simplification/main.rs"
 
-[[test]]
-name = "ecs"
-path = "tests/ecs_test.rs"
-
 [dependencies]
 glutin = "0.32.0"
 glutin-winit = "0.5.0"

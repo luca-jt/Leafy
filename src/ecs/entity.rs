@@ -78,4 +78,9 @@ impl Archetype {
     pub(crate) fn contains<T: Component>(&self) -> bool {
         self.components.contains_key(&TypeId::of::<T>())
     }
+
+    /// checks wether or not the archetype contains no component data
+    pub(crate) fn is_empty(&self) -> bool {
+        self.components.values().nth(0).unwrap().is_empty()
+    }
 }

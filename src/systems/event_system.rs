@@ -24,9 +24,11 @@ impl<A: FallingLeafApp> EventSystem<A> {
     }
 
     /// Subscribes a handler to a specific event type.
-    pub fn add_listener<T: Event>(&mut self, handler: &SharedPtr<impl EventObserver<T> + 'static>) {
+    pub fn add_listener<T: Event>(&mut self, handler: &Rc<RefCell<impl EventObserver<T>>>) {
         let listeners = self.listeners.entry(TypeId::of::<T>()).or_default();
-        listeners.push(Box::new(weak_ptr(handler) as WeakPtr<dyn EventObserver<T>>));
+        listeners.push(Box::new(
+            Rc::downgrade(handler) as Weak<RefCell<dyn EventObserver<T>>>
+        ));
     }
 
     /// Adds an entity system modifier function for a specific event type to the system. It will then be automatically called on an event trigger.
@@ -42,7 +44,7 @@ impl<A: FallingLeafApp> EventSystem<A> {
         if let Some(handlers) = self.listeners.get(&TypeId::of::<T>()) {
             for handler in handlers {
                 let casted_handler = handler
-                    .downcast_ref::<WeakPtr<dyn EventObserver<T>>>()
+                    .downcast_ref::<Weak<RefCell<dyn EventObserver<T>>>>()
                     .unwrap();
                 if let Some(handler_rc) = casted_handler.upgrade() {
                     let mut handler_ref = handler_rc.borrow_mut();
@@ -210,7 +212,7 @@ impl<A: FallingLeafApp> EventSystem<A> {
 }
 
 /// Every struct that is supposed to be added to the event system as a listener has to implement this trait for the specfic type of event it should listen to.
-pub trait EventObserver<T: Event>: Any {
+pub trait EventObserver<T: Event>: Any + 'static {
     /// This function is called on every event trigger.
     fn on_event(&mut self, event: &T);
 }

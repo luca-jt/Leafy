@@ -27,7 +27,7 @@ pub struct RenderingSystem {
     renderers: Vec<RendererType>,
     sprite_renderer: SpriteRenderer,
     perspective_camera: PerspectiveCamera,
-    ortho_camera: OrthoCamera,
+    sprite_camera: OrthoCamera,
     shader_catalog: ShaderCatalog,
     shadow_resolution: ShadowResolution,
     current_cam_config: (Vec3, Vec3, Vec3),
@@ -61,7 +61,7 @@ impl RenderingSystem {
             renderers: Vec::new(),
             sprite_renderer: SpriteRenderer::new(),
             perspective_camera: PerspectiveCamera::new(),
-            ortho_camera: OrthoCamera::new(-1.0, 1.0),
+            sprite_camera: OrthoCamera::new(-1.0, 1.0),
             shader_catalog: ShaderCatalog::new(),
             shadow_resolution: ShadowResolution::Normal,
             current_cam_config: (-Z_AXIS, Z_AXIS, Y_AXIS),
@@ -245,20 +245,32 @@ impl RenderingSystem {
                 &rb.copied().unwrap_or_default().center_of_mass,
             );
 
+            let opt_material = renderable.material_source.material();
+            let opt_mesh = entity_manager.mesh_from_handle(renderable.mesh_type.mesh_handle(), lod);
+            if opt_mesh.is_none() {
+                continue;
+            }
+
             let render_data = RenderData {
                 spec: RenderSpec {
                     mesh_type: renderable.mesh_type,
+                    mesh_attribute: renderable.mesh_attribute.clone(),
                     shader_type: renderable.shader_type,
                     lod,
+                    material: MaterialData {
+                        ambient_color: opt_material.and_then(|mtl| mtl.ambient_color_val()).unwrap_or(vec3(1.0, 1.0, 1.0)),
+                        diffuse_color: opt_material.and_then(|mtl| mtl.diffuse_color_val()).unwrap_or(vec3(1.0, 1.0, 1.0)),
+                        specular_color: opt_material.and_then(|mtl| mtl.specular_color_val()).unwrap_or(vec3(1.0, 1.0, 1.0)),
+                        shininess: opt_material.and_then(|mtl| mtl.shininess_val()).unwrap_or(32.0),
+                    }
                 },
                 trafo: &trafo,
-                mesh_attribute: &renderable.mesh_attribute,
-                mesh: entity_manager.mesh_from_handle(renderable.mesh_type.mesh_handle(), lod).unwrap(),
+                mesh: opt_mesh.unwrap(),
                 texture_map: &entity_manager.texture_map,
                 transparent: match &renderable.mesh_attribute {
                     MeshAttribute::Colored(color) => color.a < 255,
                     MeshAttribute::Textured(texture) => texture.is_transparent,
-                }
+                },
             };
 
             let is_added = self.try_add_data(&render_data);
@@ -324,7 +336,7 @@ impl RenderingSystem {
         for renderer_type in self.renderers.iter().filter(|r| r.transparent) {
             let new_shader_type = renderer_type.spec.shader_type;
             if current_shader
-                .map(|shader_spec| shader_spec != new_shader_type)
+                .map(|shader_type| shader_type != new_shader_type)
                 .unwrap_or(true)
             {
                 self.shader_catalog.use_shader(&new_shader_type);
@@ -357,7 +369,7 @@ impl RenderingSystem {
         for renderer_type in self.renderers.iter() {
             let new_shader_type = renderer_type.spec.shader_type;
             if current_shader
-                .map(|shader_spec| shader_spec != new_shader_type)
+                .map(|shader_type| shader_type != new_shader_type)
                 .unwrap_or(true)
             {
                 self.shader_catalog.use_shader(&new_shader_type);
@@ -409,26 +421,11 @@ impl RenderingSystem {
     /// try to add the render data to an existing renderer
     fn try_add_data(&mut self, rd: &RenderData) -> bool {
         for renderer_type in self.renderers.iter_mut() {
-            if renderer_type.spec == rd.spec && &renderer_type.attribute == rd.mesh_attribute {
-                match rd.mesh_attribute {
-                    MeshAttribute::Textured(path) => {
-                        if rd.texture_map.get_tex_id(path).unwrap() == renderer_type.renderer.tex_id
-                        {
-                            renderer_type.renderer.add_position(rd.trafo, rd.mesh);
-                            renderer_type.transparent = renderer_type.transparent || rd.transparent;
-                            renderer_type.used = true;
-                            return true;
-                        }
-                    }
-                    MeshAttribute::Colored(color) => {
-                        if *color == renderer_type.renderer.color {
-                            renderer_type.renderer.add_position(rd.trafo, rd.mesh);
-                            renderer_type.transparent = renderer_type.transparent || rd.transparent;
-                            renderer_type.used = true;
-                            return true;
-                        }
-                    }
-                }
+            if renderer_type.spec == rd.spec {
+                renderer_type.renderer.add_position(rd.trafo, rd.mesh);
+                renderer_type.transparent = renderer_type.transparent || rd.transparent;
+                renderer_type.used = true;
+                return true;
             }
         }
         false
@@ -436,9 +433,15 @@ impl RenderingSystem {
 
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
-        let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.shader_type);
+        if let Some(texture) = rd.spec.mesh_attribute.texture() {
+            if rd.texture_map.get_tex_id(texture).is_none() {
+                return;
+            }
+        }
 
-        match rd.mesh_attribute {
+        let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.shader_type, rd.spec.material);
+
+        match &rd.spec.mesh_attribute {
             MeshAttribute::Textured(texture) => {
                 renderer.tex_id = rd.texture_map.get_tex_id(texture).unwrap();
             }
@@ -450,8 +453,7 @@ impl RenderingSystem {
         renderer.add_position(rd.trafo, rd.mesh);
 
         self.renderers.push(RendererType {
-            spec: rd.spec,
-            attribute: rd.mesh_attribute.clone(),
+            spec: rd.spec.clone(),
             renderer,
             used: true,
             transparent: rd.transparent,
@@ -489,12 +491,12 @@ impl RenderingSystem {
         self.shader_catalog.ortho_buffer.upload_data(
             0,
             size_of::<Mat4>(),
-            &self.ortho_camera.projection as *const Mat4 as *const GLvoid,
+            &self.sprite_camera.projection as *const Mat4 as *const GLvoid,
         );
         self.shader_catalog.ortho_buffer.upload_data(
             size_of::<Mat4>(),
             size_of::<Mat4>(),
-            &self.ortho_camera.view as *const Mat4 as *const GLvoid,
+            &self.sprite_camera.view as *const Mat4 as *const GLvoid,
         );
 
         let dir_light_data = self
@@ -599,7 +601,7 @@ impl RenderingSystem {
     /// event listening function for window resizes
     pub(crate) fn update_viewport_ratio(&mut self, viewport_ratio: f32) {
         self.perspective_camera.update_win_size(viewport_ratio);
-        self.ortho_camera.update_win_size(viewport_ratio);
+        self.sprite_camera.update_win_size(viewport_ratio);
     }
 
     /// Gets the current camera position, look and up direction vector.
@@ -642,7 +644,7 @@ impl RenderingSystem {
         &mut self.sprite_renderer.grids[layer as usize]
     }
 
-    /// Sets the FOV for 3D rendering in degrees (default is 45°).
+    /// Sets the FOV of the perspective camera for 3D rendering in degrees (default is 45°).
     pub fn set_fov(&mut self, fov: f32) {
         self.perspective_camera.update_fov(fov);
         log::trace!("Set FOV: {fov:?}.");
@@ -679,24 +681,27 @@ impl RenderingSystem {
 
     pub(crate) fn on_cam_position_change(&mut self, event: &CamPositionChange) {
         let new_focus = event.new_pos + event.new_look;
+
         self.perspective_camera
             .update_cam(&event.new_pos, &new_focus, &event.new_up);
+
         self.current_cam_config = (event.new_pos, event.new_look, event.new_up);
     }
 }
 
 /// specifies what renderer to use for rendering an entity
-#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct RenderSpec {
     mesh_type: MeshType,
+    mesh_attribute: MeshAttribute,
     shader_type: ShaderType,
     lod: LOD,
+    material: MaterialData,
 }
 
 /// stores the renderer type with rendered entity parameters + renderer
 struct RendererType {
     spec: RenderSpec,
-    attribute: MeshAttribute,
     renderer: InstanceRenderer,
     used: bool,
     transparent: bool,
@@ -726,7 +731,6 @@ impl Ord for RendererType {
 struct RenderData<'a> {
     spec: RenderSpec,
     trafo: &'a Mat4,
-    mesh_attribute: &'a MeshAttribute,
     mesh: &'a Mesh,
     texture_map: &'a TextureMap,
     transparent: bool,

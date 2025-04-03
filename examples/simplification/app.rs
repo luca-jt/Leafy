@@ -47,7 +47,7 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Plane,
                 mesh_attribute: MeshAttribute::Colored(Color32::GREEN),
-                material: MaterialSource::default(),
+                material_source: MaterialSource::default(),
                 shader_type: ShaderType::Basic
             }
         ));
@@ -57,7 +57,7 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Custom(torus_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::YELLOW),
-                material: MaterialSource::default(),
+                material_source: MaterialSource::default(),
                 shader_type: ShaderType::Basic
             },
             LOD::None

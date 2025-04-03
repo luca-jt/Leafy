@@ -153,7 +153,7 @@ macro_rules! impl_query {
                     }
                 }
                 if let Some(archetype) = self.archetype_iter.next() {
-                    if self.include_filter.matches(archetype) && self.exclude_filter.matches(archetype) {
+                    if self.include_filter.matches(archetype) && self.exclude_filter.matches(archetype) && !archetype.is_empty() {
                         self.current_archetype = Some(archetype);
                         self.component_index = 0;
                     }

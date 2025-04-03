@@ -17,7 +17,8 @@ pub(crate) const NEAR_PLANE: f32 = 0.1;
 pub(crate) const FAR_PLANE: f32 = 100.0;
 pub(crate) const FAR_PLANE_SPRITE: f32 = 2.0;
 
-pub(crate) const ARENA_ALLOCATOR_CHUNK_SIZE: usize = 10_000_000;
+pub(crate) const ENTITY_ALLOCATOR_CHUNK_SIZE: usize = 10_000_000;
+pub(crate) const ASSET_ALLOCATOR_CHUNK_SIZE: usize = 100_000_000;
 
 /// a single time step in the animation system
 pub(crate) const TIME_STEP: TimeDuration = TimeDuration(0.001);

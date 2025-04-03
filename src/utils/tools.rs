@@ -2,20 +2,35 @@ use crate::internal_prelude::*;
 use fyrox_sound::algebra::Vector3;
 use std::ops::{Add, Div, Mul, Sub};
 
-/// alias for a ``Rc<RefCell>``
-pub type SharedPtr<T> = Rc<RefCell<T>>;
+/// Static global arena allocator type alias.
+pub type GlobalArenaAllocator = LazyLock<Mutex<UnsafeCell<Bump>>>;
 
-/// creates a new ``SharedPtr<T>``
-pub fn shared_ptr<T>(value: T) -> SharedPtr<T> {
-    Rc::new(RefCell::new(value))
+/// Creates a new static ``GlobalArenaAllocator`` with a given chunk size.
+pub const fn global_arena_allocator<const CHUNK_SIZE: usize>() -> GlobalArenaAllocator {
+    LazyLock::new(|| Mutex::new(UnsafeCell::new(Bump::with_capacity(CHUNK_SIZE))))
 }
 
-/// alias for a ``Weak<RefCell>``
-pub type WeakPtr<T> = Weak<RefCell<T>>;
+/// Creates a new ``BumpVec`` in a ``GlobalArenaAllocator``.
+pub fn vec_in_global_arena<T>(arena: &GlobalArenaAllocator) -> BumpVec<'static, T> {
+    let arena_lock = arena.lock().unwrap();
+    let allocator = unsafe { &*(arena_lock.get()) };
+    BumpVec::new_in(allocator)
+}
 
-/// creates a new ``WeakPtr<T>`` from a ``SharedPtr<T>``
-pub fn weak_ptr<T>(shared_ptr: &SharedPtr<T>) -> WeakPtr<T> {
-    Rc::downgrade(shared_ptr)
+/// Creates a new ``BumpVec`` in a ``GlobalArenaAllocator`` with a given capacity.
+pub fn vec_in_global_arena_with_capacity<T>(
+    arena: &GlobalArenaAllocator,
+    capacity: usize,
+) -> BumpVec<'static, T> {
+    let arena_lock = arena.lock().unwrap();
+    let allocator = unsafe { &*(arena_lock.get()) };
+    BumpVec::with_capacity_in(capacity, allocator)
+}
+
+/// Resets the ``GlobalArenaAllocator`` and invalidates all references to stored data.
+pub fn reset_global_arena(arena: &GlobalArenaAllocator) {
+    let arena_lock = arena.lock().unwrap();
+    unsafe { &mut *(arena_lock.get()) }.reset();
 }
 
 /// Maps numeric ranges.
