@@ -34,6 +34,7 @@ pub struct RenderingSystem {
     screen_texture: ScreenTexture,
     samples: GLsizei, // for msaa
     tmp_storage: TempRenderStorage,
+    white_texture: GLuint,
 }
 
 impl RenderingSystem {
@@ -68,6 +69,7 @@ impl RenderingSystem {
             screen_texture: ScreenTexture::new(win_w as GLsizei, win_h as GLsizei, false, samples),
             samples,
             tmp_storage: TempRenderStorage::default(),
+            white_texture: generate_white_texture(),
         }
     }
 
@@ -238,6 +240,12 @@ impl RenderingSystem {
             .filter(|(pos, ..)| render_dist.is_none_or(|dist| (pos.data() - cam_pos).norm() <= dist))
             .map(|(p, rndrbl, _, s, o, rb, lod)| (p, rndrbl, s, o, rb, lod.copied().unwrap_or_default()))
         {
+            let opt_mesh = entity_manager.mesh_from_handle(renderable.mesh_type.mesh_handle(), lod);
+            if opt_mesh.is_none() {
+                continue;
+            }
+            let mesh = opt_mesh.unwrap();
+
             let trafo = calc_model_matrix(
                 position,
                 scale.unwrap_or(&Scale::default()),
@@ -245,28 +253,36 @@ impl RenderingSystem {
                 &rb.copied().unwrap_or_default().center_of_mass,
             );
 
-            let opt_material = renderable.material_source.material();
-            let opt_mesh = entity_manager.mesh_from_handle(renderable.mesh_type.mesh_handle(), lod);
-            if opt_mesh.is_none() {
-                continue;
-            }
+            let default_material = Material::default();
+            let material = match &renderable.material_source {
+                MaterialSource::Custom(mtl) => mtl,
+                MaterialSource::Named(name) => entity_manager.material_from_name(name).unwrap_or(&default_material),
+                MaterialSource::Inherit => mesh.material_name.as_ref().and_then(|name| entity_manager.material_from_name(name)).unwrap_or(&default_material),
+            };
 
             let render_data = RenderData {
                 spec: RenderSpec {
                     mesh_type: renderable.mesh_type,
-                    mesh_attribute: renderable.mesh_attribute.clone(),
                     shader_type: renderable.shader_type,
                     lod,
-                    material: MaterialData {
-                        ambient_color: opt_material.and_then(|mtl| mtl.ambient_color_val()).unwrap_or(vec3(1.0, 1.0, 1.0)),
-                        diffuse_color: opt_material.and_then(|mtl| mtl.diffuse_color_val()).unwrap_or(vec3(1.0, 1.0, 1.0)),
-                        specular_color: opt_material.and_then(|mtl| mtl.specular_color_val()).unwrap_or(vec3(1.0, 1.0, 1.0)),
-                        shininess: opt_material.and_then(|mtl| mtl.shininess_val()).unwrap_or(32.0),
+                    render_attributes: RenderAttributes {
+                        tex_id: renderable.mesh_attribute.texture().and_then(|texture| entity_manager.texture_map.get_tex_id(texture)).unwrap_or(self.white_texture),
+                        color: renderable.mesh_attribute.color().unwrap_or(Color32::WHITE),
+                        material_data: MaterialData {
+                            ambient_color: material.ambient_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
+                            diffuse_color: material.diffuse_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
+                            specular_color: material.specular_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
+                            shininess: material.shininess_val().unwrap_or(32.0),
+                        },
+                        ambient_tex_id: material.ambient_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
+                        diffuse_tex_id: material.diffuse_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
+                        specular_tex_id: material.specular_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
+                        shininess_tex_id: material.shininess_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
+                        normal_tex_id: material.normal_texture.as_ref().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
                     }
                 },
                 trafo: &trafo,
-                mesh: opt_mesh.unwrap(),
-                texture_map: &entity_manager.texture_map,
+                mesh,
                 transparent: match &renderable.mesh_attribute {
                     MeshAttribute::Colored(color) => color.a < 255,
                     MeshAttribute::Textured(texture) => texture.is_transparent,
@@ -433,27 +449,13 @@ impl RenderingSystem {
 
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
-        if let Some(texture) = rd.spec.mesh_attribute.texture() {
-            if rd.texture_map.get_tex_id(texture).is_none() {
-                return;
-            }
-        }
-
-        let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.shader_type, rd.spec.material);
-
-        match &rd.spec.mesh_attribute {
-            MeshAttribute::Textured(texture) => {
-                renderer.tex_id = rd.texture_map.get_tex_id(texture).unwrap();
-            }
-            MeshAttribute::Colored(color) => {
-                renderer.color = *color;
-            }
-        }
+        let mut renderer =
+            InstanceRenderer::new(rd.mesh, rd.spec.shader_type, rd.spec.render_attributes);
 
         renderer.add_position(rd.trafo, rd.mesh);
 
         self.renderers.push(RendererType {
-            spec: rd.spec.clone(),
+            spec: rd.spec,
             renderer,
             used: true,
             transparent: rd.transparent,
@@ -689,14 +691,34 @@ impl RenderingSystem {
     }
 }
 
+impl Drop for RenderingSystem {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(1, &self.white_texture);
+        }
+    }
+}
+
+/// stored in the renderer and specifies what the object attributes are
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub(crate) struct RenderAttributes {
+    pub(crate) tex_id: GLuint,
+    pub(crate) color: Color32,
+    pub(crate) material_data: MaterialData,
+    pub(crate) ambient_tex_id: GLuint,
+    pub(crate) diffuse_tex_id: GLuint,
+    pub(crate) specular_tex_id: GLuint,
+    pub(crate) shininess_tex_id: GLuint,
+    pub(crate) normal_tex_id: GLuint,
+}
+
 /// specifies what renderer to use for rendering an entity
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 struct RenderSpec {
     mesh_type: MeshType,
-    mesh_attribute: MeshAttribute,
     shader_type: ShaderType,
     lod: LOD,
-    material: MaterialData,
+    render_attributes: RenderAttributes,
 }
 
 /// stores the renderer type with rendered entity parameters + renderer
@@ -732,8 +754,29 @@ struct RenderData<'a> {
     spec: RenderSpec,
     trafo: &'a Mat4,
     mesh: &'a Mesh,
-    texture_map: &'a TextureMap,
     transparent: bool,
+}
+
+/// generates a 1x1 white texture, the user of the returned texture id is responsible for deleting it
+fn generate_white_texture() -> GLuint {
+    let mut white_texture = 0;
+    unsafe {
+        gl::GenTextures(1, &mut white_texture);
+        gl::BindTexture(gl::TEXTURE_2D, white_texture);
+        let white_color_data: Vec<u8> = vec![255, 255, 255, 255];
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGBA8 as GLint,
+            1,
+            1,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            white_color_data.as_ptr() as *const GLvoid,
+        );
+    }
+    white_texture
 }
 
 /// All possible settings for shadow map resolution.

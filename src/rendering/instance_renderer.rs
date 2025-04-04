@@ -2,6 +2,7 @@ use super::data::*;
 use super::shader::*;
 use crate::internal_prelude::*;
 use crate::rendering::mesh::Mesh;
+use crate::systems::rendering_system::RenderAttributes;
 use std::ptr;
 
 /// instance renderer for the 3D rendering option
@@ -14,20 +15,17 @@ pub(crate) struct InstanceRenderer {
     mbo: GLuint,
     nmbo: GLuint,
     ibo: GLuint,
-    white_texture: GLuint,
     index_count: GLsizei,
     models: Vec<Mat4>,
     normal_matrices: Vec<Mat3>,
     pos_idx: usize,
-    pub(crate) color: Color32,
-    pub(crate) tex_id: GLuint,
-    pub(crate) material: MaterialData,
+    attributes: RenderAttributes,
     max_num_instances: usize,
 }
 
 impl InstanceRenderer {
     /// creates a new instance renderer
-    pub(crate) fn new(mesh: &Mesh, shader_type: ShaderType, material: MaterialData) -> Self {
+    pub(crate) fn new(mesh: &Mesh, shader_type: ShaderType, attributes: RenderAttributes) -> Self {
         let max_num_instances: usize = 10;
 
         let mut vao = 0; // vertex array
@@ -38,7 +36,6 @@ impl InstanceRenderer {
         let mut mbo = 0; // models (includes offsets)
         let mut nmbo = 0; // normal matrices
         let mut ibo = 0; // indices
-        let mut white_texture = 0;
         let models = vec![Mat4::identity(); max_num_instances];
         let normal_matrices = vec![Mat3::identity(); max_num_instances];
 
@@ -127,22 +124,6 @@ impl InstanceRenderer {
                 gl::STATIC_DRAW,
             );
 
-            // 1x1 WHITE TEXTURE
-            gl::GenTextures(1, &mut white_texture);
-            gl::BindTexture(gl::TEXTURE_2D, white_texture);
-            let white_color_data: Vec<u8> = vec![255, 255, 255, 255];
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGBA8 as GLint,
-                1,
-                1,
-                0,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                white_color_data.as_ptr() as *const GLvoid,
-            );
-
             gl::BindVertexArray(0);
         }
 
@@ -155,14 +136,11 @@ impl InstanceRenderer {
             mbo,
             nmbo,
             ibo,
-            white_texture,
             index_count: 0,
             models,
             normal_matrices,
             pos_idx: 0,
-            color: Color32::WHITE,
-            tex_id: white_texture,
-            material,
+            attributes,
             max_num_instances,
         }
     }
@@ -244,9 +222,9 @@ impl InstanceRenderer {
         unsafe {
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, self.attributes.tex_id);
             // bind uniforms
-            let color_vec = self.color.to_vec4();
+            let color_vec = self.attributes.color.to_vec4();
             gl::Uniform4fv(4, 1, &color_vec[0]);
             gl::Uniform1i(5, 0);
             // draw the instanced triangles corresponding to the index buffer
@@ -267,9 +245,9 @@ impl InstanceRenderer {
         unsafe {
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, self.attributes.tex_id);
             // bind uniforms
-            let color_vec = self.color.to_vec4();
+            let color_vec = self.attributes.color.to_vec4();
             gl::Uniform4fv(24, 1, &color_vec[0]);
             gl::Uniform1i(25, 0);
             // draw the instanced triangles corresponding to the index buffer
@@ -296,16 +274,22 @@ impl InstanceRenderer {
         unsafe {
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, self.attributes.tex_id);
             for (i, shadow_map) in dir_shadow_maps.enumerate() {
                 shadow_map.bind_reading(i as GLuint + 1);
             }
             for (i, shadow_map) in cube_shadow_maps.enumerate() {
                 shadow_map.bind_reading((MAX_DIR_LIGHT_MAPS + i) as GLuint + 1);
             }
+            gl::ActiveTexture(gl::TEXTURE11);
+            gl::BindTexture(gl::TEXTURE_2D, self.attributes.ambient_tex_id);
+            gl::ActiveTexture(gl::TEXTURE12);
+            gl::BindTexture(gl::TEXTURE_2D, self.attributes.diffuse_tex_id);
+            gl::ActiveTexture(gl::TEXTURE13);
+            gl::BindTexture(gl::TEXTURE_2D, self.attributes.specular_tex_id);
 
             // bind uniforms
-            let color_vec = self.color.to_vec4();
+            let color_vec = self.attributes.color.to_vec4();
             gl::Uniform4fv(0, 1, &color_vec[0]);
             gl::Uniform1i(1, 0);
             gl::Uniform1i(2, transparent as GLint);
@@ -317,10 +301,13 @@ impl InstanceRenderer {
                 for i in 0..MAX_POINT_LIGHT_MAPS {
                     gl::Uniform1i(8 + i as GLsizei, (MAX_DIR_LIGHT_MAPS + i) as GLsizei + 1);
                 }
-                gl::Uniform3fv(13, 1, &self.material.ambient_color[0]);
-                gl::Uniform3fv(14, 1, &self.material.diffuse_color[0]);
-                gl::Uniform3fv(15, 1, &self.material.specular_color[0]);
-                gl::Uniform1f(16, self.material.shininess);
+                gl::Uniform3fv(13, 1, &self.attributes.material_data.ambient_color[0]);
+                gl::Uniform3fv(14, 1, &self.attributes.material_data.diffuse_color[0]);
+                gl::Uniform3fv(15, 1, &self.attributes.material_data.specular_color[0]);
+                gl::Uniform1f(16, self.attributes.material_data.shininess);
+                gl::Uniform1i(17, 11);
+                gl::Uniform1i(18, 12);
+                gl::Uniform1i(19, 13);
             }
 
             // draw the instanced triangles corresponding to the index buffer
@@ -355,7 +342,6 @@ impl Drop for InstanceRenderer {
             gl::DeleteBuffers(1, &self.mbo);
             gl::DeleteBuffers(1, &self.nmbo);
             gl::DeleteBuffers(1, &self.ibo);
-            gl::DeleteTextures(1, &self.white_texture);
             gl::DeleteVertexArrays(1, &self.vao);
         }
     }

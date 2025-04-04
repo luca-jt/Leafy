@@ -598,16 +598,6 @@ pub mod utils {
         Inherit,
     }
 
-    impl MaterialSource {
-        /// the specific material data if present
-        pub(crate) fn material(&self) -> Option<&Material> {
-            match self {
-                Self::Custom(material) => Some(material),
-                _ => None,
-            }
-        }
-    }
-
     impl Default for MaterialSource {
         fn default() -> Self {
             Self::Custom(Material::default())
@@ -664,11 +654,27 @@ pub mod utils {
             }
         }
 
+        /// returns the name of the used ambient texture if present
+        pub(crate) fn ambient_texture(&self) -> Option<&str> {
+            match &self.ambient {
+                Ambient::Value(_) => None,
+                Ambient::Texture(name) => Some(name.as_str()),
+            }
+        }
+
         /// returns the diffuse color as a rgb float vec if present
         pub(crate) fn diffuse_color_val(&self) -> Option<Vec3> {
             match self.diffuse {
                 Diffuse::Value(color) => Some(color.to_vec4().xyz()),
                 Diffuse::Texture(_) => None,
+            }
+        }
+
+        /// returns the name of the used diffuse texture if present
+        pub(crate) fn diffuse_texture(&self) -> Option<&str> {
+            match &self.diffuse {
+                Diffuse::Value(_) => None,
+                Diffuse::Texture(name) => Some(name.as_str()),
             }
         }
 
@@ -680,11 +686,27 @@ pub mod utils {
             }
         }
 
+        /// returns the name of the used specular texture if present
+        pub(crate) fn specular_texture(&self) -> Option<&str> {
+            match &self.specular {
+                Specular::Value(_) => None,
+                Specular::Texture(name) => Some(name.as_str()),
+            }
+        }
+
         /// returns the shininess as a float if present
         pub(crate) fn shininess_val(&self) -> Option<f32> {
             match self.shininess {
                 Shininess::Value(val) => Some(val),
                 Shininess::Texture(_) => None,
+            }
+        }
+
+        /// returns the name of the used shininess texture if present
+        pub(crate) fn shininess_texture(&self) -> Option<&str> {
+            match &self.shininess {
+                Shininess::Value(_) => None,
+                Shininess::Texture(name) => Some(name.as_str()),
             }
         }
     }

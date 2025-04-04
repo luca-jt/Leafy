@@ -504,6 +504,11 @@ impl EntityManager {
         }
     }
 
+    /// makes material data available for a given name
+    pub(crate) fn material_from_name(&self, name: impl AsRef<str>) -> Option<&Material> {
+        self.material_register.get(name.as_ref())
+    }
+
     /// makes hitbox data available for given entity data
     #[rustfmt::skip]
     pub(crate) fn hitbox_from_data(&self, hitbox: HitboxType, opt_handle: Option<MeshHandle>) -> Option<&Hitbox> {

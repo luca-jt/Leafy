@@ -147,12 +147,21 @@ impl TextureMap {
 
     /// yields a texture id for given name
     pub(crate) fn get_tex_id(&self, texture: &Texture) -> Option<GLuint> {
-        self.textures.get(texture).copied()
+        let result = self.textures.get(texture).copied();
+        if result.is_none() {
+            log::warn!("Texture {texture:?} is not loaded!");
+        }
+        result
     }
 
     /// yields a material texture id for given name
     pub(crate) fn get_material_tex_id(&self, name: impl AsRef<str>) -> Option<GLuint> {
-        self.material_textures.get(name.as_ref()).copied()
+        let name = name.as_ref();
+        let result = self.material_textures.get(name).copied();
+        if result.is_none() {
+            log::warn!("Material texture {name:?} is not loaded!");
+        }
+        result
     }
 
     /// adds a new sprite sheet to the map
@@ -234,12 +243,20 @@ impl TextureMap {
 
     /// yields a sheet reference for given path
     pub(crate) fn get_sheet(&self, path: &Rc<Path>) -> Option<&SpriteSheet> {
-        self.sheets.get(path)
+        let result = self.sheets.get(path);
+        if result.is_none() {
+            log::warn!("Sprite sheet {path:?} is not loaded!");
+        }
+        result
     }
 
     /// yields the texture id for a sprite
     pub(crate) fn get_sprite_id(&self, path: &Rc<Path>) -> Option<GLuint> {
-        self.sprites.get(path).copied()
+        let result = self.sprites.get(path).copied();
+        if result.is_none() {
+            log::warn!("Sprite {path:?} is not loaded!");
+        }
+        result
     }
 
     /// clears the texture map and deletes all of the stored textures

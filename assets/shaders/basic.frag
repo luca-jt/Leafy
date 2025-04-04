@@ -51,6 +51,9 @@ layout(location = 13) uniform vec3 ambient_color;
 layout(location = 14) uniform vec3 diffuse_color;
 layout(location = 15) uniform vec3 specular_color;
 layout(location = 16) uniform float shininess;
+layout(location = 17) uniform sampler2D ambient_sampler;
+layout(location = 18) uniform sampler2D diffuse_sampler;
+layout(location = 19) uniform sampler2D specular_sampler;
 
 vec3 sample_offset_directions[20] = vec3[]
 (
@@ -107,7 +110,11 @@ void main() {
         discard;
     }
 
-    vec3 final_light = ambient_color * ambient_light.intensity;
+    vec3 material_ambient_color = ambient_color * texture(ambient_sampler, v_uv).rgb;
+    vec3 material_diffuse_color = diffuse_color * texture(diffuse_sampler, v_uv).rgb;
+    vec3 material_specular_color = specular_color * texture(specular_sampler, v_uv).rgb;
+
+    vec3 final_light = material_ambient_color * ambient_light.color.rgb * ambient_light.intensity;
     // directional lights
     for (int i = 0; i < num_dir_lights; i++) {
         float diff = min(max(dot(v_normal, -dir_lights[i].direction), 0.0), 1.0);
@@ -115,7 +122,7 @@ void main() {
         float distance_to_light = length(frag_pos - dir_lights[i].light_pos.xyz);
         distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
         float attenuation = 1.0 / distance_to_light;
-        vec3 src_light = diff * attenuation * shadow * dir_lights[i].color.rgb * diffuse_color * dir_lights[i].intensity;
+        vec3 src_light = diff * attenuation * shadow * dir_lights[i].color.rgb * material_diffuse_color * dir_lights[i].intensity;
         final_light += src_light;
     }
     // point lights
@@ -131,7 +138,7 @@ void main() {
         float distance_to_light = length(frag_pos - point_lights[i].light_pos.xyz);
         distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
         float attenuation = 1.0 / distance_to_light;
-        vec3 src_light = diff * attenuation * shadow * point_lights[i].color.rgb * diffuse_color * point_lights[i].intensity;
+        vec3 src_light = diff * attenuation * shadow * point_lights[i].color.rgb * material_diffuse_color * point_lights[i].intensity;
         final_light += src_light;
     }
     // add specular lighting
@@ -140,15 +147,15 @@ void main() {
         vec3 view_dir = normalize(cam_position - frag_pos);
         vec3 halfway_dir = normalize(-dir_lights[i].direction + view_dir);
         float spec = pow(max(dot(v_normal, halfway_dir), 0.0), shininess);
-        final_light += spec_strenght * spec * dir_lights[i].color.rgb * specular_color * dir_lights[i].intensity;
+        final_light += spec_strenght * spec * dir_lights[i].color.rgb * material_specular_color * dir_lights[i].intensity;
     }
     for (int i = 0; i < num_point_lights; i++) {
         vec3 light_dir = normalize(point_lights[i].light_pos.xyz - frag_pos);
         vec3 view_dir = normalize(cam_position - frag_pos);
         vec3 halfway_dir = normalize(light_dir + view_dir);
         float spec = pow(max(dot(v_normal, halfway_dir), 0.0), shininess);
-        final_light += spec_strenght * spec * point_lights[i].color.rgb * specular_color * point_lights[i].intensity;
+        final_light += spec_strenght * spec * point_lights[i].color.rgb * material_specular_color * point_lights[i].intensity;
     }
 
-    out_color = vec4(textured.rgb * final_light * ambient_light.color.rgb, textured.a);
+    out_color = vec4(textured.rgb * final_light, textured.a);
 }
