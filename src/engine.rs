@@ -85,19 +85,24 @@ impl<A: FallingLeafApp> Engine<A> {
 
     /// All of the time-sensitive simulations for a single time step.
     fn time_step_sim(&mut self) {
+        self.animation_system_mut().last_collisions.clear();
         let dt = self.time_of_last_sim.delta_time();
         let transformed_dt = dt * self.animation_system().animation_speed;
         self.time_accumulated += transformed_dt;
+
         while self.time_accumulated >= TIME_STEP {
             if self.mode() == EngineMode::Running {
                 self.animation_system_mut().update(self);
             }
             self.time_accumulated -= TIME_STEP;
         }
+
         update_cam(self, dt);
+
         if self.mode() == EngineMode::Running {
             update_doppler_data(self, transformed_dt);
         }
+
         self.time_of_last_sim.reset();
     }
 

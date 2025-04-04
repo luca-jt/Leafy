@@ -145,7 +145,7 @@ impl FallingLeafApp for App {
                 material_source: MaterialSource::default(),
                 shader_type: ShaderType::Basic
             },
-            Collider::new(HitboxType::Box)
+            Collider::from_type(HitboxType::Box)
         ));
 
         let _ceiling = entity_manager.create_entity(components!(
@@ -157,7 +157,7 @@ impl FallingLeafApp for App {
                 material_source: MaterialSource::default(),
                 shader_type: ShaderType::Basic
             },
-            Collider::new(HitboxType::Box)
+            Collider::from_type(HitboxType::Box)
         ));
 
         let _hammer = entity_manager.create_entity(components!(
@@ -189,7 +189,7 @@ impl FallingLeafApp for App {
             Orientation::new(45.0, Y_AXIS + Z_AXIS),
             AngularMomentum::zero(),
             Acceleration::zero(),
-            Collider::new(HitboxType::ConvexHull),
+            Collider::from_type(HitboxType::ConvexHull),
             RigidBody::default(),
             EntityFlags::default(),
             SoundController::from_handles(&[hit_sound])
@@ -250,11 +250,10 @@ impl FallingLeafApp for App {
             .unwrap()
             .handles[0];
 
-        if let Some(info) = entity_manager
-            .get_component::<Collider>(self.player)
-            .unwrap()
-            .collision_info()
-            .get(0)
+        if let Some((_, info)) = engine
+            .animation_system()
+            .last_collisions()
+            .find(|(id, _)| *id == self.player)
         {
             if info.momentum.norm() > 0.1 {
                 engine.audio_system().play(hit_handle);

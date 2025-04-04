@@ -349,42 +349,23 @@ impl SoundController {
 }
 
 /// Adds a hitbox to an entity and specifies the position and scale of it relative to the enity's (requires ``Renderable`` to work and should only be used with meshes that have a volume).
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Collider {
-    pub(crate) hitbox_type: HitboxType,
-    pub(crate) offset: Vec3,
-    pub(crate) scale: Scale,
-    pub(crate) last_collisions: Vec<CollisionInfo>,
+    pub hitbox_type: HitboxType,
+    pub offset: Vec3,
+    pub scale: Scale,
 }
 
 impl Component for Collider {}
 
 impl Collider {
     /// Creates a new ``Collider`` from a given hitbox type.
-    pub fn new(hitbox_type: HitboxType) -> Self {
+    pub fn from_type(hitbox_type: HitboxType) -> Self {
         Self {
             hitbox_type,
             offset: ORIGIN,
             scale: Scale::default(),
-            last_collisions: Vec::new(),
         }
-    }
-
-    /// Sets the offset of the hitbox.
-    pub fn with_offset(mut self, offset: Vec3) -> Self {
-        self.offset = offset;
-        self
-    }
-
-    /// Sets the scale of the hitbox.
-    pub fn with_scale(mut self, scale: Scale) -> Self {
-        self.scale = scale;
-        self
-    }
-
-    /// Access to the collision data of the collider from the last iteration.
-    pub fn collision_info(&self) -> &[CollisionInfo] {
-        &self.last_collisions
     }
 }
 
@@ -862,14 +843,6 @@ pub mod utils {
         SimplifiedConvexHull,
         Sphere,
         Box,
-    }
-
-    /// Stores info about the last frame's collisions in the ``Collider`` component.
-    #[derive(Debug, Copy, Clone)]
-    pub struct CollisionInfo {
-        pub momentum: Vec3,
-        pub point: Vec3,
-        pub normal: Vec3,
     }
 
     /// Defines on what depth layer the sprite will be rendered on (``Layer0`` is nearest).

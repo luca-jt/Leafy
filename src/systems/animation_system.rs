@@ -18,6 +18,7 @@ pub struct AnimationSystem {
     pub(crate) flying_cam_dir: Option<(Vec3, f32)>,
     pub(crate) curr_cam_pos: Vec3,
     pub(crate) prev_cam_pos: Vec3,
+    pub(crate) last_collisions: Vec<(EntityID, CollisionInfo)>,
 }
 
 impl AnimationSystem {
@@ -30,6 +31,7 @@ impl AnimationSystem {
             flying_cam_dir: None,
             curr_cam_pos: ORIGIN,
             prev_cam_pos: ORIGIN,
+            last_collisions: Vec::with_capacity(1000),
         }
     }
 
@@ -64,18 +66,17 @@ impl AnimationSystem {
     }
 
     /// checks for collision between entities with hitboxes and resolves them
-    fn handle_collisions(&self, entity_manager: &mut EntityManager) {
+    fn handle_collisions(&mut self, entity_manager: &mut EntityManager) {
         let mut entity_data = unsafe {
             entity_manager
-                .query9::<&mut Position, &mut Collider, Option<&Renderable>, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))
-        }.map(|(p, coll, rndrbl, v, am, s, rb, f, o)| {
+                .query10::<&EntityID, &mut Position, &Collider, Option<&Renderable>, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))
+        }.map(|(id, p, coll, rndrbl, v, am, s, rb, f, o)| {
                 let handle_opt = rndrbl.map(|r| r.mesh_type.mesh_handle());
                 let mesh_opt = handle_opt.map(|handle| entity_manager.mesh_from_handle(handle, LOD::None).unwrap());
                 let hitbox = entity_manager.hitbox_from_data(coll.hitbox_type, handle_opt).unwrap();
                 let scale = s.copied().unwrap_or_default();
                 let scale_matrix = scale.scale_matrix() * coll.scale.scale_matrix();
                 let coll_reach = mesh_opt.map(|m| m.max_reach).unwrap_or(Vec3::from_element(1.0)) + coll.offset.abs();
-                coll.last_collisions.clear();
                 (
                     p,
                     hitbox,
@@ -89,7 +90,8 @@ impl AnimationSystem {
                         flags
                     }),
                     o,
-                    mult_mat4_vec3(&scale_matrix, &coll_reach).norm()
+                    mult_mat4_vec3(&scale_matrix, &coll_reach).norm(),
+                    *id
                 )
             })
             .collect_vec();
@@ -215,16 +217,22 @@ impl AnimationSystem {
                         - av2.cross(&mass_center_coll_point_2);
 
                     // set collision info
-                    entity_data[i].2.last_collisions.push(CollisionInfo {
-                        momentum: v_rel * rb_1.mass,
-                        point: collision_data.collision_point,
-                        normal: collision_data.collision_normal,
-                    });
-                    entity_data[j].2.last_collisions.push(CollisionInfo {
-                        momentum: -v_rel * rb_2.mass,
-                        point: collision_data.collision_point,
-                        normal: -collision_data.collision_normal,
-                    });
+                    self.last_collisions.push((
+                        entity_data[i].10,
+                        CollisionInfo {
+                            momentum: v_rel * rb_1.mass,
+                            point: collision_data.collision_point,
+                            normal: collision_data.collision_normal,
+                        },
+                    ));
+                    self.last_collisions.push((
+                        entity_data[j].10,
+                        CollisionInfo {
+                            momentum: -v_rel * rb_2.mass,
+                            point: collision_data.collision_point,
+                            normal: -collision_data.collision_normal,
+                        },
+                    ));
 
                     // seperate the two objects
                     if should_seperate_1 && should_seperate_2 {
@@ -440,6 +448,11 @@ impl AnimationSystem {
         }
     }
 
+    /// Iterator of the last frame's collision info.
+    pub fn last_collisions(&self) -> impl Iterator<Item = (EntityID, CollisionInfo)> + use<'_> {
+        self.last_collisions.iter().copied()
+    }
+
     /// Enables/disables the built-in flying cam movement with a movement speed constant.
     pub fn set_flying_cam_movement(&mut self, speed: Option<f32>) {
         log::trace!("Set flying cam movement: {speed:?}.");
@@ -463,6 +476,14 @@ impl AnimationSystem {
         self.prev_cam_pos = self.curr_cam_pos;
         self.curr_cam_pos = event.new_pos;
     }
+}
+
+/// Stores info about the last frame's collisions.
+#[derive(Debug, Copy, Clone)]
+pub struct CollisionInfo {
+    pub momentum: Vec3,
+    pub point: Vec3,
+    pub normal: Vec3,
 }
 
 /// Defines a set of movement keys for the engine-internal camera control.
