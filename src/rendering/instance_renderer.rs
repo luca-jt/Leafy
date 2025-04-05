@@ -9,9 +9,10 @@ use std::ptr;
 pub(crate) struct InstanceRenderer {
     vao: GLuint,
     pbo: GLuint,
-    tbo: GLuint,
+    ubo: GLuint,
     nbo: GLuint,
     cbo: GLuint,
+    tbo: GLuint,
     mbo: GLuint,
     nmbo: GLuint,
     ibo: GLuint,
@@ -30,9 +31,10 @@ impl InstanceRenderer {
 
         let mut vao = 0; // vertex array
         let mut pbo = 0; // positions
-        let mut tbo = 0; // uv
+        let mut ubo = 0; // uv
         let mut nbo = 0; // normals
         let mut cbo = 0; // vertex colors
+        let mut tbo = 0; // tangent vectors
         let mut mbo = 0; // models (includes offsets)
         let mut nmbo = 0; // normal matrices
         let mut ibo = 0; // indices
@@ -56,15 +58,15 @@ impl InstanceRenderer {
             bind_instance_pbo();
 
             // UV COORDINATE BUFFER
-            gl::CreateBuffers(1, &mut tbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, tbo);
+            gl::CreateBuffers(1, &mut ubo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, ubo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 (mesh.num_vertices() * size_of::<Vec2>()) as GLsizeiptr,
                 mesh.texture_coords.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
-            bind_instance_tbo();
+            bind_instance_ubo();
 
             // NORMAL VECTOR BUFFER
             gl::CreateBuffers(1, &mut nbo);
@@ -89,6 +91,19 @@ impl InstanceRenderer {
                 gl::STATIC_DRAW,
             );
             bind_instance_cbo();
+
+            // TANGENT VECTOR BUFFER
+            gl::CreateBuffers(1, &mut tbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, tbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (mesh.num_vertices() * size_of::<Vec3>()) as GLsizeiptr,
+                mesh.tangents.as_ptr() as *const GLvoid,
+                gl::STATIC_DRAW,
+            );
+            if shader_type != ShaderType::Passthrough {
+                bind_instance_tbo();
+            }
 
             // MODEL MATRIX BUFFER
             gl::CreateBuffers(1, &mut mbo);
@@ -130,9 +145,10 @@ impl InstanceRenderer {
         Self {
             vao,
             pbo,
-            tbo,
+            ubo,
             nbo,
             cbo,
+            tbo,
             mbo,
             nmbo,
             ibo,
@@ -270,6 +286,7 @@ impl InstanceRenderer {
         cube_shadow_maps: impl Iterator<Item = &'a CubeShadowMap>,
         shader_type: ShaderType,
         transparent: bool,
+        white_texture: GLuint,
     ) {
         unsafe {
             // bind texture
@@ -287,6 +304,8 @@ impl InstanceRenderer {
             gl::BindTexture(gl::TEXTURE_2D, self.attributes.diffuse_tex_id);
             gl::ActiveTexture(gl::TEXTURE13);
             gl::BindTexture(gl::TEXTURE_2D, self.attributes.specular_tex_id);
+            gl::ActiveTexture(gl::TEXTURE14);
+            gl::BindTexture(gl::TEXTURE_2D, self.attributes.normal_tex_id);
 
             // bind uniforms
             let color_vec = self.attributes.color.to_vec4();
@@ -308,6 +327,9 @@ impl InstanceRenderer {
                 gl::Uniform1i(17, 11);
                 gl::Uniform1i(18, 12);
                 gl::Uniform1i(19, 13);
+                gl::Uniform1i(20, 14);
+                let use_normal_map = self.attributes.normal_tex_id != white_texture;
+                gl::Uniform1i(21, use_normal_map as GLint);
             }
 
             // draw the instanced triangles corresponding to the index buffer
@@ -336,9 +358,10 @@ impl Drop for InstanceRenderer {
         log::debug!("Dropped InstanceRenderer.");
         unsafe {
             gl::DeleteBuffers(1, &self.pbo);
-            gl::DeleteBuffers(1, &self.tbo);
+            gl::DeleteBuffers(1, &self.ubo);
             gl::DeleteBuffers(1, &self.nbo);
             gl::DeleteBuffers(1, &self.cbo);
+            gl::DeleteBuffers(1, &self.tbo);
             gl::DeleteBuffers(1, &self.mbo);
             gl::DeleteBuffers(1, &self.nmbo);
             gl::DeleteBuffers(1, &self.ibo);

@@ -362,6 +362,7 @@ impl RenderingSystem {
                 cube_shadow_maps.clone(),
                 renderer_type.spec.shader_type,
                 true,
+                self.white_texture,
             );
         }
         unsafe {
@@ -395,6 +396,7 @@ impl RenderingSystem {
                 cube_shadow_maps.clone(),
                 renderer_type.spec.shader_type,
                 false,
+                self.white_texture,
             );
         }
     }

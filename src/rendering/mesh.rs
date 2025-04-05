@@ -61,6 +61,7 @@ impl AlgorithmMesh {
         // TODO: we might want to keep track of these vertex attributes in the future in mesh manipulation
         let texture_coords = vec![vec2(0.0, 0.0); positions.len()];
         let colors = vec![vec4(1.0, 1.0, 1.0, 1.0); positions.len()];
+        let tangents = vec![vec3(0.0, 0.0, 0.0); positions.len()];
 
         Mesh {
             name: self.name,
@@ -70,6 +71,7 @@ impl AlgorithmMesh {
             normals,
             texture_coords,
             indices,
+            tangents,
             max_reach,
             material_name: self.material_name,
         }
@@ -481,6 +483,7 @@ pub(crate) struct Mesh {
     pub(crate) normals: Vec<Vec3>,
     pub(crate) texture_coords: Vec<Vec2>,
     pub(crate) indices: Vec<GLuint>,
+    pub(crate) tangents: Vec<Vec3>,
     pub(crate) max_reach: Vec3,
     pub(crate) material_name: Option<String>, // the presence of this means the material source can be inherited
 }
@@ -529,6 +532,32 @@ impl Mesh {
             obj.texcoords.iter().copied().tuples().map(|(u, v)| vec2(u, v)).collect_vec()
         };
 
+        let mut tangents = vec![vec3(0.0, 0.0, 0.0); positions.len()];
+        for (a, b, c) in indices.iter().copied().tuples() {
+            let p1 = positions[a as usize];
+            let p2 = positions[b as usize];
+            let p3 = positions[c as usize];
+            let uv1 = texture_coords[a as usize];
+            let uv2 = texture_coords[b as usize];
+            let uv3 = texture_coords[c as usize];
+
+            let edge1 = p2 - p1;
+            let edge2 = p3 - p1;
+            let delta_uv1 = uv2 - uv1;
+            let delta_uv2 = uv3 - uv1;
+
+            let f = 1.0 / (delta_uv1.x * delta_uv2.y - delta_uv2.x * delta_uv1.y);
+
+            let mut tangent = vec3(0.0, 0.0, 0.0);
+            tangent.x = f * (delta_uv2.y * edge1.x - delta_uv1.y * edge2.x);
+            tangent.y = f * (delta_uv2.y * edge1.y - delta_uv1.y * edge2.y);
+            tangent.z = f * (delta_uv2.y * edge1.z - delta_uv1.y * edge2.z);
+
+            tangents[a as usize] = tangent;
+            tangents[b as usize] = tangent;
+            tangents[c as usize] = tangent;
+        }
+
         let max_reach =
             positions
                 .iter()
@@ -551,6 +580,7 @@ impl Mesh {
             normals,
             texture_coords,
             indices,
+            tangents,
             max_reach,
             material_name
         }

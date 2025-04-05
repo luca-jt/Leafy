@@ -7,6 +7,7 @@ layout(location = 0) in vec3 position;
 layout(location = 1) in vec2 uv;
 layout(location = 2) in vec3 normal;
 layout(location = 3) in vec4 color;
+layout(location = 4) in vec3 tangent;
 layout(location = 5) in mat4 model; // takes up 4 attribute locations
 layout(location = 9) in mat3 normal_matrix; // takes up 3 attribute locations
 
@@ -16,6 +17,7 @@ out vec4 v_color;
 out vec3 frag_pos;
 out vec4 frag_pos_dir_light[MAX_DIR_LIGHT_MAPS];
 out vec3 cam_position;
+out mat3 TBN;
 
 struct PointLightData {
     vec4 light_pos;
@@ -56,10 +58,17 @@ void main() {
     v_uv = uv;
     v_normal = normalize(normal_matrix * normal);
     v_color = color;
+
+    vec3 T = normalize(vec3(model * vec4(tangent, 0.0)));
+    vec3 N = normalize(vec3(model * vec4(v_normal, 0.0)));
+    vec3 B = cross(N, T);
+    TBN = mat3(T, B, N);
+
     frag_pos = vec3(model * vec4(position, 1.0));
     frag_pos_dir_light = vec4[MAX_DIR_LIGHT_MAPS](vec4(0), vec4(0), vec4(0), vec4(0), vec4(0));
     for (int i = 0; i < num_dir_lights; i++) {
         frag_pos_dir_light[i] = dir_lights[i].light_matrix * vec4(frag_pos, 1.0);
     }
+
     cam_position = cam_pos.xyz;
 }

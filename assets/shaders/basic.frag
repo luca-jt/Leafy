@@ -11,6 +11,7 @@ in vec4 v_color;
 in vec3 frag_pos;
 in vec4 frag_pos_dir_light[MAX_DIR_LIGHT_MAPS];
 in vec3 cam_position;
+in mat3 TBN;
 
 out vec4 out_color;
 
@@ -54,6 +55,8 @@ layout(location = 16) uniform float shininess;
 layout(location = 17) uniform sampler2D ambient_sampler;
 layout(location = 18) uniform sampler2D diffuse_sampler;
 layout(location = 19) uniform sampler2D specular_sampler;
+layout(location = 20) uniform sampler2D normal_map_sampler;
+layout(location = 21) uniform bool use_normal_map;
 
 vec3 sample_offset_directions[20] = vec3[]
 (
@@ -110,6 +113,14 @@ void main() {
         discard;
     }
 
+    vec3 frag_normal;
+    if (use_normal_map) {
+        frag_normal = texture(normal_map_sampler, v_uv).rgb * 2.0 - 1.0;
+        frag_normal = normalize(TBN * frag_normal);
+    } else {
+        frag_normal = v_normal;
+    }
+
     vec3 material_ambient_color = ambient_color * texture(ambient_sampler, v_uv).rgb;
     vec3 material_diffuse_color = diffuse_color * texture(diffuse_sampler, v_uv).rgb;
     vec3 material_specular_color = specular_color * texture(specular_sampler, v_uv).rgb;
@@ -117,7 +128,7 @@ void main() {
     vec3 final_light = material_ambient_color * ambient_light.color.rgb * ambient_light.intensity;
     // directional lights
     for (int i = 0; i < num_dir_lights; i++) {
-        float diff = min(max(dot(v_normal, -dir_lights[i].direction), 0.0), 1.0);
+        float diff = min(max(dot(frag_normal, -dir_lights[i].direction), 0.0), 1.0);
         float shadow = 1.0 - shadow_calc_dir(i) / float(num_dir_lights + num_point_lights);
         float distance_to_light = length(frag_pos - dir_lights[i].light_pos.xyz);
         distance_to_light = distance_to_light == 0.0 ? 0.1 : distance_to_light;
@@ -129,7 +140,7 @@ void main() {
     int point_light_map_index = 0;
     for (int i = 0; i < num_point_lights; i++) {
         vec3 light_dir = normalize(point_lights[i].light_pos.xyz - frag_pos);
-        float diff = min(max(dot(v_normal, light_dir), 0.0), 1.0);
+        float diff = min(max(dot(frag_normal, light_dir), 0.0), 1.0);
         float shadow = 1.0;
         if (point_lights[i].has_shadows) {
             shadow -= shadow_calc_point(i, point_light_map_index) / float(num_dir_lights + num_point_lights);
@@ -146,14 +157,14 @@ void main() {
     for (int i = 0; i < num_dir_lights; i++) {
         vec3 view_dir = normalize(cam_position - frag_pos);
         vec3 halfway_dir = normalize(-dir_lights[i].direction + view_dir);
-        float spec = pow(max(dot(v_normal, halfway_dir), 0.0), shininess);
+        float spec = pow(max(dot(frag_normal, halfway_dir), 0.0), shininess);
         final_light += spec_strenght * spec * dir_lights[i].color.rgb * material_specular_color * dir_lights[i].intensity;
     }
     for (int i = 0; i < num_point_lights; i++) {
         vec3 light_dir = normalize(point_lights[i].light_pos.xyz - frag_pos);
         vec3 view_dir = normalize(cam_position - frag_pos);
         vec3 halfway_dir = normalize(light_dir + view_dir);
-        float spec = pow(max(dot(v_normal, halfway_dir), 0.0), shininess);
+        float spec = pow(max(dot(frag_normal, halfway_dir), 0.0), shininess);
         final_light += spec_strenght * spec * point_lights[i].color.rgb * material_specular_color * point_lights[i].intensity;
     }
 

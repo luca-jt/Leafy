@@ -17,8 +17,8 @@ make instance renderer able to render textured and colored at the same time?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
 bloom
+LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit
 
 no dynamic memory allocation during renderloop -> reset the arenas every frame
 asset data arena allocator -> asset deletion is not individual, maybe differentiate between multiple lifetimes and have multiple arenas
 dont do the component allocations in boxes in the arena, do it with blocks in the vecs
-use normal (https://learnopengl.com/Advanced-Lighting/Normal-Mapping) textures in the shaders -> new shader necessary?

@@ -307,8 +307,8 @@ pub(crate) unsafe fn bind_instance_pbo() {
     gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
 }
 
-/// binds the tbo attrib pointer for the instance renderer
-pub(crate) unsafe fn bind_instance_tbo() {
+/// binds the ubo attrib pointer for the instance renderer
+pub(crate) unsafe fn bind_instance_ubo() {
     gl::EnableVertexAttribArray(1);
     gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
 }
@@ -323,6 +323,12 @@ pub(crate) unsafe fn bind_instance_nbo() {
 pub(crate) unsafe fn bind_instance_cbo() {
     gl::EnableVertexAttribArray(3);
     gl::VertexAttribPointer(3, 4, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
+}
+
+/// binds the tbo attrib pointer for the instance renderer
+pub(crate) unsafe fn bind_instance_tbo() {
+    gl::EnableVertexAttribArray(4);
+    gl::VertexAttribPointer(4, 3, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
 }
 
 /// binds the mbo attrib pointer for the instance renderer
