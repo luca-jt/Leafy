@@ -272,12 +272,11 @@ impl RenderingSystem {
                             ambient_color: material.ambient_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
                             diffuse_color: material.diffuse_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
                             specular_color: material.specular_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
-                            shininess: material.shininess_val().unwrap_or(32.0),
+                            shininess: material.shininess,
                         },
                         ambient_tex_id: material.ambient_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
                         diffuse_tex_id: material.diffuse_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
                         specular_tex_id: material.specular_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
-                        shininess_tex_id: material.shininess_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
                         normal_tex_id: material.normal_texture.as_ref().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
                     }
                 },
@@ -708,7 +707,6 @@ pub(crate) struct RenderAttributes {
     pub(crate) ambient_tex_id: GLuint,
     pub(crate) diffuse_tex_id: GLuint,
     pub(crate) specular_tex_id: GLuint,
-    pub(crate) shininess_tex_id: GLuint,
     pub(crate) normal_tex_id: GLuint,
 }
 

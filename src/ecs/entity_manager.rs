@@ -236,12 +236,6 @@ impl EntityManager {
             self.texture_map
                 .add_material_texture(full_texture_path.as_path());
         }
-        if let Some(shininess_texture) = mtl.shininess_texture.as_ref() {
-            let mut full_texture_path = PathBuf::from(file_path);
-            full_texture_path.set_file_name(shininess_texture);
-            self.texture_map
-                .add_material_texture(full_texture_path.as_path());
-        }
         if let Some(normal_texture) = mtl.normal_texture.as_ref() {
             let mut full_texture_path = PathBuf::from(file_path);
             full_texture_path.set_file_name(normal_texture);
@@ -271,9 +265,6 @@ impl EntityManager {
             self.texture_map.delete_material_texture(file_name);
         }
         if let Specular::Texture(file_name) = mtl.specular {
-            self.texture_map.delete_material_texture(file_name);
-        }
-        if let Shininess::Texture(file_name) = mtl.shininess {
             self.texture_map.delete_material_texture(file_name);
         }
         if let Some(file_name) = mtl.normal_texture {
@@ -379,7 +370,7 @@ impl EntityManager {
         self.texture_map.delete_texture(texture)
     }
 
-    /// Loads a material texture in the internal register and returns wether or not the loading was successful.
+    /// Loads a material texture in the internal register and returns wether or not the loading was successful. Shininess textures are not supported.
     pub fn load_material_texture(&mut self, path: impl AsRef<Path>) -> bool {
         self.texture_map.add_material_texture(path)
     }

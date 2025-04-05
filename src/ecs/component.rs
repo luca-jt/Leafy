@@ -610,7 +610,7 @@ pub mod utils {
         pub ambient: Ambient,
         pub diffuse: Diffuse,
         pub specular: Specular,
-        pub shininess: Shininess,
+        pub shininess: f32,
         pub normal_texture: Option<String>,
     }
 
@@ -636,12 +636,7 @@ pub mod utils {
                         .map_or_else(Specular::default, |path| Specular::Texture(path)),
                     |color| Specular::Value(Color32::from_float_rgb(color[0], color[1], color[2])),
                 ),
-                shininess: mtl.shininess.map_or(
-                    mtl.shininess_texture
-                        .clone()
-                        .map_or_else(Shininess::default, |path| Shininess::Texture(path)),
-                    |value| Shininess::Value(value),
-                ),
+                shininess: mtl.shininess.unwrap_or(32.0),
                 normal_texture: mtl.normal_texture.clone(),
             }
         }
@@ -693,22 +688,6 @@ pub mod utils {
                 Specular::Texture(name) => Some(name.as_str()),
             }
         }
-
-        /// returns the shininess as a float if present
-        pub(crate) fn shininess_val(&self) -> Option<f32> {
-            match self.shininess {
-                Shininess::Value(val) => Some(val),
-                Shininess::Texture(_) => None,
-            }
-        }
-
-        /// returns the name of the used shininess texture if present
-        pub(crate) fn shininess_texture(&self) -> Option<&str> {
-            match &self.shininess {
-                Shininess::Value(_) => None,
-                Shininess::Texture(name) => Some(name.as_str()),
-            }
-        }
     }
 
     impl Default for Material {
@@ -717,7 +696,7 @@ pub mod utils {
                 ambient: Ambient::default(),
                 diffuse: Diffuse::default(),
                 specular: Specular::default(),
-                shininess: Shininess::default(),
+                shininess: 32.0,
                 normal_texture: None,
             }
         }
@@ -759,19 +738,6 @@ pub mod utils {
     impl Default for Specular {
         fn default() -> Self {
             Self::Value(Color32::WHITE)
-        }
-    }
-
-    /// Shininess (or glossiness), stores either a value or the texture name.
-    #[derive(Debug, PartialEq, Clone)]
-    pub enum Shininess {
-        Value(f32),
-        Texture(String),
-    }
-
-    impl Default for Shininess {
-        fn default() -> Self {
-            Self::Value(32.0)
         }
     }
 
