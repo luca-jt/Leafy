@@ -7,6 +7,10 @@ use crate::utils::constants::bits::user_level::*;
 use fyrox_sound::math::get_barycentric_coords;
 use winit::keyboard::KeyCode;
 
+/// animation system memory arena that is used for per animation iteration allocation of temp storage
+#[rustfmt::skip]
+static ANIMATION_ARENA: GlobalArenaAllocator = global_arena_allocator::<10_000_000>();
+
 /// The system responsible for all animations of entities in the engine. This includes physics and user-determined animations.
 pub struct AnimationSystem {
     /// Changes the gravity value used for physics computations (default is ``constants::G``).
@@ -37,6 +41,7 @@ impl AnimationSystem {
 
     /// applys all animaion updates to all entities (called once per time step)
     pub(crate) fn update<T: FallingLeafApp>(&mut self, engine: &Engine<T>) {
+        reset_global_arena(&ANIMATION_ARENA);
         self.apply_physics(engine.entity_manager_mut().deref_mut());
         self.handle_collisions(engine.entity_manager_mut().deref_mut());
         self.damp_velocities(engine.entity_manager_mut().deref_mut());
@@ -67,7 +72,9 @@ impl AnimationSystem {
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&mut self, entity_manager: &mut EntityManager) {
-        let mut entity_data = unsafe {
+        let mut entity_data = vec_in_global_arena(&ANIMATION_ARENA);
+
+        let entity_iterator = unsafe {
             entity_manager
                 .query10::<&EntityID, &mut Position, &Collider, Option<&Renderable>, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))
         }.map(|(id, p, coll, rndrbl, v, am, s, rb, f, o)| {
@@ -93,8 +100,9 @@ impl AnimationSystem {
                     mult_mat4_vec3(&scale_matrix, &coll_reach).norm(),
                     *id
                 )
-            })
-            .collect_vec();
+            });
+
+        entity_data.extend(entity_iterator);
 
         if entity_data.len() <= 1 {
             return;
@@ -542,6 +550,7 @@ impl ColliderData<'_> {
             Hitbox::Sphere(radius) => {
                 let mass_offset = glm::translate(&Mat4::identity(), &self.center_of_mass);
                 let inv_mass_offset = mass_offset.try_inverse().unwrap();
+
                 Some(SphereColliderSpec {
                     scale_dimensions: Vec3::from_element(*radius)
                         .component_mul(self.scale.data())
@@ -717,10 +726,11 @@ fn epa(
     simplex: Simplex,
     translate_factor: f32,
 ) -> CollisionData {
-    let mut polytope = simplex.points.to_vec();
-    let mut faces = (0..polytope.len())
-        .tuple_combinations::<(usize, usize, usize)>()
-        .collect_vec();
+    let mut polytope = vec_in_global_arena(&ANIMATION_ARENA);
+    polytope.extend(simplex.points.into_iter());
+
+    let mut faces = vec_in_global_arena(&ANIMATION_ARENA);
+    faces.extend((0..polytope.len()).tuple_combinations::<(usize, usize, usize)>());
 
     // iteratively add new points to the polytope until the correct normal is found
     loop {
@@ -766,31 +776,28 @@ fn epa(
 /// reconstructs the polytope after a new point was found in the EPA algorithm
 fn reconstruct_polytope(
     polytope: &[SupportData],
-    faces: &mut Vec<(usize, usize, usize)>,
+    faces: &mut BumpVec<(usize, usize, usize)>,
     supp_data: SupportData,
 ) {
     // find faces to remove
-    let mut faces_to_remove = faces
-        .iter()
-        .enumerate()
-        .filter_map(|(i, face)| {
-            if same_direction(
-                &outward_normal(
-                    polytope[face.0].support,
-                    polytope[face.1].support,
-                    polytope[face.2].support,
-                    ORIGIN,
-                ),
-                &(supp_data.support - polytope[face.0].support),
-            ) {
-                return Some(i);
-            }
-            None
-        })
-        .collect_vec();
+    let mut faces_to_remove = vec_in_global_arena(&ANIMATION_ARENA);
+    faces_to_remove.extend(faces.iter().enumerate().filter_map(|(i, face)| {
+        if same_direction(
+            &outward_normal(
+                polytope[face.0].support,
+                polytope[face.1].support,
+                polytope[face.2].support,
+                ORIGIN,
+            ),
+            &(supp_data.support - polytope[face.0].support),
+        ) {
+            return Some(i);
+        }
+        None
+    }));
 
     // find edges that are not shared between faces
-    let mut dangling_edges = AHashSet::new();
+    let mut dangling_edges = hash_set_in_global_arena(&ANIMATION_ARENA);
     for edge in faces_to_remove
         .iter()
         .flat_map(|face_idx| {

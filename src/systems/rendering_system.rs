@@ -473,7 +473,7 @@ impl RenderingSystem {
     }
 
     /// updates all the uniform buffers
-    fn update_uniform_buffers(&self) {
+    fn update_uniform_buffers(&mut self) {
         self.shader_catalog.matrix_buffer.upload_data(
             0,
             size_of::<Mat4>(),
@@ -502,10 +502,9 @@ impl RenderingSystem {
             &self.sprite_camera.view as *const Mat4 as *const GLvoid,
         );
 
-        let dir_light_data = self
-            .directional_lights
-            .iter()
-            .map(|(_, map)| DirLightData {
+        self.tmp_storage
+            .dir_light_data
+            .extend(self.directional_lights.iter().map(|(_, map)| DirLightData {
                 light_pos: to_vec4(&map.light_pos),
                 light_matrix: map.light_matrix,
                 color: map.light.color.to_vec4(),
@@ -513,20 +512,21 @@ impl RenderingSystem {
                 padding_12bytes: Default::default(),
                 direction: map.light.direction.normalize(),
                 padding_4bytes: Default::default(),
-            })
-            .collect_vec();
+            }));
 
-        let p_light_data = self
-            .point_lights
-            .values()
-            .map(|render_info| PointLightData {
-                light_pos: to_vec4(&render_info.light_pos),
-                color: render_info.light.color.to_vec4(),
-                intensity: render_info.light.intensity,
-                has_shadows: render_info.shadow_map.is_some() as GLint,
-                padding_8bytes: Default::default(),
-            })
-            .collect_vec();
+        self.tmp_storage
+            .p_light_data
+            .extend(
+                self.point_lights
+                    .values()
+                    .map(|render_info| PointLightData {
+                        light_pos: to_vec4(&render_info.light_pos),
+                        color: render_info.light.color.to_vec4(),
+                        intensity: render_info.light.intensity,
+                        has_shadows: render_info.shadow_map.is_some() as GLint,
+                        padding_8bytes: Default::default(),
+                    }),
+            );
 
         let ambient_config = LightConfig {
             color: self.ambient_light.0.to_vec4(),
@@ -539,20 +539,20 @@ impl RenderingSystem {
             &ambient_config as *const LightConfig as *const GLvoid,
         );
 
-        if !dir_light_data.is_empty() {
+        if !self.tmp_storage.dir_light_data.is_empty() {
             self.shader_catalog.light_buffer.upload_data(
                 size_of::<LightConfig>() + padding::<LightConfig>(),
-                dir_light_data.len() * size_of::<DirLightData>(),
-                dir_light_data.as_ptr() as *const GLvoid,
+                self.tmp_storage.dir_light_data.len() * size_of::<DirLightData>(),
+                self.tmp_storage.dir_light_data.as_ptr() as *const GLvoid,
             );
         }
-        if !p_light_data.is_empty() {
+        if !self.tmp_storage.p_light_data.is_empty() {
             self.shader_catalog.light_buffer.upload_data(
                 size_of::<LightConfig>()
                     + padding::<LightConfig>()
                     + size_of::<DirLightData>() * MAX_DIR_LIGHT_MAPS,
-                p_light_data.len() * size_of::<PointLightData>(),
-                p_light_data.as_ptr() as *const GLvoid,
+                self.tmp_storage.p_light_data.len() * size_of::<PointLightData>(),
+                self.tmp_storage.p_light_data.as_ptr() as *const GLvoid,
             );
         }
 
@@ -805,6 +805,8 @@ impl ShadowResolution {
 struct TempRenderStorage {
     dir_lights: Vec<(Position, DirectionalLight, EntityID)>,
     p_lights: Vec<(Position, PointLight, EntityID)>,
+    p_light_data: Vec<PointLightData>,
+    dir_light_data: Vec<DirLightData>,
 }
 
 impl TempRenderStorage {
@@ -812,6 +814,8 @@ impl TempRenderStorage {
     fn clear_light_storage(&mut self) {
         self.dir_lights.clear();
         self.p_lights.clear();
+        self.p_light_data.clear();
+        self.dir_light_data.clear();
     }
 }
 

@@ -1,7 +1,7 @@
 raytrace the current scene
 switchable render backends -> vulkan support, use a static reference to a dyn trait object
 skeletal animations
-collision fix -> sequential solver? + better memory allocation + performance, terrain collision, trees, better time step management (seems to be too slow)
+collision fix -> sequential solver? + better memory allocation + performance, terrain collision, trees
 volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
 graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, depth of field
 scene files and loading of them -> serialization (serde) -> editor
@@ -18,7 +18,7 @@ ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
 bloom
 LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit
+better time step management in animation system (seems to be too slow)
 
-no dynamic memory allocation during renderloop -> reset the arenas every frame
-asset data arena allocator -> asset deletion is not individual, maybe differentiate between multiple lifetimes and have multiple arenas
-dont do the component allocations in boxes in the arena, do it with blocks in the vecs
+asset data arena allocator -> asset deletion is not individual, maybe differentiate between multiple lifetimes and have multiple arenas for long and short term storage
+dont do the component allocations in boxes in the arena, do it with blocks in the vecs -> dont use the allocator arena in the components macro and use regular boxes that get dropped, use ptr::write_unaligned, must call drop manually, use the BumpHashMap in the archetypes

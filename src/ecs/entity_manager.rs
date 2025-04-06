@@ -17,7 +17,7 @@ macro_rules! components {
 
 /// internal arena allocator used for entity data
 #[rustfmt::skip]
-pub(crate) static ENTITY_ARENA: GlobalArenaAllocator = global_arena_allocator::<ENTITY_ALLOCATOR_CHUNK_SIZE>();
+static ENTITY_ARENA: GlobalArenaAllocator = global_arena_allocator::<ENTITY_ALLOCATOR_CHUNK_SIZE>();
 
 /// Internal allocation function for entity data. NOT TO BE USED ELSEWHERE!
 pub fn _component_alloc<T: Component>(component: T) -> BumpBox<'static, dyn Component> {

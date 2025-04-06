@@ -52,8 +52,9 @@ log = "0.4.22"
 env_logger = "0.11.5"
 petgraph = "0.6.5"
 itertools = "0.13.0"
-bumpalo = { version = "3.17.0", features = ["collections", "boxed"] }
+bumpalo = { version = "3.17.0", features = ["collections", "boxed", "allocator-api2"] }
 ahash = "0.8.11"
+hashbrown = "0.15.2"
 
 [build-dependencies]
 winresource = "0.1.17"

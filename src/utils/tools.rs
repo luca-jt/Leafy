@@ -1,13 +1,34 @@
 use crate::internal_prelude::*;
+use ahash::random_state::RandomState;
 use fyrox_sound::algebra::Vector3;
 use std::ops::{Add, Div, Mul, Sub};
 
+/// Fast ``HashSet`` implementation using ``ahash`` that is exposing the allocator. Only valid for the lifetime of the bump allocator, does not run ``Drop`` implementations on allocator reset.
+pub type BumpHashSet<'a, T> = hashbrown::HashSet<T, RandomState, &'a bumpalo::Bump>;
+
+/// Fast ``HashMap`` implementation using ``ahash`` that is exposing the allocator. Only valid for the lifetime of the bump allocator, does not run ``Drop`` implementations on allocator reset.
+pub type BumpHashMap<'a, K, V> = hashbrown::HashMap<K, V, RandomState, &'a bumpalo::Bump>;
+
 /// Static global arena allocator type alias.
-pub type GlobalArenaAllocator = LazyLock<Mutex<UnsafeCell<Bump>>>;
+pub type GlobalArenaAllocator = LazyLock<Mutex<UnsafeCell<bumpalo::Bump>>>;
 
 /// Creates a new static ``GlobalArenaAllocator`` with a given chunk size.
 pub const fn global_arena_allocator<const CHUNK_SIZE: usize>() -> GlobalArenaAllocator {
-    LazyLock::new(|| Mutex::new(UnsafeCell::new(Bump::with_capacity(CHUNK_SIZE))))
+    LazyLock::new(|| Mutex::new(UnsafeCell::new(bumpalo::Bump::with_capacity(CHUNK_SIZE))))
+}
+
+/// Calculates the number of bytes currently allocated across all chunks in this ``GlobalArenaAllocator``.
+pub fn allocated_bytes(arena: &GlobalArenaAllocator) -> usize {
+    let arena_lock = arena.lock().unwrap();
+    let allocator = unsafe { &*(arena_lock.get()) };
+    allocator.allocated_bytes()
+}
+
+/// Creates a new ``BumpBox`` in a ``GlobalArenaAllocator`` containing value x.
+pub fn box_in_global_arena<T>(arena: &GlobalArenaAllocator, x: T) -> BumpBox<'static, T> {
+    let arena_lock = arena.lock().unwrap();
+    let allocator = unsafe { &*(arena_lock.get()) };
+    BumpBox::new_in(x, allocator)
 }
 
 /// Creates a new ``BumpVec`` in a ``GlobalArenaAllocator``.
@@ -25,6 +46,20 @@ pub fn vec_in_global_arena_with_capacity<T>(
     let arena_lock = arena.lock().unwrap();
     let allocator = unsafe { &*(arena_lock.get()) };
     BumpVec::with_capacity_in(capacity, allocator)
+}
+
+/// Creates a new ``BumpHashSet`` in a ``GlobalArenaAllocator``.
+pub fn hash_set_in_global_arena<T>(arena: &GlobalArenaAllocator) -> BumpHashSet<'static, T> {
+    let arena_lock = arena.lock().unwrap();
+    let allocator = unsafe { &*(arena_lock.get()) };
+    BumpHashSet::with_hasher_in(RandomState::default(), allocator)
+}
+
+/// Creates a new ``BumpHashMap`` in a ``GlobalArenaAllocator``.
+pub fn hash_map_in_global_arena<K, V>(arena: &GlobalArenaAllocator) -> BumpHashMap<'static, K, V> {
+    let arena_lock = arena.lock().unwrap();
+    let allocator = unsafe { &*(arena_lock.get()) };
+    BumpHashMap::with_hasher_in(RandomState::default(), allocator)
 }
 
 /// Resets the ``GlobalArenaAllocator`` and invalidates all references to stored data.

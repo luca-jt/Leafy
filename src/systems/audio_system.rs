@@ -55,6 +55,7 @@ impl AudioSystem {
     /// update entity sound positions etc (runs every frame)
     pub(crate) fn update(&mut self, entity_manager: &mut EntityManager) {
         let mut state = self.sound_context.state();
+
         for (sound, pos) in
             unsafe { entity_manager.query2::<&mut SoundController, &Position>((None, None)) }
         {
@@ -62,7 +63,9 @@ impl AudioSystem {
             sound
                 .handles
                 .retain(|handle| !self.removed_handles.contains(handle));
+
             self.removed_handles.clear();
+
             // update position
             for handle in sound.handles.iter().copied() {
                 let source = state.source_mut(handle);

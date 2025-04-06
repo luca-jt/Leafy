@@ -43,6 +43,7 @@ pub mod prelude {
     pub use crate::systems::rendering_system::ShadowResolution;
     pub use crate::utils::constants::*;
     pub use crate::utils::tools::*;
+    pub use ahash::{AHashMap, AHashSet};
     pub use bumpalo::boxed::Box as BumpBox;
     pub use bumpalo::collections::Vec as BumpVec;
     pub use gl::types::*;
@@ -52,8 +53,6 @@ pub mod prelude {
 pub(crate) mod internal_prelude {
     pub(crate) use crate::prelude::*;
     pub(crate) use crate::utils::file::*;
-    pub(crate) use ahash::{AHashMap, AHashSet};
-    pub(crate) use bumpalo::Bump;
     pub(crate) use std::any::{type_name_of_val, Any, TypeId};
     pub(crate) use std::cell::{Cell, Ref, RefCell, RefMut, UnsafeCell};
     pub(crate) use std::error::Error;
