@@ -2,24 +2,28 @@ name: Rust
 
 on:
   push:
-    branches: [ "master" ]
   pull_request:
-    branches: [ "master" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: [ windows-latest, ubuntu-latest ]
     steps:
-    - uses: actions/checkout@v4
-    - run: cargo build --all-targets --all-features
-    - run: cargo clippy --all-features
-    - run: cargo test --workspace --no-fail-fast --all-features --  --show-output
+      - uses: actions/checkout@v4
+      - run: cargo build --all-targets --all-features
+      - run: cargo clippy --all-features
+
 
   formatting:
-    runs-on: windows-latest
+    runs-on: [ windows-latest, ubuntu-latest ]
     steps:
       - uses: actions/checkout@v4
       - run: cargo fmt --check
+
+  tests:
+    runs-on: [ windows-latest, ubuntu-latest ]
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --workspace --no-fail-fast --all-features --  --show-output
