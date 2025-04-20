@@ -47,7 +47,7 @@ impl InstanceRenderer {
             gl::BindVertexArray(vao);
 
             // VERTEX POSITION BUFFER
-            gl::CreateBuffers(1, &mut pbo);
+            gl::GenBuffers(1, &mut pbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, pbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -58,7 +58,7 @@ impl InstanceRenderer {
             bind_instance_pbo();
 
             // UV COORDINATE BUFFER
-            gl::CreateBuffers(1, &mut ubo);
+            gl::GenBuffers(1, &mut ubo);
             gl::BindBuffer(gl::ARRAY_BUFFER, ubo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -69,7 +69,7 @@ impl InstanceRenderer {
             bind_instance_ubo();
 
             // NORMAL VECTOR BUFFER
-            gl::CreateBuffers(1, &mut nbo);
+            gl::GenBuffers(1, &mut nbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, nbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -82,7 +82,7 @@ impl InstanceRenderer {
             }
 
             // VERTEX COLOR BUFFER
-            gl::CreateBuffers(1, &mut cbo);
+            gl::GenBuffers(1, &mut cbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, cbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -93,7 +93,7 @@ impl InstanceRenderer {
             bind_instance_cbo();
 
             // TANGENT VECTOR BUFFER
-            gl::CreateBuffers(1, &mut tbo);
+            gl::GenBuffers(1, &mut tbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, tbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -106,7 +106,7 @@ impl InstanceRenderer {
             }
 
             // MODEL MATRIX BUFFER
-            gl::CreateBuffers(1, &mut mbo);
+            gl::GenBuffers(1, &mut mbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, mbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -117,7 +117,7 @@ impl InstanceRenderer {
             bind_instance_mbo();
 
             // NORMAL MATRIX BUFFER
-            gl::CreateBuffers(1, &mut nmbo);
+            gl::GenBuffers(1, &mut nmbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, nmbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,

@@ -622,10 +622,10 @@ impl RenderingSystem {
         log::debug!("Set anti-aliasing: {use_msaa:?}");
         if use_msaa {
             unsafe { gl::Enable(gl::MULTISAMPLE) };
-            self.screen_texture.msaa = true;
+            self.screen_texture.use_msaa(true);
         } else {
             unsafe { gl::Disable(gl::MULTISAMPLE) };
-            self.screen_texture.msaa = false;
+            self.screen_texture.use_msaa(false);
         }
         self.samples = msaa_samples.unwrap_or(4);
     }

@@ -786,7 +786,7 @@ impl Skybox {
         unsafe {
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
-            gl::CreateBuffers(1, &mut vbo);
+            gl::GenBuffers(1, &mut vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -837,13 +837,14 @@ pub(crate) struct ScreenTexture {
     multi_texture: GLuint,
     fbo: GLuint,
     texture: GLuint,
+    multi_rbo: GLuint,
     rbo: GLuint,
     vao: GLuint,
     vbo: GLuint,
     width: GLsizei,
     height: GLsizei,
     tmp_viewport: [GLint; 4],
-    pub(crate) msaa: bool,
+    msaa: bool,
 }
 
 impl ScreenTexture {
@@ -854,13 +855,14 @@ impl ScreenTexture {
         let mut multi_texture = 0;
         let mut fbo = 0;
         let mut texture = 0;
+        let mut multi_rbo = 0;
         let mut rbo = 0;
         let mut vao = 0;
         let mut vbo = 0;
         unsafe {
-            // RENDER BUFFER FOR DEPTH + STENCIL
-            gl::GenRenderbuffers(1, &mut rbo);
-            gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
+            // RENDER BUFFERS FOR DEPTH + STENCIL
+            gl::GenRenderbuffers(1, &mut multi_rbo);
+            gl::BindRenderbuffer(gl::RENDERBUFFER, multi_rbo);
             gl::RenderbufferStorageMultisample(gl::RENDERBUFFER, 4, gl::DEPTH24_STENCIL8, width, height);
 
             // MULTISAMPLED FRAME BUFFER
@@ -877,9 +879,14 @@ impl ScreenTexture {
             );
             gl::BindFramebuffer(gl::FRAMEBUFFER, multi_fbo);
             gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D_MULTISAMPLE, multi_texture, 0);
-            gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, rbo);
+            gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, multi_rbo);
             assert_eq!(gl::CheckFramebufferStatus(gl::FRAMEBUFFER), gl::FRAMEBUFFER_COMPLETE);
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+
+            // RENDER BUFFERS FOR DEPTH + STENCIL
+            gl::GenRenderbuffers(1, &mut rbo);
+            gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
+            gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, width, height);
 
             // FRAME BUFFER
             gl::GenFramebuffers(1, &mut fbo);
@@ -907,7 +914,7 @@ impl ScreenTexture {
             // VERTEX BUFFER
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
-            gl::CreateBuffers(1, &mut vbo);
+            gl::GenBuffers(1, &mut vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -934,6 +941,12 @@ impl ScreenTexture {
                 (3 * size_of::<f32>()) as *const GLvoid
             );
             gl::BindVertexArray(0);
+
+            if msaa {
+                gl::BindRenderbuffer(gl::RENDERBUFFER, multi_rbo);
+            } else {
+                gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
+            }
         }
 
         Self {
@@ -941,6 +954,7 @@ impl ScreenTexture {
             multi_texture,
             fbo,
             texture,
+            multi_rbo,
             rbo,
             vao,
             vbo,
@@ -948,6 +962,20 @@ impl ScreenTexture {
             height,
             tmp_viewport: [0; 4],
             msaa
+        }
+    }
+
+    /// toggles the use of anti-aliasing and switches the render buffers
+    pub(crate) fn use_msaa(&mut self, msaa: bool) {
+        self.msaa = msaa;
+        if msaa {
+            unsafe {
+                gl::BindRenderbuffer(gl::RENDERBUFFER, self.multi_rbo);
+            }
+        } else {
+            unsafe {
+                gl::BindRenderbuffer(gl::RENDERBUFFER, self.rbo);
+            }
         }
     }
 
@@ -1019,6 +1047,7 @@ impl Drop for ScreenTexture {
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteVertexArrays(1, &self.vao);
             gl::DeleteTextures(1, &self.multi_texture);
+            gl::DeleteRenderbuffers(1, &self.multi_rbo);
             gl::DeleteRenderbuffers(1, &self.rbo);
             gl::DeleteFramebuffers(1, &self.multi_fbo);
             gl::DeleteTextures(1, &self.texture);

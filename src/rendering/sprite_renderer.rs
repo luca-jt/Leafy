@@ -219,7 +219,7 @@ impl SpriteBatch {
             // GENERATE BUFFERS
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
-            gl::CreateBuffers(1, &mut vbo);
+            gl::GenBuffers(1, &mut vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
