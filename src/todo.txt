@@ -20,5 +20,5 @@ bloom
 LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit
 better time step management in animation system (seems to be too slow)
 
-asset data arena allocator -> asset deletion is not individual, maybe differentiate between multiple lifetimes and have multiple arenas for long and short term storage (or the user supplies the engine with the allocators to use)
-dont do the component allocations in boxes in the arena, do it with blocks in the vecs -> dont use the allocator arena in the components macro and use regular boxes that get dropped, use ptr::write_unaligned, must call drop manually, use the BumpHashMap in the archetypes
+store the component boxes in a generational arena based on a bump allocator? or just use ptr writes and require manual drop?
+asset data arena allocator: the user supplies the engine with the allocator to use (asset deletion still individual?)

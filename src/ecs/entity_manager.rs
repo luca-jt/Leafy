@@ -767,7 +767,15 @@ impl ECS {
                         id,
                         components: entity_type
                             .iter()
-                            .map(|&type_id| (type_id, vec_in_global_arena(&ENTITY_ARENA)))
+                            .map(|&type_id| {
+                                (
+                                    type_id,
+                                    vec_in_global_arena_with_capacity(
+                                        &ENTITY_ARENA,
+                                        COMPONENT_COLUMN_INIT_SIZE,
+                                    ),
+                                )
+                            })
                             .collect(),
                     },
                 );

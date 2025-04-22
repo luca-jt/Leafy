@@ -55,11 +55,31 @@ pub fn hash_set_in_global_arena<T>(arena: &GlobalArenaAllocator) -> BumpHashSet<
     BumpHashSet::with_hasher_in(RandomState::default(), allocator)
 }
 
+/// Creates a new ``BumpHashSet`` in a ``GlobalArenaAllocator`` with an initial capacity.
+pub fn hash_set_in_global_arena_with_capacity<T>(
+    arena: &GlobalArenaAllocator,
+    capacity: usize,
+) -> BumpHashSet<'static, T> {
+    let arena_lock = arena.lock().unwrap();
+    let allocator = unsafe { &*(arena_lock.get()) };
+    BumpHashSet::with_capacity_and_hasher_in(capacity, RandomState::default(), allocator)
+}
+
 /// Creates a new ``BumpHashMap`` in a ``GlobalArenaAllocator``.
 pub fn hash_map_in_global_arena<K, V>(arena: &GlobalArenaAllocator) -> BumpHashMap<'static, K, V> {
     let arena_lock = arena.lock().unwrap();
     let allocator = unsafe { &*(arena_lock.get()) };
     BumpHashMap::with_hasher_in(RandomState::default(), allocator)
+}
+
+/// Creates a new ``BumpHashMap`` in a ``GlobalArenaAllocator`` with an initial capacity.
+pub fn hash_map_in_global_arena_with_capacity<K, V>(
+    arena: &GlobalArenaAllocator,
+    capactiy: usize,
+) -> BumpHashMap<'static, K, V> {
+    let arena_lock = arena.lock().unwrap();
+    let allocator = unsafe { &*(arena_lock.get()) };
+    BumpHashMap::with_capacity_and_hasher_in(capactiy, RandomState::default(), allocator)
 }
 
 /// Resets the ``GlobalArenaAllocator`` and invalidates all references to stored data.
