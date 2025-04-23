@@ -3,6 +3,12 @@ use ahash::random_state::RandomState;
 use fyrox_sound::algebra::Vector3;
 use std::ops::{Add, Div, Mul, Sub};
 
+/// All-purpose stack allocated array that has a C memory layout.
+#[repr(C)]
+pub struct CArray<T, const N: usize> {
+    pub data: [T; N],
+}
+
 /// Fast ``HashSet`` implementation using ``ahash`` that is exposing the allocator. Only valid for the lifetime of the bump allocator, does not run ``Drop`` implementations on allocator reset.
 pub type BumpHashSet<'a, T> = hashbrown::HashSet<T, RandomState, &'a bumpalo::Bump>;
 

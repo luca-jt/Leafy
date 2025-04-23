@@ -1,6 +1,8 @@
 raytrace the current scene
 switchable render backends -> vulkan support, use a static reference to a dyn trait object
 skeletal animations
+
+rebranding of the engine to Leafy and first publish
 collision fix -> sequential solver? + better memory allocation + performance, terrain collision, trees
 volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
 graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, depth of field
@@ -20,5 +22,4 @@ bloom
 LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit
 better time step management in animation system (seems to be too slow)
 
-store the component boxes in a generational arena based on a bump allocator? or just use ptr writes and require manual drop?
-asset data arena allocator: the user supplies the engine with the allocator to use (asset deletion still individual?)
+use ptr writes and require manual drop, BumpVec<u8> has component storage trait for functions like get_nth_component<T>()

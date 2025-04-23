@@ -1,4 +1,5 @@
 use crate::internal_prelude::*;
+use std::mem;
 use std::ops::Index;
 use std::slice::Iter;
 
@@ -82,5 +83,59 @@ impl Archetype {
     /// checks wether or not the archetype contains no component data
     pub(crate) fn is_empty(&self) -> bool {
         self.components.values().nth(0).unwrap().is_empty()
+    }
+}
+
+/// type erased component data storage functionality
+pub(crate) trait ComponentStorage {
+    /// stores a new component
+    unsafe fn push_component<T: Component>(&mut self, component: T);
+    /// gets the reference of the n'th stored component
+    unsafe fn get_nth_component<T: Component>(&mut self, n: usize) -> &mut T;
+    /// removes the n'th component and puts the last component data in its place
+    unsafe fn swap_remove_nth_component<T: Component>(&mut self, n: usize) -> T;
+    /// reserves space for exactly n components
+    fn reserve_components<T: Component>(&mut self, n: usize);
+}
+
+impl ComponentStorage for BumpVec<'static, u8> {
+    unsafe fn push_component<T: Component>(&mut self, component: T) {
+        for i in 0..size_of::<T>() {
+            let byte = *((&component as *const T as *const u8).add(i));
+            self.push(byte);
+        }
+    }
+
+    unsafe fn get_nth_component<T: Component>(&mut self, n: usize) -> &mut T {
+        let index = n * size_of::<T>();
+        assert!(
+            self.len() >= index + size_of::<T>(),
+            "Index {n} out of bounds (len is {}).",
+            self.len() / size_of::<T>()
+        );
+        &mut *(&mut self[index] as *mut u8 as *mut T)
+    }
+
+    unsafe fn swap_remove_nth_component<T: Component>(&mut self, n: usize) -> T {
+        let index = n * size_of::<T>();
+        assert!(
+            self.len() >= index + size_of::<T>(),
+            "Index {n} out of bounds (len is {}).",
+            self.len() / size_of::<T>()
+        );
+
+        let mut bytes = vec![0u8; size_of::<T>()];
+
+        for i in (0..size_of::<T>()).rev() {
+            let byte = self.swap_remove(index + i);
+            bytes[i] = byte;
+        }
+
+        // this is safe because the sizes are the same
+        mem::transmute_copy(&bytes[0])
+    }
+
+    fn reserve_components<T: Component>(&mut self, n: usize) {
+        self.reserve(n * size_of::<T>());
     }
 }

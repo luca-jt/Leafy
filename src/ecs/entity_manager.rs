@@ -455,7 +455,7 @@ impl EntityManager {
     /// Access to the name of a mesh with a handle.
     pub fn mesh_name_from_handle(&self, handle: MeshHandle) -> Option<&str> {
         if let Some(mesh) = self.mesh_register.get(&handle) {
-            Some(&mesh.name.as_str())
+            Some(mesh.name.as_str())
         } else {
             log::warn!("Mesh data not present.");
             None
