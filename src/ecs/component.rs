@@ -621,19 +621,19 @@ pub mod utils {
                 ambient: mtl.ambient.map_or(
                     mtl.ambient_texture
                         .clone()
-                        .map_or_else(Ambient::default, |path| Ambient::Texture(path)),
+                        .map_or_else(Ambient::default, Ambient::Texture),
                     |color| Ambient::Value(Color32::from_float_rgb(color[0], color[1], color[2])),
                 ),
                 diffuse: mtl.diffuse.map_or(
                     mtl.diffuse_texture
                         .clone()
-                        .map_or_else(Diffuse::default, |path| Diffuse::Texture(path)),
+                        .map_or_else(Diffuse::default, Diffuse::Texture),
                     |color| Diffuse::Value(Color32::from_float_rgb(color[0], color[1], color[2])),
                 ),
                 specular: mtl.specular.map_or(
                     mtl.specular_texture
                         .clone()
-                        .map_or_else(Specular::default, |path| Specular::Texture(path)),
+                        .map_or_else(Specular::default, Specular::Texture),
                     |color| Specular::Value(Color32::from_float_rgb(color[0], color[1], color[2])),
                 ),
                 shininess: mtl.shininess.unwrap_or(32.0),

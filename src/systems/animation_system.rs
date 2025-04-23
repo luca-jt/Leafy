@@ -727,7 +727,7 @@ fn epa(
     translate_factor: f32,
 ) -> CollisionData {
     let mut polytope = vec_in_global_arena(&ANIMATION_ARENA);
-    polytope.extend(simplex.points.into_iter());
+    polytope.extend(simplex.points);
 
     let mut faces = vec_in_global_arena(&ANIMATION_ARENA);
     faces.extend((0..polytope.len()).tuple_combinations::<(usize, usize, usize)>());

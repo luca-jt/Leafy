@@ -475,7 +475,7 @@ impl EntityManager {
     /// Access to the optional name of the native material of a loaded mesh with a handle.
     pub fn mesh_native_material_name_from_handle(&self, handle: MeshHandle) -> Option<&str> {
         if let Some(mesh) = self.mesh_register.get(&handle) {
-            Some(&mesh.material_name.as_ref()?.as_str())
+            Some(mesh.material_name.as_ref()?.as_str())
         } else {
             log::warn!("Mesh data not present.");
             None
