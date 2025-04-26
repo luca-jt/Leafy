@@ -1,6 +1,7 @@
 use crate::internal_prelude::*;
-use std::mem;
+use std::mem::{transmute_copy, ManuallyDrop};
 use std::ops::Index;
+use std::ptr::copy_nonoverlapping;
 use std::slice::Iter;
 
 /// Unique identifier for an entity. This is always attached to an entity as a component and should not be changed.
@@ -91,7 +92,7 @@ pub(crate) trait ComponentStorage {
     /// stores a new component
     unsafe fn push_component<T: Component>(&mut self, component: T);
     /// gets the reference of the n'th stored component
-    unsafe fn get_nth_component<T: Component>(&mut self, n: usize) -> &mut T;
+    unsafe fn get_nth_component_mut<T: Component>(&mut self, n: usize) -> &mut T;
     /// removes the n'th component and puts the last component data in its place
     unsafe fn swap_remove_nth_component<T: Component>(&mut self, n: usize) -> T;
     /// reserves space for exactly n components
@@ -100,13 +101,17 @@ pub(crate) trait ComponentStorage {
 
 impl ComponentStorage for BumpVec<'static, u8> {
     unsafe fn push_component<T: Component>(&mut self, component: T) {
-        for i in 0..size_of::<T>() {
-            let byte = *((&component as *const T as *const u8).add(i));
-            self.push(byte);
-        }
+        let manual = ManuallyDrop::new(component);
+        let ptr = &manual as *const ManuallyDrop<T> as *const u8;
+
+        let first_new_byte = self.len();
+        self.extend(std::iter::repeat(0).take(size_of::<T>()));
+        let dst = &mut self[first_new_byte] as *mut u8;
+
+        copy_nonoverlapping(ptr, dst, size_of::<T>());
     }
 
-    unsafe fn get_nth_component<T: Component>(&mut self, n: usize) -> &mut T {
+    unsafe fn get_nth_component_mut<T: Component>(&mut self, n: usize) -> &mut T {
         let index = n * size_of::<T>();
         assert!(
             self.len() >= index + size_of::<T>(),
@@ -132,7 +137,8 @@ impl ComponentStorage for BumpVec<'static, u8> {
         }
 
         // this is safe because the sizes are the same
-        mem::transmute_copy(&bytes[0])
+        let data_ref = &*(&bytes[0] as *const u8 as *const T);
+        transmute_copy(data_ref)
     }
 
     fn reserve_components<T: Component>(&mut self, n: usize) {
