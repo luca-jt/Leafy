@@ -53,7 +53,7 @@ pub mod prelude {
 pub(crate) mod internal_prelude {
     pub(crate) use crate::prelude::*;
     pub(crate) use crate::utils::file::*;
-    pub(crate) use std::any::{type_name_of_val, Any, TypeId};
+    pub(crate) use std::any::{type_name, Any, TypeId};
     pub(crate) use std::cell::{Cell, Ref, RefCell, RefMut, UnsafeCell};
     pub(crate) use std::error::Error;
     pub(crate) use std::fmt::Debug;

@@ -22,4 +22,4 @@ bloom
 LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit
 better time step management in animation system (seems to be too slow)
 
-use ptr writes and require manual drop -> dropping of all remaining components in the destructor of the ECS
+handle zero sized types in the component storage

@@ -1,62 +1,280 @@
+use crate::ecs::entity_manager::ENTITY_ARENA;
 use crate::internal_prelude::*;
-use std::mem::{transmute_copy, ManuallyDrop};
+use std::mem::{align_of, transmute_copy, ManuallyDrop};
 use std::ops::Index;
 use std::ptr::copy_nonoverlapping;
-use std::slice::Iter;
 
 /// Unique identifier for an entity. This is always attached to an entity as a component and should not be changed.
 pub type EntityID = u64;
 
 impl Component for EntityID {}
 
+/// component meta data, one entry in an entity type
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+pub(crate) struct ComponentMetaData {
+    pub(crate) type_id: TypeId,
+    pub(crate) size: usize,
+    pub(crate) alignment: usize,
+    pub(crate) drop_fn: unsafe fn(*mut u8),
+}
+
+impl ComponentMetaData {
+    /// creates a new meta data entry for a component type
+    pub(crate) fn new<T: Component>() -> Self {
+        Self {
+            type_id: TypeId::of::<T>(),
+            size: size_of::<T>(),
+            alignment: align_of::<T>(),
+            drop_fn: drop_fn::<T>,
+        }
+    }
+}
+
+/// Internal temporary storage unit for component data.
+pub(crate) struct ComponentEntry {
+    pub(crate) type_id: TypeId,
+    pub(crate) bytes: Vec<u8>,
+}
+
+impl ComponentEntry {
+    /// Converts a component to an internal data entry.
+    pub(crate) fn from_component<T: Component>(component: T) -> Self {
+        let mut bytes = vec![0u8; size_of::<T>()];
+        let manual = ManuallyDrop::new(component);
+        let ptr = &manual as *const ManuallyDrop<T> as *const u8;
+        let dst = bytes.as_mut_ptr();
+
+        // Safety: the sizes are valid and the components are dropped later.
+        unsafe { copy_nonoverlapping(ptr, dst, size_of::<T>()) };
+
+        Self {
+            type_id: TypeId::of::<T>(),
+            bytes,
+        }
+    }
+}
+
+/// Internal temporary storage unit for component data with meta data.
+pub struct MetaDataComponentEntry {
+    pub(crate) entry: ComponentEntry,
+    pub(crate) meta_data: ComponentMetaData,
+}
+
+impl MetaDataComponentEntry {
+    /// Converts a component to an internal data entry.
+    pub fn from_component<T: Component>(component: T) -> Self {
+        Self {
+            entry: ComponentEntry::from_component(component),
+            meta_data: ComponentMetaData::new::<T>(),
+        }
+    }
+}
+
 /// defines a type an entity can have
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
-pub(crate) struct EntityType(Vec<TypeId>);
+pub(crate) struct EntityType(Vec<ComponentMetaData>);
 
 impl EntityType {
     /// wrapper for the `iter()` function of the stored Vec
-    pub(crate) fn iter(&self) -> Iter<'_, TypeId> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &ComponentMetaData> {
         self.0.iter()
     }
 
     /// adds a component to the entity type and re-sorts
     pub(crate) fn add_component<T: Component>(&mut self) {
-        self.0.push(TypeId::of::<T>());
-        self.0.sort_unstable();
+        self.0.push(ComponentMetaData::new::<T>());
+        self.0.sort_unstable_by_key(|meta_data| meta_data.type_id);
     }
 
     /// removes a component from the entity type and re-sorts
     pub(crate) fn rm_component<T: Component>(&mut self) {
-        self.0 = self
-            .0
-            .iter_mut()
-            .filter(|id| **id != TypeId::of::<T>())
-            .map(|id| *id)
-            .collect();
-        self.0.sort_unstable();
+        self.0
+            .retain(|meta_data| meta_data.type_id != TypeId::of::<T>());
     }
 }
 
-impl From<&Vec<BumpBox<'_, dyn Component>>> for EntityType {
-    fn from(value: &Vec<BumpBox<'_, dyn Component>>) -> Self {
-        let mut converted = value.iter().map(|c| (**c).type_id()).collect_vec();
-        converted.sort_unstable();
+impl<I: Iterator<Item = ComponentMetaData>> From<I> for EntityType {
+    fn from(value: I) -> Self {
+        let mut converted = value.collect_vec();
+        converted.sort_unstable_by_key(|meta_data| meta_data.type_id);
         EntityType(converted)
     }
 }
 
-impl From<Vec<TypeId>> for EntityType {
-    fn from(mut value: Vec<TypeId>) -> Self {
-        value.sort_unstable();
-        EntityType(value)
-    }
-}
-
 impl Index<usize> for EntityType {
-    type Output = TypeId;
+    type Output = ComponentMetaData;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
+    }
+}
+
+/// generic destructor
+pub(crate) unsafe fn drop_fn<T: Component>(ptr: *mut u8) {
+    ptr.cast::<T>().drop_in_place();
+}
+
+/// manually memory managed and type erased component data storage
+pub(crate) struct ComponentStorage {
+    data: BumpVec<'static, u8>,
+    pub(crate) meta_data: ComponentMetaData,
+    stride: usize,
+    align_padding: usize,
+}
+
+impl ComponentStorage {
+    /// creates a new component storage for a compontent byte size
+    pub(crate) fn from_meta_data(meta_data: ComponentMetaData) -> Self {
+        let mut data = if meta_data.size == 0 {
+            vec_in_global_arena(&ENTITY_ARENA)
+        } else {
+            vec_in_global_arena_with_capacity(&ENTITY_ARENA, COMPONENT_COLUMN_INIT_SIZE)
+        };
+        let align_padding = address_align_padding(data.as_ptr(), meta_data.alignment);
+        data.extend(std::iter::repeat_n(0, align_padding));
+
+        Self {
+            data,
+            meta_data,
+            stride: (meta_data.size + (meta_data.size % meta_data.alignment)),
+            align_padding,
+        }
+    }
+
+    /// returns wether or not the component storage is empty
+    pub(crate) fn is_empty(&self) -> bool {
+        debug_assert!(self.data.len() >= self.align_padding);
+        self.data.len() == self.align_padding
+    }
+
+    /// stores a new component
+    pub(crate) fn push_component<T: Component>(&mut self, component: T) {
+        debug_assert_eq!(self.meta_data.type_id, TypeId::of::<T>());
+
+        let manual = ManuallyDrop::new(component);
+        let ptr = &manual as *const ManuallyDrop<T> as *const u8;
+
+        let first_new_byte = self.data.len();
+        self.data.extend(std::iter::repeat_n(0, self.stride));
+        let dst = &mut self.data[first_new_byte] as *mut u8;
+
+        // this is safe because the sizes are equivalent
+        unsafe { copy_nonoverlapping(ptr, dst, self.meta_data.size) };
+    }
+
+    /// adds the data from a component entry to the storage
+    pub(crate) fn push_component_entry(&mut self, entry: ComponentEntry) {
+        debug_assert_eq!(self.meta_data.size, entry.bytes.len());
+        debug_assert_eq!(self.meta_data.type_id, entry.type_id);
+
+        let padding = self.stride - entry.bytes.len();
+        self.data.extend(entry.bytes);
+        self.data.extend(std::iter::repeat_n(0, padding));
+    }
+
+    /// gets an immutable reference of the n'th stored component
+    pub(crate) fn get_nth_component<T: Component>(&self, n: usize) -> &T {
+        assert!(
+            self.component_count() > n,
+            "Index {n} out of bounds (len is {}).",
+            self.component_count()
+        );
+        debug_assert_eq!(self.meta_data.type_id, TypeId::of::<T>());
+        let index = n * self.stride + self.align_padding;
+        // this is safe because the types are the same
+        unsafe { &*(&self.data[index] as *const u8 as *const T) }
+    }
+
+    /// gets a mutable reference of the n'th stored component
+    pub(crate) fn get_nth_component_mut<T: Component>(&mut self, n: usize) -> &mut T {
+        assert!(
+            self.component_count() > n,
+            "Index {n} out of bounds (len is {}).",
+            self.component_count()
+        );
+        debug_assert_eq!(self.meta_data.type_id, TypeId::of::<T>());
+        let index = n * self.stride + self.align_padding;
+        unsafe { &mut *(&mut self.data[index] as *mut u8 as *mut T) }
+    }
+
+    /// removes the n'th component and puts the last component data in its place, returns the component
+    pub(crate) fn swap_remove_nth_component<T: Component>(&mut self, n: usize) -> T {
+        assert!(
+            self.component_count() > n,
+            "Index {n} out of bounds (len is {}).",
+            self.component_count()
+        );
+        debug_assert_eq!(self.meta_data.type_id, TypeId::of::<T>());
+        let index = n * self.stride + self.align_padding;
+
+        // this is safe because the sizes are the same
+        let data_ref = unsafe { &*(&self.data[index] as *const u8 as *const T) };
+        let component: T = unsafe { transmute_copy(data_ref) };
+
+        for i in (0..self.stride).rev() {
+            self.data.swap_remove(index + i);
+        }
+
+        component
+    }
+
+    /// removes the n'th component as an entry and puts the last component data in its place, returns the entry
+    pub(crate) fn swap_remove_nth_component_entry(&mut self, n: usize) -> ComponentEntry {
+        assert!(
+            self.component_count() > n,
+            "Index {n} out of bounds (len is {}).",
+            self.component_count()
+        );
+        let index = n * self.stride + self.align_padding;
+        let bytes = self
+            .data
+            .iter()
+            .copied()
+            .skip(index)
+            .take(self.meta_data.size)
+            .collect_vec();
+
+        for i in (0..self.stride).rev() {
+            self.data.swap_remove(index + i);
+        }
+
+        ComponentEntry {
+            type_id: self.meta_data.type_id,
+            bytes,
+        }
+    }
+
+    /// deletes the n'th component and puts the last component data in its place, calls ``drop`` on the component
+    pub(crate) fn swap_delete_nth_component(&mut self, n: usize) {
+        assert!(
+            self.component_count() > n,
+            "Index {n} out of bounds (len is {}).",
+            self.component_count()
+        );
+        let index = n * self.stride + self.align_padding;
+
+        let data_ptr = &mut self.data[index] as *mut u8;
+        // this is safe because the drop function is the correct one
+        unsafe {
+            (self.meta_data.drop_fn)(data_ptr); // call drop
+        }
+
+        for i in (0..self.stride).rev() {
+            self.data.swap_remove(index + i);
+        }
+    }
+
+    /// the number of components currently stored
+    pub(crate) fn component_count(&self) -> usize {
+        (self.data.len() - self.align_padding) / self.stride
+    }
+}
+
+impl Drop for ComponentStorage {
+    fn drop(&mut self) {
+        while !self.is_empty() {
+            self.swap_delete_nth_component(0);
+        }
     }
 }
 
@@ -72,7 +290,7 @@ pub(crate) struct EntityRecord {
 /// archetype meta data
 pub(crate) struct Archetype {
     pub(crate) id: ArchetypeID,
-    pub(crate) components: AHashMap<TypeId, BumpVec<'static, BumpBox<'static, dyn Component>>>,
+    pub(crate) components: AHashMap<TypeId, ComponentStorage>,
 }
 
 impl Archetype {
@@ -84,64 +302,5 @@ impl Archetype {
     /// checks wether or not the archetype contains no component data
     pub(crate) fn is_empty(&self) -> bool {
         self.components.values().nth(0).unwrap().is_empty()
-    }
-}
-
-/// type erased component data storage functionality
-pub(crate) trait ComponentStorage {
-    /// stores a new component
-    unsafe fn push_component<T: Component>(&mut self, component: T);
-    /// gets the reference of the n'th stored component
-    unsafe fn get_nth_component_mut<T: Component>(&mut self, n: usize) -> &mut T;
-    /// removes the n'th component and puts the last component data in its place
-    unsafe fn swap_remove_nth_component<T: Component>(&mut self, n: usize) -> T;
-    /// reserves space for exactly n components
-    fn reserve_components<T: Component>(&mut self, n: usize);
-}
-
-impl ComponentStorage for BumpVec<'static, u8> {
-    unsafe fn push_component<T: Component>(&mut self, component: T) {
-        let manual = ManuallyDrop::new(component);
-        let ptr = &manual as *const ManuallyDrop<T> as *const u8;
-
-        let first_new_byte = self.len();
-        self.extend(std::iter::repeat(0).take(size_of::<T>()));
-        let dst = &mut self[first_new_byte] as *mut u8;
-
-        copy_nonoverlapping(ptr, dst, size_of::<T>());
-    }
-
-    unsafe fn get_nth_component_mut<T: Component>(&mut self, n: usize) -> &mut T {
-        let index = n * size_of::<T>();
-        assert!(
-            self.len() >= index + size_of::<T>(),
-            "Index {n} out of bounds (len is {}).",
-            self.len() / size_of::<T>()
-        );
-        &mut *(&mut self[index] as *mut u8 as *mut T)
-    }
-
-    unsafe fn swap_remove_nth_component<T: Component>(&mut self, n: usize) -> T {
-        let index = n * size_of::<T>();
-        assert!(
-            self.len() >= index + size_of::<T>(),
-            "Index {n} out of bounds (len is {}).",
-            self.len() / size_of::<T>()
-        );
-
-        let mut bytes = vec![0u8; size_of::<T>()];
-
-        for i in (0..size_of::<T>()).rev() {
-            let byte = self.swap_remove(index + i);
-            bytes[i] = byte;
-        }
-
-        // this is safe because the sizes are the same
-        let data_ref = &*(&bytes[0] as *const u8 as *const T);
-        transmute_copy(data_ref)
-    }
-
-    fn reserve_components<T: Component>(&mut self, n: usize) {
-        self.reserve(n * size_of::<T>());
     }
 }

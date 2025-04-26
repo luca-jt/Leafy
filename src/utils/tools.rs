@@ -165,3 +165,10 @@ pub(crate) fn vec3_to_vector3(v: &Vec3) -> Vector3<f32> {
 pub(crate) fn padding<T>() -> usize {
     16 - (size_of::<T>() % 16)
 }
+
+// Returns the padding of the adress in bytes corresponding to the memory alignment.
+pub fn address_align_padding(addr: *const u8, align: usize) -> usize {
+    let start = addr as usize;
+    let next_aligned = (start + align - 1) & !(align - 1);
+    next_aligned - start
+}

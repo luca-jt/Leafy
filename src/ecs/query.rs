@@ -12,8 +12,8 @@ pub trait QueryType<'a>: 'static {
     type BaseType: Component;
     /// Downcast return type.
     type ReturnType;
-    /// General downcast function.
-    fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType;
+    /// General unwrap function that might unwrap based on the query return type.
+    fn maybe_unwrap(any: Option<&'a mut Self::BaseType>) -> Self::ReturnType;
 }
 
 impl<'a, T> QueryType<'a> for &'static T
@@ -24,8 +24,9 @@ where
     type BaseType = T;
     type ReturnType = &'a T;
 
-    fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType {
-        (&**any.unwrap() as &dyn Any).downcast_ref::<T>().unwrap()
+    #[inline]
+    fn maybe_unwrap(any: Option<&'a mut T>) -> Self::ReturnType {
+        any.unwrap() as &T
     }
 }
 
@@ -37,10 +38,9 @@ where
     type BaseType = T;
     type ReturnType = &'a mut T;
 
-    fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType {
-        (&mut **any.unwrap() as &mut dyn Any)
-            .downcast_mut::<T>()
-            .unwrap()
+    #[inline]
+    fn maybe_unwrap(any: Option<&'a mut T>) -> Self::ReturnType {
+        any.unwrap()
     }
 }
 
@@ -52,8 +52,9 @@ where
     type BaseType = T;
     type ReturnType = Option<&'a T>;
 
-    fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType {
-        Some((&**any? as &dyn Any).downcast_ref::<T>().unwrap())
+    #[inline]
+    fn maybe_unwrap(any: Option<&'a mut T>) -> Self::ReturnType {
+        any.map(|mutref| mutref as &T)
     }
 }
 
@@ -65,8 +66,9 @@ where
     type BaseType = T;
     type ReturnType = Option<&'a mut T>;
 
-    fn downcast(any: Option<&'a mut BumpBox<dyn Component>>) -> Self::ReturnType {
-        Some((&mut **any? as &mut dyn Any).downcast_mut::<T>().unwrap())
+    #[inline]
+    fn maybe_unwrap(any: Option<&'a mut T>) -> Self::ReturnType {
+        any
     }
 }
 
@@ -140,11 +142,11 @@ macro_rules! impl_query {
                     // SAFETY: only one query can exist at a time and the raw pointer is
                     // only used for tracking the current iteration
                     // debug assert in ECS function prohibits multiple mutable references to the same component
-                    if self.component_index < unsafe { (*archetype).components.values().next().unwrap().len() } {
+                    if self.component_index < unsafe { (*archetype).components.values().next().unwrap().component_count() } {
                         let ret = (
                             $(
-                                $ret::downcast(unsafe {
-                                    (*archetype).components.get_mut(&TypeId::of::<<$ret as QueryType>::BaseType>()).map(|cs| &mut cs[self.component_index])
+                                $ret::maybe_unwrap(unsafe {
+                                    (*archetype).components.get_mut(&TypeId::of::<<$ret as QueryType>::BaseType>()).map(|storage| storage.get_nth_component_mut::<<$ret as QueryType>::BaseType>(self.component_index))
                                 })
                             ),+
                         );
