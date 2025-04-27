@@ -18,7 +18,7 @@ pub(crate) const FAR_PLANE: f32 = 100.0;
 pub(crate) const FAR_PLANE_SPRITE: f32 = 2.0;
 
 pub(crate) const ENTITY_ALLOCATOR_CHUNK_SIZE: usize = 10_000_000;
-pub(crate) const COMPONENT_COLUMN_INIT_SIZE: usize = 1024; // in bytes
+pub(crate) const COMPONENT_COLUMN_INIT_SIZE: usize = 100;
 
 /// a single time step in the animation system
 pub(crate) const TIME_STEP: TimeDuration = TimeDuration(0.001);

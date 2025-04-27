@@ -3,7 +3,7 @@ use fyrox_sound::pool::Handle;
 use fyrox_sound::source::SoundSource;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
-/// The trait that all components need to implement. Must be manually implemented.
+/// The trait that all components need to implement. Must be manually implemented. ZST's are currently not supported by the engine.
 pub trait Component: Any {}
 
 macro_rules! impl_arithmetic_basics {

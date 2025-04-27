@@ -72,21 +72,32 @@ mod tests {
 
     #[test]
     fn entity_test() {
-        struct A;
+        struct A {
+            _i: u16,
+        }
         impl Component for A {}
-        struct B;
+
+        struct B {
+            _i: u16,
+        }
         impl Component for B {}
-        struct C;
+
+        struct C {
+            _i: u16,
+        }
         impl Component for C {}
-        struct D;
+
+        struct D {
+            _i: u16,
+        }
         impl Component for D {}
 
         let mut ecs = EntityManager::new();
-        let a = ecs.create_entity(components!(A, B));
-        let x = ecs.create_entity(components!(A, B));
+        let a = ecs.create_entity(components!(A { _i: 42 }, B { _i: 42 }));
+        let x = ecs.create_entity(components!(A { _i: 42 }, B { _i: 42 }));
         assert!(ecs.delete_entity(a));
-        assert!(ecs.add_component(x, C));
-        assert!(ecs.add_component(x, D));
+        assert!(ecs.add_component(x, C { _i: 42 }));
+        assert!(ecs.add_component(x, D { _i: 42 }));
         assert!(ecs.has_component::<D>(x));
         ecs.remove_component::<D>(x).unwrap();
         assert!(!ecs.has_component::<D>(x));

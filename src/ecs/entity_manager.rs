@@ -399,16 +399,6 @@ impl EntityManager {
         self.texture_map.delete_sheet(path)
     }
 
-    /// Checks the current state of the entities that exist and deletes all the assets that are not currently used by any of them.
-    pub fn delete_unused_assets(&mut self) {
-        todo!();
-    }
-
-    /// Deletes all the asset data that was loaded from the given file path.
-    pub fn delete_data_from_file_origin(&mut self, path: impl AsRef<Path>) {
-        todo!();
-    }
-
     /// Computes the rigid body physics data from component data and stores it for physics sim. When you update component data that influences this, you can call this function to refresh the state. Relevant components are ``RigidBody``, ``Scale`` and ``Renderable``. When creating a new entity or adding/removing a relevant component, this will be called automatically if necessary.
     pub fn recompute_rigid_body_data(&mut self, entity: EntityID) {
         if unsafe { &*self.ecs.get() }.has_component::<Renderable>(entity)
@@ -603,31 +593,27 @@ impl ECS {
         Some(component)
     }
 
-    /// gets the vector of all associated component TypeId's (returns ``None`` if the entity ID is invalid)
-    pub(crate) fn get_entity_type(&self, entity: EntityID) -> Option<EntityType> {
-        let record = self.entity_index.get(&entity)?;
-        let archetype = self.archetypes.get(&record.archetype_id).unwrap();
-        Some(EntityType::from(
-            archetype
-                .components
-                .values()
-                .map(|storage| storage.meta_data),
-        ))
-    }
-
     /// Adds a component to an existing entity and returns ``false`` if the component was already present.
     pub(crate) fn add_component<T: Component>(&mut self, entity: EntityID, component: T) -> bool {
+        assert_ne!(
+            size_of::<T>(),
+            0,
+            "ZST's are currently not supported as components."
+        );
+
         if self.has_component::<T>(entity) {
             let component_name = type_name::<T>();
             log::warn!("The entity {entity:?} already has a component of type {component_name:?}.");
             return false;
         }
+
         let entity_type = self.get_entity_type(entity);
         if entity_type.is_none() {
             log::warn!("EntityID not found.");
             return false;
         }
         let mut entity_type = entity_type.unwrap();
+
         let record = self.entity_index.get(&entity).unwrap();
         let old_archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
         let old_arch_id = old_archetype.id;
@@ -760,6 +746,18 @@ impl ECS {
         self.archetypes.clear();
         self.type_to_archetype.clear();
         reset_global_arena(&ENTITY_ARENA);
+    }
+
+    /// gets the vector of all associated component TypeId's (returns ``None`` if the entity ID is invalid)
+    fn get_entity_type(&self, entity: EntityID) -> Option<EntityType> {
+        let record = self.entity_index.get(&entity)?;
+        let archetype = self.archetypes.get(&record.archetype_id).unwrap();
+        Some(EntityType::from(
+            archetype
+                .components
+                .values()
+                .map(|storage| storage.meta_data),
+        ))
     }
 
     /// gets the archetype id of an entity type and creates a new archetype if necessary

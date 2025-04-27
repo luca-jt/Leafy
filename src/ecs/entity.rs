@@ -63,6 +63,12 @@ pub struct MetaDataComponentEntry {
 impl MetaDataComponentEntry {
     /// Converts a component to an internal data entry.
     pub fn from_component<T: Component>(component: T) -> Self {
+        assert_ne!(
+            size_of::<T>(),
+            0,
+            "ZST's are currently not supported as components."
+        );
+
         Self {
             entry: ComponentEntry::from_component(component),
             meta_data: ComponentMetaData::new::<T>(),
@@ -125,11 +131,10 @@ pub(crate) struct ComponentStorage {
 impl ComponentStorage {
     /// creates a new component storage for a compontent byte size
     pub(crate) fn from_meta_data(meta_data: ComponentMetaData) -> Self {
-        let mut data = if meta_data.size == 0 {
-            vec_in_global_arena(&ENTITY_ARENA)
-        } else {
-            vec_in_global_arena_with_capacity(&ENTITY_ARENA, COMPONENT_COLUMN_INIT_SIZE)
-        };
+        let mut data = vec_in_global_arena_with_capacity(
+            &ENTITY_ARENA,
+            COMPONENT_COLUMN_INIT_SIZE * meta_data.size,
+        );
         let align_padding = address_align_padding(data.as_ptr(), meta_data.alignment);
         data.extend(std::iter::repeat_n(0, align_padding));
 
@@ -180,6 +185,7 @@ impl ComponentStorage {
             self.component_count()
         );
         debug_assert_eq!(self.meta_data.type_id, TypeId::of::<T>());
+
         let index = n * self.stride + self.align_padding;
         // this is safe because the types are the same
         unsafe { &*(&self.data[index] as *const u8 as *const T) }
@@ -193,6 +199,7 @@ impl ComponentStorage {
             self.component_count()
         );
         debug_assert_eq!(self.meta_data.type_id, TypeId::of::<T>());
+
         let index = n * self.stride + self.align_padding;
         unsafe { &mut *(&mut self.data[index] as *mut u8 as *mut T) }
     }
