@@ -2,7 +2,7 @@ raytrace the current scene
 switchable render backends -> vulkan support, use a static reference to a dyn trait object
 skeletal animations
 
-rebranding of the engine to Leafy and first publish
+rebranding of the engine to Leafy and first publish, docs with links, readme
 collision fix -> sequential solver? + better memory allocation + performance, terrain collision, trees
 volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
 graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, depth of field
@@ -21,3 +21,4 @@ object outlining with stencil buffer
 bloom
 LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit
 better time step management in animation system (seems to be too slow)
+in collision if both objects are not moving, they should not check for collisions, IGNORING_COLLISION should not register collisions to reduce solver iterations
