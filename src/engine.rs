@@ -87,6 +87,7 @@ impl<A: FallingLeafApp> Engine<A> {
     fn time_step_sim(&mut self) {
         self.animation_system_mut().last_collisions.clear();
         let dt = self.time_of_last_sim.delta_time();
+        self.time_of_last_sim.reset();
         let transformed_dt = dt * self.animation_system().animation_speed;
         self.time_accumulated += transformed_dt;
 
@@ -102,8 +103,6 @@ impl<A: FallingLeafApp> Engine<A> {
         if self.mode() == EngineMode::Running {
             update_doppler_data(self, transformed_dt);
         }
-
-        self.time_of_last_sim.reset();
     }
 
     /// Access to the stored app. This way you can access your app struct in event functions. You should not use this inside the ``FallingLeafApp`` trait functions as that would harm the dynamically checked borrowing rules.

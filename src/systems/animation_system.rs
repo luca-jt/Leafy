@@ -132,6 +132,7 @@ impl AnimationSystem {
                     .as_ref()
                     .map(|flags| flags.get_bit(STATIC_COLLISION))
                     .unwrap_or(false);
+
                 let static_collision_2 = entity_data[j]
                     .7
                     .as_ref()
@@ -144,6 +145,7 @@ impl AnimationSystem {
                     .as_ref()
                     .map(|flags| flags.get_bit(IGNORING_COLLISION))
                     .unwrap_or(false);
+
                 let ingores_collision_2 = entity_data[j]
                     .7
                     .as_ref()
@@ -151,7 +153,7 @@ impl AnimationSystem {
                     .unwrap_or(false);
 
                 // ignore collision resolvement if a relevant flag is set
-                if ingores_collision_1 || ingores_collision_2 {
+                if ingores_collision_1 || ingores_collision_2 || (!is_dynamic_1 && !is_dynamic_2) {
                     continue;
                 }
 

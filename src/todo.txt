@@ -20,5 +20,3 @@ ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
 bloom
 LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit
-better time step management in animation system (seems to be too slow)
-in collision if both objects are not moving, they should not check for collisions, IGNORING_COLLISION should not register collisions to reduce solver iterations

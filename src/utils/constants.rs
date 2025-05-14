@@ -21,7 +21,7 @@ pub(crate) const ENTITY_ALLOCATOR_CHUNK_SIZE: usize = 10_000_000;
 pub(crate) const COMPONENT_COLUMN_INIT_SIZE: usize = 100;
 
 /// a single time step in the animation system
-pub(crate) const TIME_STEP: TimeDuration = TimeDuration(0.001);
+pub(crate) const TIME_STEP: TimeDuration = TimeDuration(0.002);
 
 /// Earth's gravity.
 pub const G: Acceleration = Acceleration::new(0.0, -9.81, 0.0);
