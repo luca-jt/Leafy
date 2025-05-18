@@ -1,4 +1,5 @@
 use crate::internal_prelude::*;
+use crate::rendering::shader::ShaderProgram;
 use crate::rendering::sprite_renderer::SpriteSheet;
 use stb_image::image::Image;
 use std::ptr;
@@ -832,11 +833,14 @@ impl Drop for Skybox {
 }
 
 /// the screen texture used for 3D rendering
+#[repr(C)]
 pub(crate) struct ScreenTexture {
     multi_fbo: GLuint,
     multi_texture: GLuint,
+    bloom_multi_texture: GLuint,
     fbo: GLuint,
     texture: GLuint,
+    bloom_texture: GLuint,
     multi_rbo: GLuint,
     rbo: GLuint,
     vao: GLuint,
@@ -845,6 +849,9 @@ pub(crate) struct ScreenTexture {
     height: GLsizei,
     tmp_viewport: [GLint; 4],
     msaa: bool,
+    ping_pong_fbos: [GLuint; 2],
+    ping_pong_textures: [GLuint; 2],
+    color_attachments: Vec<GLenum>,
 }
 
 impl ScreenTexture {
@@ -853,32 +860,70 @@ impl ScreenTexture {
     pub(crate) fn new(width: GLsizei, height: GLsizei, msaa: bool, samples: GLsizei) -> Self {
         let mut multi_fbo = 0;
         let mut multi_texture = 0;
+        let mut bloom_multi_texture = 0;
         let mut fbo = 0;
         let mut texture = 0;
+        let mut bloom_texture = 0;
         let mut multi_rbo = 0;
         let mut rbo = 0;
         let mut vao = 0;
         let mut vbo = 0;
+        let mut ping_pong_fbos = [0, 0];
+        let mut ping_pong_textures = [0, 0];
         unsafe {
-            // RENDER BUFFERS FOR DEPTH + STENCIL
+            // BLOOM TEXTURES
+            gl::GenTextures(1, &mut bloom_texture);
+            gl::BindTexture(gl::TEXTURE_2D, bloom_texture);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA16F as GLint,
+                width,
+                height,
+                0,
+                gl::RGBA,
+                gl::FLOAT,
+                ptr::null()
+            );
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
+
+            gl::GenTextures(1, &mut bloom_multi_texture);
+            gl::BindTexture(gl::TEXTURE_2D_MULTISAMPLE, bloom_multi_texture);
+            gl::TexImage2DMultisample(
+                gl::TEXTURE_2D_MULTISAMPLE,
+                samples,
+                gl::RGBA16F,
+                width,
+                height,
+                gl::TRUE
+            );
+
+            // RENDER BUFFERS FOR DEPTH + STENCIL MULTISAMPLED
             gl::GenRenderbuffers(1, &mut multi_rbo);
             gl::BindRenderbuffer(gl::RENDERBUFFER, multi_rbo);
             gl::RenderbufferStorageMultisample(gl::RENDERBUFFER, 4, gl::DEPTH24_STENCIL8, width, height);
 
-            // MULTISAMPLED FRAME BUFFER
+            // MULTISAMPLED FRAME BUFFER WITH TEXTURES
             gl::GenFramebuffers(1, &mut multi_fbo);
+
             gl::GenTextures(1, &mut multi_texture);
             gl::BindTexture(gl::TEXTURE_2D_MULTISAMPLE, multi_texture);
             gl::TexImage2DMultisample(
                 gl::TEXTURE_2D_MULTISAMPLE,
                 samples,
-                gl::RGBA,
+                gl::RGBA16F,
                 width,
                 height,
                 gl::TRUE
             );
             gl::BindFramebuffer(gl::FRAMEBUFFER, multi_fbo);
             gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D_MULTISAMPLE, multi_texture, 0);
+            gl::BindTexture(gl::TEXTURE_2D_MULTISAMPLE, bloom_multi_texture);
+            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT1, gl::TEXTURE_2D_MULTISAMPLE, bloom_multi_texture, 0);
+
             gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, multi_rbo);
             assert_eq!(gl::CheckFramebufferStatus(gl::FRAMEBUFFER), gl::FRAMEBUFFER_COMPLETE);
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -888,25 +933,31 @@ impl ScreenTexture {
             gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
             gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, width, height);
 
-            // FRAME BUFFER
+            // FRAME BUFFER WITH TEXTURES
             gl::GenFramebuffers(1, &mut fbo);
+
             gl::GenTextures(1, &mut texture);
             gl::BindTexture(gl::TEXTURE_2D, texture);
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGBA as GLint,
+                gl::RGBA16F as GLint,
                 width,
                 height,
                 0,
                 gl::RGBA,
-                gl::UNSIGNED_BYTE,
+                gl::FLOAT,
                 ptr::null()
             );
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
             gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
             gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, texture, 0);
+            gl::BindTexture(gl::TEXTURE_2D, bloom_texture);
+            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT1, gl::TEXTURE_2D, bloom_texture, 0);
+
             gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, rbo);
             assert_eq!(gl::CheckFramebufferStatus(gl::FRAMEBUFFER), gl::FRAMEBUFFER_COMPLETE);
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -947,13 +998,40 @@ impl ScreenTexture {
             } else {
                 gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
             }
+
+            // PING PONG FRAMEBUFFERS
+            gl::GenFramebuffers(2, &mut ping_pong_fbos[0]);
+            gl::GenTextures(2, &mut ping_pong_textures[0]);
+            for i in 0..2 {
+                gl::BindFramebuffer(gl::FRAMEBUFFER, ping_pong_fbos[i]);
+                gl::BindTexture(gl::TEXTURE_2D, ping_pong_textures[i]);
+                gl::TexImage2D(
+                    gl::TEXTURE_2D,
+                    0,
+                    gl::RGBA16F as GLint,
+                    width,
+                    height,
+                    0,
+                    gl::RGBA,
+                    gl::FLOAT,
+                    ptr::null()
+                );
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
+                gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, ping_pong_textures[i], 0);
+            }
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
 
         Self {
             multi_fbo,
             multi_texture,
+            bloom_multi_texture,
             fbo,
             texture,
+            bloom_texture,
             multi_rbo,
             rbo,
             vao,
@@ -961,7 +1039,10 @@ impl ScreenTexture {
             width,
             height,
             tmp_viewport: [0; 4],
-            msaa
+            msaa,
+            ping_pong_fbos,
+            ping_pong_textures,
+            color_attachments: vec![gl::COLOR_ATTACHMENT0, gl::COLOR_ATTACHMENT1]
         }
     }
 
@@ -990,18 +1071,49 @@ impl ScreenTexture {
             } else {
                 gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
             }
+            gl::DrawBuffers(2, self.color_attachments.as_ptr());
         }
     }
 
     /// unbind the screen texture and use the default frame buffer
     #[rustfmt::skip]
-    pub(crate) fn unbind(&self) {
+    pub(crate) fn unbind(&self, bloom_shader: &ShaderProgram) {
         unsafe {
+            // blit mulisampled texture if necessary
             if self.msaa {
                 gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.multi_fbo);
                 gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.fbo);
-                gl::BlitFramebuffer(0, 0, self.width, self.height, 0, 0, self.width, self.height, gl::COLOR_BUFFER_BIT, gl::NEAREST);
+                for attachment in self.color_attachments.iter().copied() {
+                    gl::ReadBuffer(attachment);
+                    gl::DrawBuffer(attachment);
+                    gl::BlitFramebuffer(0, 0, self.width, self.height, 0, 0, self.width, self.height, gl::COLOR_BUFFER_BIT, gl::NEAREST);
+                }
             }
+
+            // bloom blur
+            let mut horizontal = true;
+            bloom_shader.use_program();
+            gl::BindVertexArray(self.vao);
+            for i in 0..10 {
+                gl::BindFramebuffer(gl::FRAMEBUFFER, self.ping_pong_fbos[horizontal as usize]);
+
+                let source_texture = if i == 0 {
+                    self.bloom_texture
+                } else {
+                    self.ping_pong_textures[!horizontal as usize]
+                };
+
+                gl::ActiveTexture(gl::TEXTURE0);
+                gl::BindTexture(gl::TEXTURE_2D, source_texture);
+                gl::Uniform1i(0, 0);
+                gl::Uniform1i(1, horizontal as GLint);
+                gl::DrawArrays(gl::TRIANGLES, 0, 3);
+
+                horizontal = !horizontal;
+            }
+            gl::BindVertexArray(0);
+
+            // reset frame buffer binding
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
             gl::Viewport(
                 self.tmp_viewport[0],
@@ -1019,16 +1131,15 @@ impl ScreenTexture {
     }
 
     /// render the screen texture triangle
-    pub(crate) fn render(&self, params: PostProcessingParams) {
+    pub(crate) fn render(&self) {
         unsafe {
             gl::BindVertexArray(self.vao);
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.texture);
+            gl::ActiveTexture(gl::TEXTURE1);
+            gl::BindTexture(gl::TEXTURE_2D, self.ping_pong_textures[0]);
             gl::Uniform1i(0, 0);
-            gl::Uniform1f(1, params.gamma);
-            gl::Uniform1f(2, params.hue);
-            gl::Uniform1f(3, params.saturation);
-            gl::Uniform1f(4, params.value);
+            gl::Uniform1i(1, 1);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
             gl::BindVertexArray(0);
         }
@@ -1047,22 +1158,27 @@ impl Drop for ScreenTexture {
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteVertexArrays(1, &self.vao);
             gl::DeleteTextures(1, &self.multi_texture);
+            gl::DeleteTextures(1, &self.bloom_multi_texture);
             gl::DeleteRenderbuffers(1, &self.multi_rbo);
             gl::DeleteRenderbuffers(1, &self.rbo);
             gl::DeleteFramebuffers(1, &self.multi_fbo);
             gl::DeleteTextures(1, &self.texture);
+            gl::DeleteTextures(1, &self.bloom_texture);
             gl::DeleteFramebuffers(1, &self.fbo);
+            gl::DeleteFramebuffers(2, &self.ping_pong_fbos[0]);
+            gl::DeleteTextures(2, &self.ping_pong_textures[0]);
         }
     }
 }
 
-/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself!
+/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself! The exposure parameter is an absolute value. The default value is ``1.2``.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PostProcessingParams {
     pub gamma: f32,
     pub hue: f32,
     pub saturation: f32,
     pub value: f32,
+    pub exposure: f32,
 }
 
 impl Default for PostProcessingParams {
@@ -1072,6 +1188,7 @@ impl Default for PostProcessingParams {
             hue: 1.0,
             saturation: 1.0,
             value: 1.0,
+            exposure: 1.2,
         }
     }
 }

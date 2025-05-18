@@ -13,7 +13,8 @@ in vec4 frag_pos_dir_light[MAX_DIR_LIGHT_MAPS];
 in vec3 cam_position;
 in mat3 TBN;
 
-out vec4 out_color;
+layout(location = 0) out vec4 out_color;
+layout(location = 1) out vec4 bright_color;
 
 struct PointLightData {
     vec4 light_pos;
@@ -169,4 +170,5 @@ void main() {
     }
 
     out_color = vec4(textured.rgb * final_light, textured.a);
+    bright_color = dot(out_color.rgb, vec3(0.2126, 0.7152, 0.0722)) > 1.0 ? vec4(out_color.rgb, 1.0) : vec4(0.0, 0.0, 0.0, 1.0);
 }

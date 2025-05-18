@@ -113,6 +113,9 @@ impl ShaderProgram {
 
         let c_out_color = CString::new("out_color").unwrap();
         unsafe { gl::BindFragDataLocation(id, 0, c_out_color.as_ptr()) };
+        let c_bright_color = CString::new("bright_color").unwrap();
+        unsafe { gl::BindFragDataLocation(id, 1, c_bright_color.as_ptr()) };
+
         log::debug!("Compiled shader {name:?}: {elapsed_time:.2}ms");
 
         Self { id, name }
@@ -149,9 +152,11 @@ pub(crate) struct ShaderCatalog {
     pub(crate) skybox: ShaderProgram,
     pub(crate) screen: ShaderProgram,
     pub(crate) sprite: ShaderProgram,
+    pub(crate) bloom: ShaderProgram,
     pub(crate) light_buffer: UniformBuffer,
     pub(crate) matrix_buffer: UniformBuffer,
     pub(crate) ortho_buffer: UniformBuffer,
+    pub(crate) post_process_buffer: UniformBuffer,
 }
 
 impl ShaderCatalog {
@@ -166,6 +171,7 @@ impl ShaderCatalog {
         );
         let matrix_buffer = UniformBuffer::new(size_of::<Mat4>() * 2 + size_of::<Vec4>());
         let ortho_buffer = UniformBuffer::new(size_of::<Mat4>() * 2);
+        let post_process_buffer = UniformBuffer::new(size_of::<GLfloat>() * 5);
 
         let mut render_shaders = AHashMap::new();
         render_shaders.insert(
@@ -182,11 +188,13 @@ impl ShaderCatalog {
             shadow: Self::create_shadow(),
             cube_shadow: Self::create_cube_shadow(),
             skybox: Self::create_skybox(&matrix_buffer),
-            screen: Self::create_screen(),
+            screen: Self::create_screen(&post_process_buffer),
             sprite: Self::create_sprite(&ortho_buffer),
+            bloom: Self::create_bloom(),
             light_buffer,
             matrix_buffer,
             ortho_buffer,
+            post_process_buffer,
         }
     }
 
@@ -205,8 +213,17 @@ impl ShaderCatalog {
     }
 
     /// creates a new screen texture shader
-    fn create_screen() -> ShaderProgram {
-        ShaderProgram::new(SCREEN_VERT, SCREEN_FRAG, None, "Screen Texture")
+    fn create_screen(post_process_buffer: &UniformBuffer) -> ShaderProgram {
+        let program = ShaderProgram::new(SCREEN_VERT, SCREEN_FRAG, None, "Screen Texture");
+
+        program.add_unif_buffer("post_process", post_process_buffer, 3);
+
+        program
+    }
+
+    /// creates a new bloom blur shader
+    fn create_bloom() -> ShaderProgram {
+        ShaderProgram::new(BLUR_VERT, BLUR_FRAG, None, "Blur")
     }
 
     /// creates a new skybox shader

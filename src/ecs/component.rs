@@ -348,6 +348,12 @@ impl SoundController {
     }
 }
 
+impl Default for SoundController {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Adds a hitbox to an entity and specifies the position and scale of it relative to the enity's (requires ``Renderable`` to work and should only be used with meshes that have a volume).
 #[derive(Debug, Copy, Clone)]
 pub struct Collider {

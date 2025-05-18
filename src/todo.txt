@@ -14,9 +14,8 @@ cascaded shadow mapping -> dir light shadow maps need projection matrix size par
 raycasting
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution)
 
+LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit
 add built-in shading styles like cell shading and custom shaders
 make instance renderer able to render textured and colored at the same time?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
-bloom
-LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit

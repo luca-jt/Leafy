@@ -44,6 +44,8 @@ pub(crate) const SCREEN_VERT: &str = include_str!(shader_path!("screen.vert"));
 pub(crate) const SCREEN_FRAG: &str = include_str!(shader_path!("screen.frag"));
 pub(crate) const SPRITE_VERT: &str = include_str!(shader_path!("sprite.vert"));
 pub(crate) const SPRITE_FRAG: &str = include_str!(shader_path!("sprite.frag"));
+pub(crate) const BLUR_VERT: &str = include_str!(shader_path!("blur.vert"));
+pub(crate) const BLUR_FRAG: &str = include_str!(shader_path!("blur.frag"));
 
 // included meshes
 pub(crate) const TRIANGLE_MESH: &[u8] = include_bytes!(model_path!("triangle.obj"));

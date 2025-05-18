@@ -4,11 +4,16 @@ in vec2 tex_coords_v;
 
 out vec4 out_color;
 
-layout(location = 0) uniform sampler2D tex_sampler;
-layout(location = 1) uniform float gamma;
-layout(location = 2) uniform float hue;
-layout(location = 3) uniform float saturation;
-layout(location = 4) uniform float value;
+layout (std140, binding = 3, column_major) uniform post_process {
+    float gamma;
+    float hue;
+    float saturation;
+    float value;
+    float exposure;
+};
+
+layout(location = 0) uniform sampler2D scene_texture;
+layout(location = 1) uniform sampler2D bloom_texture;
 
 vec3 rgb2hsv(vec3 c) {
     vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -33,18 +38,25 @@ vec3 clamp_vec(vec3 v, float min_val, float max_val) {
 }
 
 void main() {
-    vec4 textured = texture(tex_sampler, tex_coords_v);
+    vec4 textured = texture(scene_texture, tex_coords_v);
     if (textured.a < 0.001) {
         discard;
     }
-    vec4 rendered = vec4(pow(textured.rgb, vec3(1.0 / gamma)), textured.a);
+    vec3 bloom_color = texture(bloom_texture, tex_coords_v).rgb;
+
+    // hdr tone mapping
+    vec3 hdr_color = textured.rgb + bloom_color;
+    vec3 tone_mapped = vec3(1.0) - exp(-hdr_color * exposure);
+
+    // gamma correction
+    vec3 corrected = pow(tone_mapped, vec3(1.0 / gamma));
 
     // changes in hsv
-    vec3 hsv = rgb2hsv(clamp_vec(rendered.rgb, 0.0, 1.0));
+    vec3 hsv = rgb2hsv(clamp_vec(corrected, 0.0, 1.0));
     vec3 edited = vec3(hsv.x * hue, hsv.y * saturation, hsv.z * value);
     vec3 final_hsv = clamp_vec(edited, 0.0, 1.0);
 
     // conversion back to rgb
     vec3 final_rgb = hsv2rgb(final_hsv);
-    out_color = vec4(final_rgb, rendered.a);
+    out_color = vec4(final_rgb, textured.a);
 }

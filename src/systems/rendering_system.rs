@@ -48,6 +48,7 @@ impl RenderingSystem {
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LESS);
             gl::Disable(gl::MULTISAMPLE);
+            gl::Disable(gl::FRAMEBUFFER_SRGB);
         }
         let samples = 4;
 
@@ -319,9 +320,9 @@ impl RenderingSystem {
 
     /// renders the screen texture to the default OpenGL frame buffer
     fn render_screen_texture(&self) {
-        self.screen_texture.unbind();
+        self.screen_texture.unbind(&self.shader_catalog.bloom);
         self.shader_catalog.screen.use_program();
-        self.screen_texture.render(self.post_processing_params);
+        self.screen_texture.render();
     }
 
     /// renders the skybox if present
@@ -474,6 +475,7 @@ impl RenderingSystem {
 
     /// updates all the uniform buffers
     fn update_uniform_buffers(&mut self) {
+        // matrix buffer
         self.shader_catalog.matrix_buffer.upload_data(
             0,
             size_of::<Mat4>(),
@@ -491,6 +493,7 @@ impl RenderingSystem {
             &cam_pos_4 as *const Vec4 as *const GLvoid,
         );
 
+        // ortho buffer
         self.shader_catalog.ortho_buffer.upload_data(
             0,
             size_of::<Mat4>(),
@@ -502,6 +505,7 @@ impl RenderingSystem {
             &self.sprite_camera.view as *const Mat4 as *const GLvoid,
         );
 
+        // light buffer
         self.tmp_storage
             .dir_light_data
             .extend(self.directional_lights.iter().map(|(_, map)| DirLightData {
@@ -575,6 +579,33 @@ impl RenderingSystem {
                 + size_of::<GLint>(),
             size_of::<GLint>(),
             &num_point_lights as *const GLint as *const GLvoid,
+        );
+
+        // post processing buffer
+        self.shader_catalog.post_process_buffer.upload_data(
+            0,
+            size_of::<GLfloat>(),
+            &self.post_processing_params.gamma as *const GLfloat as *const GLvoid,
+        );
+        self.shader_catalog.post_process_buffer.upload_data(
+            size_of::<GLfloat>(),
+            size_of::<GLfloat>(),
+            &self.post_processing_params.hue as *const GLfloat as *const GLvoid,
+        );
+        self.shader_catalog.post_process_buffer.upload_data(
+            size_of::<GLfloat>() * 2,
+            size_of::<GLfloat>(),
+            &self.post_processing_params.saturation as *const GLfloat as *const GLvoid,
+        );
+        self.shader_catalog.post_process_buffer.upload_data(
+            size_of::<GLfloat>() * 3,
+            size_of::<GLfloat>(),
+            &self.post_processing_params.value as *const GLfloat as *const GLvoid,
+        );
+        self.shader_catalog.post_process_buffer.upload_data(
+            size_of::<GLfloat>() * 4,
+            size_of::<GLfloat>(),
+            &self.post_processing_params.exposure as *const GLfloat as *const GLvoid,
         );
     }
 

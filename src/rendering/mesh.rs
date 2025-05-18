@@ -232,6 +232,7 @@ impl AlgorithmMesh {
         let mut common_id_iter = triangles1
             .iter()
             .filter(|&id| triangles2.contains(id) && triangles3.contains(id));
+
         let triangle_id = *common_id_iter.next()?;
         assert!(
             common_id_iter.next().is_none(),
@@ -443,6 +444,7 @@ fn add_valid_vertex_pair(
 /// used for the graph representation of a mesh that is required for some algorithmic things
 type MeshErrorGraph = StableUnGraph<ErrorVertex, (), usize>;
 
+/// vertex data for one vertex in the mesh graph that is used for simplifying meshes
 #[derive(Debug, Default, Copy, Clone)]
 struct ErrorVertex {
     position: Vec3,
@@ -637,6 +639,7 @@ impl Mesh {
             assert!(windings.insert(triangle_id, aos_indices).is_none());
             faces.push(aos_indices);
         }
+
         AlgorithmMesh {
             name: self.name.clone(),
             source_file: self.source_file.clone(),
