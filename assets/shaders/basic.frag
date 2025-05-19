@@ -170,5 +170,5 @@ void main() {
     }
 
     out_color = vec4(textured.rgb * final_light, textured.a);
-    bright_color = dot(out_color.rgb, vec3(0.2126, 0.7152, 0.0722)) > 1.0 ? vec4(out_color.rgb, 1.0) : vec4(0.0, 0.0, 0.0, 1.0);
+    bright_color = dot(out_color.rgb, vec3(0.2126, 0.7152, 0.0722)) > 1.001 ? vec4(out_color.rgb, 1.0) : vec4(0.0, 0.0, 0.0, 1.0);
 }

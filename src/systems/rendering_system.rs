@@ -308,8 +308,12 @@ impl RenderingSystem {
 
     /// binds the screen texture frame buffer for rendering
     fn bind_screen_texture(&mut self) {
-        self.screen_texture.bind();
-        self.clear_gl_screen();
+        let float_color = self.clear_color.to_vec4();
+        self.screen_texture.bind(
+            float_color,
+            self.post_processing_params.background_as_scene_element,
+            self.post_processing_params.bloom_background,
+        );
     }
 
     /// render all sprite entities

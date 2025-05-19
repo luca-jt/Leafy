@@ -1061,7 +1061,12 @@ impl ScreenTexture {
     }
 
     /// bind the screen texture for rendering
-    pub(crate) fn bind(&mut self) {
+    pub(crate) fn bind(
+        &mut self,
+        clear_color: Vec4,
+        background_as_scene_element: bool,
+        bloom_background: bool,
+    ) {
         unsafe {
             gl::GetIntegerv(gl::VIEWPORT, &mut self.tmp_viewport[0]);
             gl::Viewport(0, 0, self.width, self.height);
@@ -1071,7 +1076,28 @@ impl ScreenTexture {
             } else {
                 gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
             }
+
+            gl::DrawBuffer(gl::COLOR_ATTACHMENT0);
+
+            let clear_color_a = if background_as_scene_element {
+                clear_color.w
+            } else {
+                0.0
+            };
+
+            gl::ClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color_a);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::DrawBuffer(gl::COLOR_ATTACHMENT1);
+
+            if !(bloom_background && background_as_scene_element) {
+                gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            }
+
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+
             gl::DrawBuffers(2, self.color_attachments.as_ptr());
+            gl::ClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+            gl::Clear(gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
         }
     }
 
@@ -1171,7 +1197,7 @@ impl Drop for ScreenTexture {
     }
 }
 
-/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself! The exposure parameter is an absolute value. The default value is ``1.4``.
+/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself! The exposure parameter is an absolute value. The default value is ``1.4``. The ``background_as_scene_element`` flag determines wether or not the background clear color is used in the HDR color tone mapping of the engine. If this is set to true, the color will be affected by other settings like exposure and will be able to experience bloom - you will need to enable the ``bloom_background`` flag for that as well. The default value for both flags is false.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PostProcessingParams {
     pub gamma: f32,
@@ -1179,6 +1205,8 @@ pub struct PostProcessingParams {
     pub saturation: f32,
     pub value: f32,
     pub exposure: f32,
+    pub background_as_scene_element: bool,
+    pub bloom_background: bool,
 }
 
 impl Default for PostProcessingParams {
@@ -1189,6 +1217,8 @@ impl Default for PostProcessingParams {
             saturation: 1.0,
             value: 1.0,
             exposure: 1.4,
+            background_as_scene_element: false,
+            bloom_background: false,
         }
     }
 }
