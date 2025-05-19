@@ -508,6 +508,7 @@ impl EntityManager {
 }
 
 /// the entity component system that manages all the data associated with an entity
+#[allow(clippy::upper_case_acronyms)]
 pub(crate) struct ECS {
     next_entity: EntityID,
     next_archetype_id: ArchetypeID,

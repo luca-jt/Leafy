@@ -4,7 +4,7 @@ in vec4 v_color;
 in vec2 v_uv;
 flat in float v_tex_idx;
 
-out vec4 out_color;
+layout(location = 0) out vec4 out_color;
 
 layout(location = 0) uniform sampler2D tex_sampler[32];
 

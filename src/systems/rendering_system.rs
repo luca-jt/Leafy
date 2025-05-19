@@ -80,16 +80,18 @@ impl RenderingSystem {
         self.update_lights(entity_manager);
         self.update_uniform_buffers();
         self.reset_renderers();
-
         self.add_entity_data(entity_manager);
         self.confirm_data();
-        self.render_shadows();
-        self.bind_screen_texture();
-        self.render_geometry();
-        self.render_transparent();
 
-        self.render_skybox();
-        self.render_screen_texture();
+        if !self.renderers.is_empty() || self.skybox.is_some() {
+            self.render_shadows();
+            self.bind_screen_texture();
+            self.render_geometry();
+            self.render_transparent();
+            self.render_skybox();
+            self.render_screen_texture();
+        }
+
         self.cleanup_renderers();
         self.render_sprites(entity_manager);
     }

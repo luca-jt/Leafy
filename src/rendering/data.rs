@@ -1171,7 +1171,7 @@ impl Drop for ScreenTexture {
     }
 }
 
-/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself! The exposure parameter is an absolute value. The default value is ``1.2``.
+/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself! The exposure parameter is an absolute value. The default value is ``1.4``.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PostProcessingParams {
     pub gamma: f32,
@@ -1188,7 +1188,7 @@ impl Default for PostProcessingParams {
             hue: 1.0,
             saturation: 1.0,
             value: 1.0,
-            exposure: 1.2,
+            exposure: 1.4,
         }
     }
 }

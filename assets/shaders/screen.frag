@@ -2,7 +2,7 @@
 
 in vec2 tex_coords_v;
 
-out vec4 out_color;
+layout(location = 0) out vec4 out_color;
 
 layout (std140, binding = 3, column_major) uniform post_process {
     float gamma;
