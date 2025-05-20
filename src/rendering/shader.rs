@@ -171,23 +171,23 @@ impl ShaderCatalog {
         );
         let matrix_buffer = UniformBuffer::new(size_of::<Mat4>() * 2 + size_of::<Vec4>());
         let ortho_buffer = UniformBuffer::new(size_of::<Mat4>() * 2);
-        let post_process_buffer = UniformBuffer::new(size_of::<GLfloat>() * 5);
+        let post_process_buffer = UniformBuffer::new(size_of::<GLfloat>() * 5 + size_of::<GLint>());
 
         let mut render_shaders = AHashMap::new();
         render_shaders.insert(
             ShaderType::Basic,
-            Self::create_basic(&light_buffer, &matrix_buffer),
+            Self::create_basic(&light_buffer, &matrix_buffer, &post_process_buffer),
         );
         render_shaders.insert(
             ShaderType::Passthrough,
-            Self::create_passthrough(&matrix_buffer),
+            Self::create_passthrough(&matrix_buffer, &post_process_buffer),
         );
 
         Self {
             render_shaders,
             shadow: Self::create_shadow(),
             cube_shadow: Self::create_cube_shadow(),
-            skybox: Self::create_skybox(&matrix_buffer),
+            skybox: Self::create_skybox(&matrix_buffer, &post_process_buffer),
             screen: Self::create_screen(&post_process_buffer),
             sprite: Self::create_sprite(&ortho_buffer),
             bloom: Self::create_bloom(),
@@ -227,26 +227,38 @@ impl ShaderCatalog {
     }
 
     /// creates a new skybox shader
-    fn create_skybox(matrix_buffer: &UniformBuffer) -> ShaderProgram {
+    fn create_skybox(
+        matrix_buffer: &UniformBuffer,
+        post_process_buffer: &UniformBuffer,
+    ) -> ShaderProgram {
         let program = ShaderProgram::new(SKYBOX_VERT, SKYBOX_FRAG, None, "Skybox");
 
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
+        program.add_unif_buffer("post_process", post_process_buffer, 3);
 
         program
     }
 
     /// creates a new basic instance renderer shader
-    fn create_basic(light_buffer: &UniformBuffer, matrix_buffer: &UniformBuffer) -> ShaderProgram {
+    fn create_basic(
+        light_buffer: &UniformBuffer,
+        matrix_buffer: &UniformBuffer,
+        post_process_buffer: &UniformBuffer,
+    ) -> ShaderProgram {
         let program = ShaderProgram::new(BASIC_VERT, BASIC_FRAG, None, "Instance Basic");
 
         program.add_unif_buffer("light_data", light_buffer, 0);
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
+        program.add_unif_buffer("post_process", post_process_buffer, 3);
 
         program
     }
 
     /// creates a new passthrough instance renderer shader
-    fn create_passthrough(matrix_buffer: &UniformBuffer) -> ShaderProgram {
+    fn create_passthrough(
+        matrix_buffer: &UniformBuffer,
+        post_process_buffer: &UniformBuffer,
+    ) -> ShaderProgram {
         let program = ShaderProgram::new(
             PASSTHROUGH_VERT,
             PASSTHROUGH_FRAG,
@@ -255,6 +267,7 @@ impl ShaderCatalog {
         );
 
         program.add_unif_buffer("matrix_block", matrix_buffer, 1);
+        program.add_unif_buffer("post_process", post_process_buffer, 3);
 
         program
     }

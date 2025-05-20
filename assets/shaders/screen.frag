@@ -10,6 +10,8 @@ layout (std140, binding = 3, column_major) uniform post_process {
     float saturation;
     float value;
     float exposure;
+    bool use_bloom;
+    float bloom_threshold_shift;
 };
 
 layout(location = 0) uniform sampler2D scene_texture;
@@ -42,7 +44,7 @@ void main() {
     if (textured.a < 0.001) {
         discard;
     }
-    vec3 bloom_color = texture(bloom_texture, tex_coords_v).rgb;
+    vec3 bloom_color = use_bloom ? texture(bloom_texture, tex_coords_v).rgb : vec3(0.0);
 
     // hdr tone mapping
     vec3 hdr_color = textured.rgb + bloom_color;

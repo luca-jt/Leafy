@@ -805,7 +805,7 @@ impl Skybox {
     }
 
     /// renders the skybox
-    pub(crate) fn render(&self) {
+    pub(crate) fn render(&self, bloom_threshold_shift_skybox: GLfloat) {
         unsafe {
             gl::DepthFunc(gl::LEQUAL);
             gl::DepthMask(gl::FALSE);
@@ -813,6 +813,7 @@ impl Skybox {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_CUBE_MAP, self.cube_map);
             gl::Uniform1i(0, 0);
+            gl::Uniform1f(1, bloom_threshold_shift_skybox);
             gl::DrawArrays(gl::TRIANGLES, 0, 36);
             gl::BindVertexArray(0);
             gl::DepthMask(gl::TRUE);
@@ -1061,12 +1062,7 @@ impl ScreenTexture {
     }
 
     /// bind the screen texture for rendering
-    pub(crate) fn bind(
-        &mut self,
-        clear_color: Vec4,
-        background_as_scene_element: bool,
-        bloom_background: bool,
-    ) {
+    pub(crate) fn bind(&mut self, clear_color: Vec4, background_as_scene_element: bool) {
         unsafe {
             gl::GetIntegerv(gl::VIEWPORT, &mut self.tmp_viewport[0]);
             gl::Viewport(0, 0, self.width, self.height);
@@ -1088,11 +1084,7 @@ impl ScreenTexture {
             gl::ClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color_a);
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::DrawBuffer(gl::COLOR_ATTACHMENT1);
-
-            if !(bloom_background && background_as_scene_element) {
-                gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-            }
-
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
             gl::DrawBuffers(2, self.color_attachments.as_ptr());
@@ -1103,7 +1095,7 @@ impl ScreenTexture {
 
     /// unbind the screen texture and use the default frame buffer
     #[rustfmt::skip]
-    pub(crate) fn unbind(&self, bloom_shader: &ShaderProgram) {
+    pub(crate) fn unbind(&self, bloom_shader: &ShaderProgram, use_bloom: bool, bloom_iterations: usize) {
         unsafe {
             // blit mulisampled texture if necessary
             if self.msaa {
@@ -1117,27 +1109,29 @@ impl ScreenTexture {
             }
 
             // bloom blur
-            let mut horizontal = true;
-            bloom_shader.use_program();
-            gl::BindVertexArray(self.vao);
-            for i in 0..10 {
-                gl::BindFramebuffer(gl::FRAMEBUFFER, self.ping_pong_fbos[horizontal as usize]);
+            if use_bloom {
+                let mut horizontal = true;
+                bloom_shader.use_program();
+                gl::BindVertexArray(self.vao);
+                for i in 0..(bloom_iterations * 2) {
+                    gl::BindFramebuffer(gl::FRAMEBUFFER, self.ping_pong_fbos[horizontal as usize]);
 
-                let source_texture = if i == 0 {
-                    self.bloom_texture
-                } else {
-                    self.ping_pong_textures[!horizontal as usize]
-                };
+                    let source_texture = if i == 0 {
+                        self.bloom_texture
+                    } else {
+                        self.ping_pong_textures[!horizontal as usize]
+                    };
 
-                gl::ActiveTexture(gl::TEXTURE0);
-                gl::BindTexture(gl::TEXTURE_2D, source_texture);
-                gl::Uniform1i(0, 0);
-                gl::Uniform1i(1, horizontal as GLint);
-                gl::DrawArrays(gl::TRIANGLES, 0, 3);
+                    gl::ActiveTexture(gl::TEXTURE0);
+                    gl::BindTexture(gl::TEXTURE_2D, source_texture);
+                    gl::Uniform1i(0, 0);
+                    gl::Uniform1i(1, horizontal as GLint);
+                    gl::DrawArrays(gl::TRIANGLES, 0, 3);
 
-                horizontal = !horizontal;
+                    horizontal = !horizontal;
+                }
+                gl::BindVertexArray(0);
             }
-            gl::BindVertexArray(0);
 
             // reset frame buffer binding
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -1197,7 +1191,7 @@ impl Drop for ScreenTexture {
     }
 }
 
-/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself! The exposure parameter is an absolute value. The default value is ``1.4``. The ``background_as_scene_element`` flag determines wether or not the background clear color is used in the HDR color tone mapping of the engine. If this is set to true, the color will be affected by other settings like exposure and will be able to experience bloom - you will need to enable the ``bloom_background`` flag for that as well. The default value for both flags is false.
+/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself! The exposure parameter is an absolute value. The default value is 1.4. The ``use_bloom`` flag determines wether or not very bright parts of the scene should experience a bloom effect. This is turned on by default. There is also a ``bloom_threshold_shift`` setting that will control the brightness value at which bloom will be applied. This setting can also be controled for the skybox only. These values both default at 0. For bloom, you can also control the strength computation (iterations). The default value is 5 iterations. The ``background_as_scene_element`` flag determines wether or not the background clear color is used in the HDR color tone mapping of the engine. If this is set to true, the color will be affected by other settings like exposure and will be able to experience bloom. The default value is true.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PostProcessingParams {
     pub gamma: f32,
@@ -1205,8 +1199,11 @@ pub struct PostProcessingParams {
     pub saturation: f32,
     pub value: f32,
     pub exposure: f32,
+    pub use_bloom: bool,
+    pub bloom_threshold_shift: f32,
+    pub bloom_threshold_shift_skybox: f32,
+    pub bloom_iterations: usize,
     pub background_as_scene_element: bool,
-    pub bloom_background: bool,
 }
 
 impl Default for PostProcessingParams {
@@ -1217,8 +1214,11 @@ impl Default for PostProcessingParams {
             saturation: 1.0,
             value: 1.0,
             exposure: 1.4,
-            background_as_scene_element: false,
-            bloom_background: false,
+            use_bloom: true,
+            bloom_threshold_shift: 0.0,
+            bloom_threshold_shift_skybox: 0.0,
+            bloom_iterations: 5,
+            background_as_scene_element: true,
         }
     }
 }

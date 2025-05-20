@@ -287,6 +287,7 @@ impl InstanceRenderer {
         shader_type: ShaderType,
         transparent: bool,
         white_texture: GLuint,
+        is_light_source: bool,
     ) {
         unsafe {
             // bind texture
@@ -330,6 +331,8 @@ impl InstanceRenderer {
                 gl::Uniform1i(20, 14);
                 let use_normal_map = self.attributes.normal_tex_id != white_texture;
                 gl::Uniform1i(21, use_normal_map as GLint);
+            } else {
+                gl::Uniform1i(22, is_light_source as GLint); // only used in the passthrough shader
             }
 
             // draw the instanced triangles corresponding to the index buffer

@@ -31,6 +31,11 @@ impl FallingLeafApp for App {
             .animation_system_mut()
             .set_flying_cam_movement(Some(CAM_MOVE_SPEED));
 
+        engine
+            .rendering_system_mut()
+            .post_processing_params
+            .background_as_scene_element = false;
+
         let mut entity_manager = engine.entity_manager_mut();
 
         let torus_mesh = entity_manager.load_asset_file("examples/simplification/torus.obj")[0];

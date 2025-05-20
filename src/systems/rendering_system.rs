@@ -235,13 +235,13 @@ impl RenderingSystem {
     /// add entity data to the renderers
     fn add_entity_data(&mut self, entity_manager: &EntityManager) {
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        for (position, renderable, scale, orientation, rb, lod) in unsafe {
+        for (position, renderable, scale, orientation, rb, lod, is_light_source) in unsafe {
             entity_manager
-                .query7::<&Position, &Renderable, Option<&EntityFlags>, Option<&Scale>, Option<&Orientation>, Option<&RigidBody>, Option<&LOD>>((None, None))
+                .query9::<&Position, &Renderable, Option<&EntityFlags>, Option<&Scale>, Option<&Orientation>, Option<&RigidBody>, Option<&LOD>, Option<&PointLight>, Option<&DirectionalLight>>((None, None))
         }
             .filter(|(_, _, f_opt, ..)| f_opt.is_none_or(|flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.is_none_or(|dist| (pos.data() - cam_pos).norm() <= dist))
-            .map(|(p, rndrbl, _, s, o, rb, lod)| (p, rndrbl, s, o, rb, lod.copied().unwrap_or_default()))
+            .map(|(p, rndrbl, _, s, o, rb, lod, pl, dl)| (p, rndrbl, s, o, rb, lod.copied().unwrap_or_default(), pl.is_some() || dl.is_some()))
         {
             let opt_mesh = entity_manager.mesh_from_handle(renderable.mesh_type.mesh_handle(), lod);
             if opt_mesh.is_none() {
@@ -281,7 +281,8 @@ impl RenderingSystem {
                         diffuse_tex_id: material.diffuse_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
                         specular_tex_id: material.specular_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
                         normal_tex_id: material.normal_texture.as_ref().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
-                    }
+                    },
+                    is_light_source
                 },
                 trafo: &trafo,
                 mesh,
@@ -312,7 +313,6 @@ impl RenderingSystem {
         self.screen_texture.bind(
             float_color,
             self.post_processing_params.background_as_scene_element,
-            self.post_processing_params.bloom_background,
         );
     }
 
@@ -326,7 +326,11 @@ impl RenderingSystem {
 
     /// renders the screen texture to the default OpenGL frame buffer
     fn render_screen_texture(&self) {
-        self.screen_texture.unbind(&self.shader_catalog.bloom);
+        self.screen_texture.unbind(
+            &self.shader_catalog.bloom,
+            self.post_processing_params.use_bloom,
+            self.post_processing_params.bloom_iterations,
+        );
         self.shader_catalog.screen.use_program();
         self.screen_texture.render();
     }
@@ -335,7 +339,7 @@ impl RenderingSystem {
     fn render_skybox(&self) {
         if let Some(skybox) = self.skybox.as_ref() {
             self.shader_catalog.skybox.use_program();
-            skybox.render();
+            skybox.render(self.post_processing_params.bloom_threshold_shift_skybox);
         }
     }
 
@@ -370,6 +374,7 @@ impl RenderingSystem {
                 renderer_type.spec.shader_type,
                 true,
                 self.white_texture,
+                renderer_type.spec.is_light_source,
             );
         }
         unsafe {
@@ -404,6 +409,7 @@ impl RenderingSystem {
                 renderer_type.spec.shader_type,
                 false,
                 self.white_texture,
+                renderer_type.spec.is_light_source,
             );
         }
     }
@@ -613,6 +619,17 @@ impl RenderingSystem {
             size_of::<GLfloat>(),
             &self.post_processing_params.exposure as *const GLfloat as *const GLvoid,
         );
+        let use_bloom = self.post_processing_params.use_bloom as GLint;
+        self.shader_catalog.post_process_buffer.upload_data(
+            size_of::<GLfloat>() * 5,
+            size_of::<GLint>(),
+            &use_bloom as *const GLint as *const GLvoid,
+        );
+        self.shader_catalog.post_process_buffer.upload_data(
+            size_of::<GLfloat>() * 5 + size_of::<GLint>(),
+            size_of::<GLfloat>(),
+            &self.post_processing_params.bloom_threshold_shift as *const GLfloat as *const GLvoid,
+        );
     }
 
     /// resets all renderers to the initial state
@@ -756,6 +773,7 @@ struct RenderSpec {
     shader_type: ShaderType,
     lod: LOD,
     render_attributes: RenderAttributes,
+    is_light_source: bool,
 }
 
 /// stores the renderer type with rendered entity parameters + renderer

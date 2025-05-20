@@ -44,6 +44,16 @@ layout (std140, binding = 0, column_major) uniform light_data {
     int num_point_lights;
 };
 
+layout (std140, binding = 3, column_major) uniform post_process {
+    float gamma;
+    float hue;
+    float saturation;
+    float value;
+    float exposure;
+    bool use_bloom;
+    float bloom_threshold_shift;
+};
+
 layout(location = 0) uniform vec4 color; // object color
 layout(location = 1) uniform sampler2D tex_sampler;
 layout(location = 2) uniform bool transparent_pass;
@@ -170,5 +180,6 @@ void main() {
     }
 
     out_color = vec4(textured.rgb * final_light, textured.a);
-    bright_color = dot(out_color.rgb, vec3(0.2126, 0.7152, 0.0722)) > 1.001 ? vec4(out_color.rgb, 1.0) : vec4(0.0, 0.0, 0.0, 1.0);
+    float bloom_threshold = 1.0001 + bloom_threshold_shift;
+    bright_color = dot(out_color.rgb, vec3(0.2126, 0.7152, 0.0722)) > bloom_threshold ? vec4(out_color.rgb, 1.0) : vec4(0.0, 0.0, 0.0, 1.0);
 }

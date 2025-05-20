@@ -74,6 +74,16 @@ impl FallingLeafApp for App {
             "examples/3D/skybox/back.jpg",
         ]);
 
+        engine
+            .rendering_system_mut()
+            .post_processing_params
+            .bloom_threshold_shift_skybox = -0.1;
+
+        engine
+            .rendering_system_mut()
+            .post_processing_params
+            .bloom_iterations = 10;
+
         //
         // asset loading
         //
