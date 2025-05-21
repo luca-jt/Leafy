@@ -41,7 +41,7 @@ impl FallingLeafApp for App {
         rendering_system.clear_color = Color32::TRANSPARENT;
         let sprite_grid = rendering_system.sprite_grid_mut(SpriteLayer::Layer0);
         sprite_grid.scale = 0.02;
-        sprite_grid.center = Vec2::from_element(GRID_SIZE as f32 / 2.0);
+        sprite_grid.center = Vec2::from_element(GRID_SIZE as f32 / 2.0 - 0.5);
 
         for row in 0..GRID_SIZE {
             for col in 0..GRID_SIZE {

@@ -19,3 +19,4 @@ add built-in shading styles like cell shading and custom shaders
 make instance renderer able to render textured and colored at the same time?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
+add a color type that can hold hdr colors for meshes -> only a brightness boost option?

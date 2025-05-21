@@ -29,7 +29,7 @@ void main() {
 
     float bloom_threshold = 1.0001 + bloom_threshold_shift;
     float bright_diff = bloom_threshold / ((textured.r * 0.2126 + textured.g * 0.7152 + textured.b * 0.0722) * 3.0) + 0.001;
-    float added_brightness = is_light_source ? bright_diff : 0.0;
+    float added_brightness = is_light_source && bright_diff > 0.0 ? bright_diff : 0.0;
 
     out_color = vec4(textured.rgb + vec3(added_brightness), textured.a);
     bright_color = dot(out_color.rgb, vec3(0.2126, 0.7152, 0.0722)) > bloom_threshold ? vec4(out_color.rgb, 1.0) : vec4(0.0, 0.0, 0.0, 1.0);
