@@ -240,8 +240,7 @@ impl InstanceRenderer {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.attributes.tex_id);
             // bind uniforms
-            let color_vec = self.attributes.color.to_vec4();
-            gl::Uniform4fv(4, 1, &color_vec[0]);
+            gl::Uniform4fv(4, 1, &self.attributes.color[0]);
             gl::Uniform1i(5, 0);
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
@@ -263,8 +262,7 @@ impl InstanceRenderer {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.attributes.tex_id);
             // bind uniforms
-            let color_vec = self.attributes.color.to_vec4();
-            gl::Uniform4fv(24, 1, &color_vec[0]);
+            gl::Uniform4fv(24, 1, &self.attributes.color[0]);
             gl::Uniform1i(25, 0);
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
@@ -309,8 +307,7 @@ impl InstanceRenderer {
             gl::BindTexture(gl::TEXTURE_2D, self.attributes.normal_tex_id);
 
             // bind uniforms
-            let color_vec = self.attributes.color.to_vec4();
-            gl::Uniform4fv(0, 1, &color_vec[0]);
+            gl::Uniform4fv(0, 1, &self.attributes.color[0]);
             gl::Uniform1i(1, 0);
             gl::Uniform1i(2, transparent as GLint);
 

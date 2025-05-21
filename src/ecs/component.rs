@@ -265,6 +265,7 @@ pub struct Renderable {
     pub mesh_attribute: MeshAttribute,
     pub material_source: MaterialSource,
     pub shader_type: ShaderType,
+    pub added_brightness: f32,
 }
 
 impl Component for Renderable {}

@@ -1,5 +1,5 @@
 raytrace the current scene
-switchable render backends -> vulkan support, use a static reference to a dyn trait object
+switchable render backends -> vulkan support, use a static reference to a statically dispatched object with a trait
 skeletal animations
 
 rebranding of the engine to Leafy and first publish, docs with links, readme
@@ -16,7 +16,5 @@ particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing t
 
 LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit
 add built-in shading styles like cell shading and custom shaders
-make instance renderer able to render textured and colored at the same time?
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
-add a color type that can hold hdr colors for meshes -> only a brightness boost option?

@@ -270,7 +270,7 @@ impl RenderingSystem {
                     lod,
                     render_attributes: RenderAttributes {
                         tex_id: renderable.mesh_attribute.texture().and_then(|texture| entity_manager.texture_map.get_tex_id(texture)).unwrap_or(self.white_texture),
-                        color: renderable.mesh_attribute.color().unwrap_or(Color32::WHITE),
+                        color: renderable.mesh_attribute.color().unwrap_or(Color32::WHITE).to_vec4() + Vec4::from_element(renderable.added_brightness),
                         material_data: MaterialData {
                             ambient_color: material.ambient_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
                             diffuse_color: material.diffuse_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
@@ -758,7 +758,7 @@ impl Drop for RenderingSystem {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) struct RenderAttributes {
     pub(crate) tex_id: GLuint,
-    pub(crate) color: Color32,
+    pub(crate) color: Vec4,
     pub(crate) material_data: MaterialData,
     pub(crate) ambient_tex_id: GLuint,
     pub(crate) diffuse_tex_id: GLuint,

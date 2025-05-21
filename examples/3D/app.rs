@@ -129,7 +129,8 @@ impl FallingLeafApp for App {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
                 material_source: MaterialSource::default(),
-                shader_type: ShaderType::Passthrough
+                shader_type: ShaderType::Passthrough,
+                added_brightness: 0.0
             },
             Scale::from_factor(0.1)
         ));
@@ -141,7 +142,8 @@ impl FallingLeafApp for App {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
                 material_source: MaterialSource::default(),
-                shader_type: ShaderType::Passthrough
+                shader_type: ShaderType::Passthrough,
+                added_brightness: 0.0
             },
             Scale::from_factor(0.1)
         ));
@@ -153,7 +155,8 @@ impl FallingLeafApp for App {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Textured(wall_texture.clone()),
                 material_source: MaterialSource::default(),
-                shader_type: ShaderType::Basic
+                shader_type: ShaderType::Basic,
+                added_brightness: 0.0
             },
             Collider::from_type(HitboxType::Box)
         ));
@@ -165,7 +168,8 @@ impl FallingLeafApp for App {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Textured(wall_texture),
                 material_source: MaterialSource::default(),
-                shader_type: ShaderType::Basic
+                shader_type: ShaderType::Basic,
+                added_brightness: 0.0
             },
             Collider::from_type(HitboxType::Box)
         ));
@@ -176,7 +180,8 @@ impl FallingLeafApp for App {
                 mesh_type: MeshType::Custom(hammer_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::GREY),
                 material_source: MaterialSource::default(),
-                shader_type: ShaderType::Basic
+                shader_type: ShaderType::Basic,
+                added_brightness: 0.0
             },
             Velocity::zero(),
             RigidBody::default().with_density(5.0),
@@ -193,7 +198,8 @@ impl FallingLeafApp for App {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::RED),
                 material_source: MaterialSource::default(),
-                shader_type: ShaderType::Basic
+                shader_type: ShaderType::Basic,
+                added_brightness: 0.0
             },
             Velocity::new(-1.0, 0.0, 0.0),
             Orientation::new(45.0, Y_AXIS + Z_AXIS),
@@ -212,7 +218,8 @@ impl FallingLeafApp for App {
                 mesh_type: MeshType::Custom(sphere_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::BLUE),
                 material_source: MaterialSource::default(),
-                shader_type: ShaderType::Basic
+                shader_type: ShaderType::Basic,
+                added_brightness: 0.0
             },
             SoundController::from_handles(&[heli_sound]),
             TouchTime(TimePoint::now()),
@@ -226,7 +233,8 @@ impl FallingLeafApp for App {
                 mesh_type: MeshType::Custom(sphere_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::YELLOW),
                 material_source: MaterialSource::default(),
-                shader_type: ShaderType::Passthrough
+                shader_type: ShaderType::Passthrough,
+                added_brightness: 0.0
             }
         ));
 
