@@ -597,7 +597,7 @@ impl ColliderData<'_> {
         } else {
             0.0
         };
-        // assume the normal vector is form the point of view of 1
+        // assume the normal vector is from the point of view of 1
         // the normal vector in the collision data should be normalized
         if let Some(spec1) = self.mesh_spec() {
             if let Some(spec2) = other.mesh_spec() {
@@ -618,7 +618,7 @@ impl ColliderData<'_> {
     }
 }
 
-/// allows to find the furthest point in a given direction of a collider generially
+/// allows to find the furthest point in a given direction of a collider generically
 trait ColliderSpec {
     fn find_furthest_point(&self, direction: &Vec3) -> Vec3;
 }

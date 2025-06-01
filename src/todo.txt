@@ -3,18 +3,18 @@ switchable render backends -> vulkan support, use a static reference to a static
 skeletal animations
 
 rebranding of the engine to Leafy and first publish, docs with links, readme
-collision fix -> sequential solver? + better memory allocation + performance, terrain collision, trees
+collision fix -> sequential solver? performance, terrain collision, trees
 volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
 graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, depth of field
-scene files and loading of them -> serialization (serde) -> editor
-shadow anti-aliasing -> pcss
-cascaded shadow mapping -> dir light shadow maps need projection matrix size parameter
-2D animation frames
 2D sprite hitboxes with seperate collision checking
+scene files and loading of them -> serialization (serde) -> editor
 raycasting
+2D animation frames, option to always pixel-align sprite positions (projection onto a grid?)
+cascaded shadow mapping -> dir light shadow maps need projection matrix size parameter
+shadow anti-aliasing -> pcss
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution)
 
-LODs dont support the vertex attributes so the usage of them in the shaders with textures and normal maps etc must fit
 add built-in shading styles like cell shading and custom shaders
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
+LODs dont support the vertex attributes -> just use the computed normals with lods and ignore the other textures, for the color use a fallback color in the textured mesh attribute
