@@ -74,6 +74,7 @@ impl AnimationSystem {
     fn handle_collisions(&mut self, entity_manager: &mut EntityManager) {
         let mut entity_data = vec_in_global_arena(&ANIMATION_ARENA);
 
+        #[allow(clippy::manual_inspect)]
         let entity_iterator = unsafe {
             entity_manager
                 .query10::<&EntityID, &mut Position, &Collider, Option<&Renderable>, Option<&mut Velocity>, Option<&mut AngularMomentum>, Option<&Scale>, Option<&RigidBody>, Option<&mut EntityFlags>, Option<&Orientation>>((None, None))

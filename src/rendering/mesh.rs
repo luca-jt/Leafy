@@ -462,6 +462,7 @@ struct ErrorVertexPair {
 
 impl Eq for ErrorVertexPair {}
 
+#[allow(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd<Self> for ErrorVertexPair {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         other.error.partial_cmp(&self.error)

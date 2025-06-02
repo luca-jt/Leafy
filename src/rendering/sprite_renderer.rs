@@ -364,6 +364,7 @@ impl SpriteBatch {
             self.resize_buffer();
         }
         // copy mesh vertex data into the object buffer
+        #[allow(clippy::needless_range_loop)]
         for i in 0..PLANE_MESH_NUM_VERTICES {
             self.obj_buffer[self.obj_buffer_ptr] = SpriteVertex {
                 position: mult_mat4_vec3(config.trafo, &SPRITE_PLANE_VERTICES[i]),

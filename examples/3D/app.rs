@@ -153,7 +153,10 @@ impl FallingLeafApp for App {
             Scale::new(5.0, 0.1, 5.0),
             Renderable {
                 mesh_type: MeshType::Cube,
-                mesh_attribute: MeshAttribute::Textured(wall_texture.clone()),
+                mesh_attribute: MeshAttribute::Textured {
+                    texture: wall_texture.clone(),
+                    fallback_color: None
+                },
                 material_source: MaterialSource::default(),
                 shader_type: ShaderType::Basic,
                 added_brightness: 0.0
@@ -166,7 +169,10 @@ impl FallingLeafApp for App {
             Scale::new(5.0, 0.1, 5.0),
             Renderable {
                 mesh_type: MeshType::Cube,
-                mesh_attribute: MeshAttribute::Textured(wall_texture),
+                mesh_attribute: MeshAttribute::Textured {
+                    texture: wall_texture,
+                    fallback_color: None
+                },
                 material_source: MaterialSource::default(),
                 shader_type: ShaderType::Basic,
                 added_brightness: 0.0

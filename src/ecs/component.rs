@@ -447,7 +447,7 @@ impl EntityFlags {
 }
 
 /// Defines the level of detail for a mesh if used in combination with a ``MeshType``.
-#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq, Default, PartialOrd, Ord)]
 pub enum LOD {
     #[default]
     None = 0,
@@ -571,21 +571,30 @@ pub mod utils {
     #[derive(Debug, PartialEq, Clone)]
     pub enum MeshAttribute {
         Colored(Color32),
-        Textured(Texture),
+        Textured {
+            texture: Texture,
+            fallback_color: Option<Color32>,
+        },
     }
 
     impl MeshAttribute {
         /// Returns the color if present.
-        pub fn color(&self) -> Option<Color32> {
+        pub fn color(&self, is_base_lod: bool) -> Option<Color32> {
             match self {
-                Self::Textured(_) => None,
+                Self::Textured { fallback_color, .. } => {
+                    if !is_base_lod {
+                        *fallback_color
+                    } else {
+                        None
+                    }
+                }
                 Self::Colored(color) => Some(*color),
             }
         }
         /// Returns the texture if present.
         pub fn texture(&self) -> Option<&Texture> {
             match self {
-                Self::Textured(texture) => Some(texture),
+                Self::Textured { texture, .. } => Some(texture),
                 Self::Colored(_) => None,
             }
         }
@@ -657,10 +666,10 @@ pub mod utils {
         }
 
         /// returns the name of the used ambient texture if present
-        pub(crate) fn ambient_texture(&self) -> Option<&str> {
+        pub(crate) fn ambient_texture(&self, is_base_lod: bool) -> Option<&str> {
             match &self.ambient {
                 Ambient::Value(_) => None,
-                Ambient::Texture(name) => Some(name.as_str()),
+                Ambient::Texture(name) => is_base_lod.then_some(name.as_str()),
             }
         }
 
@@ -673,10 +682,10 @@ pub mod utils {
         }
 
         /// returns the name of the used diffuse texture if present
-        pub(crate) fn diffuse_texture(&self) -> Option<&str> {
+        pub(crate) fn diffuse_texture(&self, is_base_lod: bool) -> Option<&str> {
             match &self.diffuse {
                 Diffuse::Value(_) => None,
-                Diffuse::Texture(name) => Some(name.as_str()),
+                Diffuse::Texture(name) => is_base_lod.then_some(name.as_str()),
             }
         }
 
@@ -689,10 +698,19 @@ pub mod utils {
         }
 
         /// returns the name of the used specular texture if present
-        pub(crate) fn specular_texture(&self) -> Option<&str> {
+        pub(crate) fn specular_texture(&self, is_base_lod: bool) -> Option<&str> {
             match &self.specular {
                 Specular::Value(_) => None,
-                Specular::Texture(name) => Some(name.as_str()),
+                Specular::Texture(name) => is_base_lod.then_some(name.as_str()),
+            }
+        }
+
+        /// returns the name of the normal texture if present
+        pub(crate) fn normal_texture(&self, is_base_lod: bool) -> Option<&str> {
+            if is_base_lod {
+                self.normal_texture.as_deref()
+            } else {
+                None
             }
         }
     }

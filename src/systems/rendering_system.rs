@@ -248,6 +248,7 @@ impl RenderingSystem {
                 continue;
             }
             let mesh = opt_mesh.unwrap();
+            let is_base_lod = lod == LOD::None;
 
             let trafo = calc_model_matrix(
                 position,
@@ -270,17 +271,17 @@ impl RenderingSystem {
                     lod,
                     render_attributes: RenderAttributes {
                         tex_id: renderable.mesh_attribute.texture().and_then(|texture| entity_manager.texture_map.get_tex_id(texture)).unwrap_or(self.white_texture),
-                        color: renderable.mesh_attribute.color().unwrap_or(Color32::WHITE).to_vec4() + Vec4::from_element(renderable.added_brightness),
+                        color: renderable.mesh_attribute.color(is_base_lod).unwrap_or(Color32::WHITE).to_vec4() + Vec4::from_element(renderable.added_brightness),
                         material_data: MaterialData {
                             ambient_color: material.ambient_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
                             diffuse_color: material.diffuse_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
                             specular_color: material.specular_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
                             shininess: material.shininess,
                         },
-                        ambient_tex_id: material.ambient_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
-                        diffuse_tex_id: material.diffuse_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
-                        specular_tex_id: material.specular_texture().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
-                        normal_tex_id: material.normal_texture.as_ref().and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
+                        ambient_tex_id: material.ambient_texture(is_base_lod).and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
+                        diffuse_tex_id: material.diffuse_texture(is_base_lod).and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
+                        specular_tex_id: material.specular_texture(is_base_lod).and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
+                        normal_tex_id: material.normal_texture(is_base_lod).and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
                     },
                     is_light_source
                 },
@@ -288,7 +289,7 @@ impl RenderingSystem {
                 mesh,
                 transparent: match &renderable.mesh_attribute {
                     MeshAttribute::Colored(color) => color.a < 255,
-                    MeshAttribute::Textured(texture) => texture.is_transparent,
+                    MeshAttribute::Textured { texture, .. } => texture.is_transparent,
                 },
             };
 

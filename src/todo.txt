@@ -17,4 +17,3 @@ particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing t
 add built-in shading styles like cell shading and custom shaders
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 object outlining with stencil buffer
-LODs dont support the vertex attributes -> just use the computed normals with lods and ignore the other textures, for the color use a fallback color in the textured mesh attribute
