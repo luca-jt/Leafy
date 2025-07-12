@@ -266,8 +266,8 @@ impl SpriteBatch {
 
     /// resize the buffer for more mesh data
     fn resize_buffer(&mut self) {
-        let add_size: usize = self.max_num_meshes * 2;
-        self.max_num_meshes += add_size;
+        let add_size: usize = self.obj_buffer.capacity() * 2 - self.obj_buffer.capacity();
+        self.max_num_meshes *= 2;
         self.obj_buffer.reserve_exact(add_size);
         self.obj_buffer.extend(vec![
             SpriteVertex::default();

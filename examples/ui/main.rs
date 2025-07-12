@@ -14,7 +14,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let app = App;
     let mut engine = EngineAttributes::new()
         .with_title("UI")
-        .with_transparent(true)
         .build_engine()
         .unwrap();
 
