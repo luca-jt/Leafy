@@ -321,7 +321,7 @@ impl RenderingSystem {
     fn render_sprites(&mut self, entity_manager: &EntityManager) {
         self.sprite_renderer.add_data(entity_manager);
         self.shader_catalog.sprite.use_program();
-        self.sprite_renderer.render();
+        self.sprite_renderer.render(self.white_texture);
         self.sprite_renderer.reset();
     }
 
@@ -819,7 +819,7 @@ fn generate_white_texture() -> GLuint {
     unsafe {
         gl::GenTextures(1, &mut white_texture);
         gl::BindTexture(gl::TEXTURE_2D, white_texture);
-        let white_color_data: Vec<u8> = vec![255, 255, 255, 255];
+        let white_color_data = [255_u8, 255, 255, 255];
         gl::TexImage2D(
             gl::TEXTURE_2D,
             0,

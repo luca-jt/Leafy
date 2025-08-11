@@ -7,10 +7,6 @@ use crate::utils::constants::bits::user_level::*;
 use fyrox_sound::math::get_barycentric_coords;
 use winit::keyboard::KeyCode;
 
-/// animation system memory arena that is used for per animation iteration allocation of temp storage
-#[rustfmt::skip]
-static ANIMATION_ARENA: GlobalArenaAllocator = global_arena_allocator::<10_000_000>();
-
 /// The system responsible for all animations of entities in the engine. This includes physics and user-determined animations.
 pub struct AnimationSystem {
     /// Changes the gravity value used for physics computations (default is ``constants::G``).
@@ -18,6 +14,7 @@ pub struct AnimationSystem {
     /// Changes the movement keys used for the built-in flying camera movement (default: up - Space, down - LeftShift, directions - WASD).
     pub flying_cam_keys: MovementKeys,
 
+    pub(crate) frame_arena: BumpArena,
     pub(crate) animation_speed: f32,
     pub(crate) flying_cam_dir: Option<(Vec3, f32)>,
     pub(crate) curr_cam_pos: Vec3,
@@ -31,6 +28,7 @@ impl AnimationSystem {
         Self {
             gravity: G,
             flying_cam_keys: MovementKeys::default(),
+            frame_arena: BumpArena::with_capacity(10_000_000),
             animation_speed: 1.0,
             flying_cam_dir: None,
             curr_cam_pos: ORIGIN,
@@ -41,7 +39,7 @@ impl AnimationSystem {
 
     /// applys all animaion updates to all entities (called once per time step)
     pub(crate) fn update<T: FallingLeafApp>(&mut self, engine: &Engine<T>) {
-        reset_global_arena(&ANIMATION_ARENA);
+        self.frame_arena.reset();
         self.apply_physics(engine.entity_manager_mut().deref_mut());
         self.handle_collisions(engine.entity_manager_mut().deref_mut());
         self.damp_velocities(engine.entity_manager_mut().deref_mut());
@@ -72,7 +70,7 @@ impl AnimationSystem {
 
     /// checks for collision between entities with hitboxes and resolves them
     fn handle_collisions(&mut self, entity_manager: &mut EntityManager) {
-        let mut entity_data = vec_in_global_arena(&ANIMATION_ARENA);
+        let mut entity_data = BumpVec::new_in(&self.frame_arena);
 
         #[allow(clippy::manual_inspect)]
         let entity_iterator = unsafe {
@@ -192,7 +190,9 @@ impl AnimationSystem {
                     is_dynamic: should_seperate_2,
                 };
                 // check for collision
-                if let Some(collision_data) = collider_1.collides_with(&collider_2) {
+                if let Some(collision_data) =
+                    collider_1.collides_with(&collider_2, &self.frame_arena)
+                {
                     // INFO: normal, velocity, and translation vector, etc are POV 1 -> 2
 
                     // set collision flags/data
@@ -460,8 +460,8 @@ impl AnimationSystem {
     }
 
     /// Iterator of the last frame's collision info.
-    pub fn last_collisions(&self) -> impl Iterator<Item = (EntityID, CollisionInfo)> + use<'_> {
-        self.last_collisions.iter().copied()
+    pub fn last_collisions(&self) -> impl Iterator<Item = (EntityID, &CollisionInfo)> {
+        self.last_collisions.iter().map(|(id, info)| (*id, info))
     }
 
     /// Enables/disables the built-in flying cam movement with a movement speed constant.
@@ -589,7 +589,7 @@ impl ColliderData<'_> {
     }
 
     /// checks if two hitboxes collide with each other
-    fn collides_with(&self, other: &Self) -> Option<CollisionData> {
+    fn collides_with(&self, other: &Self, arena_allocator: &BumpArena) -> Option<CollisionData> {
         // calculate the factor of one colliders translation vector
         let translate_factor = if self.is_dynamic && other.is_dynamic {
             0.5
@@ -602,18 +602,18 @@ impl ColliderData<'_> {
         // the normal vector in the collision data should be normalized
         if let Some(spec1) = self.mesh_spec() {
             if let Some(spec2) = other.mesh_spec() {
-                gjk(spec1, spec2, translate_factor)
+                gjk(spec1, spec2, translate_factor, arena_allocator)
             } else {
                 let spec2 = other.sphere_spec().unwrap();
-                gjk(spec1, spec2, translate_factor)
+                gjk(spec1, spec2, translate_factor, arena_allocator)
             }
         } else {
             let spec1 = self.sphere_spec().unwrap();
             if let Some(spec2) = other.mesh_spec() {
-                gjk(spec1, spec2, translate_factor)
+                gjk(spec1, spec2, translate_factor, arena_allocator)
             } else {
                 let spec2 = other.sphere_spec().unwrap();
-                gjk(spec1, spec2, translate_factor)
+                gjk(spec1, spec2, translate_factor, arena_allocator)
             }
         }
     }
@@ -650,7 +650,7 @@ impl ColliderSpec for SphereColliderSpec {
 /// specification for a mesh collider used in collision detection
 struct MeshColliderSpec<'a> {
     transform: Mat4,
-    points: &'a Vec<Vec3>,
+    points: &'a [Vec3],
 }
 
 impl ColliderSpec for MeshColliderSpec<'_> {
@@ -704,6 +704,7 @@ fn gjk(
     collider1: impl ColliderSpec,
     collider2: impl ColliderSpec,
     translate_factor: f32,
+    arena_allocator: &BumpArena,
 ) -> Option<CollisionData> {
     let mut supp_data = support(&collider1, &collider2, &X_AXIS);
     let mut simplex = Simplex::from_points(&[supp_data]);
@@ -717,7 +718,13 @@ fn gjk(
         simplex.push_front(supp_data);
         if solve_simplex(&mut simplex, &mut direction) {
             // use the EPA algorithm in case of a collision
-            return Some(epa(collider1, collider2, simplex, translate_factor));
+            return Some(epa(
+                collider1,
+                collider2,
+                simplex,
+                translate_factor,
+                arena_allocator,
+            ));
         }
     }
 }
@@ -728,11 +735,12 @@ fn epa(
     collider2: impl ColliderSpec,
     simplex: Simplex,
     translate_factor: f32,
+    arena_allocator: &BumpArena,
 ) -> CollisionData {
-    let mut polytope = vec_in_global_arena(&ANIMATION_ARENA);
+    let mut polytope = BumpVec::new_in(arena_allocator);
     polytope.extend(simplex.points);
 
-    let mut faces = vec_in_global_arena(&ANIMATION_ARENA);
+    let mut faces = BumpVec::new_in(arena_allocator);
     faces.extend((0..polytope.len()).tuple_combinations::<(usize, usize, usize)>());
 
     // iteratively add new points to the polytope until the correct normal is found
@@ -772,7 +780,7 @@ fn epa(
         }
 
         polytope.push(supp_data);
-        reconstruct_polytope(&polytope, &mut faces, supp_data);
+        reconstruct_polytope(&polytope, &mut faces, supp_data, arena_allocator);
     }
 }
 
@@ -781,9 +789,10 @@ fn reconstruct_polytope(
     polytope: &[SupportData],
     faces: &mut BumpVec<(usize, usize, usize)>,
     supp_data: SupportData,
+    arena_allocator: &BumpArena,
 ) {
     // find faces to remove
-    let mut faces_to_remove = vec_in_global_arena(&ANIMATION_ARENA);
+    let mut faces_to_remove = BumpVec::new_in(arena_allocator);
     faces_to_remove.extend(faces.iter().enumerate().filter_map(|(i, face)| {
         if same_direction(
             &outward_normal(
@@ -800,7 +809,7 @@ fn reconstruct_polytope(
     }));
 
     // find edges that are not shared between faces
-    let mut dangling_edges = hash_set_in_global_arena(&ANIMATION_ARENA);
+    let mut dangling_edges = hash_set_in_arena(arena_allocator);
     for edge in faces_to_remove
         .iter()
         .flat_map(|face_idx| {

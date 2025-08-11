@@ -11,36 +11,15 @@ const PLANE_MESH_NUM_INDICES: usize = 6;
 pub(crate) struct SpriteRenderer {
     renderer_map: [Vec<SpriteBatch>; 10],
     used_batch_indices: [AHashSet<usize>; 10],
-    white_texture: GLuint,
     pub(crate) grids: [SpriteGrid; 10],
 }
 
 impl SpriteRenderer {
     /// creates a new sprite renderer
     pub(crate) fn new() -> Self {
-        let mut white_texture = 0;
-        unsafe {
-            // 1x1 WHITE TEXTURE
-            gl::GenTextures(1, &mut white_texture);
-            gl::BindTexture(gl::TEXTURE_2D, white_texture);
-            let white_color_data: Vec<u8> = vec![255, 255, 255, 255];
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGBA8 as GLint,
-                1,
-                1,
-                0,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                white_color_data.as_ptr() as *const GLvoid,
-            );
-        }
-
         Self {
             renderer_map: Default::default(),
             used_batch_indices: Default::default(),
-            white_texture,
             grids: [SpriteGrid::default(); 10],
         }
     }
@@ -61,7 +40,7 @@ impl SpriteRenderer {
     }
 
     /// renders all sprites
-    pub(crate) fn render(&self) {
+    pub(crate) fn render(&self, white_texture: GLuint) {
         for batch in self.renderer_map.iter().flatten() {
             batch.confirm_data();
         }
@@ -72,7 +51,7 @@ impl SpriteRenderer {
             }
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.white_texture);
+            gl::BindTexture(gl::TEXTURE_2D, white_texture);
         }
         for layer in self.renderer_map.iter().rev() {
             for batch in layer {
@@ -186,12 +165,6 @@ impl SpriteRenderer {
         self.used_batch_indices[config.layer as usize]
             .insert(self.renderer_map[config.layer as usize].len());
         self.renderer_map[config.layer as usize].push(new_batch);
-    }
-}
-
-impl Drop for SpriteRenderer {
-    fn drop(&mut self) {
-        unsafe { gl::DeleteTextures(1, &self.white_texture) };
     }
 }
 

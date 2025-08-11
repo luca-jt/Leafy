@@ -12,6 +12,7 @@ pub use itertools;
 pub use log;
 pub use nalgebra_glm as glm;
 pub use petgraph;
+pub use smallvec;
 pub use stb_image;
 pub use winit;
 
@@ -46,7 +47,11 @@ pub mod prelude {
     pub use ahash::{AHashMap, AHashSet};
     pub use bumpalo::boxed::Box as BumpBox;
     pub use bumpalo::collections::Vec as BumpVec;
+    pub use bumpalo::Bump as BumpArena;
     pub use gl::types::*;
+    pub use smallvec::smallvec;
+    pub use smallvec::smallvec_inline;
+    pub use smallvec::SmallVec;
 }
 
 /// Common internally used names.
@@ -61,7 +66,6 @@ pub(crate) mod internal_prelude {
     pub(crate) use std::ops::{Deref, DerefMut};
     pub(crate) use std::path::{Path, PathBuf};
     pub(crate) use std::rc::{Rc, Weak};
-    pub(crate) use std::sync::{LazyLock, Mutex};
     pub(crate) use std::time::{Duration, Instant};
 }
 
@@ -72,32 +76,28 @@ mod tests {
 
     #[test]
     fn entity_test() {
-        struct A {
-            _i: u16,
-        }
+        #[allow(dead_code)]
+        struct A(u16);
         impl Component for A {}
 
-        struct B {
-            _i: u16,
-        }
+        #[allow(dead_code)]
+        struct B(u16);
         impl Component for B {}
 
-        struct C {
-            _i: u16,
-        }
+        #[allow(dead_code)]
+        struct C(u16);
         impl Component for C {}
 
-        struct D {
-            _i: u16,
-        }
+        #[allow(dead_code)]
+        struct D(u16);
         impl Component for D {}
 
         let mut ecs = EntityManager::new();
-        let a = ecs.create_entity(components!(A { _i: 42 }, B { _i: 42 }));
-        let x = ecs.create_entity(components!(A { _i: 42 }, B { _i: 42 }));
+        let a = ecs.create_entity(components!(A(42), B(42)));
+        let x = ecs.create_entity(components!(A(42), B(42)));
         assert!(ecs.delete_entity(a));
-        assert!(ecs.add_component(x, C { _i: 42 }));
-        assert!(ecs.add_component(x, D { _i: 42 }));
+        assert!(ecs.add_component(x, C(42)));
+        assert!(ecs.add_component(x, D(42)));
         assert!(ecs.has_component::<D>(x));
         ecs.remove_component::<D>(x).unwrap();
         assert!(!ecs.has_component::<D>(x));

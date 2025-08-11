@@ -11,13 +11,9 @@ pub type MeshHandle = u64;
 #[macro_export]
 macro_rules! components {
     ($($T:expr),+) => {
-        vec![$crate::ecs::entity::MetaDataComponentEntry::from_component($crate::utils::constants::NO_ENTITY), $($crate::ecs::entity::MetaDataComponentEntry::from_component($T)), +]
+        &[$crate::ecs::entity::MetaDataComponentEntry::from_component($crate::utils::constants::NO_ENTITY), $($crate::ecs::entity::MetaDataComponentEntry::from_component($T)), +]
     };
 }
-
-/// internal arena allocator used for entity data
-#[rustfmt::skip]
-pub(crate) static ENTITY_ARENA: GlobalArenaAllocator = global_arena_allocator::<ENTITY_ALLOCATOR_CHUNK_SIZE>();
 
 /// The main manager holding both the ECS containing the enitity data and the asset data ressource registers.
 pub struct EntityManager {
@@ -50,8 +46,8 @@ impl EntityManager {
     }
 
     /// Stores the components, creates a new entity and returns the id of the that entity.
-    pub fn create_entity(&mut self, components: Vec<MetaDataComponentEntry>) -> EntityID {
-        assert!(
+    pub fn create_entity(&mut self, components: &[MetaDataComponentEntry]) -> EntityID {
+        debug_assert!(
             components
                 .iter()
                 .map(|entry| entry.meta_data.type_id)
@@ -530,7 +526,7 @@ impl ECS {
     }
 
     /// Creates a new entity with given components, stores the given data and returns the id.
-    pub(crate) fn create_entity(&mut self, components: Vec<MetaDataComponentEntry>) -> EntityID {
+    pub(crate) fn create_entity(&mut self, components: &[MetaDataComponentEntry]) -> EntityID {
         let new_entity = self.next_entity;
         self.next_entity += 1;
 
@@ -550,7 +546,7 @@ impl ECS {
                 .components
                 .get_mut(&component.meta_data.type_id)
                 .unwrap()
-                .push_component_entry(component.entry);
+                .push_bytes(&component.bytes);
         }
 
         self.entity_index
@@ -614,40 +610,33 @@ impl ECS {
             return false;
         }
         let mut entity_type = entity_type.unwrap();
-
-        let record = self.entity_index.get(&entity).unwrap();
-        let old_archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
-        let old_arch_id = old_archetype.id;
-
-        // remove the entity's components from the old archetype
-        let old_components: Vec<ComponentEntry> = old_archetype
-            .components
-            .values_mut()
-            .map(|storage| storage.swap_remove_nth_component_entry(record.row))
-            .collect();
-
-        if !old_archetype.components.values().nth(0).unwrap().is_empty() {
-            self.edit_record_after_delete(old_arch_id, record.row);
-        }
-
-        // find or create the new archetype
         entity_type.add_component::<T>();
         let new_archetype_id = self.get_arch_id(&entity_type);
+        let record = self.entity_index.get(&entity).unwrap();
 
-        let new_archetype = self.archetypes.get_mut(&new_archetype_id).unwrap();
+        // source and destination for copy of present components
+        // this is safe because the archetypes are guarantied to be different
+        let [new_archetype, old_archetype] = unsafe {
+            self.archetypes
+                .get_disjoint_unchecked_mut([&new_archetype_id, &record.archetype_id])
+        };
+        let [new_archetype, old_archetype] = [new_archetype.unwrap(), old_archetype.unwrap()];
+
         let new_row = new_archetype
             .components
             .get_mut(&TypeId::of::<T>())
             .unwrap()
             .component_count();
 
-        // add all components to new archetype
-        for old_component in old_components {
+        // copy the components to the new archetype and delete them in the old one
+        for storage in old_archetype.components.values_mut() {
+            let bytes = storage.get_nth_byte_slice(record.row);
             new_archetype
                 .components
-                .get_mut(&old_component.type_id)
+                .get_mut(&storage.meta_data.type_id)
                 .unwrap()
-                .push_component_entry(old_component);
+                .push_bytes(bytes);
+            storage.swap_delete_nth_byte_slice(record.row);
         }
         new_archetype
             .components
@@ -655,7 +644,12 @@ impl ECS {
             .unwrap()
             .push_component(component);
 
-        // Update the entity record
+        if !old_archetype.components.values().nth(0).unwrap().is_empty() {
+            let old_archetype_id = old_archetype.id;
+            self.edit_record_after_delete(old_archetype_id, record.row);
+        }
+
+        // update the entity record
         let record = self.entity_index.get_mut(&entity).unwrap();
         record.archetype_id = new_archetype_id;
         record.row = new_row;
@@ -679,44 +673,32 @@ impl ECS {
             return None;
         }
         let mut entity_type = self.get_entity_type(entity)?;
-        let record = self.entity_index.get(&entity)?;
-        let old_archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
-        let old_arch_id = old_archetype.id;
-
-        // Remove the entity's components from the old archetype and save the component
-        let num_old_components = old_archetype
-            .components
-            .values()
-            .nth(0)
-            .unwrap()
-            .component_count();
-
-        let mut tmp_components = Vec::with_capacity(num_old_components - 1);
-        let mut component: Option<T> = None;
-
-        for storage in old_archetype.components.values_mut() {
-            if storage.meta_data.type_id == TypeId::of::<T>() {
-                // this is safe because we check for the type ids
-                component = Some(storage.swap_remove_nth_component::<T>(record.row));
-            } else {
-                tmp_components.push(storage.swap_remove_nth_component_entry(record.row));
-            }
-        }
-
-        if !old_archetype.components.values().nth(0).unwrap().is_empty() {
-            self.edit_record_after_delete(old_arch_id, record.row);
-        }
-
-        if tmp_components.is_empty() {
-            self.entity_index.remove(&entity).unwrap();
-            return component;
-        }
-
-        // Find or create the new archetype
         entity_type.rm_component::<T>();
+        let record = *self.entity_index.get(&entity)?;
+
+        if entity_type.is_empty() {
+            let old_archetype = self.archetypes.get_mut(&record.archetype_id).unwrap();
+            let storage = old_archetype.components.values_mut().nth(0).unwrap();
+            let removed_component = storage.swap_remove_nth_component::<T>(record.row);
+            if !storage.is_empty() {
+                let old_archetype_id = old_archetype.id;
+                self.edit_record_after_delete(old_archetype_id, record.row);
+            }
+            self.entity_index.remove(&entity).unwrap();
+            return Some(removed_component);
+        }
+
+        let mut component: Option<T> = None;
         let new_archetype_id = self.get_arch_id(&entity_type);
 
-        let new_archetype = self.archetypes.get_mut(&new_archetype_id).unwrap();
+        // source and destination for the copy of component data
+        // this is safe because the archetypes are guarantied to be different
+        let [new_archetype, old_archetype] = unsafe {
+            self.archetypes
+                .get_disjoint_unchecked_mut([&new_archetype_id, &record.archetype_id])
+        };
+        let [new_archetype, old_archetype] = [new_archetype.unwrap(), old_archetype.unwrap()];
+
         let new_row = new_archetype
             .components
             .values()
@@ -724,21 +706,33 @@ impl ECS {
             .unwrap()
             .component_count();
 
-        // add the old components to the new archetype
-        for component_entry in tmp_components {
-            new_archetype
-                .components
-                .get_mut(&component_entry.type_id)
-                .unwrap()
-                .push_component_entry(component_entry);
+        // copy and delete the relevant entity's components from the old archetype and save the component removed
+        for storage in old_archetype.components.values_mut() {
+            if storage.meta_data.type_id == TypeId::of::<T>() {
+                // this is safe because we check for the type ids
+                component = Some(storage.swap_remove_nth_component::<T>(record.row));
+            } else {
+                let bytes = storage.get_nth_byte_slice(record.row);
+                new_archetype
+                    .components
+                    .get_mut(&storage.meta_data.type_id)
+                    .unwrap()
+                    .push_bytes(bytes);
+                storage.swap_delete_nth_byte_slice(record.row)
+            }
         }
 
-        // Update the entity record
-        let record = self.entity_index.get_mut(&entity).unwrap();
+        if !old_archetype.components.values().nth(0).unwrap().is_empty() {
+            let old_archetype_id = old_archetype.id;
+            self.edit_record_after_delete(old_archetype_id, record.row);
+        }
+
+        // update the entity record
+        let record = self.entity_index.get_mut(&entity)?;
         record.archetype_id = new_archetype_id;
         record.row = new_row;
 
-        component
+        Some(component.unwrap()) // the component is always removed at this point
     }
 
     /// erases all of the stored entity data
@@ -746,7 +740,6 @@ impl ECS {
         self.entity_index.clear();
         self.archetypes.clear();
         self.type_to_archetype.clear();
-        reset_global_arena(&ENTITY_ARENA);
     }
 
     /// gets the vector of all associated component TypeId's (returns ``None`` if the entity ID is invalid)

@@ -184,6 +184,7 @@ impl Default for EngineAttributes {
     }
 }
 
+#[allow(dead_code)]
 enum AppIcon {
     Default,
     Custom(PathBuf),
