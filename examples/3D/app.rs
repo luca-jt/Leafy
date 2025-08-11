@@ -82,7 +82,7 @@ impl FallingLeafApp for App {
         engine
             .rendering_system_mut()
             .post_processing_params
-            .bloom_iterations = 10;
+            .bloom_iterations = 20;
 
         //
         // asset loading

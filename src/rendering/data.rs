@@ -1191,7 +1191,7 @@ impl Drop for ScreenTexture {
     }
 }
 
-/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself! The exposure parameter is an absolute value. The default value is 1.4. The ``use_bloom`` flag determines wether or not very bright parts of the scene should experience a bloom effect. This is turned on by default. There is also a ``bloom_threshold_shift`` setting that will control the brightness value at which bloom will be applied. This setting can also be controled for the skybox only. These values both default at 0. For bloom, you can also control the strength computation (iterations). The default value is 5 iterations. The ``background_as_scene_element`` flag determines wether or not the background clear color is used in the HDR color tone mapping of the engine. If this is set to true, the color will be affected by other settings like exposure and will be able to experience bloom. The default value is true.
+/// Holds all parameters for post processing. This can be used to change the values of gamma, hue, saturation and brightness. For gamma, typical values are ``1.0`` (default) for linear color space and ``2.2`` for SRGB. The parameters of the HSV color space are all positive factors and are **not** absolute values. Hue is also in range [0, 1] inernally. You have to make shure the values are correct and valid yourself! The exposure parameter is an absolute value. The default value is 1.4. The ``use_bloom`` flag determines wether or not very bright parts of the scene should experience a bloom effect. This is turned on by default. There is also a ``bloom_threshold_shift`` setting that will control the brightness value at which bloom will be applied. This setting can also be controled for the skybox only. These values both default at 0. For bloom, you can also control the strength computation (iterations). The default value is 10 iterations. The ``background_as_scene_element`` flag determines wether or not the background clear color is used in the HDR color tone mapping of the engine. If this is set to true, the color will be affected by other settings like exposure and will be able to experience bloom. The default value is true.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PostProcessingParams {
     pub gamma: f32,
@@ -1217,7 +1217,7 @@ impl Default for PostProcessingParams {
             use_bloom: true,
             bloom_threshold_shift: 0.0,
             bloom_threshold_shift_skybox: 0.0,
-            bloom_iterations: 5,
+            bloom_iterations: 10,
             background_as_scene_element: true,
         }
     }
