@@ -13,6 +13,9 @@ layout (std140, binding = 1, column_major) uniform matrix_block {
 };
 
 void main() {
-    gl_Position = projection * view * model * vec4(position, 1.0);
+    float scale_factor = 1.1;
+    mat4 scale = mat4(scale_factor);
+    scale[3].w = 1;
+    gl_Position = projection * view * model * scale * vec4(position, 1.0);
     v_color = color;
 }

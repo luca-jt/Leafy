@@ -44,8 +44,8 @@ impl RenderingSystem {
             gl::Enable(gl::SCISSOR_TEST);
             gl::Enable(gl::STENCIL_TEST);
             gl::StencilFunc(gl::ALWAYS, 1, 0xFF);
-            gl::StencilOp(gl::KEEP, gl::KEEP, gl::REPLACE);
-            gl::StencilMask(0x00);
+            gl::StencilOp(gl::KEEP, gl::KEEP, gl::KEEP);
+            gl::StencilMask(0xFF);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             gl::Enable(gl::DEPTH_TEST);
@@ -90,8 +90,8 @@ impl RenderingSystem {
         self.bind_screen_texture();
         self.render_geometry(false);
         self.render_geometry(true);
-        self.render_stencil_outlines();
         self.render_skybox();
+        self.render_stencil_outlines();
         self.render_screen_texture();
         self.cleanup_renderers();
 
@@ -353,7 +353,9 @@ impl RenderingSystem {
     fn render_stencil_outlines(&mut self) {
         unsafe {
             gl::StencilFunc(gl::NOTEQUAL, 1, 0xFF);
+            gl::StencilMask(0x00);
             gl::Disable(gl::DEPTH_TEST);
+            gl::DepthMask(gl::FALSE);
         }
         self.shader_catalog.outline.use_program();
 
@@ -366,7 +368,9 @@ impl RenderingSystem {
         }
         unsafe {
             gl::StencilFunc(gl::ALWAYS, 1, 0xFF);
+            gl::StencilMask(0xFF);
             gl::Enable(gl::DEPTH_TEST);
+            gl::DepthMask(gl::TRUE);
         }
     }
 

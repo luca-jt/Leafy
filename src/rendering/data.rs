@@ -852,7 +852,7 @@ pub(crate) struct ScreenTexture {
     msaa: bool,
     ping_pong_fbos: [GLuint; 2],
     ping_pong_textures: [GLuint; 2],
-    color_attachments: Vec<GLenum>,
+    color_attachments: [GLenum; 2],
 }
 
 impl ScreenTexture {
@@ -1043,7 +1043,7 @@ impl ScreenTexture {
             msaa,
             ping_pong_fbos,
             ping_pong_textures,
-            color_attachments: vec![gl::COLOR_ATTACHMENT0, gl::COLOR_ATTACHMENT1]
+            color_attachments: [gl::COLOR_ATTACHMENT0, gl::COLOR_ATTACHMENT1]
         }
     }
 

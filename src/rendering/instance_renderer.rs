@@ -278,22 +278,8 @@ impl InstanceRenderer {
 
     /// renders the object outlines depending on the stencil buffer content, slightly scales all objects for that -> stored data becomes unusable
     pub(crate) fn render_stencil_outlines(&mut self) {
+        // the scaling is done on the gpu
         unsafe {
-            // upscale the objects
-            for model_matrix in self.models.iter_mut().take(self.pos_idx) {
-                *model_matrix = *model_matrix * Scale::from_factor(1.05).scale_matrix();
-            }
-
-            // dynamically copy the updated model data
-            let models_size: GLsizeiptr = (self.pos_idx * size_of::<Mat4>()) as GLsizeiptr;
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
-            gl::BufferSubData(
-                gl::ARRAY_BUFFER,
-                0,
-                models_size,
-                self.models.as_ptr() as *const GLvoid,
-            );
-
             // render the objects
             gl::BindVertexArray(self.vao);
             gl::DrawElementsInstanced(
@@ -320,7 +306,7 @@ impl InstanceRenderer {
     ) {
         unsafe {
             if draw_stencil_outline {
-                gl::StencilMask(0xFF);
+                gl::StencilOp(gl::KEEP, gl::KEEP, gl::REPLACE);
             }
 
             // bind texture
@@ -379,7 +365,7 @@ impl InstanceRenderer {
             gl::BindVertexArray(0);
 
             if draw_stencil_outline {
-                gl::StencilMask(0x00);
+                gl::StencilOp(gl::KEEP, gl::KEEP, gl::KEEP);
             }
         }
     }
