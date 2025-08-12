@@ -153,6 +153,7 @@ pub(crate) struct ShaderCatalog {
     pub(crate) screen: ShaderProgram,
     pub(crate) sprite: ShaderProgram,
     pub(crate) bloom: ShaderProgram,
+    pub(crate) outline: ShaderProgram,
     pub(crate) light_buffer: UniformBuffer,
     pub(crate) matrix_buffer: UniformBuffer,
     pub(crate) ortho_buffer: UniformBuffer,
@@ -191,6 +192,7 @@ impl ShaderCatalog {
             screen: Self::create_screen(&post_process_buffer),
             sprite: Self::create_sprite(&ortho_buffer),
             bloom: Self::create_bloom(),
+            outline: Self::create_outline(&matrix_buffer),
             light_buffer,
             matrix_buffer,
             ortho_buffer,
@@ -224,6 +226,15 @@ impl ShaderCatalog {
     /// creates a new bloom blur shader
     fn create_bloom() -> ShaderProgram {
         ShaderProgram::new(BLUR_VERT, BLUR_FRAG, None, "Blur")
+    }
+
+    /// creates a new bloom blur shader
+    fn create_outline(matrix_buffer: &UniformBuffer) -> ShaderProgram {
+        let program = ShaderProgram::new(OUTLINE_VERT, OUTLINE_FRAG, None, "Outline");
+
+        program.add_unif_buffer("matrix_block", matrix_buffer, 1);
+
+        program
     }
 
     /// creates a new skybox shader

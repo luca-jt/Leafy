@@ -55,5 +55,9 @@ pub mod bits {
         pub const STATIC_COLLISION: u64 = 4;
         /// Enables the doppler effect audio pitch for an entity.
         pub const DOPPLER_EFFECT: u64 = 5;
+        /// Enables object outlining in rendering with the respective color.
+        pub const STENCIL_OUTLINE: u64 = 6;
+        /// Makes an entity invisible and skips the rendering process for it, but keeps the renderer data.
+        pub const INVISIBLE_CACHED: u64 = 7;
     }
 }

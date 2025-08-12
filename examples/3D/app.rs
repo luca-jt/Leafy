@@ -1,4 +1,4 @@
-use falling_leaf::prelude::bits::user_level::{DOPPLER_EFFECT, FLOATING};
+use bits::user_level::{DOPPLER_EFFECT, FLOATING, STENCIL_OUTLINE};
 use falling_leaf::prelude::*;
 use falling_leaf::rendering::data::Skybox;
 use falling_leaf::systems::audio_system::{SoundType, VolumeType};
@@ -128,9 +128,8 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
-                material_source: MaterialSource::default(),
                 shader_type: ShaderType::Passthrough,
-                added_brightness: 0.0
+                ..Default::default()
             },
             Scale::from_factor(0.1)
         ));
@@ -141,9 +140,8 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::from_rgb(255, 255, 200)),
-                material_source: MaterialSource::default(),
                 shader_type: ShaderType::Passthrough,
-                added_brightness: 0.0
+                ..Default::default()
             },
             Scale::from_factor(0.1)
         ));
@@ -157,9 +155,7 @@ impl FallingLeafApp for App {
                     texture: wall_texture.clone(),
                     fallback_color: None
                 },
-                material_source: MaterialSource::default(),
-                shader_type: ShaderType::Basic,
-                added_brightness: 0.0
+                ..Default::default()
             },
             Collider::from_type(HitboxType::Box)
         ));
@@ -173,9 +169,7 @@ impl FallingLeafApp for App {
                     texture: wall_texture,
                     fallback_color: None
                 },
-                material_source: MaterialSource::default(),
-                shader_type: ShaderType::Basic,
-                added_brightness: 0.0
+                ..Default::default()
             },
             Collider::from_type(HitboxType::Box)
         ));
@@ -185,16 +179,15 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Custom(hammer_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::GREY),
-                material_source: MaterialSource::default(),
-                shader_type: ShaderType::Basic,
-                added_brightness: 0.0
+                outline_color: Color32::BLACK,
+                ..Default::default()
             },
             Velocity::zero(),
             RigidBody::default().with_density(5.0),
             Orientation::default(),
             Scale::from_factor(0.7),
             AngularMomentum::from_axis(X_AXIS * 3.0 + Z_AXIS * 4.0),
-            EntityFlags::from_flags(&[FLOATING])
+            EntityFlags::from_flags(&[FLOATING, STENCIL_OUTLINE])
         ));
 
         self.player = entity_manager.create_entity(components!(
@@ -203,9 +196,7 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Cube,
                 mesh_attribute: MeshAttribute::Colored(Color32::RED),
-                material_source: MaterialSource::default(),
-                shader_type: ShaderType::Basic,
-                added_brightness: 0.0
+                ..Default::default()
             },
             Velocity::new(-1.0, 0.0, 0.0),
             Orientation::new(45.0, Y_AXIS + Z_AXIS),
@@ -223,9 +214,7 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Custom(sphere_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::BLUE),
-                material_source: MaterialSource::default(),
-                shader_type: ShaderType::Basic,
-                added_brightness: 0.0
+                ..Default::default()
             },
             SoundController::from_handles(&[heli_sound]),
             TouchTime(TimePoint::now()),
@@ -238,9 +227,8 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Custom(sphere_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::YELLOW),
-                material_source: MaterialSource::default(),
                 shader_type: ShaderType::Passthrough,
-                added_brightness: 0.0
+                ..Default::default()
             }
         ));
 

@@ -6,8 +6,7 @@ use crate::rendering::mesh::Mesh;
 use crate::rendering::shader::ShaderCatalog;
 use crate::rendering::sprite_renderer::{SpriteGrid, SpriteRenderer};
 use crate::systems::event_system::events::user_space::CamPositionChange;
-use crate::utils::constants::bits::user_level::INVISIBLE;
-use std::cmp::Ordering;
+use bits::user_level::{INVISIBLE, INVISIBLE_CACHED, STENCIL_OUTLINE};
 
 /// The system responsible for automated rendering of all entities.
 pub struct RenderingSystem {
@@ -43,6 +42,10 @@ impl RenderingSystem {
         unsafe {
             gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::SCISSOR_TEST);
+            gl::Enable(gl::STENCIL_TEST);
+            gl::StencilFunc(gl::ALWAYS, 1, 0xFF);
+            gl::StencilOp(gl::KEEP, gl::KEEP, gl::REPLACE);
+            gl::StencilMask(0x00);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             gl::Enable(gl::DEPTH_TEST);
@@ -80,19 +83,18 @@ impl RenderingSystem {
         self.update_lights(entity_manager);
         self.update_uniform_buffers();
         self.reset_renderers();
+
         self.add_entity_data(entity_manager);
         self.confirm_data();
-
-        if !self.renderers.is_empty() || self.skybox.is_some() {
-            self.render_shadows();
-            self.bind_screen_texture();
-            self.render_geometry();
-            self.render_transparent();
-            self.render_skybox();
-            self.render_screen_texture();
-        }
-
+        self.render_shadows();
+        self.bind_screen_texture();
+        self.render_geometry(false);
+        self.render_geometry(true);
+        self.render_stencil_outlines();
+        self.render_skybox();
+        self.render_screen_texture();
         self.cleanup_renderers();
+
         self.render_sprites(entity_manager);
     }
 
@@ -235,13 +237,13 @@ impl RenderingSystem {
     /// add entity data to the renderers
     fn add_entity_data(&mut self, entity_manager: &EntityManager) {
         let (render_dist, cam_pos) = (self.render_distance, self.current_cam_config.0);
-        for (position, renderable, scale, orientation, rb, lod, is_light_source) in unsafe {
+        for (position, renderable, flags, scale, orientation, rb, lod, is_light_source) in unsafe {
             entity_manager
                 .query9::<&Position, &Renderable, Option<&EntityFlags>, Option<&Scale>, Option<&Orientation>, Option<&RigidBody>, Option<&LOD>, Option<&PointLight>, Option<&DirectionalLight>>((None, None))
         }
             .filter(|(_, _, f_opt, ..)| f_opt.is_none_or(|flags| !flags.get_bit(INVISIBLE)))
             .filter(|(pos, ..)| render_dist.is_none_or(|dist| (pos.data() - cam_pos).norm() <= dist))
-            .map(|(p, rndrbl, _, s, o, rb, lod, pl, dl)| (p, rndrbl, s, o, rb, lod.copied().unwrap_or_default(), pl.is_some() || dl.is_some()))
+            .map(|(p, rndrbl, f_opt, s, o, rb, lod, pl, dl)| (p, rndrbl, f_opt, s, o, rb, lod.copied().unwrap_or_default(), pl.is_some() || dl.is_some()))
         {
             let opt_mesh = entity_manager.mesh_from_handle(renderable.mesh_type.mesh_handle(), lod);
             if opt_mesh.is_none() {
@@ -283,7 +285,7 @@ impl RenderingSystem {
                         specular_tex_id: material.specular_texture(is_base_lod).and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
                         normal_tex_id: material.normal_texture(is_base_lod).and_then(|name| entity_manager.texture_map.get_material_tex_id(name)).unwrap_or(self.white_texture),
                     },
-                    is_light_source
+                    is_light_source,
                 },
                 trafo: &trafo,
                 mesh,
@@ -291,9 +293,12 @@ impl RenderingSystem {
                     MeshAttribute::Colored(color) => color.a < 255,
                     MeshAttribute::Textured { texture, .. } => texture.is_transparent,
                 },
+                draw_stencil_outline: flags.is_some_and(|f| f.get_bit(STENCIL_OUTLINE)),
             };
 
-            let is_added = self.try_add_data(&render_data);
+            let invisible_cached = flags.is_some_and(|f| f.get_bit(INVISIBLE_CACHED));
+
+            let is_added = self.try_add_data(&render_data, invisible_cached);
             // add new renderer if needed
             if !is_added {
                 self.add_new_renderer(&render_data);
@@ -344,48 +349,36 @@ impl RenderingSystem {
         }
     }
 
-    /// renders all the transparent fragments in the scene
-    fn render_transparent(&self) {
+    /// render all the object outlines depending on the stencil buffer content
+    fn render_stencil_outlines(&mut self) {
         unsafe {
-            gl::DepthMask(gl::FALSE);
-            gl::Disable(gl::CULL_FACE);
+            gl::StencilFunc(gl::NOTEQUAL, 1, 0xFF);
+            gl::Disable(gl::DEPTH_TEST);
         }
-        // @copypasta from render_geometry()
-        let dir_shadow_maps = self.directional_lights.iter().map(|(_, map)| map);
+        self.shader_catalog.outline.use_program();
 
-        let cube_shadow_maps = self
-            .point_lights
-            .values()
-            .filter_map(|info| info.shadow_map.as_ref());
-
-        let mut current_shader: Option<ShaderType> = None;
-
-        for renderer_type in self.renderers.iter().filter(|r| r.transparent) {
-            let new_shader_type = renderer_type.spec.shader_type;
-            if current_shader
-                .map(|shader_type| shader_type != new_shader_type)
-                .unwrap_or(true)
-            {
-                self.shader_catalog.use_shader(&new_shader_type);
-                current_shader = Some(new_shader_type);
-            }
-            renderer_type.renderer.draw_all(
-                dir_shadow_maps.clone(),
-                cube_shadow_maps.clone(),
-                renderer_type.spec.shader_type,
-                true,
-                self.white_texture,
-                renderer_type.spec.is_light_source,
-            );
+        for renderer_type in self
+            .renderers
+            .iter_mut()
+            .filter(|r| r.renderer.contains_data() && r.draw_stencil_outline)
+        {
+            renderer_type.renderer.render_stencil_outlines();
         }
         unsafe {
-            gl::Enable(gl::CULL_FACE);
-            gl::DepthMask(gl::TRUE);
+            gl::StencilFunc(gl::ALWAYS, 1, 0xFF);
+            gl::Enable(gl::DEPTH_TEST);
         }
     }
 
     /// render all the geometry data stored in the renderers
-    fn render_geometry(&self) {
+    fn render_geometry(&self, transparent_pass: bool) {
+        if transparent_pass {
+            unsafe {
+                gl::DepthMask(gl::FALSE);
+                gl::Disable(gl::CULL_FACE);
+            }
+        }
+
         let dir_shadow_maps = self.directional_lights.iter().map(|(_, map)| map);
 
         let cube_shadow_maps = self
@@ -395,23 +388,34 @@ impl RenderingSystem {
 
         let mut current_shader: Option<ShaderType> = None;
 
-        for renderer_type in self.renderers.iter() {
+        for renderer_type in self.renderers.iter().filter(|r| {
+            r.renderer.contains_data() && (!transparent_pass || r.contains_transparency)
+        }) {
             let new_shader_type = renderer_type.spec.shader_type;
-            if current_shader
+            let shader_is_different = current_shader
                 .map(|shader_type| shader_type != new_shader_type)
-                .unwrap_or(true)
-            {
+                .unwrap_or(true);
+
+            if shader_is_different {
                 self.shader_catalog.use_shader(&new_shader_type);
                 current_shader = Some(new_shader_type);
             }
-            renderer_type.renderer.draw_all(
+            renderer_type.renderer.render(
                 dir_shadow_maps.clone(),
                 cube_shadow_maps.clone(),
                 renderer_type.spec.shader_type,
-                false,
+                transparent_pass,
                 self.white_texture,
                 renderer_type.spec.is_light_source,
+                renderer_type.draw_stencil_outline,
             );
+        }
+
+        if transparent_pass {
+            unsafe {
+                gl::Enable(gl::CULL_FACE);
+                gl::DepthMask(gl::TRUE);
+            }
         }
     }
 
@@ -450,12 +454,21 @@ impl RenderingSystem {
     }
 
     /// try to add the render data to an existing renderer
-    fn try_add_data(&mut self, rd: &RenderData) -> bool {
+    fn try_add_data(&mut self, rd: &RenderData, invisible_cached: bool) -> bool {
         for renderer_type in self.renderers.iter_mut() {
-            if renderer_type.spec == rd.spec {
-                renderer_type.renderer.add_position(rd.trafo, rd.mesh);
-                renderer_type.transparent = renderer_type.transparent || rd.transparent;
+            let renderer_fits_spec = renderer_type.spec == rd.spec;
+            let stencil_compatible = (!rd.draw_stencil_outline
+                || renderer_type.draw_stencil_outline)
+                || !renderer_type.renderer.contains_data();
+
+            if renderer_fits_spec && stencil_compatible {
+                if !invisible_cached {
+                    renderer_type.renderer.add_position(rd.trafo, rd.mesh);
+                }
+                renderer_type.contains_transparency =
+                    renderer_type.contains_transparency || rd.transparent;
                 renderer_type.used = true;
+                renderer_type.draw_stencil_outline = rd.draw_stencil_outline;
                 return true;
             }
         }
@@ -464,8 +477,7 @@ impl RenderingSystem {
 
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
-        let mut renderer =
-            InstanceRenderer::new(rd.mesh, rd.spec.shader_type, rd.spec.render_attributes);
+        let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.render_attributes);
 
         renderer.add_position(rd.trafo, rd.mesh);
 
@@ -473,7 +485,8 @@ impl RenderingSystem {
             spec: rd.spec,
             renderer,
             used: true,
-            transparent: rd.transparent,
+            contains_transparency: rd.transparent,
+            draw_stencil_outline: rd.draw_stencil_outline,
         });
 
         log::debug!(
@@ -483,7 +496,7 @@ impl RenderingSystem {
             rd.spec.shader_type
         );
 
-        self.renderers.sort_unstable();
+        self.renderers.sort_unstable_by_key(|r| r.spec.shader_type);
     }
 
     /// updates all the uniform buffers
@@ -637,7 +650,8 @@ impl RenderingSystem {
     fn reset_renderers(&mut self) {
         for renderer_type in self.renderers.iter_mut() {
             renderer_type.renderer.reset();
-            renderer_type.transparent = false;
+            renderer_type.contains_transparency = false;
+            renderer_type.draw_stencil_outline = false;
             renderer_type.used = false;
         }
     }
@@ -782,27 +796,8 @@ struct RendererType {
     spec: RenderSpec,
     renderer: InstanceRenderer,
     used: bool,
-    transparent: bool,
-}
-
-impl Eq for RendererType {}
-
-impl PartialEq<Self> for RendererType {
-    fn eq(&self, other: &Self) -> bool {
-        self.spec.shader_type == other.spec.shader_type
-    }
-}
-
-impl PartialOrd<Self> for RendererType {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for RendererType {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.spec.shader_type.cmp(&other.spec.shader_type)
-    }
+    contains_transparency: bool,
+    draw_stencil_outline: bool,
 }
 
 /// data bundle for rendering
@@ -811,6 +806,7 @@ struct RenderData<'a> {
     trafo: &'a Mat4,
     mesh: &'a Mesh,
     transparent: bool,
+    draw_stencil_outline: bool,
 }
 
 /// generates a 1x1 white texture, the user of the returned texture id is responsible for deleting it

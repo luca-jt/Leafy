@@ -266,9 +266,23 @@ pub struct Renderable {
     pub material_source: MaterialSource,
     pub shader_type: ShaderType,
     pub added_brightness: f32,
+    pub outline_color: Color32,
 }
 
 impl Component for Renderable {}
+
+impl Default for Renderable {
+    fn default() -> Self {
+        Self {
+            mesh_type: MeshType::Cube,
+            mesh_attribute: MeshAttribute::default(),
+            material_source: MaterialSource::default(),
+            shader_type: ShaderType::default(),
+            added_brightness: 0.0,
+            outline_color: Color32::BLACK,
+        }
+    }
+}
 
 /// Enables gravity physics and is used for all computations involving forces.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -419,7 +433,7 @@ impl Default for DirectionalLight {
 /// 64bit flag bitmap for enabling special entity behavior (default: all turned off, the same as component not present).
 /// ### Info
 /// You can use this component independantly of the rest of the engine if you want to.
-/// The bits 6-63 do not influence engine behavior and are free to customize.
+/// The bits 8-63 do not influence engine behavior and are free to customize.
 #[derive(Debug, Default)]
 pub struct EntityFlags(u64);
 

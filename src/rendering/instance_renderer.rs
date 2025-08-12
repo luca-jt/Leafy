@@ -26,7 +26,7 @@ pub(crate) struct InstanceRenderer {
 
 impl InstanceRenderer {
     /// creates a new instance renderer
-    pub(crate) fn new(mesh: &Mesh, shader_type: ShaderType, attributes: RenderAttributes) -> Self {
+    pub(crate) fn new(mesh: &Mesh, attributes: RenderAttributes) -> Self {
         let max_num_instances: usize = 10;
 
         let mut vao = 0; // vertex array
@@ -77,9 +77,7 @@ impl InstanceRenderer {
                 mesh.normals.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
-            if shader_type != ShaderType::Passthrough {
-                bind_instance_nbo();
-            }
+            bind_instance_nbo();
 
             // VERTEX COLOR BUFFER
             gl::GenBuffers(1, &mut cbo);
@@ -101,9 +99,7 @@ impl InstanceRenderer {
                 mesh.tangents.as_ptr() as *const GLvoid,
                 gl::STATIC_DRAW,
             );
-            if shader_type != ShaderType::Passthrough {
-                bind_instance_tbo();
-            }
+            bind_instance_tbo();
 
             // MODEL MATRIX BUFFER
             gl::GenBuffers(1, &mut mbo);
@@ -125,9 +121,7 @@ impl InstanceRenderer {
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
-            if shader_type != ShaderType::Passthrough {
-                bind_instance_nmbo();
-            }
+            bind_instance_nmbo();
 
             // INDECES
             gl::GenBuffers(1, &mut ibo);
@@ -233,6 +227,11 @@ impl InstanceRenderer {
         }
     }
 
+    /// wether or not data was added to the renderer
+    pub(crate) fn contains_data(&self) -> bool {
+        self.pos_idx > 0
+    }
+
     /// renders to a directional shadow map
     pub(crate) fn render_shadows(&self) {
         unsafe {
@@ -277,17 +276,53 @@ impl InstanceRenderer {
         }
     }
 
+    /// renders the object outlines depending on the stencil buffer content, slightly scales all objects for that -> stored data becomes unusable
+    pub(crate) fn render_stencil_outlines(&mut self) {
+        unsafe {
+            // upscale the objects
+            for model_matrix in self.models.iter_mut().take(self.pos_idx) {
+                *model_matrix = *model_matrix * Scale::from_factor(1.05).scale_matrix();
+            }
+
+            // dynamically copy the updated model data
+            let models_size: GLsizeiptr = (self.pos_idx * size_of::<Mat4>()) as GLsizeiptr;
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
+            gl::BufferSubData(
+                gl::ARRAY_BUFFER,
+                0,
+                models_size,
+                self.models.as_ptr() as *const GLvoid,
+            );
+
+            // render the objects
+            gl::BindVertexArray(self.vao);
+            gl::DrawElementsInstanced(
+                gl::TRIANGLES,
+                self.index_count,
+                gl::UNSIGNED_INT,
+                ptr::null(),
+                self.pos_idx as GLsizei,
+            );
+            gl::BindVertexArray(0);
+        }
+    }
+
     /// draws the mesh at all the positions specified until the call of this and clears the positions
-    pub(crate) fn draw_all<'a>(
+    pub(crate) fn render<'a>(
         &self,
         dir_shadow_maps: impl Iterator<Item = &'a ShadowMap>,
         cube_shadow_maps: impl Iterator<Item = &'a CubeShadowMap>,
         shader_type: ShaderType,
-        transparent: bool,
+        transparent_pass: bool,
         white_texture: GLuint,
         is_light_source: bool,
+        draw_stencil_outline: bool,
     ) {
         unsafe {
+            if draw_stencil_outline {
+                gl::StencilMask(0xFF);
+            }
+
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.attributes.tex_id);
@@ -309,7 +344,7 @@ impl InstanceRenderer {
             // bind uniforms
             gl::Uniform4fv(0, 1, &self.attributes.color[0]);
             gl::Uniform1i(1, 0);
-            gl::Uniform1i(2, transparent as GLint);
+            gl::Uniform1i(2, transparent_pass as GLint);
 
             if shader_type != ShaderType::Passthrough {
                 for i in 0..MAX_DIR_LIGHT_MAPS {
@@ -342,6 +377,10 @@ impl InstanceRenderer {
                 self.pos_idx as GLsizei,
             );
             gl::BindVertexArray(0);
+
+            if draw_stencil_outline {
+                gl::StencilMask(0x00);
+            }
         }
     }
 
