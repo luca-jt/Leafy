@@ -1,10 +1,11 @@
 #version 450 core
 
 layout(location = 0) in vec3 position;
-layout(location = 3) in vec4 color;
 layout(location = 5) in mat4 model; // takes up 4 attribute locations
+layout(location = 12) in vec4 outline_color;
+layout(location = 13) in float outline_thickness;
 
-out vec4 v_color;
+out vec4 v_outline_color;
 
 layout (std140, binding = 1, column_major) uniform matrix_block {
     mat4 projection;
@@ -13,9 +14,8 @@ layout (std140, binding = 1, column_major) uniform matrix_block {
 };
 
 void main() {
-    float scale_factor = 1.1;
-    mat4 scale = mat4(scale_factor);
+    mat4 scale = mat4(1.0 + outline_thickness);
     scale[3].w = 1;
     gl_Position = projection * view * model * scale * vec4(position, 1.0);
-    v_color = color;
+    v_outline_color = outline_color;
 }

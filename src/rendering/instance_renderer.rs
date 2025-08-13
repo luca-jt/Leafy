@@ -15,10 +15,14 @@ pub(crate) struct InstanceRenderer {
     tbo: GLuint,
     mbo: GLuint,
     nmbo: GLuint,
+    ocbo: GLuint,
+    otbo: GLuint,
     ibo: GLuint,
     index_count: GLsizei,
     models: Vec<Mat4>,
     normal_matrices: Vec<Mat3>,
+    outline_colors: Vec<Vec4>,
+    outline_thicknesses: Vec<GLfloat>,
     pos_idx: usize,
     max_num_instances: usize,
     pub(crate) color: Vec4,
@@ -37,9 +41,13 @@ impl InstanceRenderer {
         let mut tbo = 0; // tangent vectors
         let mut mbo = 0; // models (includes offsets)
         let mut nmbo = 0; // normal matrices
+        let mut ocbo = 0; // outline colors
+        let mut otbo = 0; // outline thicknesses
         let mut ibo = 0; // indices
         let models = vec![Mat4::identity(); max_num_instances];
         let normal_matrices = vec![Mat3::identity(); max_num_instances];
+        let outline_colors = vec![Vec4::default(); max_num_instances];
+        let outline_thicknesses = vec![0.0; max_num_instances];
 
         unsafe {
             // GENERATE BUFFERS
@@ -123,6 +131,28 @@ impl InstanceRenderer {
             );
             bind_instance_nmbo();
 
+            // OUTLINE COLOR BUFFER
+            gl::GenBuffers(1, &mut ocbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, ocbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (max_num_instances * size_of::<Vec4>()) as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
+            bind_instance_ocbo();
+
+            // OUTLINE THICKNESS BUFFER
+            gl::GenBuffers(1, &mut otbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, otbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (max_num_instances * size_of::<GLfloat>()) as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
+            bind_instance_otbo();
+
             // INDECES
             gl::GenBuffers(1, &mut ibo);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
@@ -145,10 +175,14 @@ impl InstanceRenderer {
             tbo,
             mbo,
             nmbo,
+            ocbo,
+            otbo,
             ibo,
             index_count: 0,
             models,
             normal_matrices,
+            outline_colors,
+            outline_thicknesses,
             pos_idx: 0,
             max_num_instances,
             color,
@@ -161,11 +195,20 @@ impl InstanceRenderer {
         self.max_num_instances += add_size;
 
         self.models.reserve_exact(add_size);
-        self.models.extend(vec![Mat4::identity(); add_size]);
+        self.models
+            .extend(std::iter::repeat_n(Mat4::identity(), add_size));
 
         self.normal_matrices.reserve_exact(add_size);
         self.normal_matrices
-            .extend(vec![Mat3::identity(); add_size]);
+            .extend(std::iter::repeat_n(Mat3::identity(), add_size));
+
+        self.outline_colors.reserve_exact(add_size);
+        self.outline_colors
+            .extend(std::iter::repeat_n(Vec4::default(), add_size));
+
+        self.outline_thicknesses.reserve_exact(add_size);
+        self.outline_thicknesses
+            .extend(std::iter::repeat_n(0.0, add_size));
 
         log::debug!(
             "Resized InstanceRenderer to size: {:?}.",
@@ -188,17 +231,35 @@ impl InstanceRenderer {
                 ptr::null(),
                 gl::DYNAMIC_DRAW,
             );
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.ocbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (self.max_num_instances * size_of::<Vec4>()) as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.otbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (self.max_num_instances * size_of::<GLfloat>()) as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
         }
     }
 
     /// adds a position where the mesh shall be rendered
-    pub(crate) fn add_position(&mut self, trafo: &Mat4, mesh: &Mesh) {
+    pub(crate) fn add_position(&mut self, trafo: &Mat4, mesh: &Mesh, outline_data: OutlineData) {
         if self.pos_idx == self.max_num_instances {
             self.resize_buffer();
         }
         self.models[self.pos_idx] = *trafo;
         self.normal_matrices[self.pos_idx] =
             glm::mat4_to_mat3(&trafo.try_inverse().unwrap().transpose());
+        self.outline_colors[self.pos_idx] = outline_data.color;
+        self.outline_thicknesses[self.pos_idx] = outline_data.thickness;
 
         self.index_count += mesh.num_indices() as GLsizei;
         self.pos_idx += 1;
@@ -208,21 +269,33 @@ impl InstanceRenderer {
     pub(crate) fn confirm_positions(&self) {
         unsafe {
             // dynamically copy the updated model data
-            let models_size: GLsizeiptr = (self.pos_idx * size_of::<Mat4>()) as GLsizeiptr;
             gl::BindBuffer(gl::ARRAY_BUFFER, self.mbo);
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
                 0,
-                models_size,
+                (self.pos_idx * size_of::<Mat4>()) as GLsizeiptr,
                 self.models.as_ptr() as *const GLvoid,
             );
-            let norm_mat_size: GLsizeiptr = (self.pos_idx * size_of::<Mat3>()) as GLsizeiptr;
             gl::BindBuffer(gl::ARRAY_BUFFER, self.nmbo);
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
                 0,
-                norm_mat_size,
+                (self.pos_idx * size_of::<Mat3>()) as GLsizeiptr,
                 self.normal_matrices.as_ptr() as *const GLvoid,
+            );
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.ocbo);
+            gl::BufferSubData(
+                gl::ARRAY_BUFFER,
+                0,
+                (self.pos_idx * size_of::<Vec4>()) as GLsizeiptr,
+                self.outline_colors.as_ptr() as *const GLvoid,
+            );
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.otbo);
+            gl::BufferSubData(
+                gl::ARRAY_BUFFER,
+                0,
+                (self.pos_idx * size_of::<GLfloat>()) as GLsizeiptr,
+                self.outline_thicknesses.as_ptr() as *const GLvoid,
             );
         }
     }
@@ -387,6 +460,8 @@ impl Drop for InstanceRenderer {
             gl::DeleteBuffers(1, &self.tbo);
             gl::DeleteBuffers(1, &self.mbo);
             gl::DeleteBuffers(1, &self.nmbo);
+            gl::DeleteBuffers(1, &self.ocbo);
+            gl::DeleteBuffers(1, &self.otbo);
             gl::DeleteBuffers(1, &self.ibo);
             gl::DeleteVertexArrays(1, &self.vao);
         }

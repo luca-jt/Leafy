@@ -456,3 +456,19 @@ pub(crate) unsafe fn bind_instance_nmbo() {
     gl::VertexAttribDivisor(pos2, 1);
     gl::VertexAttribDivisor(pos3, 1);
 }
+
+/// binds the ocbo attrib pointer for the instance renderer
+pub(crate) unsafe fn bind_instance_ocbo() {
+    let pos = 12;
+    gl::EnableVertexAttribArray(pos);
+    gl::VertexAttribPointer(pos, 4, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
+    gl::VertexAttribDivisor(pos, 1);
+}
+
+/// binds the otbo attrib pointer for the instance renderer
+pub(crate) unsafe fn bind_instance_otbo() {
+    let pos = 13;
+    gl::EnableVertexAttribArray(pos);
+    gl::VertexAttribPointer(pos, 1, gl::FLOAT, gl::FALSE as GLboolean, 0, ptr::null());
+    gl::VertexAttribDivisor(pos, 1);
+}

@@ -18,7 +18,6 @@ particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing t
 generic animations and linear interpolations for any parameter you want (map function ranges to time intervals, provide basic functions out of the box)
 add built-in shading styles like cell shading and custom shaders
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
-
 basic shape render primitives
-object outlining blurred too? more than one outline computation?
-outline color + thickness (scaling) buffer in instance renderer
+
+object outlining blur -> direct HDR color values for bloom? (no added_brightness etc needed)

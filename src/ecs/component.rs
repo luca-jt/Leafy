@@ -266,7 +266,7 @@ pub struct Renderable {
     pub material_source: MaterialSource,
     pub shader_type: ShaderType,
     pub added_brightness: f32,
-    pub outline_color: Color32,
+    pub outline: OutlineData,
 }
 
 impl Component for Renderable {}
@@ -279,7 +279,7 @@ impl Default for Renderable {
             material_source: MaterialSource::default(),
             shader_type: ShaderType::default(),
             added_brightness: 0.0,
-            outline_color: Color32::BLACK,
+            outline: OutlineData::default(),
         }
     }
 }
@@ -917,12 +917,31 @@ pub mod utils {
         Absolute(Vec2),
     }
 
-    /// all shader variants for entity rendering
+    /// All shader variants for entity rendering.
     #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq, PartialOrd, Ord, Default)]
     pub enum ShaderType {
         #[default]
         Basic,
         Passthrough,
         //Custom()
+    }
+
+    /// Data for rendering object outlines. ``thickness`` is relative. ``blur_strength`` corresponds to a number of iterations.
+    #[repr(C)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
+    pub struct OutlineData {
+        pub color: Vec4,
+        pub thickness: GLfloat,
+        pub blur_strength: GLint,
+    }
+
+    impl Default for OutlineData {
+        fn default() -> Self {
+            Self {
+                color: Color32::BLACK.to_vec4(),
+                thickness: 0.1,
+                blur_strength: 0,
+            }
+        }
     }
 }

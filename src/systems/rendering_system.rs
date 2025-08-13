@@ -298,6 +298,7 @@ impl RenderingSystem {
                 },
                 draw_stencil_outline: flags.is_some_and(|f| f.get_bit(STENCIL_OUTLINE)),
                 color: renderable.mesh_attribute.color(is_base_lod).unwrap_or(Color32::WHITE).to_vec4() + Vec4::from_element(renderable.added_brightness),
+                outline_data: renderable.outline,
             };
 
             let invisible_cached = flags.is_some_and(|f| f.get_bit(INVISIBLE_CACHED));
@@ -489,7 +490,9 @@ impl RenderingSystem {
                     || !renderer_type.renderer.contains_data())
             {
                 if !invisible_cached {
-                    renderer_type.renderer.add_position(rd.trafo, rd.mesh);
+                    renderer_type
+                        .renderer
+                        .add_position(rd.trafo, rd.mesh, rd.outline_data);
                 }
                 //renderer_type.contains_transparency = rd.transparent;
                 renderer_type.used = true;
@@ -505,7 +508,7 @@ impl RenderingSystem {
     fn add_new_renderer(&mut self, rd: &RenderData) {
         let mut renderer = InstanceRenderer::new(rd.mesh, rd.color);
 
-        renderer.add_position(rd.trafo, rd.mesh);
+        renderer.add_position(rd.trafo, rd.mesh, rd.outline_data);
 
         self.renderers.push(RendererType {
             spec: rd.spec,
@@ -851,6 +854,7 @@ struct RenderData<'a> {
     transparent: bool,
     draw_stencil_outline: bool,
     color: Vec4,
+    outline_data: OutlineData,
 }
 
 /// generates a 1x1 white texture, the user of the returned texture id is responsible for deleting it

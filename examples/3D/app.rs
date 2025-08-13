@@ -179,7 +179,6 @@ impl FallingLeafApp for App {
             Renderable {
                 mesh_type: MeshType::Custom(hammer_mesh),
                 mesh_attribute: MeshAttribute::Colored(Color32::GREY),
-                outline_color: Color32::BLACK,
                 ..Default::default()
             },
             Velocity::zero(),
