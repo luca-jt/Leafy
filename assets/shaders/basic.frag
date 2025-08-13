@@ -56,18 +56,17 @@ layout (std140, binding = 3, column_major) uniform post_process {
 
 layout(location = 0) uniform vec4 color; // object color
 layout(location = 1) uniform sampler2D tex_sampler;
-layout(location = 2) uniform bool transparent_pass;
-layout(location = 3) uniform sampler2D shadow_samplers[MAX_DIR_LIGHT_MAPS];
-layout(location = 8) uniform samplerCube cube_shadow_samplers[MAX_POINT_LIGHT_MAPS];
-layout(location = 13) uniform vec3 ambient_color;
-layout(location = 14) uniform vec3 diffuse_color;
-layout(location = 15) uniform vec3 specular_color;
-layout(location = 16) uniform float shininess;
-layout(location = 17) uniform sampler2D ambient_sampler;
-layout(location = 18) uniform sampler2D diffuse_sampler;
-layout(location = 19) uniform sampler2D specular_sampler;
-layout(location = 20) uniform sampler2D normal_map_sampler;
-layout(location = 21) uniform bool use_normal_map;
+layout(location = 2) uniform sampler2D shadow_samplers[MAX_DIR_LIGHT_MAPS];
+layout(location = 7) uniform samplerCube cube_shadow_samplers[MAX_POINT_LIGHT_MAPS];
+layout(location = 12) uniform vec3 ambient_color;
+layout(location = 13) uniform vec3 diffuse_color;
+layout(location = 14) uniform vec3 specular_color;
+layout(location = 15) uniform float shininess;
+layout(location = 16) uniform sampler2D ambient_sampler;
+layout(location = 17) uniform sampler2D diffuse_sampler;
+layout(location = 18) uniform sampler2D specular_sampler;
+layout(location = 19) uniform sampler2D normal_map_sampler;
+layout(location = 20) uniform bool use_normal_map;
 
 vec3 sample_offset_directions[20] = vec3[]
 (
@@ -120,7 +119,7 @@ float shadow_calc_dir(int i) {
 
 void main() {
     vec4 textured = texture(tex_sampler, v_uv).rgba * color * v_color;
-    if (textured.a < 0.001 || (textured.a < 0.999 && !transparent_pass)) {
+    if (textured.a < 0.001) {
         discard;
     }
 

@@ -86,15 +86,17 @@ impl RenderingSystem {
 
         self.add_entity_data(entity_manager);
         self.confirm_data();
-        self.render_shadows();
-        self.bind_screen_texture();
-        self.render_geometry(false);
-        self.render_geometry(true);
-        self.render_skybox();
-        self.render_stencil_outlines();
-        self.render_screen_texture();
-        self.cleanup_renderers();
 
+        if !self.renderers.is_empty() || self.skybox.is_some() {
+            self.render_shadows();
+            self.bind_screen_texture();
+            self.render_geometry(false);
+            self.render_geometry(true);
+            self.render_skybox();
+            self.render_stencil_outlines();
+            self.render_screen_texture();
+        }
+        self.cleanup_renderers(entity_manager);
         self.render_sprites(entity_manager);
     }
 
@@ -245,7 +247,8 @@ impl RenderingSystem {
             .filter(|(pos, ..)| render_dist.is_none_or(|dist| (pos.data() - cam_pos).norm() <= dist))
             .map(|(p, rndrbl, f_opt, s, o, rb, lod, pl, dl)| (p, rndrbl, f_opt, s, o, rb, lod.copied().unwrap_or_default(), pl.is_some() || dl.is_some()))
         {
-            let opt_mesh = entity_manager.mesh_from_handle(renderable.mesh_type.mesh_handle(), lod);
+            let mesh_handle = renderable.mesh_type.mesh_handle();
+            let opt_mesh = entity_manager.mesh_from_handle(mesh_handle, lod);
             if opt_mesh.is_none() {
                 continue;
             }
@@ -273,7 +276,6 @@ impl RenderingSystem {
                     lod,
                     render_attributes: RenderAttributes {
                         tex_id: renderable.mesh_attribute.texture().and_then(|texture| entity_manager.texture_map.get_tex_id(texture)).unwrap_or(self.white_texture),
-                        color: renderable.mesh_attribute.color(is_base_lod).unwrap_or(Color32::WHITE).to_vec4() + Vec4::from_element(renderable.added_brightness),
                         material_data: MaterialData {
                             ambient_color: material.ambient_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
                             diffuse_color: material.diffuse_color_val().unwrap_or(vec3(1.0, 1.0, 1.0)),
@@ -289,11 +291,13 @@ impl RenderingSystem {
                 },
                 trafo: &trafo,
                 mesh,
+                mesh_handle,
                 transparent: match &renderable.mesh_attribute {
                     MeshAttribute::Colored(color) => color.a < 255,
                     MeshAttribute::Textured { texture, .. } => texture.is_transparent,
                 },
                 draw_stencil_outline: flags.is_some_and(|f| f.get_bit(STENCIL_OUTLINE)),
+                color: renderable.mesh_attribute.color(is_base_lod).unwrap_or(Color32::WHITE).to_vec4() + Vec4::from_element(renderable.added_brightness),
             };
 
             let invisible_cached = flags.is_some_and(|f| f.get_bit(INVISIBLE_CACHED));
@@ -392,9 +396,11 @@ impl RenderingSystem {
 
         let mut current_shader: Option<ShaderType> = None;
 
-        for renderer_type in self.renderers.iter().filter(|r| {
-            r.renderer.contains_data() && (!transparent_pass || r.contains_transparency)
-        }) {
+        for renderer_type in self
+            .renderers
+            .iter()
+            .filter(|r| r.renderer.contains_data() && transparent_pass == r.contains_transparency)
+        {
             let new_shader_type = renderer_type.spec.shader_type;
             let shader_is_different = current_shader
                 .map(|shader_type| shader_type != new_shader_type)
@@ -405,10 +411,10 @@ impl RenderingSystem {
                 current_shader = Some(new_shader_type);
             }
             renderer_type.renderer.render(
+                &renderer_type.spec.render_attributes,
                 dir_shadow_maps.clone(),
                 cube_shadow_maps.clone(),
                 renderer_type.spec.shader_type,
-                transparent_pass,
                 self.white_texture,
                 renderer_type.spec.is_light_source,
                 renderer_type.draw_stencil_outline,
@@ -434,7 +440,9 @@ impl RenderingSystem {
             shadow_map.bind_light_matrix();
 
             for renderer_type in self.renderers.iter_mut() {
-                renderer_type.renderer.render_shadows();
+                renderer_type
+                    .renderer
+                    .render_shadows(&renderer_type.spec.render_attributes);
             }
             shadow_map.unbind_writing();
         }
@@ -451,7 +459,9 @@ impl RenderingSystem {
             shadow_cube_map.bind_light_uniforms();
 
             for renderer_type in self.renderers.iter_mut() {
-                renderer_type.renderer.render_cube_shadows();
+                renderer_type
+                    .renderer
+                    .render_cube_shadows(&renderer_type.spec.render_attributes);
             }
             shadow_cube_map.unbind_writing();
         }
@@ -460,19 +470,31 @@ impl RenderingSystem {
     /// try to add the render data to an existing renderer
     fn try_add_data(&mut self, rd: &RenderData, invisible_cached: bool) -> bool {
         for renderer_type in self.renderers.iter_mut() {
-            let renderer_fits_spec = renderer_type.spec == rd.spec;
             let stencil_compatible = (!rd.draw_stencil_outline
                 || renderer_type.draw_stencil_outline)
                 || !renderer_type.renderer.contains_data();
 
-            if renderer_fits_spec && stencil_compatible {
+            /*
+            let transparency_compatible = (!rd.transparent
+                || renderer_type.contains_transparency)
+                || !renderer_type.renderer.contains_data();
+            */
+            // we don't need to check for transparency because we only allow for renderers to have one color/texture
+
+            let renderer_fits_spec = renderer_type.spec == rd.spec;
+
+            if renderer_fits_spec
+                && stencil_compatible
+                && (rd.color == renderer_type.renderer.color
+                    || !renderer_type.renderer.contains_data())
+            {
                 if !invisible_cached {
                     renderer_type.renderer.add_position(rd.trafo, rd.mesh);
                 }
-                renderer_type.contains_transparency =
-                    renderer_type.contains_transparency || rd.transparent;
+                //renderer_type.contains_transparency = rd.transparent;
                 renderer_type.used = true;
                 renderer_type.draw_stencil_outline = rd.draw_stencil_outline;
+                renderer_type.renderer.color = rd.color;
                 return true;
             }
         }
@@ -481,7 +503,7 @@ impl RenderingSystem {
 
     /// add a new renderer to the system and add the render data to it
     fn add_new_renderer(&mut self, rd: &RenderData) {
-        let mut renderer = InstanceRenderer::new(rd.mesh, rd.spec.render_attributes);
+        let mut renderer = InstanceRenderer::new(rd.mesh, rd.color);
 
         renderer.add_position(rd.trafo, rd.mesh);
 
@@ -491,13 +513,16 @@ impl RenderingSystem {
             used: true,
             contains_transparency: rd.transparent,
             draw_stencil_outline: rd.draw_stencil_outline,
+            mesh_handle: rd.mesh_handle,
         });
 
         log::debug!(
-            "Added new InstanceRenderer for mesh {:?} with LOD {:?} and shading style {:?}.",
+            "Added InstanceRenderer for mesh {:?} with LOD {:?}, shading style {:?}, {}outlining and {}transparency.",
             rd.mesh.name,
             rd.spec.lod,
-            rd.spec.shader_type
+            rd.spec.shader_type,
+            if rd.draw_stencil_outline { "" } else { "no " },
+            if rd.transparent { "" } else { "no " },
         );
 
         self.renderers.sort_unstable_by_key(|r| r.spec.shader_type);
@@ -661,8 +686,21 @@ impl RenderingSystem {
     }
 
     /// drop renderers that are not used anymore
-    fn cleanup_renderers(&mut self) {
-        self.renderers.retain(|renderer_type| renderer_type.used);
+    fn cleanup_renderers(&mut self, entity_manager: &EntityManager) {
+        self.renderers.retain(|r| {
+            let keep = r.used;
+            if !keep {
+                log::debug!(
+                    "Instance Renderer removed for mesh {:?} with LOD {:?}, shading style {:?}, {}outlining and {}transparency.",
+                    entity_manager.mesh_name_from_handle(r.mesh_handle).unwrap_or("NAME PLACEHOLDER"),
+                    r.spec.lod,
+                    r.spec.shader_type,
+                    if r.draw_stencil_outline { "" } else { "no " },
+                    if r.contains_transparency { "" } else { "no " },
+                );
+            }
+            keep
+        });
     }
 
     /// clears the OpenGL viewport
@@ -777,7 +815,6 @@ impl Drop for RenderingSystem {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) struct RenderAttributes {
     pub(crate) tex_id: GLuint,
-    pub(crate) color: Vec4,
     pub(crate) material_data: MaterialData,
     pub(crate) ambient_tex_id: GLuint,
     pub(crate) diffuse_tex_id: GLuint,
@@ -802,6 +839,7 @@ struct RendererType {
     used: bool,
     contains_transparency: bool,
     draw_stencil_outline: bool,
+    mesh_handle: MeshHandle,
 }
 
 /// data bundle for rendering
@@ -809,8 +847,10 @@ struct RenderData<'a> {
     spec: RenderSpec,
     trafo: &'a Mat4,
     mesh: &'a Mesh,
+    mesh_handle: MeshHandle,
     transparent: bool,
     draw_stencil_outline: bool,
+    color: Vec4,
 }
 
 /// generates a 1x1 white texture, the user of the returned texture id is responsible for deleting it

@@ -11,7 +11,8 @@ layout(location = 46) uniform vec3 light_pos;
 
 void main() {
     vec4 textured = texture(tex_sampler, g_uv).rgba * color;
-    if (textured.a < 0.001) {
+    if (textured.a < 0.5) {
+        // transparent objects don't cast shadows
         discard;
     }
 

@@ -20,13 +20,13 @@ pub(crate) struct InstanceRenderer {
     models: Vec<Mat4>,
     normal_matrices: Vec<Mat3>,
     pos_idx: usize,
-    attributes: RenderAttributes,
     max_num_instances: usize,
+    pub(crate) color: Vec4,
 }
 
 impl InstanceRenderer {
     /// creates a new instance renderer
-    pub(crate) fn new(mesh: &Mesh, attributes: RenderAttributes) -> Self {
+    pub(crate) fn new(mesh: &Mesh, color: Vec4) -> Self {
         let max_num_instances: usize = 10;
 
         let mut vao = 0; // vertex array
@@ -150,8 +150,8 @@ impl InstanceRenderer {
             models,
             normal_matrices,
             pos_idx: 0,
-            attributes,
             max_num_instances,
+            color,
         }
     }
 
@@ -233,13 +233,13 @@ impl InstanceRenderer {
     }
 
     /// renders to a directional shadow map
-    pub(crate) fn render_shadows(&self) {
+    pub(crate) fn render_shadows(&self, attributes: &RenderAttributes) {
         unsafe {
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.attributes.tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, attributes.tex_id);
             // bind uniforms
-            gl::Uniform4fv(4, 1, &self.attributes.color[0]);
+            gl::Uniform4fv(4, 1, &self.color[0]);
             gl::Uniform1i(5, 0);
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
@@ -255,13 +255,13 @@ impl InstanceRenderer {
     }
 
     /// renders to a shadow cube map
-    pub(crate) fn render_cube_shadows(&self) {
+    pub(crate) fn render_cube_shadows(&self, attributes: &RenderAttributes) {
         unsafe {
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.attributes.tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, attributes.tex_id);
             // bind uniforms
-            gl::Uniform4fv(24, 1, &self.attributes.color[0]);
+            gl::Uniform4fv(24, 1, &self.color[0]);
             gl::Uniform1i(25, 0);
             // draw the instanced triangles corresponding to the index buffer
             gl::BindVertexArray(self.vao);
@@ -280,7 +280,6 @@ impl InstanceRenderer {
     pub(crate) fn render_stencil_outlines(&mut self) {
         // the scaling is done on the gpu
         unsafe {
-            // render the objects
             gl::BindVertexArray(self.vao);
             gl::DrawElementsInstanced(
                 gl::TRIANGLES,
@@ -296,10 +295,10 @@ impl InstanceRenderer {
     /// draws the mesh at all the positions specified until the call of this and clears the positions
     pub(crate) fn render<'a>(
         &self,
+        attributes: &RenderAttributes,
         dir_shadow_maps: impl Iterator<Item = &'a ShadowMap>,
         cube_shadow_maps: impl Iterator<Item = &'a CubeShadowMap>,
         shader_type: ShaderType,
-        transparent_pass: bool,
         white_texture: GLuint,
         is_light_source: bool,
         draw_stencil_outline: bool,
@@ -311,7 +310,7 @@ impl InstanceRenderer {
 
             // bind texture
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.attributes.tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, attributes.tex_id);
             for (i, shadow_map) in dir_shadow_maps.enumerate() {
                 shadow_map.bind_reading(i as GLuint + 1);
             }
@@ -319,38 +318,37 @@ impl InstanceRenderer {
                 shadow_map.bind_reading((MAX_DIR_LIGHT_MAPS + i) as GLuint + 1);
             }
             gl::ActiveTexture(gl::TEXTURE11);
-            gl::BindTexture(gl::TEXTURE_2D, self.attributes.ambient_tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, attributes.ambient_tex_id);
             gl::ActiveTexture(gl::TEXTURE12);
-            gl::BindTexture(gl::TEXTURE_2D, self.attributes.diffuse_tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, attributes.diffuse_tex_id);
             gl::ActiveTexture(gl::TEXTURE13);
-            gl::BindTexture(gl::TEXTURE_2D, self.attributes.specular_tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, attributes.specular_tex_id);
             gl::ActiveTexture(gl::TEXTURE14);
-            gl::BindTexture(gl::TEXTURE_2D, self.attributes.normal_tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, attributes.normal_tex_id);
 
             // bind uniforms
-            gl::Uniform4fv(0, 1, &self.attributes.color[0]);
+            gl::Uniform4fv(0, 1, &self.color[0]);
             gl::Uniform1i(1, 0);
-            gl::Uniform1i(2, transparent_pass as GLint);
 
             if shader_type != ShaderType::Passthrough {
                 for i in 0..MAX_DIR_LIGHT_MAPS {
-                    gl::Uniform1i(3 + i as GLsizei, i as GLsizei + 1);
+                    gl::Uniform1i(2 + i as GLsizei, i as GLsizei + 1);
                 }
                 for i in 0..MAX_POINT_LIGHT_MAPS {
-                    gl::Uniform1i(8 + i as GLsizei, (MAX_DIR_LIGHT_MAPS + i) as GLsizei + 1);
+                    gl::Uniform1i(7 + i as GLsizei, (MAX_DIR_LIGHT_MAPS + i) as GLsizei + 1);
                 }
-                gl::Uniform3fv(13, 1, &self.attributes.material_data.ambient_color[0]);
-                gl::Uniform3fv(14, 1, &self.attributes.material_data.diffuse_color[0]);
-                gl::Uniform3fv(15, 1, &self.attributes.material_data.specular_color[0]);
-                gl::Uniform1f(16, self.attributes.material_data.shininess);
-                gl::Uniform1i(17, 11);
-                gl::Uniform1i(18, 12);
-                gl::Uniform1i(19, 13);
-                gl::Uniform1i(20, 14);
-                let use_normal_map = self.attributes.normal_tex_id != white_texture;
-                gl::Uniform1i(21, use_normal_map as GLint);
+                gl::Uniform3fv(12, 1, &attributes.material_data.ambient_color[0]);
+                gl::Uniform3fv(13, 1, &attributes.material_data.diffuse_color[0]);
+                gl::Uniform3fv(14, 1, &attributes.material_data.specular_color[0]);
+                gl::Uniform1f(15, attributes.material_data.shininess);
+                gl::Uniform1i(16, 11);
+                gl::Uniform1i(17, 12);
+                gl::Uniform1i(18, 13);
+                gl::Uniform1i(19, 14);
+                let use_normal_map = attributes.normal_tex_id != white_texture;
+                gl::Uniform1i(20, use_normal_map as GLint);
             } else {
-                gl::Uniform1i(22, is_light_source as GLint); // only used in the passthrough shader
+                gl::Uniform1i(21, is_light_source as GLint); // only used in the passthrough shader
             }
 
             // draw the instanced triangles corresponding to the index buffer

@@ -19,8 +19,6 @@ generic animations and linear interpolations for any parameter you want (map fun
 add built-in shading styles like cell shading and custom shaders
 ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
 
+basic shape render primitives
 object outlining blurred too? more than one outline computation?
-is_light_source must be a renderer parameter?
-seperate transparency pass (no shadows needed) -> would be nice for stencil too
-outline thickness -> buffer that stores the scaling for each instance or global setting?
-object color not per renderer, but per instance -> enables outline colors
+outline color + thickness (scaling) buffer in instance renderer

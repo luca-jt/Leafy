@@ -18,12 +18,11 @@ layout (std140, binding = 3, column_major) uniform post_process {
 
 layout(location = 0) uniform vec4 color;
 layout(location = 1) uniform sampler2D tex_sampler;
-layout(location = 2) uniform bool transparent_pass;
-layout(location = 22) uniform bool is_light_source; // this is only relevant in this shader
+layout(location = 21) uniform bool is_light_source; // this is only relevant in this shader
 
 void main() {
     vec4 textured = texture(tex_sampler, v_uv).rgba * color * v_color;
-    if (textured.a < 0.001 || (textured.a < 0.999 && !transparent_pass)) {
+    if (textured.a < 0.001) {
         discard;
     }
 
