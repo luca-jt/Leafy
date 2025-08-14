@@ -1,7 +1,7 @@
 use crate::ecs::entity_manager::EntityManager;
 use crate::internal_prelude::*;
 use crate::rendering::shader::bind_sprite_attribs;
-use crate::utils::constants::bits::user_level::INVISIBLE;
+use bits::user_level::{INVISIBLE, INVISIBLE_CACHED};
 use std::ptr;
 
 const PLANE_MESH_NUM_VERTICES: usize = 4;
@@ -9,9 +9,9 @@ const PLANE_MESH_NUM_INDICES: usize = 6;
 
 /// renderer for 2D sprites
 pub(crate) struct SpriteRenderer {
-    renderer_map: [Vec<SpriteBatch>; 10],
-    used_batch_indices: [AHashSet<usize>; 10],
-    pub(crate) grids: [SpriteGrid; 10],
+    renderer_map: [Vec<SpriteBatch>; SPRITE_LAYER_COUNT],
+    used_batch_indices: [AHashSet<usize>; SPRITE_LAYER_COUNT],
+    pub(crate) grids: [SpriteGrid; SPRITE_LAYER_COUNT],
 }
 
 impl SpriteRenderer {
@@ -20,7 +20,7 @@ impl SpriteRenderer {
         Self {
             renderer_map: Default::default(),
             used_batch_indices: Default::default(),
-            grids: [SpriteGrid::default(); 10],
+            grids: [SpriteGrid::default(); SPRITE_LAYER_COUNT],
         }
     }
 
@@ -62,16 +62,15 @@ impl SpriteRenderer {
 
     /// adds the sprite data to the renderer
     pub(crate) fn add_data(&mut self, entity_manager: &EntityManager) {
-        for (sprite, scale) in unsafe {
+        for (sprite, scale, flags) in unsafe {
             entity_manager.query3::<&Sprite, Option<&Scale>, Option<&EntityFlags>>((None, None))
         }
         .filter(|(_, _, f)| f.is_none_or(|flags| !flags.get_bit(INVISIBLE)))
         .filter(|(s, _, _)| match s.source {
             SpriteSource::Colored(color) => color != Color32::TRANSPARENT,
             _ => true,
-        })
-        .map(|(p, s, _)| (p, s))
-        {
+        }) {
+            let invisible_cached = flags.is_some_and(|f| f.get_bit(INVISIBLE_CACHED));
             let scale = scale.copied().unwrap_or_default().scale_matrix();
             let trafo = match sprite.position {
                 SpritePosition::Grid(pos) => {
@@ -111,10 +110,10 @@ impl SpriteRenderer {
                         layer: sprite.layer,
                         trafo,
                     };
-                    self.add_tex_sprite(config);
+                    self.add_tex_sprite(config, invisible_cached);
                 }
                 SpriteSource::Colored(color) => {
-                    self.add_color_sprite(*color, sprite.layer, trafo);
+                    self.add_color_sprite(*color, sprite.layer, trafo, invisible_cached);
                 }
                 SpriteSource::Single(path) => {
                     let opt_tex_id = entity_manager.texture_map.get_sprite_id(path);
@@ -129,42 +128,47 @@ impl SpriteRenderer {
                         layer: sprite.layer,
                         trafo,
                     };
-                    self.add_tex_sprite(config);
+                    self.add_tex_sprite(config, invisible_cached);
                 }
             }
         }
     }
 
     /// adds a sprite with a plain color
-    pub(crate) fn add_color_sprite(&mut self, color: Color32, layer: SpriteLayer, trafo: &Mat4) {
+    pub(crate) fn add_color_sprite(
+        &mut self,
+        color: Color32,
+        layer: SpriteLayer,
+        trafo: &Mat4,
+        invisible_cached: bool,
+    ) {
         self.used_batch_indices[layer as usize].insert(0);
         if self.renderer_map[layer as usize].is_empty() {
             self.renderer_map[layer as usize].push(SpriteBatch::new());
         }
-        self.renderer_map[layer as usize][0].add_color_sprite(trafo, color);
+        if !invisible_cached {
+            self.renderer_map[layer as usize][0].add_color_sprite(trafo, color);
+        }
     }
 
     /// adds a sprite with a texture
-    pub(crate) fn add_tex_sprite(&mut self, config: SpriteConfig) {
-        if self.renderer_map[config.layer as usize].is_empty() {
-            self.renderer_map[config.layer as usize].push(SpriteBatch::new());
+    pub(crate) fn add_tex_sprite(&mut self, config: SpriteConfig, invisible_cached: bool) {
+        let layer = config.layer as usize;
+        if self.renderer_map[layer].is_empty() {
+            self.renderer_map[layer].push(SpriteBatch::new());
         }
-        for (i, batch) in self.renderer_map[config.layer as usize]
-            .iter_mut()
-            .enumerate()
-        {
-            if batch.try_add_tex_sprite(&config) {
-                self.used_batch_indices[config.layer as usize].insert(i);
+        for (i, batch) in self.renderer_map[layer].iter_mut().enumerate() {
+            if batch.try_add_tex_sprite(&config, invisible_cached) {
+                self.used_batch_indices[layer].insert(i);
                 return;
             }
         }
         // add new batch
         let mut new_batch = SpriteBatch::new();
-        let res = new_batch.try_add_tex_sprite(&config);
+        let res = new_batch.try_add_tex_sprite(&config, invisible_cached);
         debug_assert!(res);
-        self.used_batch_indices[config.layer as usize]
-            .insert(self.renderer_map[config.layer as usize].len());
-        self.renderer_map[config.layer as usize].push(new_batch);
+        self.used_batch_indices[layer].insert(self.renderer_map[layer].len());
+        self.renderer_map[layer].push(new_batch);
     }
 }
 
@@ -315,7 +319,7 @@ impl SpriteBatch {
     }
 
     /// adds a sprite with a texture to the batch
-    fn try_add_tex_sprite(&mut self, config: &SpriteConfig) -> bool {
+    fn try_add_tex_sprite(&mut self, config: &SpriteConfig, invisible_cached: bool) -> bool {
         // determine texture index
         let mut tex_index: GLfloat = -1.0;
         for (i, id) in self.all_tex_ids.iter().enumerate() {
@@ -331,6 +335,9 @@ impl SpriteBatch {
             }
             tex_index = (self.all_tex_ids.len() + 1) as GLfloat;
             self.all_tex_ids.push(config.tex_id);
+        }
+        if invisible_cached {
+            return true; // early return because we don't want to add the data
         }
         if self.index_count as usize >= PLANE_MESH_NUM_INDICES * self.max_num_meshes {
             // resize current batch if batch size exceeded

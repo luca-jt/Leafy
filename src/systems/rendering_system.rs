@@ -761,6 +761,12 @@ impl RenderingSystem {
         &mut self.sprite_renderer.grids[layer as usize]
     }
 
+    /// Quad render primitive.
+    /*pub fn render_quad(&mut self, pos: Vec2, size: Vec2, color: Color32) {
+        let trafo = ;
+        self.sprite_renderer.add_color_sprite(color, SpriteLayer::Layer0, trafo, false);
+    }*/
+
     /// Sets the FOV of the perspective camera for 3D rendering in degrees (default is 45°).
     pub fn set_fov(&mut self, fov: f32) {
         self.perspective_camera.update_fov(fov);
