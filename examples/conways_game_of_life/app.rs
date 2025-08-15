@@ -1,4 +1,4 @@
-use falling_leaf::prelude::*;
+use leafy::prelude::*;
 use std::time::{Duration, Instant};
 
 const GRID_SIZE: usize = 100;
@@ -35,7 +35,7 @@ impl App {
     }
 }
 
-impl FallingLeafApp for App {
+impl LeafyApp for App {
     fn init(&mut self, engine: &Engine<Self>) {
         let mut rendering_system = engine.rendering_system_mut();
         rendering_system.clear_color = Color32::TRANSPARENT;
@@ -97,7 +97,7 @@ impl FallingLeafApp for App {
     }
 }
 
-fn is_alive<T: FallingLeafApp>(cell: EntityID, engine: &Engine<T>) -> bool {
+fn is_alive<T: LeafyApp>(cell: EntityID, engine: &Engine<T>) -> bool {
     engine
         .entity_manager()
         .get_component::<EntityFlags>(cell)
@@ -105,7 +105,7 @@ fn is_alive<T: FallingLeafApp>(cell: EntityID, engine: &Engine<T>) -> bool {
         .get_bit(IS_ALIVE)
 }
 
-fn was_alive<T: FallingLeafApp>(cell: EntityID, engine: &Engine<T>) -> bool {
+fn was_alive<T: LeafyApp>(cell: EntityID, engine: &Engine<T>) -> bool {
     engine
         .entity_manager()
         .get_component::<EntityFlags>(cell)
@@ -113,7 +113,7 @@ fn was_alive<T: FallingLeafApp>(cell: EntityID, engine: &Engine<T>) -> bool {
         .get_bit(WAS_ALIVE)
 }
 
-fn set_is_alive<T: FallingLeafApp>(cell: EntityID, alive: bool, engine: &Engine<T>) {
+fn set_is_alive<T: LeafyApp>(cell: EntityID, alive: bool, engine: &Engine<T>) {
     engine
         .entity_manager_mut()
         .get_component_mut::<EntityFlags>(cell)
@@ -121,7 +121,7 @@ fn set_is_alive<T: FallingLeafApp>(cell: EntityID, alive: bool, engine: &Engine<
         .set_bit(IS_ALIVE, alive);
 }
 
-fn set_was_alive<T: FallingLeafApp>(cell: EntityID, alive: bool, engine: &Engine<T>) {
+fn set_was_alive<T: LeafyApp>(cell: EntityID, alive: bool, engine: &Engine<T>) {
     engine
         .entity_manager_mut()
         .get_component_mut::<EntityFlags>(cell)
@@ -129,7 +129,7 @@ fn set_was_alive<T: FallingLeafApp>(cell: EntityID, alive: bool, engine: &Engine
         .set_bit(WAS_ALIVE, alive);
 }
 
-fn set_color<T: FallingLeafApp>(cell: EntityID, color: Color32, engine: &Engine<T>) {
+fn set_color<T: LeafyApp>(cell: EntityID, color: Color32, engine: &Engine<T>) {
     engine
         .entity_manager_mut()
         .get_component_mut::<Sprite>(cell)

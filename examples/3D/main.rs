@@ -1,6 +1,6 @@
 use crate::app::*;
 use env_logger::Env;
-use falling_leaf::engine_builder::EngineAttributes;
+use leafy::engine_builder::EngineAttributes;
 use std::error::Error;
 
 mod app;

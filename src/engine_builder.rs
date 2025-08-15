@@ -131,7 +131,7 @@ impl EngineAttributes {
     }
 
     /// Builds the actual engine and performs compatibility checks.
-    pub fn build_engine<A: FallingLeafApp>(self) -> Result<Engine<A>, String> {
+    pub fn build_engine<A: LeafyApp>(self) -> Result<Engine<A>, String> {
         if let Some(min_size) = self.min_size {
             if min_size.0 > self.size.0 || min_size.1 > self.size.1 {
                 return Err(String::from(

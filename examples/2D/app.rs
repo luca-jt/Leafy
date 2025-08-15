@@ -1,5 +1,5 @@
-use falling_leaf::prelude::*;
-use falling_leaf::winit::keyboard::KeyCode;
+use leafy::prelude::*;
+use leafy::winit::keyboard::KeyCode;
 use std::path::Path;
 
 /// example app
@@ -17,7 +17,7 @@ impl App {
     }
 }
 
-impl FallingLeafApp for App {
+impl LeafyApp for App {
     fn init(&mut self, engine: &Engine<Self>) {
         engine
             .rendering_system_mut()

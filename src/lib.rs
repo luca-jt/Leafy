@@ -23,7 +23,7 @@ pub mod prelude {
     pub use crate::ecs::component::*;
     pub use crate::ecs::entity::EntityID;
     pub use crate::ecs::entity_manager::MeshHandle;
-    pub use crate::engine::{Engine, EngineMode, FallingLeafApp};
+    pub use crate::engine::{Engine, EngineMode, LeafyApp};
     pub use crate::engine_builder::EngineAttributes;
     pub use crate::exclude_filter;
     pub use crate::glm;

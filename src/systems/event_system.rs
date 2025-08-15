@@ -7,13 +7,13 @@ pub trait Event: Any + Debug {}
 impl<T> Event for T where T: Any + Debug {}
 
 /// The system managing the events in the engine. It manages all listeners for different event types dispatches the event triggers to them.
-pub struct EventSystem<A: FallingLeafApp> {
+pub struct EventSystem<A: LeafyApp> {
     phantom: PhantomData<A>,
     listeners: AHashMap<TypeId, Vec<Box<dyn Any>>>,
     modifiers: AHashMap<TypeId, Vec<Box<dyn Any>>>,
 }
 
-impl<A: FallingLeafApp> EventSystem<A> {
+impl<A: LeafyApp> EventSystem<A> {
     /// creates a new event system
     pub(crate) fn new() -> Self {
         Self {
@@ -218,7 +218,7 @@ pub trait EventObserver<T: Event>: Any + 'static {
 }
 
 /// holds the function pointer to the entity system event function
-struct EventFunction<T: Event, A: FallingLeafApp> {
+struct EventFunction<T: Event, A: LeafyApp> {
     pub(crate) f: fn(&T, &Engine<A>),
 }
 

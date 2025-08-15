@@ -2,21 +2,23 @@ raytrace the current scene
 switchable render backends -> vulkan support, use a static reference to a statically dispatched object with a trait
 skeletal animations
 
-rebranding of the engine to Leafy and first publish, docs with links, readme
-collision fix -> sequential solver (or paper that i found)? performance, terrain collision, trees
 volumetric rendering -> voxels https://eisenwave.github.io/voxel-compression-docs/svo/svo.html
+scene files and loading of them -> serialization (serde) -> editor
+collision fix -> sequential solver (or paper that i found)? performance, terrain collision, kd-Tree for range queries with aabbs
 graphics -> https://youtu.be/Uc8FEI5bg3w, screen space effects, reflection with dynamic environment maps, water shader, depth of field
 2D sprite hitboxes with seperate collision checking
-scene files and loading of them -> serialization (serde) -> editor
-raycasting
 2D animation frames
-option to always pixel-align sprite positions (projection onto a grid?)
 cascaded shadow mapping -> dir light shadow maps need projection matrix size parameter
 shadow anti-aliasing -> pcss
 particle system https://youtu.be/GK0jHlv3e3w | -> glPoints? , variants: facing the cam, decay time (has a distribution)
 
+PORT
+
+first publish
+raycasting
+option to always pixel-align sprite positions (projection onto a grid?)
 generic animations and linear interpolations for any parameter you want (map function ranges to time intervals, provide basic functions out of the box)
-add built-in shading styles like cell shading and custom shaders
-ui basics + font rendering + events for ui struct (e.g. dpi scaling, mouse)
+add built-in shading styles like cell shading and custom shaders (hot-reloading)
+ui basics + font rendering + events for ui struct (e.g. mouse)
 
 basic shape render primitives -> more direct access to rendering internals like textures, immediate mode?

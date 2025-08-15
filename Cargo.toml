@@ -1,5 +1,5 @@
 [package]
-name = "falling_leaf"
+name = "leafy"
 version = "0.1.0"
 edition = "2021"
 authors = ["Luca Thomas"]
@@ -13,7 +13,7 @@ repository = "https://github.com/luca-jt/Falling-Leaf"
 exclude = ["tests"]
 
 [lib]
-name = "falling_leaf"
+name = "leafy"
 path = "src/lib.rs"
 
 [[example]]

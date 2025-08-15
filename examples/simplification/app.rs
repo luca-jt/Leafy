@@ -1,4 +1,4 @@
-use falling_leaf::prelude::*;
+use leafy::prelude::*;
 use winit::keyboard::KeyCode;
 
 const CAM_MOVE_SPEED: f32 = 4.5;
@@ -14,7 +14,7 @@ impl App {
     }
 }
 
-impl FallingLeafApp for App {
+impl LeafyApp for App {
     fn init(&mut self, engine: &Engine<Self>) {
         let start_pos = vec3(0.0, 3.0, 5.0);
         engine.trigger_event(CamPositionChange {

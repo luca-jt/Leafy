@@ -2,7 +2,7 @@ use crate::ecs::component::utils::TimeDuration;
 use crate::ecs::component::Acceleration;
 use crate::internal_prelude::*;
 
-pub(crate) const WIN_TITLE: &str = "Falling Leaf";
+pub(crate) const WIN_TITLE: &str = "Leafy";
 pub(crate) const DEFAULT_WIN_WIDTH: u32 = 800;
 pub(crate) const DEFAULT_WIN_HEIGHT: u32 = 450;
 

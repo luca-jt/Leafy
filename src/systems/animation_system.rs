@@ -38,7 +38,7 @@ impl AnimationSystem {
     }
 
     /// applys all animaion updates to all entities (called once per time step)
-    pub(crate) fn update<T: FallingLeafApp>(&mut self, engine: &Engine<T>) {
+    pub(crate) fn update<T: LeafyApp>(&mut self, engine: &Engine<T>) {
         self.frame_arena.reset();
         self.apply_physics(engine.entity_manager_mut().deref_mut());
         self.handle_collisions(engine.entity_manager_mut().deref_mut());

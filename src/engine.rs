@@ -13,7 +13,7 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowId;
 
 /// The main engine. This is the basis for all apps that use this library. You can control all functionalities of it with the methods of this struct. All of the different systems have their respective accessor functions in both immutable and mutable variants. This way you can control the interior mutability of the engine.
-pub struct Engine<A: FallingLeafApp> {
+pub struct Engine<A: LeafyApp> {
     app: Option<RefCell<A>>,
     exit_state: Option<Result<(), Box<dyn Error>>>,
     should_quit: Cell<bool>,
@@ -28,7 +28,7 @@ pub struct Engine<A: FallingLeafApp> {
     time_of_last_sim: TimePoint,
 }
 
-impl<A: FallingLeafApp> Engine<A> {
+impl<A: LeafyApp> Engine<A> {
     /// Engine setup on startup.
     pub(crate) fn new(config: EngineAttributes) -> Self {
         let video_system = VideoSystem::new(config);
@@ -61,7 +61,7 @@ impl<A: FallingLeafApp> Engine<A> {
         }
     }
 
-    /// Runs the main loop of the engine and is the main function that is called after the creation of the engine. This takes in your app struct that you created that implements the ``FallingLeafApp`` trait.
+    /// Runs the main loop of the engine and is the main function that is called after the creation of the engine. This takes in your app struct that you created that implements the ``LeafyApp`` trait.
     pub fn run(&mut self, app: A) -> Result<(), Box<dyn Error>> {
         self.app = Some(RefCell::new(app));
         let event_loop = EventLoop::new().expect("Error creating event loop.");
@@ -105,12 +105,12 @@ impl<A: FallingLeafApp> Engine<A> {
         }
     }
 
-    /// Access to the stored app. This way you can access your app struct in event functions. You should not use this inside the ``FallingLeafApp`` trait functions as that would harm the dynamically checked borrowing rules.
+    /// Access to the stored app. This way you can access your app struct in event functions. You should not use this inside the ``LeafyApp`` trait functions as that would harm the dynamically checked borrowing rules.
     pub fn app(&self) -> Ref<A> {
         self.app.as_ref().unwrap().borrow()
     }
 
-    /// Mutable access to the stored app. This way you can access your app struct in event functions. You should not use this inside the ``FallingLeafApp`` trait functions as that would harm the dynamically checked borrowing rules.
+    /// Mutable access to the stored app. This way you can access your app struct in event functions. You should not use this inside the ``LeafyApp`` trait functions as that would harm the dynamically checked borrowing rules.
     pub fn app_mut(&self) -> RefMut<A> {
         self.app.as_ref().unwrap().borrow_mut()
     }
@@ -191,7 +191,7 @@ impl<A: FallingLeafApp> Engine<A> {
     }
 }
 
-impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
+impl<A: LeafyApp> ApplicationHandler for Engine<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.exit_state = Some(self.video_system.borrow_mut().on_resumed(event_loop));
 
@@ -241,7 +241,7 @@ impl<A: FallingLeafApp> ApplicationHandler for Engine<A> {
 }
 
 /// All necessary app functionality to run the engine with. An app struct that is used with the engine has to implement this trait.
-pub trait FallingLeafApp: Sized + 'static {
+pub trait LeafyApp: Sized + 'static {
     /// Initializes the app (e.g. add event handling, loading data, settings) at engine start-up. This function will only run once.
     fn init(&mut self, engine: &Engine<Self>);
     /// Runs every frame and is supposed to be used to implement the logic of your app struct.

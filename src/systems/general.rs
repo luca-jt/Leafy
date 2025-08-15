@@ -3,7 +3,7 @@ use crate::utils::constants::bits::user_level::DOPPLER_EFFECT;
 use std::f32::consts::{FRAC_PI_2, PI};
 
 /// starts moving the camera in the direction the key was pressed for
-pub(crate) fn move_cam<T: FallingLeafApp>(event: &KeyPress, engine: &Engine<T>) {
+pub(crate) fn move_cam<T: LeafyApp>(event: &KeyPress, engine: &Engine<T>) {
     if event.is_repeat {
         return;
     }
@@ -31,7 +31,7 @@ pub(crate) fn move_cam<T: FallingLeafApp>(event: &KeyPress, engine: &Engine<T>) 
 }
 
 /// stops the cam form moving in the direction the key was released for
-pub(crate) fn stop_cam<T: FallingLeafApp>(event: &KeyRelease, engine: &Engine<T>) {
+pub(crate) fn stop_cam<T: LeafyApp>(event: &KeyRelease, engine: &Engine<T>) {
     if event.is_repeat {
         return;
     }
@@ -59,7 +59,7 @@ pub(crate) fn stop_cam<T: FallingLeafApp>(event: &KeyRelease, engine: &Engine<T>
 }
 
 /// enables 3D camera control with the mouse if the required setting is enabled
-pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: &Engine<T>) {
+pub(crate) fn mouse_move_cam<T: LeafyApp>(event: &RawMouseMotion, engine: &Engine<T>) {
     if let Some(sens) = engine.video_system().mouse_cam_sens {
         let cam_config = engine.rendering_system().current_cam_config();
         debug_assert!(
@@ -96,13 +96,13 @@ pub(crate) fn mouse_move_cam<T: FallingLeafApp>(event: &RawMouseMotion, engine: 
 }
 
 /// updates the current engine mode and all systems that are influenced by that
-pub(crate) fn on_mode_change<T: FallingLeafApp>(event: &EngineModeChange, engine: &Engine<T>) {
+pub(crate) fn on_mode_change<T: LeafyApp>(event: &EngineModeChange, engine: &Engine<T>) {
     engine.mode.set(event.new_mode);
     engine.audio_system_mut().on_mode_change(event);
 }
 
 /// updates the camera position based on the current movement key induced camera movement
-pub(crate) fn update_cam<T: FallingLeafApp>(engine: &Engine<T>, dt: TimeDuration) {
+pub(crate) fn update_cam<T: LeafyApp>(engine: &Engine<T>, dt: TimeDuration) {
     if engine.animation_system().flying_cam_dir.is_none() {
         return;
     }
@@ -127,7 +127,7 @@ pub(crate) fn update_cam<T: FallingLeafApp>(engine: &Engine<T>, dt: TimeDuration
 }
 
 /// updates the doppler effect data for the audio system
-pub(crate) fn update_doppler_data<T: FallingLeafApp>(engine: &Engine<T>, dt: TimeDuration) {
+pub(crate) fn update_doppler_data<T: LeafyApp>(engine: &Engine<T>, dt: TimeDuration) {
     let mut animation_system = engine.animation_system_mut();
     for (pos, sound, flags_opt) in unsafe {
         engine
@@ -172,7 +172,7 @@ pub(crate) fn update_doppler_data<T: FallingLeafApp>(engine: &Engine<T>, dt: Tim
 }
 
 /// general event handling function for the window resize
-pub(crate) fn on_window_resize<T: FallingLeafApp>(event: &WindowResize, engine: &Engine<T>) {
+pub(crate) fn on_window_resize<T: LeafyApp>(event: &WindowResize, engine: &Engine<T>) {
     let mut video_system = engine.video_system_mut();
     let mut rendering_system = engine.rendering_system_mut();
     video_system.on_window_resize(event);
@@ -181,7 +181,7 @@ pub(crate) fn on_window_resize<T: FallingLeafApp>(event: &WindowResize, engine: 
 }
 
 /// general event handling function for the animation speed change
-pub(crate) fn on_animation_speed_change<T: FallingLeafApp>(
+pub(crate) fn on_animation_speed_change<T: LeafyApp>(
     event: &AnimationSpeedChange,
     engine: &Engine<T>,
 ) {
@@ -193,10 +193,7 @@ pub(crate) fn on_animation_speed_change<T: FallingLeafApp>(
 }
 
 /// general event handling function for the camera position change
-pub(crate) fn on_cam_position_change<T: FallingLeafApp>(
-    event: &CamPositionChange,
-    engine: &Engine<T>,
-) {
+pub(crate) fn on_cam_position_change<T: LeafyApp>(event: &CamPositionChange, engine: &Engine<T>) {
     engine.animation_system_mut().on_cam_position_change(event);
     engine.audio_system_mut().on_cam_position_change(event);
     engine.rendering_system_mut().on_cam_position_change(event);

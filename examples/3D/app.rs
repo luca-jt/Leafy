@@ -1,8 +1,8 @@
 use bits::user_level::{DOPPLER_EFFECT, FLOATING, STENCIL_OUTLINE};
-use falling_leaf::prelude::*;
-use falling_leaf::rendering::data::Skybox;
-use falling_leaf::systems::audio_system::{SoundType, VolumeType};
-use falling_leaf::winit::keyboard::KeyCode;
+use leafy::prelude::*;
+use leafy::rendering::data::Skybox;
+use leafy::systems::audio_system::{SoundType, VolumeType};
+use leafy::winit::keyboard::KeyCode;
 use std::f32::consts::FRAC_PI_2;
 use std::path::Path;
 
@@ -34,7 +34,7 @@ impl App {
     }
 }
 
-impl FallingLeafApp for App {
+impl LeafyApp for App {
     fn init(&mut self, engine: &Engine<Self>) {
         //
         // initial settings

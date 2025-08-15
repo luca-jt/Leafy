@@ -1,9 +1,9 @@
 <div align="center">
     <img src="assets/images/icon.png" width="300" height="300" alt="Leaf" />
-    <h1>Falling Leaf</h1>
+    <h1>Leafy</h1>
 </div>
 
-[![License (MIT)](https://img.shields.io/crates/l/falling_leaf)](https://github.com/luca-jt/Falling-Leaf/blob/master/LICENSE)
+[![License (MIT)](https://img.shields.io/crates/l/leafy)](https://github.com/luca-jt/Falling-Leaf/blob/master/LICENSE)
 [![Dependency status](https://deps.rs/...)](https://deps.rs/...)
 [![docs.rs](https://img.shields.io/badge/docs-website-blue)](https://docs.rs/...)
 [![Lines of code](https://tokei.rs/...)](https://github.com/luca-jt/Falling-Leaf)
@@ -12,7 +12,7 @@ ___
 This project is a 3D and 2D Mini-Engine designed to be a great starting point for building games in Rust using minimal external dependecies.
 ___
 
-So far the Falling Leaf Engine provides the following features out of the box:
+So far the Leafy Engine provides the following features out of the box:
 - A simple ECS (Entity Component System) for efficient game data storage
 - Simple entity data manipulation with a data base-like Query system
 - A fully automated Rendering System based on entity data with various effects
@@ -30,7 +30,7 @@ So far the Falling Leaf Engine provides the following features out of the box:
 - Add the following to your `Cargo.toml` file:
 ```
 [dependencies]
-falling_leaf = "0.1.0"
+leafy = "0.1.0"
 ```
 
 ## Examples
@@ -43,9 +43,9 @@ cargo run --release --example 3D
 ```
 
 ## Usage
-- Create an app struct that implements the `FallingLeafApp` trait and run the app like this:
+- Create an app struct that implements the `LeafyApp` trait and run the app like this:
 ```rs
-use falling_leaf::engine_builder::EngineAttributes;
+use leafy::engine_builder::EngineAttributes;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -65,6 +65,7 @@ The engine consists of different systems, that all serve their respective purpos
 You can access them with their respective accessor functions. That way, you can also access the app that you decided to run the engine with. This is necessary e.g. when it comes to function events - more on that later.
 The only functionality that the engine is directly responsible for is triggering engine-wide events that are handled by the event system. This is done for implementation reasons.
 In the following we will go over all of the different systems and their usage on a basic level. This section provides additional contextual information to the [Docs](https://docs.rs/...).
+I would say that the source is quite easy to understand - so just check out the source directly if you need more specific info about features and implementation. The following outline might also give some clues about what to look for.
 
 ### Video System
 The video system is responsible for creating the window controlling its parameters. It also grants the user of the engine access to those parameters.
@@ -77,7 +78,7 @@ This includes, but is not limited to:
 - Window and rendering viewport settings
 
 All of this can be used to change the way the user interacts with the app and what he is allowed to do. The features are all quite self-explanatory.
-Some features like the built-in camera movement that are not exclusive to one system are implemented as function event modifiers.
+Some features like the built-in camera movement that are not exclusive to one system are implemented as function events.
 
 ### Audio System
 The audio system is responsible for managing the context of the audio engine.
@@ -107,15 +108,14 @@ All entities that have the necessary components for 3D or 2D rendering attached 
 For 2D sprites you can define sprite positions on defined grids or in an absolute way.
 For 3D rendered entities, you can load them from ``.obj`` and ``.mtl`` files and manipulate them with e.g. scaling or materials/textures.
 There are also a lot of other rendering-specific settings that can be modified here.
-
-...
+Some of them can be controlled not only by the presence of certain components, but also by various bits of ``EntityFlags``.
+There are also some primitive functions that can be used that don't rely on entity data.
 
 ### Animation System
 The animation system is responsible for all Physics simulations and animations for rendered entities.
-The physics simulations are done dynamically an only require a small amount of base components and can be more specifically controlled by various bits of ``EntityFlags`` and other additional components.
+The physics simulations are done dynamically, only require a small amount of base components and can be more specifically controlled by various bits of ``EntityFlags`` and other additional components.
 The physics simulations include collision handling and mechanics. More specific information on the use cases of all the different components later.
-
-...
+There is also a broad spectrum of settings that can be directly accessed in the system struct.
 
 ### Entity Manager
 The entity manager is responsible for storing all the data that is associated with entities.
@@ -127,10 +127,8 @@ There are a lot of different built-in components that are used internally by the
 Components are arbitrary structs and enums.
 For an overview of all the built-in components and their use cases, take a look at the Docs.
 
-...
-
 ### UI Library
-...
+The UI provides basic buttons, labels and sliders. For now, it is quite limited and relatively self-explanatory.
 
 ## Unsafe
 The only ``unsafe`` code segments in this crate are the OpenGL calls and some implementation details in the mutable queries.\
