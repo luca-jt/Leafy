@@ -479,9 +479,21 @@ pub struct Sprite {
     pub source: SpriteSource,
     pub position: SpritePosition,
     pub layer: SpriteLayer,
+    pub projection_layer: Option<SpriteLayer>,
 }
 
 impl Component for Sprite {}
+
+impl Default for Sprite {
+    fn default() -> Self {
+        Self {
+            source: SpriteSource::Colored(Color32::BLACK),
+            position: SpritePosition::Absolute(vec2(0.0, 0.0)),
+            layer: SpriteLayer::Layer0,
+            projection_layer: None,
+        }
+    }
+}
 
 /// Data structures that are not internally useful as a sole component but might have purpose in relation to other components. Many of them might also be usable as general-purpose types.
 pub mod utils {
@@ -915,6 +927,16 @@ pub mod utils {
     pub enum SpritePosition {
         Grid(Vec2),
         Absolute(Vec2),
+    }
+
+    impl SpritePosition {
+        /// Access to the inner vector.
+        pub fn vector_mut(&mut self) -> &mut Vec2 {
+            match self {
+                Self::Grid(v) => v,
+                Self::Absolute(v) => v,
+            }
+        }
     }
 
     /// All shader variants for entity rendering.

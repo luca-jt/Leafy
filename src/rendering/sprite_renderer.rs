@@ -76,13 +76,33 @@ impl SpriteRenderer {
                 SpritePosition::Grid(pos) => {
                     let grid = self.grids[sprite.layer as usize];
                     let abs_pos = (pos - grid.center) * grid.scale;
-                    let position = vec3(abs_pos.x, abs_pos.y, sprite.layer.to_z_coord());
+                    let mut position = vec3(abs_pos.x, abs_pos.y, sprite.layer.to_z_coord());
+
+                    if let Some(projection_layer) = sprite.projection_layer {
+                        let proj_grid = self.grids[projection_layer as usize];
+                        let position_increment = proj_grid.scale;
+                        let x_increments = (position.x / position_increment).round() as isize;
+                        let y_increments = (position.y / position_increment).round() as isize;
+                        position.x = position_increment * x_increments as f32;
+                        position.y = position_increment * y_increments as f32;
+                    }
+
                     &(glm::translate(&Mat4::identity(), &position)
                         * scale
                         * Scale::from_factor(grid.scale).scale_matrix())
                 }
                 SpritePosition::Absolute(abs_pos) => {
-                    let position = vec3(abs_pos.x, abs_pos.y, sprite.layer.to_z_coord());
+                    let mut position = vec3(abs_pos.x, abs_pos.y, sprite.layer.to_z_coord());
+
+                    if let Some(projection_layer) = sprite.projection_layer {
+                        let proj_grid = self.grids[projection_layer as usize];
+                        let position_increment = proj_grid.scale;
+                        let x_increments = (position.x / position_increment).round() as isize;
+                        let y_increments = (position.y / position_increment).round() as isize;
+                        position.x = position_increment * x_increments as f32;
+                        position.y = position_increment * y_increments as f32;
+                    }
+
                     &(glm::translate(&Mat4::identity(), &position) * scale)
                 }
             };

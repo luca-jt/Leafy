@@ -17,7 +17,6 @@ PORT
 
 first publish
 raycasting
-option to always pixel-align sprite positions (projection onto a grid?)
 generic animations and linear interpolations for any parameter you want (map function ranges to time intervals, provide basic functions out of the box)
 add built-in shading styles like cell shading and custom user shaders
 ui basics + font rendering + events for ui struct (e.g. mouse)
