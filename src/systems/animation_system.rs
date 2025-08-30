@@ -568,7 +568,7 @@ impl ColliderData<'_> {
     }
 
     /// builds the mesh collider specification data if the hitbox type matches
-    fn mesh_spec(&self) -> Option<MeshColliderSpec> {
+    fn mesh_spec(&self) -> Option<MeshColliderSpec<'_>> {
         match self.hitbox {
             Hitbox::ConvexMesh(mesh) => {
                 let model = calc_model_matrix(

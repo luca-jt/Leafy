@@ -9,7 +9,7 @@ rust-version = "1.86.0"
 build = "build.rs"
 description = "A mini Game Engine written in Rust."
 readme = "README.md"
-repository = "https://github.com/luca-jt/Falling-Leaf"
+repository = "https://github.com/luca-jt/Leafy"
 exclude = ["tests"]
 
 [lib]

@@ -333,7 +333,7 @@ impl Default for RigidBody {
 /// Stores all of the associated sound handles for an entity.
 #[derive(Debug, Clone)]
 pub struct SoundController {
-    pub handles: Vec<Handle<SoundSource>>,
+    pub handles: SmallVec<[Handle<SoundSource>; 2]>,
     pub(crate) doppler_pitch: f64,
     pub(crate) last_pos: Vec3,
 }
@@ -344,7 +344,7 @@ impl SoundController {
     /// Creates a new default ``SoundController`` component with no handles.
     pub fn new() -> Self {
         Self {
-            handles: Vec::new(),
+            handles: SmallVec::new(),
             doppler_pitch: 1.0,
             last_pos: ORIGIN,
         }
@@ -352,7 +352,7 @@ impl SoundController {
 
     /// Creates a new ``SoundController`` with given handles attached.
     pub fn from_handles(handles: &[Handle<SoundSource>]) -> Self {
-        let mut handle_vec = Vec::new();
+        let mut handle_vec = SmallVec::new();
         handle_vec.extend_from_slice(handles);
 
         Self {

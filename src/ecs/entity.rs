@@ -9,6 +9,7 @@ pub type EntityID = u64;
 impl Component for EntityID {}
 
 /// component meta data, one entry in an entity type
+#[allow(unpredictable_function_pointer_comparisons)]
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct ComponentMetaData {
     pub(crate) type_id: TypeId,

@@ -106,72 +106,72 @@ impl<A: LeafyApp> Engine<A> {
     }
 
     /// Access to the stored app. This way you can access your app struct in event functions. You should not use this inside the ``LeafyApp`` trait functions as that would harm the dynamically checked borrowing rules.
-    pub fn app(&self) -> Ref<A> {
+    pub fn app(&self) -> Ref<'_, A> {
         self.app.as_ref().unwrap().borrow()
     }
 
     /// Mutable access to the stored app. This way you can access your app struct in event functions. You should not use this inside the ``LeafyApp`` trait functions as that would harm the dynamically checked borrowing rules.
-    pub fn app_mut(&self) -> RefMut<A> {
+    pub fn app_mut(&self) -> RefMut<'_, A> {
         self.app.as_ref().unwrap().borrow_mut()
     }
 
     /// Access to the engine's animation system.
-    pub fn animation_system(&self) -> Ref<AnimationSystem> {
+    pub fn animation_system(&self) -> Ref<'_, AnimationSystem> {
         self.animation_system.borrow()
     }
 
     /// Autable access to the engine's animation system.
-    pub fn animation_system_mut(&self) -> RefMut<AnimationSystem> {
+    pub fn animation_system_mut(&self) -> RefMut<'_, AnimationSystem> {
         self.animation_system.borrow_mut()
     }
 
     /// Access to the engine's rendering system.
-    pub fn rendering_system(&self) -> Ref<RenderingSystem> {
+    pub fn rendering_system(&self) -> Ref<'_, RenderingSystem> {
         self.rendering_system.as_ref().unwrap().borrow()
     }
 
     /// Mutable access to the engine's rendering system.
-    pub fn rendering_system_mut(&self) -> RefMut<RenderingSystem> {
+    pub fn rendering_system_mut(&self) -> RefMut<'_, RenderingSystem> {
         self.rendering_system.as_ref().unwrap().borrow_mut()
     }
 
     /// Access to the engine's audio system.
-    pub fn audio_system(&self) -> Ref<AudioSystem> {
+    pub fn audio_system(&self) -> Ref<'_, AudioSystem> {
         self.audio_system.borrow()
     }
 
     /// Mutable access to the engine's audio system.
-    pub fn audio_system_mut(&self) -> RefMut<AudioSystem> {
+    pub fn audio_system_mut(&self) -> RefMut<'_, AudioSystem> {
         self.audio_system.borrow_mut()
     }
 
     /// Access to the engine's video system.
-    pub fn video_system(&self) -> Ref<VideoSystem> {
+    pub fn video_system(&self) -> Ref<'_, VideoSystem> {
         self.video_system.borrow()
     }
 
     /// Mutable access to the engine's video system.
-    pub fn video_system_mut(&self) -> RefMut<VideoSystem> {
+    pub fn video_system_mut(&self) -> RefMut<'_, VideoSystem> {
         self.video_system.borrow_mut()
     }
 
     /// Access to the engine's event system.
-    pub fn event_system(&self) -> Ref<EventSystem<A>> {
+    pub fn event_system(&self) -> Ref<'_, EventSystem<A>> {
         self.event_system.borrow()
     }
 
     /// Mutable access to the engine's event system.
-    pub fn event_system_mut(&self) -> RefMut<EventSystem<A>> {
+    pub fn event_system_mut(&self) -> RefMut<'_, EventSystem<A>> {
         self.event_system.borrow_mut()
     }
 
     /// Access to the engine's entity manager.
-    pub fn entity_manager(&self) -> Ref<EntityManager> {
+    pub fn entity_manager(&self) -> Ref<'_, EntityManager> {
         self.entity_manager.borrow()
     }
 
     /// Mutable access to the engine's entity manager.
-    pub fn entity_manager_mut(&self) -> RefMut<EntityManager> {
+    pub fn entity_manager_mut(&self) -> RefMut<'_, EntityManager> {
         self.entity_manager.borrow_mut()
     }
 

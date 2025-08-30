@@ -3,14 +3,16 @@
     <h1>Leafy</h1>
 </div>
 
-[![License (MIT)](https://img.shields.io/crates/l/leafy)](https://github.com/luca-jt/Falling-Leaf/blob/master/LICENSE)
-[![Dependency status](https://deps.rs/...)](https://deps.rs/...)
+[![License (MIT)](https://img.shields.io/crates/l/leafy)](https://github.com/luca-jt/Leafy/blob/master/LICENSE)
 [![docs.rs](https://img.shields.io/badge/docs-website-blue)](https://docs.rs/...)
-[![Lines of code](https://tokei.rs/...)](https://github.com/luca-jt/Falling-Leaf)
+[![Lines of code](https://tokei.rs/...)](https://github.com/luca-jt/Leafy)
 
 ___
-This project is a 3D and 2D Mini-Engine designed to be a great starting point for building games in Rust using minimal external dependecies.
+This project is a 3D and 2D Mini-Engine designed to be a great starting point for building games in Rust.
 ___
+
+> [!Note]
+> This project is not finished/stable. In fact, I do not recommed using it for anything serious. There are a lot of features that are not implemented and probably will never be implemented, and also some architectual quirks that make it unergonomic to use in some respects. I have not worked on this project in a serious way for quite some time now for a variety of reasons. More on that on my [website](https://luca-jt.github.io/projects/game-engine/). I am rewriting this project for private use in a different language. I am not sure if that will ever be published. I figured, that this version is still worth making public, as I invested a lot of time into it and it might be interesting for people.
 
 So far the Leafy Engine provides the following features out of the box:
 - A simple ECS (Entity Component System) for efficient game data storage
@@ -19,8 +21,8 @@ So far the Leafy Engine provides the following features out of the box:
 - A non-polling Event System with dynamically dispatched Listeners and function events
 - An immediate-mode UI library
 - 3D and 2D rendering
-- Physics automatically simulated based on entity data (3D + 2D)
-- Mesh manipulation algorithms such as LODs
+- Physics automatically simulated based on entity data
+- 3D Mesh manipulation algorithms such as LODs
 - OS events are already managed and accessable via the event system
 - A functional windowed app up and running in seconds
 - 3D-Audio with sound effects attachable to entities
@@ -55,9 +57,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 - The ``init`` function runs one time at engine start-up. It is supposed to be used to run the setup for your app. You can specify settings for different systems and run your own setup code for your app.
-- The ``on_frame_update`` function runs once every frame. You can use it to implement your app logic. This includes changing the engines' internal state, adding UI features, and running your own code.
+- The ``on_frame_update`` function runs once every frame. You can use it to implement your app logic. This includes changing the engines' internal state and running your own code.
 
-This crate exports the crates ``glm``(nalgebra_glm), ``winit``, ``log``, and ``env_logger``. They can be used to perform math operations, logging, and use certain engine features. This way you don't have to manually add them yourself.\
+This crate exports the crates ``glm``(nalgebra_glm), ``winit``, ``smallvec``, ``itertools``, ``log``, and ``env_logger``. They can be used to perform math operations, logging, and use certain engine features. This way you don't have to manually add them yourself.\
 If you want to use the internal logger to get information about what is happening under the hood, you can set the ``LOG_LVL`` environment variable to one of ``log``'s logging levels (``error``, ``warn``, ``info``, ``debug``, ``trace``). Setting the variable to ``trace`` enables all log messages but will cause a significant performance hit.
 
 ## Overview
@@ -71,7 +73,7 @@ I would say that the source is quite easy to understand - so just check out the 
 The video system is responsible for creating the window controlling its parameters. It also grants the user of the engine access to those parameters.
 This includes, but is not limited to:
 
-- Specifics about the event loop behavior
+- Specifics about the main loop behavior
 - Frame rate modulation
 - Enabling the built-in camera movement with the mouse
 - Modifying window parameters
@@ -94,7 +96,8 @@ Deleted sound handles will automatically be removed from all components they are
 The event system is the main way of reacting to events form the operating system or the engine.
 You can add listeners in the form of structs that implement the ``EventObserver<T>`` trait that are wrapped in shared references,
 or use function events (modifiers) that have the signature ``fn(&T, &Engine<A>)`` where ``T`` is the event type and ``A`` the app that you use the engine with.
-You can also create your own events and use them for your app logic.
+The latter is recommended.
+You can also create your own events and use them for your program logic.
 There are two types of built-in events:
 
 - Read-only events (mainly from the operating system) that are not meant to be triggered manually
@@ -109,7 +112,6 @@ For 2D sprites you can define sprite positions on defined grids or in an absolut
 For 3D rendered entities, you can load them from ``.obj`` and ``.mtl`` files and manipulate them with e.g. scaling or materials/textures.
 There are also a lot of other rendering-specific settings that can be modified here.
 Some of them can be controlled not only by the presence of certain components, but also by various bits of ``EntityFlags``.
-There are also some primitive functions that can be used that don't rely on entity data.
 
 ### Animation System
 The animation system is responsible for all Physics simulations and animations for rendered entities.
@@ -119,16 +121,12 @@ There is also a broad spectrum of settings that can be directly accessed in the 
 
 ### Entity Manager
 The entity manager is responsible for storing all the data that is associated with entities.
-This inlcudes the ECS that generically stores all of the components that are attached to entities and also the asset data that is automatically loaded based on the components that require it.
-It is also automatically cleaned up when all entities that require it are deleted. You can prevent this by introducing ``AssetCacheInstruction``s e.g. when you are frequently changing what asset data is currently used but want to prevent frequent an expensive reloads.
+This inlcudes the ECS that generically stores all of the components that are attached to entities. Assets can be managed here as well.
 You can query the stored component data to implement generic entity behavior that is component-based. The respectice functions will return an Iterator over tuples of all the components.
 You can also add filters to the queries to include/exclude entity types that contain certain components. Individual components can be queried mutably or immutably and also in an optional way, which yields a component only if it is present.
 There are a lot of different built-in components that are used internally by the engine's systems, but you can also easily introduce your own components.
 Components are arbitrary structs and enums.
 For an overview of all the built-in components and their use cases, take a look at the Docs.
-
-### UI Library
-The UI provides basic buttons, labels and sliders. For now, it is quite limited and relatively self-explanatory.
 
 ## Unsafe
 The only ``unsafe`` code segments in this crate are the OpenGL calls and some implementation details in the mutable queries.\

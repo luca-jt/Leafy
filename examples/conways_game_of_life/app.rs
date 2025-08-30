@@ -59,7 +59,7 @@ impl LeafyApp for App {
                     Sprite {
                         source: SpriteSource::Colored(color),
                         position: SpritePosition::Grid(vec2(col as f32, row as f32)),
-                        layer: SpriteLayer::Layer0,
+                        ..Default::default()
                     },
                     flags
                 ));
