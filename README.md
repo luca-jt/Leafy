@@ -4,31 +4,30 @@
 </div>
 
 [![License (MIT)](https://img.shields.io/crates/l/leafy)](https://github.com/luca-jt/Leafy/blob/master/LICENSE)
-[![docs.rs](https://img.shields.io/badge/docs-website-blue)](https://docs.rs/...)
-[![Lines of code](https://tokei.rs/...)](https://github.com/luca-jt/Leafy)
+[![docs.rs](https://img.shields.io/badge/docs-website-blue)](https://docs.rs/leafy/latest/leafy)
+[![Lines of code](https://tokei.rs/b1/github/luca-jt/Leafy)](https://github.com/luca-jt/Leafy)
 
 ___
-This project is a 3D and 2D Mini-Engine designed to be a great starting point for building games in Rust.
+A 3D and 2D Mini-Engine designed to be a great starting point for building games in Rust.
 ___
 
 > [!Note]
-> This project is not finished/stable. In fact, I do not recommed using it for anything serious. There are a lot of features that are not implemented and probably will never be implemented, and also some architectual quirks that make it unergonomic to use in some respects. I have not worked on this project in a serious way for quite some time now for a variety of reasons. More on that on my [website](https://luca-jt.github.io/projects/game-engine/). I am rewriting this project for private use in a different language. I am not sure if that will ever be published. I figured, that this version is still worth making public, as I invested a lot of time into it and it might be interesting for people. Over time this evolved more and more into a playground for me to explore new ideas rather than anything solid to be seriously used in game development.
+> This project is neither finished nor stable. In fact, I do not recommed using it for anything serious. There are a lot of features that are not yet implemented and probably never will be and also some architectual quirks that make it unergonomic to use in some respects. I have not worked on this project in a serious way for quite some time now for a variety of reasons. More on that on my [website](https://luca-jt.github.io/projects/game-engine/). I am rewriting this project for private use in a different language. I am not sure if that will ever be published. I figured, that this version is still worth making public, as I invested a lot of time into it and it might be interesting. Over time this evolved more and more into a playground for me to explore new ideas rather than anything to be seriously used in development.
 
 So far the Leafy Engine provides the following features out of the box:
-- A simple ECS (Entity Component System) for efficient game data storage
-- Simple entity data manipulation with a data base-like Query system
-- A fully automated Rendering System based on entity data with various effects
-- A non-polling Event System with dynamically dispatched Listeners and function events
-- An immediate-mode UI library
+- A simple ECS (Entity Component System) for efficient entity data storage
+- Simple entity data manipulation with a data base-like query system
+- A fully automated rendering system based on entity data with various effects
+- A non-polling event system with dynamically dispatched Listeners and function events
 - 3D and 2D rendering
 - Physics automatically simulated based on entity data
-- 3D Mesh manipulation algorithms such as LODs
+- 3D mesh manipulation algorithms such as LODs
 - OS events are already managed and accessable via the event system
 - A functional windowed app up and running in seconds
-- 3D-Audio with sound effects attachable to entities
+- 3D-audio with sound effects attachable to entities
 - ... and much more
 
-## Usage
+# Usage
 - Add the following to your `Cargo.toml` file:
 ```
 [dependencies]
@@ -44,7 +43,7 @@ leafy = "0.1.0"
 cargo run --release --example 3D
 ```
 
-## Usage
+## Getting started
 - Create an app struct that implements the `LeafyApp` trait and run the app like this:
 ```rs
 use leafy::engine_builder::EngineAttributes;
@@ -60,13 +59,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 - The ``on_frame_update`` function runs once every frame. You can use it to implement your app logic. This includes changing the engines' internal state and running your own code.
 
 This crate exports the crates ``glm``(nalgebra_glm), ``winit``, ``smallvec``, ``itertools``, ``log``, and ``env_logger``. They can be used to perform math operations, logging, and use certain engine features. This way you don't have to manually add them yourself.\
-If you want to use the internal logger to get information about what is happening under the hood, you can set the ``LOG_LVL`` environment variable to one of ``log``'s logging levels (``error``, ``warn``, ``info``, ``debug``, ``trace``). Setting the variable to ``trace`` enables all log messages but will cause a significant performance hit.
+If you want to use the internal logger to get information about what is happening under the hood, you can set the ``LOG_LVL`` environment variable to one of ``log``'s logging levels (``error``, ``warn``, ``info``, ``debug``, ``trace``). Setting the variable to ``trace`` enables all log messages but will cause a significant performance hit.\
+Some start-up options for the engine can be modified by calling their respective methods on the ``EngineAttributes`` in a builder-pattern-like way.
 
-## Overview
+# Overview
 The engine consists of different systems, that all serve their respective purposes and have their respective settings.
 You can access them with their respective accessor functions. That way, you can also access the app that you decided to run the engine with. This is necessary e.g. when it comes to function events - more on that later.
 The only functionality that the engine is directly responsible for is triggering engine-wide events that are handled by the event system. This is done for implementation reasons.
-In the following we will go over all of the different systems and their usage on a basic level. This section provides additional contextual information to the [Docs](https://docs.rs/...).
+In the following we will go over all of the different systems and their usage on a basic level. This section provides additional contextual information to the [Docs](https://docs.rs/leafy/latest/leafy).
 I would say that the source is quite easy to understand - so just check out the source directly if you need more specific info about features and implementation. The following outline might also give some clues about what to look for.
 
 ### Video System
@@ -126,11 +126,11 @@ You can query the stored component data to implement generic entity behavior tha
 You can also add filters to the queries to include/exclude entity types that contain certain components. Individual components can be queried mutably or immutably and also in an optional way, which yields a component only if it is present.
 There are a lot of different built-in components that are used internally by the engine's systems, but you can also easily introduce your own components.
 Components are arbitrary structs and enums.
-For an overview of all the built-in components and their use cases, take a look at the Docs.
+For an overview of all the built-in components and their use cases, take a look at the [Docs](https://docs.rs/leafy/latest/leafy).
 
 ## Unsafe
 The only ``unsafe`` code segments in this crate are the OpenGL calls and some implementation details in the mutable queries.\
 In the future the unsafeness of mutable entity manager query calls will be broadly resolved. The only reason the call itself is unsafe at the moment is that otherwhise there would be a borrowing problem with the entity manager. The disconnect between the whole manager and the internal ECS is not trivial and not just solved by introducing a RefCell or something similar and are linked to lifetime issues associated with that.
 
 ### Credits
-This library uses [fyrox-sound](https://github.com/FyroxEngine/Fyrox/tree/master/fyrox-sound) for audio file decoding and 3D audio composing. Its functionality is integrated in the engines' audio system to interact with the entity data.
+This library uses [fyrox-sound](https://github.com/FyroxEngine/Fyrox/tree/master/fyrox-sound) for audio file decoding and 3D audio composing. Its functionality is integrated in the engine's audio system to interact with the entity data.

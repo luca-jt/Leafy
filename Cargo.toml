@@ -3,13 +3,14 @@ name = "leafy"
 version = "0.1.0"
 edition = "2021"
 authors = ["Luca Thomas"]
-keywords = ["game", "engine", "gamedev"]
+keywords = ["game", "engine", "gamedev", "opengl"]
 license = "MIT"
 rust-version = "1.86.0"
 build = "build.rs"
-description = "A mini Game Engine written in Rust."
+description = "A mini Game Engine in Rust."
 readme = "README.md"
 repository = "https://github.com/luca-jt/Leafy"
+homepage = "https://luca-jt.github.io/projects/game-engine/"
 exclude = ["tests"]
 
 [lib]
@@ -23,10 +24,6 @@ path = "examples/3D/main.rs"
 [[example]]
 name = "2D"
 path = "examples/2D/main.rs"
-
-[[example]]
-name = "ui"
-path = "examples/ui/main.rs"
 
 [[example]]
 name = "conways_game_of_life"
@@ -45,7 +42,6 @@ stb_image = "0.3.0"
 nalgebra-glm = "0.19.0"
 gl = "0.14.0"
 tobj = "4.0.3"
-fontdue = "0.9.2"
 fyrox-sound = "0.35.0"
 fyrox-resource = "0.12.0"
 log = "0.4.22"
