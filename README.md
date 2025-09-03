@@ -2,7 +2,6 @@
     <img src="assets/images/icon.png" width="300" height="300" alt="Leaf" />
 </div>
 
-[![License (MIT)](https://img.shields.io/crates/l/leafy)](https://github.com/luca-jt/Leafy/blob/master/LICENSE)
 [![Lines of code](https://tokei.rs/b1/github/luca-jt/Leafy)](https://github.com/luca-jt/Leafy)
 
 > [!Note]
